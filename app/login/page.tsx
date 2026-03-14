@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import { supabase } from "@/app/lib/supabase";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -11,21 +10,22 @@ export default function Login() {
   const login = async () => {
     setLoading(true);
     setError("");
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
-    if (authError) {
-      setError("Email o contraseña incorrectos");
+    try {
+      const { createClient } = await import("@supabase/supabase-js");
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      if (authError) { setError("Email o contraseña incorrectos"); setLoading(false); return; }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setLoading(false); return; }
+      const { data: usuario } = await supabase.from("usuarios").select("rol").eq("auth_id", user.id).single();
+      window.location.href = `/${usuario?.rol ?? "productor"}`;
+    } catch {
+      setError("Error de conexión");
       setLoading(false);
-      return;
     }
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
-    const { data: usuario } = await supabase
-      .from("usuarios")
-      .select("rol")
-      .eq("auth_id", user.id)
-      .single();
-    const rol = usuario?.rol ?? "productor";
-    window.location.href = `/${rol}`;
   };
 
   return (
@@ -58,7 +58,9 @@ export default function Login() {
                 className="w-full bg-[#0F1115] border border-[#2D3139] focus:border-[#C9A227] focus:outline-none rounded-lg px-4 py-3 text-[#E5E7EB] placeholder-[#4B5563] text-sm"
               />
             </div>
-            {error && <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-red-400 text-sm">{error}</div>}
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-red-400 text-sm">{error}</div>
+            )}
             <button
               onClick={login}
               disabled={loading}
