@@ -19,7 +19,8 @@ export default function Login() {
       if (error) { setMsg(error.message); return; }
       if (data.user) {
         const { data: u } = await sb.from("usuarios").select("rol").eq("auth_id", data.user.id).single();
-        window.location.href = "/" + (u?.rol ?? "productor");
+        const rol = u?.rol ?? "productor";
+window.location.href = rol === "productor" ? "/productor/dashboard" : "/" + rol;
       }
     } catch {
       setMsg("Error de conexión");
