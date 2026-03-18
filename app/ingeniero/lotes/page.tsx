@@ -1,4 +1,30 @@
+"use client";
+import { useEffect, useState } from "react";
+import Image from "next/image";
 
+type Campana = { id: string; nombre: string; año_inicio: number; año_fin: number; activa: boolean; };
+type Lote = {
+  id: string; nombre: string; hectareas: number; tipo_alquiler: string;
+  porcentaje_alquiler: number; cultivo: string; variedad: string;
+  fecha_siembra: string; estado: string; observaciones: string;
+  fertilizacion: string; herbicida: string; fungicida: string;
+  rendimiento_esperado: number; costo_alquiler: number;
+  ingeniero_id: string; campana_id: string;
+};
+type Labor = {
+  id: string; tipo: string; descripcion: string; productos: string;
+  dosis: string; fecha: string; metodo_carga: string;
+};
+
+const CULTIVOS = ["soja","maiz","trigo","girasol","sorgo","cebada","otro"];
+const CULTIVO_ICONS: Record<string,string> = {
+  soja:"🌱",maiz:"🌽",trigo:"🌾",girasol:"🌻",sorgo:"🌿",cebada:"🍃",otro:"🌐"
+};
+const ESTADOS = ["sin_sembrar","sembrado","emergido","en_desarrollo","floración","llenado","cosechado"];
+const ESTADO_COLORS: Record<string,string> = {
+  sin_sembrar:"#4B5563",sembrado:"#60A5FA",emergido:"#4ADE80",
+  en_desarrollo:"#00FF80",floración:"#C9A227",llenado:"#FB923C",cosechado:"#A78BFA"
+};
 
 export default function IngenieroLotesPage() {
   const [campanas, setCampanas] = useState<Campana[]>([]);
