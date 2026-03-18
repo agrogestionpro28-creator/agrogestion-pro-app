@@ -147,14 +147,15 @@ export default function IngenieroPanel() {
         }).select().single();
         empId = newEmp?.id;
       }
-      if (empId) {
+      if (empId && form.vincular_tambien === "si") {
         await sb.from("vinculaciones").insert({
           ingeniero_id: ingenieroId, empresa_id: empId, activa: true,
           honorario_tipo: form.honorario_tipo ?? "mensual",
           honorario_monto: Number(form.honorario_monto ?? 0),
         });
       }
-      setMsg(`✅ Productor creado — Código: ${nuevoCodigo} — Vinculado automáticamente`);
+      const vinMsg = form.vincular_tambien === "si" ? "— Vinculado con vos" : "— Sin vincular";
+      setMsg(`✅ Productor creado — Código: ${nuevoCodigo} ${vinMsg}`);
       await fetchAll(ingenieroId);
       setModoProductor("lista"); setForm({});
     } catch { setMsg("Error inesperado"); }
@@ -395,7 +396,7 @@ export default function IngenieroPanel() {
             {modoProductor === "crear" && (
               <div className="bg-[#0a1628]/80 border border-[#C9A227]/30 rounded-xl p-5 mb-6">
                 <h3 className="text-[#C9A227] font-mono text-sm font-bold mb-2">+ CREAR NUEVO PRODUCTOR</h3>
-                <p className="text-xs text-[#4B5563] font-mono mb-4">Se crea el usuario, su empresa y se vincula automáticamente con vos. El admin puede gestionar la vinculación después.</p>
+                <p className="text-xs text-[#4B5563] font-mono mb-4">Se crea el usuario y su empresa. Podés vincularte como su ingeniero o simplemente dejarlo registrado para que use el sistema.</p>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div><label className={labelClass}>Nombre completo</label>
                     <input type="text" value={form.nombre_nuevo ?? ""} onChange={e => setForm({ ...form, nombre_nuevo: e.target.value })} className={inputClass} placeholder="Nombre y apellido" />
@@ -409,20 +410,37 @@ export default function IngenieroPanel() {
                   <div><label className={labelClass}>Nombre de la empresa</label>
                     <input type="text" value={form.nombre_empresa_nuevo ?? ""} onChange={e => setForm({ ...form, nombre_empresa_nuevo: e.target.value })} className={inputClass} placeholder="Ej: Establecimiento Don Juan" />
                   </div>
-                  <div><label className={labelClass}>Tipo honorario</label>
-                    <select value={form.honorario_tipo ?? "mensual"} onChange={e => setForm({ ...form, honorario_tipo: e.target.value })} className={inputClass}>
-                      <option value="mensual">Mensual</option>
-                      <option value="por_ha">Por hectárea</option>
-                      <option value="por_campaña">Por campaña</option>
-                      <option value="otro">Otro</option>
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Monto honorario</label>
-                    <input type="number" value={form.honorario_monto ?? ""} onChange={e => setForm({ ...form, honorario_monto: e.target.value })} className={inputClass} placeholder="0" />
-                  </div>
+                </div>
+                {/* Checkbox vincular */}
+                <div className="mt-4 p-4 bg-[#020810]/60 border border-[#C9A227]/15 rounded-xl">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <div onClick={() => setForm({ ...form, vincular_tambien: form.vincular_tambien === "si" ? "no" : "si" })}
+                      className={"w-5 h-5 rounded border-2 flex items-center justify-center transition-all " + (form.vincular_tambien === "si" ? "bg-[#C9A227] border-[#C9A227]" : "border-[#4B5563] bg-transparent")}>
+                      {form.vincular_tambien === "si" && <span className="text-[#020810] text-xs font-bold">✓</span>}
+                    </div>
+                    <div>
+                      <div className="text-sm text-[#E5E7EB] font-mono">Vincularme como ingeniero de este productor</div>
+                      <div className="text-xs text-[#4B5563] font-mono">Si lo activás, aparecerá en tu lista de productores</div>
+                    </div>
+                  </label>
+                  {form.vincular_tambien === "si" && (
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                      <div><label className={labelClass}>Tipo honorario</label>
+                        <select value={form.honorario_tipo ?? "mensual"} onChange={e => setForm({ ...form, honorario_tipo: e.target.value })} className={inputClass}>
+                          <option value="mensual">Mensual</option>
+                          <option value="por_ha">Por hectárea</option>
+                          <option value="por_campaña">Por campaña</option>
+                          <option value="otro">Otro</option>
+                        </select>
+                      </div>
+                      <div><label className={labelClass}>Monto honorario</label>
+                        <input type="number" value={form.honorario_monto ?? ""} onChange={e => setForm({ ...form, honorario_monto: e.target.value })} className={inputClass} placeholder="0" />
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-3 mt-4">
-                  <button onClick={crearProductor} className="bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-bold px-6 py-2.5 rounded-xl text-sm hover:bg-[#C9A227]/20 transition-all font-mono">▶ Crear y Vincular</button>
+                  <button onClick={crearProductor} className="bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-bold px-6 py-2.5 rounded-xl text-sm hover:bg-[#C9A227]/20 transition-all font-mono">▶ Crear Productor</button>
                   <button onClick={() => { setModoProductor("lista"); setForm({}); setMsg(""); }} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">Cancelar</button>
                 </div>
               </div>
