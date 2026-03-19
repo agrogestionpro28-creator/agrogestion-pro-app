@@ -14,13 +14,7 @@ const modulos = [
   { href: "/productor/otros", label: "Otros", sub: "Más opciones", img: "/mod-otros.png" },
 ];
 
-type Stats = {
-  hectareas: number;
-  stock: number;
-  hacienda: number;
-  alertas: number;
-  saldo: number;
-};
+type Stats = { hectareas: number; stock: number; hacienda: number; alertas: number; saldo: number; };
 
 export default function ProductorDashboard() {
   const [nombre, setNombre] = useState("");
@@ -29,6 +23,7 @@ export default function ProductorDashboard() {
   const [stats, setStats] = useState<Stats>({ hectareas: 0, stock: 0, hacienda: 0, alertas: 0, saldo: 0 });
   const [showAlertas, setShowAlertas] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [letraSocio, setLetraSocio] = useState("");
 
   useEffect(() => {
     setMounted(true);
@@ -38,39 +33,74 @@ export default function ProductorDashboard() {
       const { data: { user } } = await sb.auth.getUser();
       if (!user) { window.location.href = "/login"; return; }
       const { data: u } = await sb.from("usuarios").select("nombre").eq("auth_id", user.id).single();
-      if (u) setNombre(u.nombre);
+
+      // Detectar si entró como socio
+      const socioNombre = localStorage.getItem("socio_nombre");
+      const socioLetra = localStorage.getItem("socio_letra");
+      if (socioNombre) {
+        setNombre(socioNombre);
+        setLetraSocio(socioLetra ?? "");
+      } else if (u) {
+        setNombre(u.nombre);
+      }
+
       const campanaId = localStorage.getItem("campana_id");
       if (campanaId) {
         const { data: c } = await sb.from("campanas").select("nombre").eq("id", campanaId).single();
         if (c) setCampana(c.nombre);
-        const { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", user.id).single();
-        if (emp) {
-          setEmpresaId(emp.id);
-          const [lotes, hacienda, alertas] = await Promise.all([
+      }
+
+      // Buscar empresa — puede ser propietario o socio
+      const { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", user.id).single();
+      if (emp) {
+        setEmpresaId(emp.id);
+        const campanaId = localStorage.getItem("campana_id");
+        if (campanaId) {
+          const [lotes, hacienda] = await Promise.all([
             sb.from("lotes").select("hectareas").eq("empresa_id", emp.id).eq("campana_id", campanaId),
-            sb.from("hacienda").select("cantidad").eq("empresa_id", emp.id),
-            sb.from("alertas").select("id", { count: "exact", head: true }).eq("empresa_id", emp.id).eq("resuelta", false),
+            sb.from("hacienda_categorias").select("cantidad").eq("empresa_id", emp.id),
           ]);
           const totalHa = lotes.data?.reduce((a, l) => a + (l.hectareas ?? 0), 0) ?? 0;
           const totalHacienda = hacienda.data?.reduce((a, h) => a + (h.cantidad ?? 0), 0) ?? 0;
-          setStats({ hectareas: totalHa, stock: 0, hacienda: totalHacienda, alertas: alertas.count ?? 0, saldo: 0 });
+          setStats({ hectareas: totalHa, stock: 0, hacienda: totalHacienda, alertas: 0, saldo: 0 });
         }
       }
     };
     init();
   }, []);
 
+  const salir = async () => {
+    const { createClient } = await import("@supabase/supabase-js");
+    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+    localStorage.removeItem("socio_nombre");
+    localStorage.removeItem("socio_letra");
+    localStorage.removeItem("socio_permisos");
+    await sb.auth.signOut();
+    window.location.href = "/login";
+  };
+
+  // Saludo según hora
+  const saludo = () => {
+    const h = new Date().getHours();
+    if (h < 12) return "Buenos días";
+    if (h < 19) return "Buenas tardes";
+    return "Buenas noches";
+  };
+
   return (
     <div className="relative min-h-screen bg-[#020810] text-[#E5E7EB] overflow-hidden">
-
       <style>{`
         @keyframes float { 0%,100%{transform:translateY(0) scale(1);opacity:.6} 50%{transform:translateY(-15px) scale(1.5);opacity:1} }
-        @keyframes glow-pulse { 0%,100%{box-shadow:0 0 10px rgba(0,255,128,.2)} 50%{box-shadow:0 0 25px rgba(0,255,128,.5)} }
-        @keyframes border-flow { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
         @keyframes slide-in { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+        @keyframes header-glow { 0%,100%{opacity:0.6} 50%{opacity:1} }
+        @keyframes gradient-flow { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
         .mod-card:hover .mod-img { transform: scale(1.08); }
-        .mod-card:hover { border-color: rgba(0,255,128,0.5) !important; box-shadow: 0 0 20px rgba(0,255,128,0.15); }
-        .mod-card { transition: all 0.2s ease; }
+        .mod-card:hover { border-color: rgba(0,255,128,0.6) !important; box-shadow: 0 0 25px rgba(0,255,128,0.2); }
+        .mod-card { transition: all 0.25s ease; }
+        .logo-btn:hover { filter: drop-shadow(0 0 12px rgba(0,255,128,0.8)); transform: scale(1.03); }
+        .logo-btn { transition: all 0.2s ease; }
+        .bell-btn:hover { background: rgba(0,255,128,0.15) !important; box-shadow: 0 0 15px rgba(0,255,128,0.3); }
+        .bell-btn { transition: all 0.2s ease; }
       `}</style>
 
       {/* Fondo */}
@@ -89,44 +119,75 @@ export default function ProductorDashboard() {
           style={{ left: `${(i * 19 + 7) % 100}%`, top: `${(i * 31 + 5) % 100}%`, animation: `float ${3 + i % 3}s ease-in-out infinite`, animationDelay: `${i * 0.4}s`, boxShadow: "0 0 6px #00FF80", opacity: 0.4 }} />
       ))}
 
-      {/* Header */}
-      <div className="relative z-10 border-b border-[#00FF80]/20 bg-[#020810]/80 backdrop-blur-sm px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Image src="/logo.png" alt="Logo" width={120} height={40} className="object-contain" />
+      {/* ===== HEADER NUEVO ===== */}
+      <div className="relative z-10">
+        {/* Barra de gradiente animado en el borde inferior */}
+        <div className="absolute bottom-0 left-0 right-0 h-[1px]"
+          style={{ background: "linear-gradient(90deg, transparent, #00FF80, #00AAFF, #00FF80, transparent)", backgroundSize: "200% 100%", animation: "gradient-flow 4s ease infinite" }} />
+
+        {/* Fondo del header con gradiente */}
+        <div className="absolute inset-0"
+          style={{ background: "linear-gradient(135deg, rgba(2,8,16,0.95) 0%, rgba(0,20,10,0.90) 50%, rgba(2,8,16,0.95) 100%)" }} />
+
+        {/* Líneas decorativas */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-20">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#00FF80] to-transparent" />
+          <div className="absolute bottom-0 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-[#00FF80]/50 to-transparent" />
         </div>
 
-        <div className="flex items-center gap-2 text-xs font-mono">
-          <span className="text-[#9CA3AF]">{nombre}</span>
-          <span className="text-[#00FF80]">|</span>
-          <span className="text-[#00FF80]">Campaña {campana} ✓</span>
-          <span className="text-[#00FF80] ml-4">Estado: Activo ✓</span>
-        </div>
+        <div className="relative px-6 py-4 flex items-center justify-between gap-4">
 
-        <div className="flex items-center gap-4">
-          {/* Campana alertas */}
-          <button onClick={() => setShowAlertas(!showAlertas)} className="relative p-2 hover:bg-[#00FF80]/10 rounded-lg transition-colors">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00FF80" strokeWidth="2">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-            </svg>
-            {stats.alertas > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center font-bold">
-                {stats.alertas}
+          {/* Logo con glow al hover */}
+          <div className="logo-btn cursor-pointer flex-shrink-0" onClick={() => window.location.href = "/productor/dashboard"}>
+            <Image src="/logo.png" alt="AgroGestión PRO" width={130} height={45} className="object-contain" />
+          </div>
+
+          {/* Centro — Saludo + Campaña */}
+          <div className="flex-1 text-center">
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              <span className="text-[#E5E7EB] font-mono font-bold text-base">
+                {saludo()}, <span className="text-[#00FF80]">{nombre}</span>
+                {letraSocio && <span className="text-xs text-[#4B5563] ml-1">({letraSocio})</span>}
               </span>
-            )}
-          </button>
+              {campana && (
+                <>
+                  <span className="text-[#00FF80]/30 hidden md:block">|</span>
+                  <span className="text-[#4B5563] font-mono text-xs hidden md:flex items-center gap-1">
+                    <span className="text-[#00FF80]">◆</span> Campaña {campana}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
 
-          <button onClick={() => window.location.href = "/productor"} className="text-xs text-[#4B5563] hover:text-[#00FF80] transition-colors font-mono">
-            ← Campaña
-          </button>
-          <button onClick={async () => {
-            const { createClient } = await import("@supabase/supabase-js");
-            const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-            await sb.auth.signOut();
-            window.location.href = "/login";
-          }} className="text-xs text-[#4B5563] hover:text-red-400 transition-colors font-mono">
-            Salir
-          </button>
+          {/* Derecha — Estado + Campana + Salir */}
+          <div className="flex items-center gap-3 flex-shrink-0">
+            {/* Estado activo */}
+            <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#00FF80]/20 bg-[#00FF80]/5">
+              <div className="w-1.5 h-1.5 rounded-full bg-[#00FF80] animate-pulse" />
+              <span className="text-[#00FF80] text-xs font-mono">Activo</span>
+            </div>
+
+            {/* Campana */}
+            <button onClick={() => setShowAlertas(!showAlertas)}
+              className="bell-btn relative p-2.5 rounded-xl bg-[#00FF80]/5 border border-[#00FF80]/15">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00FF80" strokeWidth="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              {stats.alertas > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                  {stats.alertas}
+                </span>
+              )}
+            </button>
+
+            {/* Salir */}
+            <button onClick={salir}
+              className="text-xs text-[#4B5563] hover:text-red-400 transition-colors font-mono px-3 py-2 rounded-lg hover:bg-red-500/10 border border-transparent hover:border-red-500/20">
+              Salir
+            </button>
+          </div>
         </div>
       </div>
 
@@ -159,11 +220,8 @@ export default function ProductorDashboard() {
       <div className="relative z-10 p-6 max-w-6xl mx-auto">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {modulos.map(m => (
-            <div
-              key={m.href}
-              onClick={() => window.location.href = m.href}
-              className="mod-card cursor-pointer bg-[#0a1628]/80 backdrop-blur-sm border border-[#00FF80]/15 rounded-xl overflow-hidden"
-            >
+            <div key={m.href} onClick={() => window.location.href = m.href}
+              className="mod-card cursor-pointer bg-[#0a1628]/80 backdrop-blur-sm border border-[#00FF80]/15 rounded-xl overflow-hidden">
               <div className="relative h-32 overflow-hidden">
                 <Image src={m.img} alt={m.label} fill className="mod-img object-cover transition-transform duration-300" />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0a1628] via-transparent to-transparent" />
@@ -183,7 +241,7 @@ export default function ProductorDashboard() {
             {[
               { label: "Hectáreas Totales", value: `${stats.hectareas} Ha`, color: "#4ADE80", icon: "🌱" },
               { label: "Stock de Granos", value: `${stats.stock} Tn`, color: "#C9A227", icon: "◈" },
-              { label: "Saldo a Pagar", value: `$ ${stats.saldo.toLocaleString("es-AR")}`, color: "#60A5FA", icon: "$" },
+              { label: "Saldo a Pagar", value: `$${stats.saldo.toLocaleString("es-AR")}`, color: "#60A5FA", icon: "$" },
               { label: "Hacienda", value: `${stats.hacienda} Cabezas`, color: "#A78BFA", icon: "◉" },
               { label: "Alertas", value: String(stats.alertas), color: "#F87171", icon: "🔔" },
             ].map(s => (
@@ -203,9 +261,7 @@ export default function ProductorDashboard() {
         © AGROGESTION PRO · IA SYSTEM
       </p>
 
-      {/* Escáner IA flotante */}
       {empresaId && <EscanerIA empresaId={empresaId} />}
-
     </div>
   );
 }
