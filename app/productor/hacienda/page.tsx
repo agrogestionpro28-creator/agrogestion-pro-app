@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import EscanerIA from "@/components/EscanerIA";
 
 type Tab = "resumen" | "sanidad" | "movimientos" | "pesadas";
 type Categoria = {
@@ -165,7 +166,7 @@ export default function HaciendaPage() {
     setAiLoading(true); setAiMsg("");
     const totalCabezas = categorias.reduce((a, c) => a + c.cantidad, 0);
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("/api/scanner", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -698,6 +699,9 @@ export default function HaciendaPage() {
         )}
       </div>
       <p className="relative z-10 text-center text-[#0a2a1a] text-xs pb-4 tracking-[0.3em] font-mono">© AGROGESTION PRO · SISTEMA GANADERO IA</p>
+
+      {empresaId && <EscanerIA empresaId={empresaId} />}
+
     </div>
   );
 }
