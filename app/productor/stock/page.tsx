@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import EscanerIA from "@/components/EscanerIA";
 
 type Tab = "granos" | "insumos" | "gasoil" | "varios";
 
@@ -584,6 +585,7 @@ export default function StockPage() {
           </>
         )}
       </div>
+      {empresaId && <EscanerIA empresaId={empresaId} />}
     </div>
   );
 }
