@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import EscanerIA from "@/components/EscanerIA";
 
 const modulos = [
   { href: "/productor/lotes", label: "Lotes y Cultivos", sub: "Propio / Alquilado", img: "/mod-lotes.png" },
@@ -24,6 +25,7 @@ type Stats = {
 export default function ProductorDashboard() {
   const [nombre, setNombre] = useState("");
   const [campana, setCampana] = useState("");
+  const [empresaId, setEmpresaId] = useState<string>("");
   const [stats, setStats] = useState<Stats>({ hectareas: 0, stock: 0, hacienda: 0, alertas: 0, saldo: 0 });
   const [showAlertas, setShowAlertas] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -43,6 +45,7 @@ export default function ProductorDashboard() {
         if (c) setCampana(c.nombre);
         const { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", user.id).single();
         if (emp) {
+          setEmpresaId(emp.id);
           const [lotes, hacienda, alertas] = await Promise.all([
             sb.from("lotes").select("hectareas").eq("empresa_id", emp.id).eq("campana_id", campanaId),
             sb.from("hacienda").select("cantidad").eq("empresa_id", emp.id),
@@ -199,7 +202,10 @@ export default function ProductorDashboard() {
       <p className="relative z-10 text-center text-[#0a2a1a] text-xs pb-4 tracking-[0.3em] font-mono">
         © AGROGESTION PRO · IA SYSTEM
       </p>
+
+      {/* Escáner IA flotante */}
+      {empresaId && <EscanerIA empresaId={empresaId} />}
+
     </div>
   );
 }
-
