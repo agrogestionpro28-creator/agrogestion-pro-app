@@ -191,7 +191,16 @@ Respondé con este formato exacto:
       });
 
       const data = await res.json();
+      
+      // Verificar si hay error de API
+      if (data.error) {
+        throw new Error(`Error API: ${data.error.message ?? JSON.stringify(data.error)}`);
+      }
+      
       const texto = data.content?.[0]?.text ?? "";
+      if (!texto) {
+        throw new Error(`Respuesta vacía. Status: ${res.status}. Data: ${JSON.stringify(data).slice(0, 200)}`);
+      }
 
       // Parsear JSON
       let json: ResultadoIA;
@@ -199,7 +208,7 @@ Respondé con este formato exacto:
         const clean = texto.replace(/```json|```/g, "").trim();
         json = JSON.parse(clean);
       } catch {
-        throw new Error("No se pudo parsear la respuesta de IA");
+        throw new Error(`No se pudo parsear: ${texto.slice(0, 200)}`);
       }
 
       setResultado(json);
