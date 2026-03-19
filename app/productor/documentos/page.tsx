@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
+import EscanerIA from "@/components/EscanerIA";
 
 type Carpeta = "factura" | "hacienda" | "agronomica" | "contrato" | "empleado" | "otro";
 type Documento = {
@@ -596,6 +597,9 @@ export default function DocumentosPage() {
         </div>
       </div>
       <p className="relative z-10 text-center text-[#0a2a1a] text-xs pb-4 tracking-[0.3em] font-mono mt-6">© AGROGESTION PRO · GESTIÓN DOCUMENTAL</p>
+
+      {empresaId && <EscanerIA empresaId={empresaId} />}
+
     </div>
   );
 }
