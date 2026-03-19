@@ -15,12 +15,56 @@ export default function Login() {
     try {
       const { createClient } = await import("@supabase/supabase-js");
       const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-      const { data, error } = await sb.auth.signInWithPassword({ email, password });
-      if (error) { setMsg(error.message); return; }
+
+      // Detectar si el password tiene formato CODIGO-LETRA (ej: 10001-B)
+      // En ese caso el "email" es el email de la empresa y el password tiene la letra
+      const letraMatch = password.match(/^(.+)-([A-H])$/i);
+      let letraSocio: string | null = null;
+      let passwordReal = password;
+
+      if (letraMatch) {
+        passwordReal = letraMatch[1]; // La clave sin la letra
+        letraSocio = letraMatch[2].toUpperCase(); // La letra del socio
+      }
+
+      const { data, error } = await sb.auth.signInWithPassword({ email, password: passwordReal });
+      if (error) { setMsg("Email o clave incorrectos"); return; }
+
       if (data.user) {
-        const { data: u } = await sb.from("usuarios").select("rol").eq("auth_id", data.user.id).single();
-        const rol = u?.rol ?? "productor";
-window.location.href = rol === "productor" ? "/productor/dashboard" : "/" + rol;
+        const { data: u } = await sb.from("usuarios").select("id, rol, nombre").eq("auth_id", data.user.id).single();
+        if (!u) { setMsg("Usuario no encontrado"); return; }
+
+        // Si ingresó con letra de socio, verificar y guardar el nombre del socio
+        if (letraSocio && u.rol === "productor") {
+          const { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", u.id).single();
+          if (emp) {
+            const { data: socio } = await sb.from("empresa_socios")
+              .select("nombre, permisos, activo")
+              .eq("empresa_id", emp.id)
+              .eq("letra", letraSocio)
+              .eq("activo", true)
+              .single();
+
+            if (socio) {
+              // Guardar nombre del socio en localStorage para el dashboard
+              localStorage.setItem("socio_nombre", socio.nombre);
+              localStorage.setItem("socio_letra", letraSocio);
+              localStorage.setItem("socio_permisos", socio.permisos);
+            } else {
+              setMsg(`Socio "${letraSocio}" no encontrado o inactivo`);
+              await sb.auth.signOut();
+              return;
+            }
+          }
+        } else {
+          // Acceso normal — limpiar datos de socio previos
+          localStorage.removeItem("socio_nombre");
+          localStorage.removeItem("socio_letra");
+          localStorage.removeItem("socio_permisos");
+        }
+
+        const rol = u.rol ?? "productor";
+        window.location.href = rol === "productor" ? "/productor/dashboard" : "/" + rol;
       }
     } catch {
       setMsg("Error de conexión");
@@ -48,9 +92,7 @@ window.location.href = rol === "productor" ? "/productor/dashboard" : "/" + rol;
       {mounted && (
         <div className="absolute inset-0 z-1 pointer-events-none overflow-hidden">
           {[...Array(12)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute w-1 h-1 rounded-full bg-[#00FF80] opacity-60"
+            <div key={i} className="absolute w-1 h-1 rounded-full bg-[#00FF80] opacity-60"
               style={{
                 left: `${(i * 17 + 5) % 100}%`,
                 top: `${(i * 23 + 10) % 100}%`,
@@ -85,12 +127,10 @@ window.location.href = rol === "productor" ? "/productor/dashboard" : "/" + rol;
           border-color: #00FF80 !important;
           box-shadow: 0 0 0 1px #00FF80, 0 0 15px rgba(0,255,128,0.3);
         }
-        .btn-neon {
-          animation: glow-pulse 2s ease-in-out infinite;
-        }
+        .btn-neon { animation: glow-pulse 2s ease-in-out infinite; }
         .btn-neon:hover {
           box-shadow: 0 0 30px rgba(0,255,128,0.8), 0 0 60px rgba(0,255,128,0.4) !important;
-          transform: translateY(-1px);
+          transform: translateY(-2px);
         }
       `}</style>
 
@@ -117,7 +157,6 @@ window.location.href = rol === "productor" ? "/productor/dashboard" : "/" + rol;
 
         {/* Card */}
         <div className="w-full relative">
-          {/* Borde animado */}
           <div className="absolute -inset-[1px] rounded-2xl opacity-60"
             style={{
               background: "linear-gradient(90deg, #00FF80, #0088FF, #00FF80, #0088FF)",
@@ -127,7 +166,6 @@ window.location.href = rol === "productor" ? "/productor/dashboard" : "/" + rol;
           />
           <div className="relative bg-[#020810]/90 backdrop-blur-xl rounded-2xl px-6 py-8 border border-[#00FF80]/10">
 
-            {/* Header card */}
             <div className="flex items-center gap-2 mb-6">
               <div className="w-2 h-2 rounded-full bg-[#00FF80] animate-pulse" />
               <span className="text-[#00FF80] text-xs font-mono tracking-widest uppercase">Sistema Activo</span>
@@ -144,10 +182,7 @@ window.location.href = rol === "productor" ? "/productor/dashboard" : "/" + rol;
                     <circle cx="12" cy="7" r="4"/>
                   </svg>
                 </div>
-                <input
-                  type="email"
-                  placeholder="Usuario / Email"
-                  value={email}
+                <input type="email" placeholder="Email de acceso" value={email}
                   onChange={e => setEmail(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && login()}
                   className="input-neon w-full bg-[#0a1628]/80 border border-[#00FF80]/20 rounded-xl pl-11 pr-4 py-3.5 text-[#E5E7EB] placeholder-[#4B6B5B] text-sm focus:outline-none transition-all duration-200 font-mono"
@@ -162,14 +197,18 @@ window.location.href = rol === "productor" ? "/productor/dashboard" : "/" + rol;
                     <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                   </svg>
                 </div>
-                <input
-                  type="password"
-                  placeholder="Clave de acceso"
-                  value={password}
+                <input type="password" placeholder="Clave · Para socios: clave-B, clave-C..." value={password}
                   onChange={e => setPassword(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && login()}
                   className="input-neon w-full bg-[#0a1628]/80 border border-[#00FF80]/20 rounded-xl pl-11 pr-4 py-3.5 text-[#E5E7EB] placeholder-[#4B6B5B] text-sm focus:outline-none transition-all duration-200 font-mono"
                 />
+              </div>
+
+              {/* Hint socios */}
+              <div className="bg-[#00FF80]/5 border border-[#00FF80]/10 rounded-lg px-3 py-2">
+                <p className="text-[#4B6B5B] text-xs font-mono">
+                  💡 <span className="text-[#00FF80]/60">Socio/familiar:</span> agregá <span className="text-[#00FF80]">-B</span>, <span className="text-[#00FF80]">-C</span>, <span className="text-[#00FF80]">-D</span>... al final de tu clave
+                </p>
               </div>
 
               {msg && (
@@ -179,10 +218,8 @@ window.location.href = rol === "productor" ? "/productor/dashboard" : "/" + rol;
               )}
 
               {/* Botón */}
-              <button
-                onClick={login}
-                className="btn-neon w-full bg-gradient-to-r from-[#00AA55] to-[#007A3D] text-white font-bold py-4 rounded-xl text-base transition-all duration-200 tracking-widest uppercase font-mono mt-2"
-              >
+              <button onClick={login}
+                className="btn-neon w-full bg-gradient-to-r from-[#00AA55] to-[#007A3D] text-white font-bold py-4 rounded-xl text-base transition-all duration-200 tracking-widest uppercase font-mono mt-2">
                 ▶ INGRESAR
               </button>
 
