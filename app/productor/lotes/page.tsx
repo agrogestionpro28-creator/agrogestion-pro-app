@@ -1,6 +1,7 @@
-"use client";
+use client";
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import EscanerIA from "@/components/EscanerIA";
 
 type Campana = { id: string; nombre: string; año_inicio: number; año_fin: number; activa: boolean; };
 type Lote = {
@@ -190,7 +191,7 @@ export default function LotesPage() {
     setAiLoading(true);
     setAiMsg("");
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("/api/scanner", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -685,6 +686,7 @@ export default function LotesPage() {
           </>
         )}
       </div>
+      {empresaId && <EscanerIA empresaId={empresaId} />}
     </div>
   );
 }
