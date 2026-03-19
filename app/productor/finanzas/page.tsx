@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import EscanerIA from "@/components/EscanerIA";
 
 type Tab = "general" | "bancos" | "cheques" | "cuentas_ctes" | "movimientos" | "impuestos";
 
@@ -708,6 +709,9 @@ export default function FinanzasPage() {
       <p className="relative z-10 text-center text-[#0a2a1a] text-xs pb-4 tracking-[0.3em] font-mono">
         © AGROGESTION PRO · SISTEMA UNIFICADO DE CONTROL AGROPECUARIO
       </p>
+
+      {empresaId && <EscanerIA empresaId={empresaId} />}
+
     </div>
   );
 }
