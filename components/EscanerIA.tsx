@@ -380,9 +380,9 @@ Respondé con este formato exacto:
     <>
       {/* Botón flotante */}
       <button onClick={() => { setAbierto(true); resetear(); }}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#00FF80] shadow-lg shadow-[#00FF80]/30 flex items-center justify-center text-2xl hover:scale-110 transition-all hover:shadow-[#00FF80]/50"
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full overflow-hidden shadow-lg shadow-red-500/30 hover:scale-110 transition-all hover:shadow-red-500/50"
         title="Escáner IA — Subí una foto y cargamos automáticamente">
-        📸
+        <img src="/btn-scanner.png" alt="Scanner IA" className="w-full h-full object-cover" />
       </button>
 
       {/* Modal */}
