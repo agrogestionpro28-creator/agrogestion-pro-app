@@ -141,8 +141,11 @@ export default function LotesPage() {
       costo_alquiler: Number(form.costo_alquiler ?? 0),
       ingeniero_id: form.ingeniero_id ?? null, observaciones: form.observaciones ?? "",
     };
-    if (loteSeleccionado && showFormLote) {
-      await sb.from("lotes").update(data).eq("id", loteSeleccionado.id);
+    if (form._editando_id) {
+      await sb.from("lotes").update(data).eq("id", form._editando_id);
+      // Actualizar lote seleccionado con los nuevos datos
+      const { data: updated } = await sb.from("lotes").select("*").eq("id", form._editando_id).single();
+      if (updated) setLoteSeleccionado(updated);
     } else {
       await sb.from("lotes").insert(data);
     }
@@ -302,7 +305,7 @@ export default function LotesPage() {
                     className="px-4 py-2 rounded-xl bg-[#00FF80]/20 border border-[#00FF80]/40 text-[#00FF80] font-mono text-sm">
                     + Labor
                   </button>
-                  <button onClick={() => { setShowFormLote(true); setForm(Object.fromEntries(Object.entries(loteSeleccionado).map(([k,v])=>[k,String(v??"")]))); }}
+                  <button onClick={() => { setShowFormLote(true); setForm({...Object.fromEntries(Object.entries(loteSeleccionado).map(([k,v])=>[k,String(v??"")])), _editando_id: loteSeleccionado.id}); }}
                     className="px-4 py-2 rounded-xl border border-[#C9A227]/40 text-[#C9A227] bg-[#020810]/60 font-mono text-sm">
                     ✏️ Editar
                   </button>
