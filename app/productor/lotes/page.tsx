@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import EscanerIA from "@/components/EscanerIA";
 
@@ -46,6 +46,11 @@ export default function LotesPage() {
   const [showFormCampana, setShowFormCampana] = useState(false);
   const [showFormLabor, setShowFormLabor] = useState(false);
   const [showIA, setShowIA] = useState(false);
+  const [showImportar, setShowImportar] = useState(false);
+  const [importPreview, setImportPreview] = useState<{nombre:string;hectareas:number;cultivo:string;accion:string}[]>([]);
+  const [importando, setImportando] = useState(false);
+  const [importMsg, setImportMsg] = useState("");
+  const importRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<Record<string,string>>({});
   const [aiMsg, setAiMsg] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
@@ -192,6 +197,99 @@ export default function LotesPage() {
     });
     await fetchLabores(loteSeleccionado.id);
     setShowFormLabor(false); setForm({});
+  };
+
+  const normalizarCultivo = (texto: string): string => {
+    const t = texto.toLowerCase().trim();
+    if (t.includes("soja") && !t.includes("2")) return "soja";
+    if (t.includes("soja") && t.includes("2")) return "soja";
+    if (t.includes("maiz") || t.includes("maíz")) return "maiz";
+    if (t.includes("trigo")) return "trigo";
+    if (t.includes("girasol")) return "girasol";
+    if (t.includes("sorgo")) return "sorgo";
+    if (t.includes("cebada")) return "cebada";
+    return "otro";
+  };
+
+  const leerExcel = async (file: File) => {
+    setImportMsg("Leyendo archivo...");
+    try {
+      const XLSX = await import("xlsx");
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows: any[] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+      
+      if (rows.length < 2) { setImportMsg("El archivo no tiene datos"); return; }
+      
+      // Detectar encabezados — buscar columnas LOTE/HAS/CULTIVO
+      const headers = rows[0].map((h: any) => String(h).toLowerCase().trim());
+      const colLote = headers.findIndex((h: string) => h.includes("lote") || h.includes("nombre") || h.includes("campo"));
+      const colHas = headers.findIndex((h: string) => h.includes("ha") || h.includes("hect"));
+      // La última columna que no sea lote ni has es el cultivo
+      const colCultivo = headers.length - 1;
+      
+      if (colLote === -1) { setImportMsg("No se encontró columna de lotes"); return; }
+      
+      const preview = rows.slice(1)
+        .filter((r: any) => r[colLote] && String(r[colLote]).trim())
+        .map((r: any) => {
+          const nombreLote = String(r[colLote]).trim();
+          const has = Number(r[colHas] ?? 0) || 0;
+          const cultivoTexto = colCultivo >= 0 ? String(r[colCultivo] ?? "").trim() : "";
+          const cultivoNorm = normalizarCultivo(cultivoTexto);
+          
+          // Detectar si el lote ya existe
+          const existe = lotes.find(l => l.nombre.toLowerCase().trim() === nombreLote.toLowerCase());
+          return {
+            nombre: nombreLote,
+            hectareas: has,
+            cultivo: cultivoNorm,
+            cultivo_original: cultivoTexto,
+            accion: existe ? "actualizar" : "crear",
+            id_existente: existe?.id ?? null,
+          };
+        });
+      
+      setImportPreview(preview as any);
+      setImportMsg(`✅ ${preview.length} lotes detectados. Revisá y confirmá.`);
+    } catch(e: any) {
+      setImportMsg("Error al leer el archivo: " + e.message);
+    }
+  };
+
+  const confirmarImport = async () => {
+    if (!empresaId || !campanaActiva || importPreview.length === 0) return;
+    setImportando(true);
+    const sb = await getSB();
+    let creados = 0; let actualizados = 0;
+    
+    for (const l of importPreview as any[]) {
+      if (l.accion === "actualizar" && l.id_existente) {
+        await sb.from("lotes").update({
+          hectareas: l.hectareas,
+          cultivo: l.cultivo,
+        }).eq("id", l.id_existente);
+        actualizados++;
+      } else {
+        await sb.from("lotes").insert({
+          empresa_id: empresaId,
+          campana_id: campanaActiva.id,
+          nombre: l.nombre,
+          hectareas: l.hectareas,
+          cultivo: l.cultivo,
+          tipo_alquiler: "propio",
+          estado: "sin_sembrar",
+        });
+        creados++;
+      }
+    }
+    
+    await fetchLotes(empresaId, campanaActiva.id);
+    setImportMsg(`✅ ${creados} lotes creados · ${actualizados} actualizados`);
+    setImportPreview([]);
+    setImportando(false);
+    setTimeout(() => { setShowImportar(false); setImportMsg(""); }, 3000);
   };
 
   const askAI = async (prompt: string) => {
@@ -467,6 +565,10 @@ export default function LotesPage() {
                 <button onClick={exportarExcel} className="px-4 py-2 rounded-xl border border-[#4ADE80]/30 text-[#4ADE80] hover:bg-[#4ADE80]/10 font-mono text-sm transition-all">
                   📊 Exportar
                 </button>
+                <button onClick={() => { setShowImportar(!showImportar); setImportPreview([]); setImportMsg(""); }}
+                  className="px-4 py-2 rounded-xl border border-[#C9A227]/30 text-[#C9A227] hover:bg-[#C9A227]/10 font-mono text-sm transition-all">
+                  📥 Importar Excel
+                </button>
                 <button onClick={() => setVista(vista === "lista" ? "cultivo" : "lista")}
                   className="px-4 py-2 rounded-xl border border-[#60A5FA]/30 text-[#60A5FA] hover:bg-[#60A5FA]/10 font-mono text-sm transition-all">
                   {vista === "lista" ? "◈ Por Cultivo" : "☰ Lista"}
@@ -499,6 +601,69 @@ export default function LotesPage() {
                 </div>
               </div>
             </div>
+
+            {/* ===== IMPORTAR EXCEL ===== */}
+            {showImportar && (
+              <div className="bg-[#0a1628]/80 border border-[#C9A227]/30 rounded-xl p-5 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-[#C9A227] font-mono text-sm font-bold">📥 IMPORTAR LOTES DESDE EXCEL</h3>
+                  <button onClick={() => { setShowImportar(false); setImportPreview([]); setImportMsg(""); }} className="text-[#4B5563] hover:text-white text-sm">✕</button>
+                </div>
+                <p className="text-xs text-[#4B5563] font-mono mb-4">
+                  El Excel debe tener columnas: <span className="text-[#C9A227]">LOTE</span> · <span className="text-[#C9A227]">HAS</span> · <span className="text-[#C9A227]">CULTIVO</span> (en ese orden). Los lotes existentes se actualizan, los nuevos se crean.
+                </p>
+                <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) leerExcel(f); }} />
+                {importPreview.length === 0 ? (
+                  <button onClick={() => importRef.current?.click()}
+                    className="flex items-center gap-3 px-6 py-4 border-2 border-dashed border-[#C9A227]/30 rounded-xl text-[#C9A227] font-mono text-sm hover:border-[#C9A227]/60 hover:bg-[#C9A227]/5 transition-all w-full justify-center">
+                    📁 Seleccionar archivo Excel (.xlsx, .xls, .csv)
+                  </button>
+                ) : (
+                  <div>
+                    <div className="max-h-64 overflow-y-auto mb-4 rounded-xl border border-[#C9A227]/15 overflow-hidden">
+                      <table className="w-full">
+                        <thead><tr className="border-b border-[#C9A227]/15 bg-[#020810]/60">
+                          {["Lote","Hectáreas","Cultivo detectado","Cultivo original","Acción"].map(h => (
+                            <th key={h} className="text-left px-4 py-2 text-xs text-[#4B5563] uppercase tracking-widest font-mono">{h}</th>
+                          ))}
+                        </tr></thead>
+                        <tbody>
+                          {(importPreview as any[]).map((l, i) => (
+                            <tr key={i} className="border-b border-[#C9A227]/5 hover:bg-[#C9A227]/5 transition-colors">
+                              <td className="px-4 py-2 text-sm text-[#E5E7EB] font-mono font-bold">{l.nombre}</td>
+                              <td className="px-4 py-2 text-sm text-[#00FF80] font-mono">{l.hectareas} Ha</td>
+                              <td className="px-4 py-2">
+                                <span className="text-xs font-mono">{CULTIVO_ICONS[l.cultivo]} {l.cultivo.toUpperCase()}</span>
+                              </td>
+                              <td className="px-4 py-2 text-xs text-[#4B5563] font-mono">{l.cultivo_original}</td>
+                              <td className="px-4 py-2">
+                                <span className={`text-xs px-2 py-0.5 rounded font-mono ${l.accion === "crear" ? "bg-[#4ADE80]/10 text-[#4ADE80]" : "bg-[#60A5FA]/10 text-[#60A5FA]"}`}>
+                                  {l.accion === "crear" ? "✚ Crear" : "✎ Actualizar"}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="flex gap-3 items-center">
+                      <button onClick={confirmarImport} disabled={importando}
+                        className="bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-bold px-6 py-2.5 rounded-xl text-sm font-mono disabled:opacity-50 hover:bg-[#C9A227]/20 transition-all">
+                        {importando ? "▶ Importando..." : `▶ Confirmar ${(importPreview as any[]).length} lotes`}
+                      </button>
+                      <button onClick={() => { setImportPreview([]); setImportMsg(""); importRef.current?.click(); }}
+                        className="border border-[#1C2128] text-[#4B5563] px-4 py-2.5 rounded-xl text-sm font-mono hover:text-[#9CA3AF]">
+                        Cambiar archivo
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {importMsg && (
+                  <p className={`mt-3 text-xs font-mono ${importMsg.startsWith("✅") ? "text-[#4ADE80]" : "text-[#F87171]"}`}>{importMsg}</p>
+                )}
+              </div>
+            )}
 
             {/* Form nueva campaña */}
             {showFormCampana && (
