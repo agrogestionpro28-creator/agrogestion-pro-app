@@ -22,9 +22,9 @@ const CULTIVO_ICONS: Record<string,string> = {
   soja:"🌱",maiz:"🌽",trigo:"🌾",girasol:"🌻",sorgo:"🌿",cebada:"🍃",otro:"🌐"
 };
 const CULTIVO_IMG: Record<string,string> = {
-  soja:"/cultivo-soja.jpg", maiz:"/cultivo-maiz.jpg", trigo:"/cultivo-trigo.jpg",
-  girasol:"/cultivo-girasol.jpg", sorgo:"/cultivo-sorgo.jpg",
-  cebada:"/cultivo-cebada.jpg", otro:"/cultivo-otro.jpg",
+  soja:"/cultivo-soja.png", maiz:"/cultivo-maiz.png", trigo:"/cultivo-trigo.png",
+  girasol:"/cultivo-girasol.png", sorgo:"/cultivo-sorgo.png",
+  cebada:"/cultivo-cebada.png", otro:"/cultivo-otro.png",
 };
 const ESTADOS = ["sin_sembrar","sembrado","emergido","en_desarrollo","floración","llenado","cosechado"];
 const ESTADO_COLORS: Record<string,string> = {
@@ -235,8 +235,8 @@ export default function LotesPage() {
       <style>{`
         @keyframes gradient-flow { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
         @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
-        .lote-card:hover { border-color: rgba(0,255,128,0.5) !important; box-shadow: 0 0 20px rgba(0,255,128,0.15); }
-        .lote-card { transition: all 0.2s ease; }
+        .lote-card:hover { border-color: rgba(0,255,128,0.5) !important; }
+        .lote-card { transition: border-color 0.2s ease; }
         .logo-btn:hover { filter: drop-shadow(0 0 12px rgba(0,255,128,0.8)); transform: scale(1.03); }
         .logo-btn { transition: all 0.2s ease; cursor: pointer; }
         .btn-ia { animation: float 3s ease-in-out infinite; }
@@ -276,7 +276,7 @@ export default function LotesPage() {
             {/* Imagen fondo cultivo + header lote */}
             <div className="relative rounded-2xl overflow-hidden mb-6 h-48">
               <Image
-                src={CULTIVO_IMG[loteSeleccionado.cultivo] ?? "/cultivo-default.jpg"}
+                src={CULTIVO_IMG[loteSeleccionado.cultivo] ?? "/cultivo-default.png"}
                 alt={loteSeleccionado.cultivo}
                 fill style={{ objectFit: "cover" }}
                 onError={(e) => { (e.target as any).src = "/dashboard-bg.png"; }}
@@ -551,15 +551,15 @@ export default function LotesPage() {
                 <p className="text-[#4B5563] font-mono">No hay lotes en esta campaña</p>
               </div>
             ) : vista === "lista" ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
                 {lotes.map(l => (
                   <div key={l.id} className="lote-card border border-[#00FF80]/15 rounded-xl overflow-hidden cursor-pointer"
-                    style={{ aspectRatio: "1/1", position: "relative" }}
+                    style={{ height: "160px", position: "relative" }}
                     onClick={() => { setLoteSeleccionado(l); fetchLabores(l.id); }}>
                     {/* Imagen cultivo de fondo */}
                     <div className="absolute inset-0">
                       <Image
-                        src={CULTIVO_IMG[l.cultivo] ?? "/cultivo-default.jpg"}
+                        src={CULTIVO_IMG[l.cultivo] ?? "/cultivo-default.png"}
                         alt={l.cultivo || "lote"}
                         fill style={{ objectFit: "cover" }}
                         onError={(e) => { (e.target as any).src = "/dashboard-bg.png"; }}
