@@ -142,14 +142,32 @@ export default function LotesPage() {
       ingeniero_id: form.ingeniero_id ?? null, observaciones: form.observaciones ?? "",
     };
     if (form._editando_id) {
-      await sb.from("lotes").update(data).eq("id", form._editando_id);
-      // Actualizar lote seleccionado con los nuevos datos
+      // Solo actualizar campos editables, no empresa_id ni campana_id
+      const { error } = await sb.from("lotes").update({
+        nombre: form.nombre,
+        hectareas: Number(form.hectareas ?? 0),
+        tipo_alquiler: form.tipo_alquiler ?? "propio",
+        porcentaje_alquiler: Number(form.porcentaje_alquiler ?? 0),
+        cultivo: form.cultivo ?? "",
+        variedad: form.variedad ?? "",
+        fecha_siembra: form.fecha_siembra || null,
+        estado: form.estado ?? "sin_sembrar",
+        fertilizacion: form.fertilizacion ?? "",
+        herbicida: form.herbicida ?? "",
+        fungicida: form.fungicida ?? "",
+        rendimiento_esperado: Number(form.rendimiento_esperado ?? 0),
+        costo_alquiler: Number(form.costo_alquiler ?? 0),
+        ingeniero_id: form.ingeniero_id || null,
+        observaciones: form.observaciones ?? "",
+      }).eq("id", form._editando_id);
+      if (error) { console.error("Error update:", error); return; }
+      // Refrescar lote seleccionado
       const { data: updated } = await sb.from("lotes").select("*").eq("id", form._editando_id).single();
       if (updated) setLoteSeleccionado(updated);
     } else {
       await sb.from("lotes").insert(data);
     }
-    await fetchLotes(empresaId, campanaActiva.id);
+    if (empresaId && campanaActiva) await fetchLotes(empresaId, campanaActiva.id);
     setShowFormLote(false); setForm({});
   };
 
