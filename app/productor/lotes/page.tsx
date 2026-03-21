@@ -402,14 +402,19 @@ export default function LotesPage() {
         tipo: labor.tipo, descripcion: labor.descripcion,
         productos: labor.productos, dosis: labor.dosis ?? "",
         fecha: labor.fecha, metodo_carga: "excel", metodo_entrada: "excel",
-        estado_carga: "borrador", cargado_por: usuarioId,
+        estado_carga: "confirmado", cargado_por: usuarioId,
       });
       cargadas++;
     }
-    if (loteSeleccionado) await fetchLabores(loteSeleccionado.id);
+    // Refrescar labores ANTES de cerrar el panel
+    if (loteSeleccionado) {
+      await fetchLabores(loteSeleccionado.id);
+    }
     const ignoradas = cuadernoImportPreview.filter((l: any) => l.error).length;
-    setCuadernoImportMsg(`✅ ${cargadas} labores importadas como borrador${ignoradas > 0 ? ` · ${ignoradas} ignoradas (lote no registrado)` : ""}`);
-    setCuadernoImportPreview([]); setCuadernoImportando(false); setShowImportCuaderno(false);
+    setCuadernoImportPreview([]);
+    setCuadernoImportando(false);
+    setShowImportCuaderno(false);
+    setCuadernoImportMsg(`✅ ${cargadas} labores cargadas${ignoradas > 0 ? ` · ${ignoradas} ignoradas` : ""}`);
   };
 
   const askAI = async (prompt: string) => {
