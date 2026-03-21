@@ -521,11 +521,11 @@ export default function LotesPage() {
               {[
                 { label: "Variedad/Híbrido", value: loteSeleccionado.variedad || "—", color: "#00FF80" },
                 { label: "Fecha Siembra", value: loteSeleccionado.fecha_siembra || "—", color: "#60A5FA" },
-                { label: "Fertilización", value: loteSeleccionado.fertilizacion || "—", color: "#C9A227" },
-                { label: "Herbicida", value: loteSeleccionado.herbicida || "—", color: "#4ADE80" },
-                { label: "Fungicida", value: loteSeleccionado.fungicida || "—", color: "#A78BFA" },
+                { label: "Cultivo", value: loteSeleccionado.cultivo?.toUpperCase() || "Sin cultivo", color: "#4ADE80" },
                 { label: "Rend. Esperado", value: loteSeleccionado.rendimiento_esperado ? `${loteSeleccionado.rendimiento_esperado} tn/ha` : "—", color: "#FB923C" },
-                { label: "Costo Alquiler", value: loteSeleccionado.costo_alquiler ? `$${loteSeleccionado.costo_alquiler}/ha` : "—", color: "#F87171" },
+                { label: "Tenencia", value: loteSeleccionado.tipo_alquiler || "—", color: "#C9A227" },
+                { label: "Hectáreas", value: `${loteSeleccionado.hectareas} Ha`, color: "#00FF80" },
+                { label: "Ingeniero", value: ingenieros.find(i => i.id === loteSeleccionado.ingeniero_id)?.nombre || "Sin asignar", color: "#60A5FA" },
                 { label: "Observaciones", value: loteSeleccionado.observaciones || "—", color: "#9CA3AF" },
               ].map(d => (
                 <div key={d.label} className="bg-[#0a1628]/80 border border-[#00FF80]/10 rounded-xl p-4">
@@ -559,11 +559,10 @@ export default function LotesPage() {
                       {ESTADOS.map(s => <option key={s} value={s}>{s.replace("_"," ").toUpperCase()}</option>)}
                     </select>
                   </div>
-                  <div><label className={labelClass}>Fertilización</label><input type="text" value={form.fertilizacion ?? ""} onChange={e => setForm({...form, fertilizacion: e.target.value})} className={inputClass} /></div>
-                  <div><label className={labelClass}>Herbicida</label><input type="text" value={form.herbicida ?? ""} onChange={e => setForm({...form, herbicida: e.target.value})} className={inputClass} /></div>
-                  <div><label className={labelClass}>Fungicida</label><input type="text" value={form.fungicida ?? ""} onChange={e => setForm({...form, fungicida: e.target.value})} className={inputClass} /></div>
-                  <div><label className={labelClass}>Rend. (tn/ha)</label><input type="number" value={form.rendimiento_esperado ?? ""} onChange={e => setForm({...form, rendimiento_esperado: e.target.value})} className={inputClass} /></div>
-                  <div><label className={labelClass}>Costo alquiler</label><input type="number" value={form.costo_alquiler ?? ""} onChange={e => setForm({...form, costo_alquiler: e.target.value})} className={inputClass} /></div>
+                  <div><label className={labelClass}>Rend. esperado (tn/ha)</label><input type="number" value={form.rendimiento_esperado ?? ""} onChange={e => setForm({...form, rendimiento_esperado: e.target.value})} className={inputClass} placeholder="0" /></div>
+                  <div className="md:col-span-2 bg-[#020810]/40 border border-[#C9A227]/10 rounded-xl p-3">
+                    <p className="text-xs text-[#4B5563] font-mono">💡 Herbicida, fungicida y fertilización se registran en el <span className="text-[#C9A227]">Cuaderno de Campo</span> como labores. El alquiler se gestiona en <span className="text-[#C9A227]">Contratos</span>.</p>
+                  </div>
                   <div><label className={labelClass}>Ingeniero</label>
                     <select value={form.ingeniero_id ?? ""} onChange={e => setForm({...form, ingeniero_id: e.target.value})} className={inputClass}>
                       <option value="">Sin asignar</option>{ingenieros.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
