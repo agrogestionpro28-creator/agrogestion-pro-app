@@ -293,6 +293,18 @@ export default function LotesPage() {
     a.click();
   };
 
+  const parsearFilaLabor = (r: any, headers: string[], colFecha: number, colObs: number, colEstado: number) => {
+    const fechaStr = parsearFecha(r[colFecha]);
+    const observacion = colObs >= 0 ? String(r[colObs] ?? "").trim() : "";
+    const estado = colEstado >= 0 ? String(r[colEstado] ?? "").trim() : "";
+    let tipo = "aplicacion";
+    const obs = observacion.toLowerCase(); const est = estado.toLowerCase();
+    if (est.includes("siem") || obs.includes("siem")) tipo = "siembra";
+    else if (est.includes("cosech") || obs.includes("cosech")) tipo = "cosecha";
+    else if (obs.includes("fertil") || obs.includes("urea") || obs.includes("map") || obs.includes("supertriple") || obs.includes("super triple")) tipo = "fertilizacion";
+    return { fecha: fechaStr, tipo, descripcion: observacion, productos: observacion, dosis: "", estado_lote: estado };
+  };
+
   const leerExcelCuaderno = async (file: File) => {
     setCuadernoImportMsg("Leyendo archivo...");
     setCuadernoImportPreview([]);
@@ -307,39 +319,96 @@ export default function LotesPage() {
       const colFecha = headers.findIndex((h: string) => h.includes("fecha"));
       const colObs = headers.findIndex((h: string) => h.includes("obs") || h.includes("product") || h.includes("dosis") || h.includes("desc") || h.includes("aplic"));
       const colEstado = headers.findIndex((h: string) => h.includes("estado") || h.includes("etapa"));
-      const preview = rows.slice(1)
-        .filter((r: any) => r[colFecha] && String(r[colFecha]).trim())
-        .map((r: any) => {
-          const fechaStr = parsearFecha(r[colFecha]);
-          const observacion = colObs >= 0 ? String(r[colObs] ?? "").trim() : "";
-          const estado = colEstado >= 0 ? String(r[colEstado] ?? "").trim() : "";
-          let tipo = "aplicacion";
-          const obs = observacion.toLowerCase(); const est = estado.toLowerCase();
-          if (est.includes("siem") || obs.includes("siem")) tipo = "siembra";
-          else if (est.includes("cosech") || obs.includes("cosech")) tipo = "cosecha";
-          else if (obs.includes("fertil") || obs.includes("urea") || obs.includes("map") || obs.includes("supertriple") || obs.includes("super triple")) tipo = "fertilizacion";
-          return { fecha: fechaStr, tipo, descripcion: observacion, productos: observacion, dosis: "", estado_lote: estado };
-        });
+      const colLote = headers.findIndex((h: string) => h.includes("lote") || h.includes("campo") || h.includes("nombre"));
+
+      const dataRows = rows.slice(1).filter((r: any) => r[colFecha] && String(r[colFecha]).trim());
+
+      // SI ESTAMOS DENTRO DE UN LOTE → filtrar solo las filas de ese lote
+      if (loteSeleccionado) {
+        const nombreLoteActual = loteSeleccionado.nombre.toLowerCase().trim();
+        let filtradasPorLote = dataRows;
+        let ignoradas = 0;
+
+        if (colLote >= 0) {
+          filtradasPorLote = dataRows.filter((r: any) => {
+            const nombreFila = String(r[colLote] ?? "").toLowerCase().trim();
+            if (!nombreFila) return true; // sin columna lote → incluir todo
+            const match = nombreFila === nombreLoteActual ||
+              nombreFila.includes(nombreLoteActual) ||
+              nombreLoteActual.includes(nombreFila);
+            if (!match) ignoradas++;
+            return match;
+          });
+        }
+
+        const preview = filtradasPorLote.map((r: any) => parsearFilaLabor(r, headers, colFecha, colObs, colEstado));
+        setCuadernoImportPreview(preview);
+        if (ignoradas > 0) {
+          setCuadernoImportMsg(`✅ ${preview.length} labores del lote "${loteSeleccionado.nombre}" · ${ignoradas} filas de otros lotes ignoradas`);
+        } else {
+          setCuadernoImportMsg(`✅ ${preview.length} labores detectadas para "${loteSeleccionado.nombre}"`);
+        }
+        return;
+      }
+
+      // SI ESTAMOS EN LA LISTA GENERAL → importación masiva
+      if (colLote === -1) { setCuadernoImportMsg("Para importación masiva el Excel debe tener columna LOTE"); return; }
+
+      const preview: any[] = [];
+      const lotesSinRegistrar: string[] = [];
+
+      for (const r of dataRows) {
+        const nombreLoteFila = String(r[colLote] ?? "").trim();
+        if (!nombreLoteFila) continue;
+
+        const loteEncontrado = lotes.find(l =>
+          l.nombre.toLowerCase().trim() === nombreLoteFila.toLowerCase() ||
+          l.nombre.toLowerCase().trim().includes(nombreLoteFila.toLowerCase()) ||
+          nombreLoteFila.toLowerCase().includes(l.nombre.toLowerCase().trim())
+        );
+
+        if (!loteEncontrado) {
+          if (!lotesSinRegistrar.includes(nombreLoteFila)) lotesSinRegistrar.push(nombreLoteFila);
+          preview.push({ ...parsearFilaLabor(r, headers, colFecha, colObs, colEstado), lote_nombre: nombreLoteFila, lote_id: null, error: true });
+        } else {
+          preview.push({ ...parsearFilaLabor(r, headers, colFecha, colObs, colEstado), lote_nombre: loteEncontrado.nombre, lote_id: loteEncontrado.id, error: false });
+        }
+      }
+
       setCuadernoImportPreview(preview);
-      setCuadernoImportMsg(`✅ ${preview.length} labores detectadas`);
+      if (lotesSinRegistrar.length > 0) {
+        setCuadernoImportMsg(`⚠️ ${lotesSinRegistrar.length} lote(s) no registrado(s): ${lotesSinRegistrar.join(", ")} · ${preview.filter((p:any)=>!p.error).length} labores OK`);
+      } else {
+        setCuadernoImportMsg(`✅ ${preview.length} labores detectadas en ${[...new Set(preview.map((p:any)=>p.lote_nombre))].length} lotes`);
+      }
     } catch(e: any) { setCuadernoImportMsg("Error: " + e.message); }
   };
 
   const confirmarImportCuaderno = async () => {
-    if (!loteSeleccionado || !empresaId || !usuarioId || cuadernoImportPreview.length === 0) return;
+    if (!empresaId || !usuarioId || cuadernoImportPreview.length === 0) return;
+    // Filtrar solo las que tienen lote válido
+    const validas = cuadernoImportPreview.filter((l: any) => !l.error);
+    if (validas.length === 0) { setCuadernoImportMsg("No hay labores válidas para importar"); return; }
     setCuadernoImportando(true);
     const sb = await getSB();
-    for (const labor of cuadernoImportPreview) {
+    let cargadas = 0;
+    for (const labor of validas as any[]) {
+      // Si estamos dentro de un lote → usar ese lote
+      // Si es masivo → usar el lote_id de cada fila
+      const loteId = loteSeleccionado ? loteSeleccionado.id : labor.lote_id;
+      if (!loteId) continue;
       await sb.from("lote_labores").insert({
-        lote_id: loteSeleccionado.id, empresa_id: empresaId,
+        lote_id: loteId, empresa_id: empresaId,
         tipo: labor.tipo, descripcion: labor.descripcion,
         productos: labor.productos, dosis: labor.dosis ?? "",
         fecha: labor.fecha, metodo_carga: "excel", metodo_entrada: "excel",
         estado_carga: "borrador", cargado_por: usuarioId,
       });
+      cargadas++;
     }
-    await fetchLabores(loteSeleccionado.id);
-    setCuadernoImportMsg(`✅ ${cuadernoImportPreview.length} labores importadas como borrador`);
+    if (loteSeleccionado) await fetchLabores(loteSeleccionado.id);
+    const ignoradas = cuadernoImportPreview.filter((l: any) => l.error).length;
+    setCuadernoImportMsg(`✅ ${cargadas} labores importadas como borrador${ignoradas > 0 ? ` · ${ignoradas} ignoradas (lote no registrado)` : ""}`);
     setCuadernoImportPreview([]); setCuadernoImportando(false); setShowImportCuaderno(false);
   };
 
@@ -558,11 +627,19 @@ export default function LotesPage() {
                       <div className="max-h-48 overflow-y-auto mb-3 rounded-lg border border-[#C9A227]/15">
                         <table className="w-full text-xs">
                           <thead><tr className="border-b border-[#C9A227]/10 bg-[#020810]/60">
-                            {["Fecha","Tipo","Descripción / Productos","Estado"].map(h => <th key={h} className="text-left px-3 py-2 text-[#4B5563] font-mono">{h}</th>)}
+                            {[...(cuadernoImportPreview.some((l:any)=>l.lote_nombre) && !loteSeleccionado ? ["Lote"] : []), "Fecha","Tipo","Descripción / Productos","Estado"].map(h => <th key={h} className="text-left px-3 py-2 text-[#4B5563] font-mono">{h}</th>)}
                           </tr></thead>
                           <tbody>
                             {cuadernoImportPreview.map((l: any, i: number) => (
-                              <tr key={i} className="border-b border-[#C9A227]/5 hover:bg-[#C9A227]/5">
+                              <tr key={i} className={`border-b border-[#C9A227]/5 ${l.error ? "bg-red-500/5" : "hover:bg-[#C9A227]/5"}`}>
+                                {l.lote_nombre && !loteSeleccionado && (
+                                  <td className="px-3 py-2 font-mono whitespace-nowrap">
+                                    {l.error
+                                      ? <span className="text-red-400 flex items-center gap-1">⚠️ {l.lote_nombre}</span>
+                                      : <span className="text-[#00FF80]">{l.lote_nombre}</span>
+                                    }
+                                  </td>
+                                )}
                                 <td className="px-3 py-2 font-mono text-[#E5E7EB] whitespace-nowrap">{l.fecha}</td>
                                 <td className="px-3 py-2"><span className="bg-[#00FF80]/10 text-[#00FF80] px-1.5 py-0.5 rounded font-mono">{l.tipo}</span></td>
                                 <td className="px-3 py-2 text-[#9CA3AF] font-mono max-w-xs truncate">{l.descripcion}</td>
@@ -573,8 +650,9 @@ export default function LotesPage() {
                         </table>
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={confirmarImportCuaderno} disabled={cuadernoImportando} className="bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-bold px-4 py-2 rounded-lg text-xs font-mono disabled:opacity-50">
-                          {cuadernoImportando ? "Importando..." : `▶ Importar ${cuadernoImportPreview.length} labores`}
+                        <button onClick={confirmarImportCuaderno} disabled={cuadernoImportando || cuadernoImportPreview.filter((l:any)=>!l.error).length === 0}
+                          className="bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-bold px-4 py-2 rounded-lg text-xs font-mono disabled:opacity-50">
+                          {cuadernoImportando ? "Importando..." : `▶ Importar ${cuadernoImportPreview.filter((l:any)=>!l.error).length} labores válidas`}
                         </button>
                         <button onClick={() => { setCuadernoImportPreview([]); cuadernoImportRef.current?.click(); }} className="border border-[#1C2128] text-[#4B5563] px-3 py-2 rounded-lg text-xs font-mono">Cambiar archivo</button>
                       </div>
