@@ -75,10 +75,23 @@ export default function DocumentosPage() {
     const { data: { user } } = await sb.auth.getUser();
     if (!user) { window.location.href = "/login"; return; }
     const { data: u } = await sb.from("usuarios").select("id").eq("auth_id", user.id).single();
-    if (!u) return;
+    if (!u) { console.error("Usuario no encontrado para auth_id:", user.id); return; }
     setUsuarioId(u.id);
     const { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", u.id).single();
-    if (!emp) return;
+    if (!emp) {
+      // Buscar si es socio de alguna empresa
+      const { data: socio } = await sb.from("empresa_socios").select("empresa_id").eq("email", user.email ?? "").single();
+      if (socio) {
+        setEmpresaId(socio.empresa_id);
+        const campanaActiva = localStorage.getItem("campana_id");
+        if (campanaActiva) setCampanaId(campanaActiva);
+        await fetchAll(socio.empresa_id, campanaActiva);
+      } else {
+        console.error("Empresa no encontrada para usuario:", u.id);
+      }
+      setLoading(false);
+      return;
+    }
     setEmpresaId(emp.id);
 
     // Campaña activa
@@ -101,18 +114,28 @@ export default function DocumentosPage() {
     setEmpleados(emps.data ?? []);
     setContratos(conts.data ?? []);
 
-    // Lotes no propios de la campaña activa
+    // Lotes no propios — primero intenta con campaña activa, si no trae nada busca todos
+    let lotesData: any[] = [];
     if (cid) {
-      const { data: lotesData } = await sb.from("lotes").select("id, nombre, hectareas, tipo_alquiler, cultivo")
+      const { data } = await sb.from("lotes").select("id, nombre, hectareas, tipo_alquiler, cultivo")
         .eq("empresa_id", eid).eq("campana_id", cid)
         .neq("tipo_alquiler", "propio").order("nombre");
-      setLotes(lotesData ?? []);
-    } else {
-      // Sin campaña activa, buscar todos los lotes no propios
-      const { data: lotesData } = await sb.from("lotes").select("id, nombre, hectareas, tipo_alquiler, cultivo")
-        .eq("empresa_id", eid).neq("tipo_alquiler", "propio").order("nombre");
-      setLotes(lotesData ?? []);
+      lotesData = data ?? [];
     }
+    // Si no encontró lotes con campaña, buscar en todas las campañas
+    if (lotesData.length === 0) {
+      const { data } = await sb.from("lotes").select("id, nombre, hectareas, tipo_alquiler, cultivo")
+        .eq("empresa_id", eid).neq("tipo_alquiler", "propio").order("nombre");
+      lotesData = data ?? [];
+    }
+    // Deduplicar por nombre (puede haber mismo lote en varias campañas)
+    const vistos = new Set<string>();
+    const lotesSinDuplicar = lotesData.filter((l: any) => {
+      if (vistos.has(l.nombre)) return false;
+      vistos.add(l.nombre);
+      return true;
+    });
+    setLotes(lotesSinDuplicar);
   };
 
   const subirArchivo = async (file: File, eid: string, carpeta: string = "documentos"): Promise<{ url: string; nombre: string; tipo: string } | null> => {
