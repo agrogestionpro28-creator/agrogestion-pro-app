@@ -281,16 +281,30 @@ export default function LotesPage() {
     setTimeout(() => { setShowImportar(false); setImportMsg(""); }, 3000);
   };
 
-  const exportarCuaderno = () => {
+  const exportarCuaderno = async () => {
     if (!loteSeleccionado) return;
-    const headers = ["LOTE","HAS","FECHA","TIPO","DESCRIPCION","PRODUCTOS","DOSIS","ESTADO_CULTIVO","METODO","ESTADO_CARGA"];
-    const rows = labores.map(l => [loteSeleccionado.nombre, loteSeleccionado.hectareas, l.fecha, l.tipo, l.descripcion, l.productos, l.dosis, loteSeleccionado.estado, l.metodo_carga, l.estado_carga ?? "confirmado"]);
-    const csv = [headers, ...rows].map(r => r.map(c => `"${c ?? ""}"`).join(",")).join("\n");
-    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `cuaderno_${loteSeleccionado.nombre}_${campanaActiva?.nombre ?? "campana"}.csv`;
-    a.click();
+    const XLSX = await import("xlsx");
+    const headers = ["LOTE","HAS","FECHA","TIPO","DESCRIPCION / PRODUCTOS","DOSIS","ESTADO CULTIVO","MÉTODO","ESTADO CARGA"];
+    const rows = labores.map(l => [
+      loteSeleccionado.nombre,
+      loteSeleccionado.hectareas,
+      l.fecha || "",
+      l.tipo || "",
+      l.descripcion || l.productos || "",
+      l.dosis || "",
+      loteSeleccionado.estado?.replace("_"," ") || "",
+      l.metodo_carga || "",
+      l.estado_carga || "confirmado",
+    ]);
+    const wsData = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws["!cols"] = [
+      { wch: 16 }, { wch: 6 }, { wch: 12 }, { wch: 14 },
+      { wch: 40 }, { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 12 }
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Cuaderno");
+    XLSX.writeFile(wb, `cuaderno_${loteSeleccionado.nombre}_${campanaActiva?.nombre ?? "campana"}.xlsx`);
   };
 
   const parsearFilaLabor = (r: any, headers: string[], colFecha: number, colObs: number, colEstado: number) => {
@@ -448,13 +462,30 @@ export default function LotesPage() {
     rec.start();
   };
 
-  const exportarExcel = () => {
-    const headers = ["Lote","Hectáreas","Tipo","Cultivo","Variedad","Estado","Fecha Siembra","Fertilización","Herbicida","Fungicida","Rend.(tn/ha)","Costo Alquiler","Observaciones"];
-    const rows = lotes.map(l => [l.nombre, l.hectareas, l.tipo_alquiler, l.cultivo, l.variedad, l.estado, l.fecha_siembra, l.fertilizacion, l.herbicida, l.fungicida, l.rendimiento_esperado, l.costo_alquiler, l.observaciones]);
-    const csv = [headers, ...rows].map(r => r.map(c => `"${c ?? ""}"`).join(",")).join("\n");
-    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-    a.download = `lotes_${campanaActiva?.nombre ?? "campana"}.csv`; a.click();
+  const exportarExcel = async () => {
+    const XLSX = await import("xlsx");
+    const headers = ["LOTE","HAS","TIPO","CULTIVO","VARIEDAD","ESTADO","FECHA SIEMBRA","REND.(tn/ha)","OBSERVACIONES"];
+    const rows = lotes.map(l => [
+      l.nombre,
+      l.hectareas,
+      l.tipo_alquiler,
+      l.cultivo || "",
+      l.variedad || "",
+      l.estado?.replace("_"," ") || "",
+      l.fecha_siembra || "",
+      l.rendimiento_esperado || 0,
+      l.observaciones || "",
+    ]);
+    const wsData = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    // Ancho de columnas
+    ws["!cols"] = [
+      { wch: 18 }, { wch: 8 }, { wch: 12 }, { wch: 12 },
+      { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 25 }
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Lotes");
+    XLSX.writeFile(wb, `lotes_${campanaActiva?.nombre ?? "campana"}.xlsx`);
   };
 
   const inputClass = "w-full bg-[#0a1628]/80 border border-[#00FF80]/20 rounded-xl px-4 py-2.5 text-[#E5E7EB] text-sm focus:outline-none focus:border-[#00FF80] font-mono transition-all";
