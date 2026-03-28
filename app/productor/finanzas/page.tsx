@@ -376,7 +376,7 @@ export default function FinanzasPage() {
   );
 
   return (
-    <div className="min-h-screen" style={{background:"linear-gradient(135deg,#0a0f1a 0%,#0d1520 40%,#0a1228 70%,#080d15 100%)"}}>
+    <div className="min-h-screen" style={{background:"linear-gradient(135deg,#e0f2fe 0%,#bae6fd 50%,#e0f2fe 100%)"}}>
       <style>{`
         @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
         .btn-float{animation:float 3s ease-in-out infinite}
