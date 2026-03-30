@@ -54,7 +54,7 @@ export default function StockPage() {
   const [showFormVenta, setShowFormVenta] = useState(false);
   const [showFormInsumo, setShowFormInsumo] = useState(false);
   const [showFormGasoil, setShowFormGasoil] = useState(false);
-  const [showFormGasoilMov, setShowFormGasoilMov] = useState(false);
+  const [showFormGasoilMov, setShowFormGasoilMov] = useState("");
   const [showFormVarios, setShowFormVarios] = useState(false);
   const [showFormCultivo, setShowFormCultivo] = useState(false);
   const [showImport, setShowImport] = useState(false);
