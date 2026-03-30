@@ -337,7 +337,7 @@ export default function StockPage() {
       tipo, litros, descripcion: form.descripcion_mov ?? "", metodo: "manual",
     });
     mostrarMsg(`✅ ${tipo === "carga" ? "Carga" : "Consumo"} registrado`);
-    await fetchAll(empresaId); setShowFormGasoilMov(false); setForm({});
+    await fetchAll(empresaId); setShowFormGasoilMov(""); setForm({});
   };
 
   const guardarVarios = async () => {
