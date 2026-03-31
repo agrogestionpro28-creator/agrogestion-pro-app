@@ -198,40 +198,53 @@ export default function LotesPage() {
 
   // ===== CRUD LOTES =====
   const guardarLote = async () => {
-    if (!empresaId || !form.nombre) return;
+    if (!empresaId) return;
+    if (!form.nombre?.trim()) { msg("❌ Ingresá al menos el nombre del lote"); return; }
     const sb = await getSB();
+    // Si no hay campaña activa, usar la primera disponible o crear una
+    let cid = campanaActiva;
+    if (!cid) {
+      const { data: camps } = await sb.from("campanas").select("id").eq("empresa_id", empresaId).order("fecha_inicio", { ascending: false }).limit(1);
+      if (camps?.[0]) { cid = camps[0].id; setCampanaActiva(cid); }
+      else {
+        const anio = new Date().getFullYear();
+        const { data: nueva } = await sb.from("campanas").insert({ empresa_id: empresaId, nombre: `${anio}/${anio+1}`, fecha_inicio: `${anio}-05-20`, fecha_fin: `${anio+1}-05-19`, activo: true }).select().single();
+        if (nueva) { cid = nueva.id; setCampanaActiva(cid); const camps2 = [...campanas, nueva]; setCampanas(camps2 as any); }
+      }
+    }
     const cultivoInfo = CULTIVOS_LISTA.find(c => c.cultivo+"|"+c.orden === form.cultivo_key) || CULTIVOS_LISTA[0];
     const esSeg = form.es_segundo_cultivo === "true";
-    const payload = {
+    const payload: Record<string,any> = {
       empresa_id: empresaId,
-      campana_id: campanaActiva,
-      nombre: form.nombre,
+      campana_id: cid,
+      nombre: form.nombre.trim(),
       hectareas: Number(form.hectareas ?? 0),
-      propietario: form.propietario ?? "",
-      tipo_tenencia: form.tipo_tenencia ?? "Propio",
-      partido: form.partido ?? "",
-      provincia: form.provincia ?? "",
-      cultivo: cultivoInfo.cultivo,
-      cultivo_orden: cultivoInfo.orden,
-      cultivo_completo: cultivoInfo.label,
-      fecha_siembra: form.fecha_siembra || null,
-      fecha_fin_ciclo: form.fecha_fin_ciclo || null,
-      rendimiento_esperado: Number(form.rendimiento_esperado ?? 0),
-      rendimiento_real: Number(form.rendimiento_real ?? 0),
-      precio_venta_real: Number(form.precio_venta_real ?? 0),
       estado: form.estado ?? "planificado",
       es_segundo_cultivo: esSeg,
-      lote_id_primer_cultivo: esSeg && form.lote_base_id ? form.lote_base_id : null,
     };
-    if (editandoLote) {
-      await sb.from("lotes").update(payload).eq("id", editandoLote);
-      setEditandoLote(null);
-    } else {
-      await sb.from("lotes").insert(payload);
-    }
-    msg("✅ Lote guardado");
-    await fetchLotes(empresaId, campanaActiva);
-    setShowFormLote(false); setForm({});
+    // Campos opcionales — solo los agrega si tienen valor
+    if (form.propietario?.trim()) payload.propietario = form.propietario.trim();
+    if (form.tipo_tenencia) payload.tipo_tenencia = form.tipo_tenencia;
+    if (form.partido?.trim()) payload.partido = form.partido.trim();
+    if (form.provincia?.trim()) payload.provincia = form.provincia.trim();
+    if (form.cultivo_key) { payload.cultivo = cultivoInfo.cultivo; payload.cultivo_orden = cultivoInfo.orden; payload.cultivo_completo = cultivoInfo.label; }
+    if (form.fecha_siembra) payload.fecha_siembra = form.fecha_siembra;
+    if (form.fecha_fin_ciclo) payload.fecha_fin_ciclo = form.fecha_fin_ciclo;
+    if (form.rendimiento_esperado) payload.rendimiento_esperado = Number(form.rendimiento_esperado);
+    if (esSeg && form.lote_base_id) payload.lote_id_primer_cultivo = form.lote_base_id;
+    try {
+      if (editandoLote) {
+        const { error } = await sb.from("lotes").update(payload).eq("id", editandoLote);
+        if (error) { console.error(error); msg("❌ Error: "+error.message); return; }
+        setEditandoLote(null);
+      } else {
+        const { error } = await sb.from("lotes").insert(payload);
+        if (error) { console.error(error); msg("❌ Error: "+error.message); return; }
+      }
+      msg("✅ Lote guardado");
+      await fetchLotes(empresaId, cid);
+      setShowFormLote(false); setForm({});
+    } catch(e: any) { msg("❌ Error: "+e.message); }
   };
 
   const eliminarLote = async (id: string) => {
@@ -414,26 +427,47 @@ export default function LotesPage() {
       const cc = headers.findIndex((h: string) => h.includes("cultivo"));
       const cp = headers.findIndex((h: string) => h.includes("partido")||h.includes("localidad"));
       const ct = headers.findIndex((h: string) => h.includes("tenencia")||h.includes("tipo"));
-      if (ci === -1) { setImportMsg("❌ No se encontró columna LOTE"); return; }
-      const preview = rows.slice(1).filter((r: any) => r[ci]).map((r: any) => {
-        const nombre = String(r[ci]).trim();
-        const cultTexto = cc >= 0 ? String(r[cc]).toLowerCase().trim() : "soja";
-        // Detectar cultivo y orden
-        let cultivo = "soja"; let orden = "1ra";
-        if (cultTexto.includes("maiz")||cultTexto.includes("maíz")) { cultivo="maiz"; orden=cultTexto.includes("2")?"2do":cultTexto.includes("tard")?"1ro_tardio":"1ro_temprano"; }
-        else if (cultTexto.includes("trigo")) { cultivo="trigo"; orden="1ro"; }
-        else if (cultTexto.includes("girasol")) { cultivo="girasol"; orden=cultTexto.includes("2")?"2do":"1ro"; }
-        else if (cultTexto.includes("sorgo")) { cultivo="sorgo"; orden=cultTexto.includes("2")?"2do":"1ro"; }
-        else if (cultTexto.includes("cebada")) { cultivo="cebada"; orden="1ra"; }
-        else if (cultTexto.includes("arveja")) { cultivo="arveja"; orden="1ra"; }
-        else if (cultTexto.includes("vicia")) { cultivo="vicia"; orden="cobertura"; }
-        else if (cultTexto.includes("soja")) { orden=cultTexto.includes("2")?"2da":"1ra"; }
+      const cf = headers.findIndex((h: string) => h.includes("fecha")||h.includes("siem"));
+      const cprop = headers.findIndex((h: string) => h.includes("prop")||h.includes("dueño")||h.includes("owner"));
+      // Ni LOTE ni nada → usar primera columna
+      const colNombre = ci >= 0 ? ci : 0;
+      const parseFecha = (v: any) => {
+        const s = String(v).trim();
+        if (!s || s === "0") return null;
+        if (!isNaN(Number(s)) && Number(s) > 1000) { const d = new Date((Number(s)-25569)*86400*1000); return d.toISOString().split("T")[0]; }
+        const p = s.split(/[\/\-]/);
+        if (p.length === 3) { const y = p[2].length === 2 ? "20"+p[2] : p[2]; return `${y}-${p[1].padStart(2,"0")}-${p[0].padStart(2,"0")}`; }
+        return s || null;
+      };
+      const preview = rows.slice(1).filter((r: any) => r[colNombre] && String(r[colNombre]).trim()).map((r: any) => {
+        const nombre = String(r[colNombre]).trim();
+        const cultTexto = cc >= 0 ? String(r[cc]).toLowerCase().trim() : "";
+        let cultivo = ""; let orden = "1ra";
+        if (cultTexto) {
+          if (cultTexto.includes("maiz")||cultTexto.includes("maíz")) { cultivo="maiz"; orden=cultTexto.includes("2")?"2do":cultTexto.includes("tard")?"1ro_tardio":"1ro_temprano"; }
+          else if (cultTexto.includes("trigo")) { cultivo="trigo"; orden="1ro"; }
+          else if (cultTexto.includes("girasol")) { cultivo="girasol"; orden=cultTexto.includes("2")?"2do":"1ro"; }
+          else if (cultTexto.includes("sorgo")) { cultivo="sorgo"; orden=cultTexto.includes("2")?"2do":"1ro"; }
+          else if (cultTexto.includes("cebada")) { cultivo="cebada"; orden="1ra"; }
+          else if (cultTexto.includes("arveja")) { cultivo="arveja"; orden="1ra"; }
+          else if (cultTexto.includes("vicia")) { cultivo="vicia"; orden="cobertura"; }
+          else if (cultTexto.includes("soja")||cultTexto.includes("so")) { cultivo="soja"; orden=cultTexto.includes("2")?"2da":"1ra"; }
+          else { cultivo="otro"; orden="1ro"; }
+        }
+        const fechaSiembra = cf >= 0 ? parseFecha(r[cf]) : null;
         const existe = lotes.find(l => l.nombre.toLowerCase().trim() === nombre.toLowerCase());
         return {
-          nombre, hectareas: Number(r[ch]??0)||0, cultivo, cultivo_orden: orden,
-          cultivo_completo: getCultivoInfo(cultivo,orden).label,
-          partido: cp>=0?String(r[cp]).trim():"", tipo_tenencia: ct>=0?String(r[ct]).trim():"Propio",
-          accion: existe?"actualizar":"crear", id_existente: existe?.id??null,
+          nombre,
+          hectareas: ch >= 0 ? (Number(r[ch]) || 0) : 0,
+          cultivo: cultivo || null,
+          cultivo_orden: orden,
+          cultivo_completo: cultivo ? getCultivoInfo(cultivo, orden).label : "",
+          partido: cp >= 0 ? String(r[cp]).trim() : "",
+          tipo_tenencia: ct >= 0 ? String(r[ct]).trim() : "Propio",
+          fecha_siembra: fechaSiembra,
+          propietario: cprop >= 0 ? String(r[cprop]).trim() : "",
+          accion: existe ? "actualizar" : "crear",
+          id_existente: existe?.id ?? null,
         };
       });
       setImportPreview(preview);
@@ -442,20 +476,46 @@ export default function LotesPage() {
   };
 
   const confirmarImportLotes = async () => {
-    if (!empresaId || !campanaActiva || !importPreview.length) return;
+    if (!empresaId || !importPreview.length) return;
     const sb = await getSB();
-    let creados = 0; let actualizados = 0;
-    for (const l of importPreview) {
-      if (l.accion==="actualizar" && l.id_existente) {
-        await sb.from("lotes").update({ hectareas:l.hectareas, cultivo:l.cultivo, cultivo_orden:l.cultivo_orden, cultivo_completo:l.cultivo_completo, partido:l.partido }).eq("id",l.id_existente);
-        actualizados++;
-      } else {
-        await sb.from("lotes").insert({ empresa_id:empresaId, campana_id:campanaActiva, nombre:l.nombre, hectareas:l.hectareas, cultivo:l.cultivo, cultivo_orden:l.cultivo_orden, cultivo_completo:l.cultivo_completo, tipo_tenencia:l.tipo_tenencia||"Propio", partido:l.partido||"", estado:"planificado", es_segundo_cultivo:false });
-        creados++;
+    // Asegurar campaña activa
+    let cid = campanaActiva;
+    if (!cid) {
+      const { data: camps } = await sb.from("campanas").select("id").eq("empresa_id", empresaId).order("fecha_inicio", { ascending: false }).limit(1);
+      if (camps?.[0]) { cid = camps[0].id; setCampanaActiva(cid); }
+      else {
+        const anio = new Date().getFullYear();
+        const { data: nueva } = await sb.from("campanas").insert({ empresa_id: empresaId, nombre: `${anio}/${anio+1}`, fecha_inicio: `${anio}-05-20`, fecha_fin: `${anio+1}-05-19`, activo: true }).select().single();
+        if (nueva) { cid = nueva.id; setCampanaActiva(cid); }
       }
     }
-    msg(`✅ ${creados} creados · ${actualizados} actualizados`);
-    await fetchLotes(empresaId, campanaActiva);
+    if (!cid) { msg("❌ No se pudo obtener campaña"); return; }
+    let creados = 0; let actualizados = 0; const errores: string[] = [];
+    for (const l of importPreview) {
+      try {
+        if (l.accion==="actualizar" && l.id_existente) {
+          const upd: Record<string,any> = { hectareas: l.hectareas };
+          if (l.cultivo) { upd.cultivo=l.cultivo; upd.cultivo_orden=l.cultivo_orden; upd.cultivo_completo=l.cultivo_completo; }
+          if (l.partido) upd.partido = l.partido;
+          if (l.fecha_siembra) upd.fecha_siembra = l.fecha_siembra;
+          await sb.from("lotes").update(upd).eq("id",l.id_existente);
+          actualizados++;
+        } else {
+          const ins: Record<string,any> = { empresa_id:empresaId, campana_id:cid, nombre:l.nombre, hectareas:l.hectareas, estado:"planificado", es_segundo_cultivo:false };
+          if (l.cultivo) { ins.cultivo=l.cultivo; ins.cultivo_orden=l.cultivo_orden; ins.cultivo_completo=l.cultivo_completo; }
+          if (l.tipo_tenencia) ins.tipo_tenencia = l.tipo_tenencia;
+          if (l.partido) ins.partido = l.partido;
+          if (l.fecha_siembra) ins.fecha_siembra = l.fecha_siembra;
+          if (l.propietario) ins.propietario = l.propietario;
+          await sb.from("lotes").insert(ins);
+          creados++;
+        }
+      } catch(e: any) { errores.push(l.nombre+": "+e.message); }
+    }
+    const errMsg = errores.length ? ` · ${errores.length} errores` : "";
+    msg(`✅ ${creados} creados · ${actualizados} actualizados${errMsg}`);
+    if (errores.length) console.error("Errores import:", errores);
+    await fetchLotes(empresaId, cid);
     setImportPreview([]); setImportMsg(""); setShowImport(false);
   };
 
@@ -919,8 +979,9 @@ export default function LotesPage() {
                         <tbody>{importPreview.map((r,i)=>(
                           <tr key={i} className="border-b border-[#C9A227]/5">
                             <td className="px-3 py-2 text-[#E5E7EB] font-mono font-bold">{r.nombre}</td>
-                            <td className="px-3 py-2 text-[#C9A227] font-mono">{r.hectareas}</td>
-                            <td className="px-3 py-2 text-[#4ADE80] font-mono">{r.cultivo_completo}</td>
+                            <td className="px-3 py-2 text-[#C9A227] font-mono">{r.hectareas||"—"}</td>
+                            <td className="px-3 py-2 text-[#4ADE80] font-mono">{r.cultivo_completo||"—"}</td>
+                            <td className="px-3 py-2 text-[#9CA3AF] font-mono">{r.fecha_siembra||"—"}</td>
                             <td className="px-3 py-2 text-[#9CA3AF] font-mono">{r.partido||"—"}</td>
                             <td className="px-3 py-2"><span className={`text-xs px-2 py-0.5 rounded font-mono ${r.accion==="crear"?"bg-[#4ADE80]/10 text-[#4ADE80]":"bg-[#60A5FA]/10 text-[#60A5FA]"}`}>{r.accion==="crear"?"✚ Crear":"✎ Actualizar"}</span></td>
                           </tr>
