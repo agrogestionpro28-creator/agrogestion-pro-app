@@ -366,44 +366,79 @@ export default function LotesPage() {
     try {
       const XLSX = await import("xlsx");
       const wb = XLSX.read(await file.arrayBuffer(),{type:"array"});
-      const rows: any[] = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});
-      if (rows.length<2){setImportMsg("SIN DATOS");return;}
-      const headers=rows[0].map((h:any)=>String(h).toLowerCase().trim());
-      const ci=headers.findIndex((h:string)=>h.includes("lote")||h.includes("nombre")||h.includes("campo"));
-      const ch=headers.findIndex((h:string)=>h.includes("ha")||h.includes("hect"));
-      const cc=headers.findIndex((h:string)=>h.includes("cultivo"));
-      const cp=headers.findIndex((h:string)=>h.includes("partido")||h.includes("localidad"));
-      const cf=headers.findIndex((h:string)=>h.includes("fecha")&&h.includes("siem"));
-      const cv=headers.findIndex((h:string)=>h.includes("varie")||h.includes("hibri"));
+      // Try to read with header:1 first to get raw rows
+      const wsData: any[] = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});
+      if (wsData.length<2){setImportMsg("SIN DATOS");return;}
+      const headers=wsData[0].map((h:any)=>String(h).toLowerCase().trim().replace(/[\s_]+/g,"_"));
+      
+      // Flexible column detection — acepta muchos nombres posibles
+      const ci=headers.findIndex((h:string)=>h.includes("lote")||h.includes("nombre")||h.includes("campo")||h.includes("parcela"));
+      const ch=headers.findIndex((h:string)=>h.includes("ha")||h.includes("hect")||h.includes("superficie"));
+      const cc=headers.findIndex((h:string)=>h.includes("cultivo")||h.includes("especie")||h.includes("semilla"));
+      const cp=headers.findIndex((h:string)=>h.includes("partido")||h.includes("localidad")||h.includes("ciudad")||h.includes("departamento"));
+      // Fecha siembra — acepta "fecha", "siembra", "fecha_siembra", etc
+      const cf=headers.findIndex((h:string)=>(h.includes("fecha")&&(h.includes("siem")||h.includes("plant")))||h===echa\||h===.siembra\);
+      // Variedad/Híbrido — acepta muchos nombres
+      const cv=headers.findIndex((h:string)=>h.includes("varie")||h.includes("hibri")||h.includes("genot")||h.includes("semilla_nombre")||h.includes("material"));
       const colNombre = ci>=0?ci:0;
-      const preview = rows.slice(1).filter((r:any)=>r[colNombre]&&String(r[colNombre]).trim()).map((r:any)=>{
-        const nombre=String(r[colNombre]).trim();
-        const cultTexto=cc>=0?String(r[cc]).toLowerCase().trim():"";
-        let cultivo=""; let orden="1ra";
-        if(cultTexto){
-          if(cultTexto.includes("maiz")||cultTexto.includes("maíz")){cultivo="maiz";orden=cultTexto.includes("2")?"2do":cultTexto.includes("tard")?"1ro_tardio":"1ro_temprano";}
-          else if(cultTexto.includes("trigo")){cultivo="trigo";orden="1ro";}
-          else if(cultTexto.includes("girasol")){cultivo="girasol";orden=cultTexto.includes("2")?"2do":"1ro";}
-          else if(cultTexto.includes("sorgo")){cultivo="sorgo";orden=cultTexto.includes("2")?"2do":"1ro";}
-          else if(cultTexto.includes("cebada")){cultivo="cebada";orden="1ra";}
-          else if(cultTexto.includes("arveja")){cultivo="arveja";orden="1ra";}
-          else if(cultTexto.includes("vicia")){cultivo="vicia";orden="cobertura";}
-          else if(cultTexto.includes("soja")||cultTexto.includes("so")){cultivo="soja";orden=cultTexto.includes("2")?"2da":"1ra";}
-          else{cultivo="otro";orden="1ro";}
+      
+      // También intentar lectura por objeto (con headers como keys)
+      const rowsObj: any[] = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""});
+      
+      const detectarCultivo = (texto: string): {cultivo:string, orden:string} => {
+        const t = texto.toLowerCase().trim().normalize("NFD").replace(/[̀-ͯ]/g,"");
+        if(t.includes("maiz")||t.includes("maiz")||t.includes("corn")){
+          return {cultivo:"maiz", orden:t.includes("2do")||t.includes("2da")||t.includes(" 2")?"2do":t.includes("tard")?"1ro_tardio":"1ro_temprano"};
         }
+        if(t.includes("trigo")||t.includes("wheat")) return {cultivo:"trigo",orden:"1ro"};
+        if(t.includes("girasol")||t.includes("sunfl")) return {cultivo:"girasol",orden:t.includes("2")?"2do":"1ro"};
+        if(t.includes("sorgo")||t.includes("sorghum")) return {cultivo:"sorgo",orden:t.includes("2")?"2do":"1ro"};
+        if(t.includes("cebada")||t.includes("barley")) return {cultivo:"cebada",orden:"1ra"};
+        if(t.includes("arveja")||t.includes("pea")) return {cultivo:"arveja",orden:"1ra"};
+        if(t.includes("vicia")) return {cultivo:"vicia",orden:"cobertura"};
+        if(t.includes("soja")||t.includes("soy")||t.includes("soya")){
+          return {cultivo:"soja",orden:t.includes("2da")||t.includes("2do")||t.includes(" 2")?"2da":"1ra"};
+        }
+        if(t) return {cultivo:"otro",orden:"1ro"};
+        return {cultivo:"",orden:""};
+      };
+
+      const preview = wsData.slice(1).filter((r:any)=>r[colNombre]&&String(r[colNombre]).trim()).map((r:any,idx:number)=>{
+        const nombre=String(r[colNombre]).trim();
+        // Try to get cultivo from column or from object row
+        const objRow = rowsObj[idx] || {};
+        const cultTextoCol = cc>=0?String(r[cc]).trim():"";
+        // Also look in obj row keys for cultivo-like keys
+        const cultTextoObj = Object.entries(objRow).find(([k])=>k.toLowerCase().includes("cultivo")||k.toLowerCase().includes("especie"))?.[1] as string || "";
+        const cultTexto = cultTextoCol || cultTextoObj || "";
+        const {cultivo, orden} = detectarCultivo(cultTexto);
+        
+        // Variedad — try column or obj keys
+        const variedadCol = cv>=0?String(r[cv]).trim():"";
+        const variedadObj = Object.entries(objRow).find(([k])=>k.toLowerCase().includes("varie")||k.toLowerCase().includes("hibri")||k.toLowerCase().includes("material"))?.[1] as string || "";
+        const variedad = variedadCol || variedadObj || "";
+
+        // Fecha siembra
+        const fechaCol = cf>=0?parseFecha(r[cf]):null;
+        const fechaObj = Object.entries(objRow).find(([k])=>k.toLowerCase().includes("siem")||k.toLowerCase().includes("fecha"))?.[1];
+        const fechaSiembra = fechaCol || (fechaObj?parseFecha(fechaObj):null);
+
         const existe=lotes.find(l=>l.nombre.toLowerCase().trim()===nombre.toLowerCase());
         return {
-          nombre, hectareas:ch>=0?(Number(r[ch])||0):0,
-          cultivo:cultivo||null, cultivo_orden:orden,
+          nombre,
+          hectareas: ch>=0?(Number(r[ch])||0):(Number((objRow as any).ha||(objRow as any).hectareas||(objRow as any).superficie||0)||0),
+          cultivo:cultivo||null, cultivo_orden:orden||"1ra",
           cultivo_completo:cultivo?getCultivoInfo(cultivo,orden).label:"",
           partido:cp>=0?String(r[cp]).trim():"",
-          fecha_siembra:cf>=0?parseFecha(r[cf]):null,
-          variedad:cv>=0?String(r[cv]).trim():"",
+          fecha_siembra:fechaSiembra,
+          variedad: variedad,
           accion:existe?"actualizar":"crear", id_existente:existe?.id??null,
         };
       });
       setImportPreview(preview);
-      setImportMsg(`✅ ${preview.length} LOTES DETECTADOS — CONFIRMÁ PARA IMPORTAR`);
+      const conCultivo = preview.filter((p:any)=>p.cultivo).length;
+      const conVariedad = preview.filter((p:any)=>p.variedad).length;
+      setImportMsg(`✅ ${preview.length} LOTES · ${conCultivo} CON CULTIVO · ${conVariedad} CON VARIEDAD/HÍBRIDO`);
     } catch(e:any){setImportMsg("❌ "+e.message);}
   };
 
@@ -420,7 +455,7 @@ export default function LotesPage() {
           if(l.cultivo){upd.cultivo=l.cultivo;upd.cultivo_orden=l.cultivo_orden;upd.cultivo_completo=l.cultivo_completo;}
           if(l.partido)upd.partido=l.partido;
           if(l.fecha_siembra)upd.fecha_siembra=l.fecha_siembra;
-          if(l.variedad)upd.variedad=l.variedad;
+          if(l.variedad){upd.variedad=l.variedad;upd.hibrido=l.variedad;}
           const{error}=await sb.from("lotes").update(upd).eq("id",l.id_existente);
           if(error)errores.push(l.nombre+": "+error.message);else actualizados++;
         }else{
@@ -428,7 +463,7 @@ export default function LotesPage() {
           if(l.cultivo){ins.cultivo=l.cultivo;ins.cultivo_orden=l.cultivo_orden;ins.cultivo_completo=l.cultivo_completo;}
           if(l.partido)ins.partido=l.partido;
           if(l.fecha_siembra)ins.fecha_siembra=l.fecha_siembra;
-          if(l.variedad)ins.variedad=l.variedad;
+          if(l.variedad){ins.variedad=l.variedad;ins.hibrido=l.variedad;}
           const{error}=await sb.from("lotes").insert(ins);
           if(error)errores.push(l.nombre+": "+error.message);else creados++;
         }
@@ -899,8 +934,8 @@ export default function LotesPage() {
                             <td className="px-3 py-2 text-[#E5E7EB] font-mono font-bold uppercase">{r.nombre}</td>
                             <td className="px-3 py-2 text-[#C9A227] font-mono">{r.hectareas||"—"}</td>
                             <td className="px-3 py-2 text-[#4ADE80] font-mono uppercase">{r.cultivo_completo||"—"}</td>
+                            <td className="px-3 py-2 text-[#60A5FA] font-mono">{r.variedad||"—"}</td>
                             <td className="px-3 py-2 text-[#9CA3AF] font-mono">{r.fecha_siembra||"—"}</td>
-                            <td className="px-3 py-2 text-[#9CA3AF] font-mono uppercase">{r.partido||"—"}</td>
                             <td className="px-3 py-2"><span className={`text-xs px-2 py-0.5 rounded font-mono uppercase font-bold ${r.accion==="crear"?"bg-[#4ADE80]/10 text-[#4ADE80]":"bg-[#60A5FA]/10 text-[#60A5FA]"}`}>{r.accion==="crear"?"✚ CREAR":"✎ ACTUALIZAR"}</span></td>
                           </tr>
                         ))}</tbody>
