@@ -8,7 +8,7 @@ type Lote = {
   id: string; nombre: string; hectareas: number;
   tipo_tenencia: string; partido: string; provincia: string;
   cultivo: string; cultivo_orden: string; cultivo_completo: string;
-  campana_id: string; fecha_siembra: string; fecha_cosecha: string;
+  campana_id: string; fecha_siembra: string; fecha_cosecha?: string;
   variedad: string; hibrido: string;
   rendimiento_esperado: number; rendimiento_real: number;
   estado: string; es_segundo_cultivo: boolean;
@@ -64,9 +64,10 @@ const ORDEN_ESTACIONAL: Record<string,number> = {
 };
 
 function getCultivoInfo(cultivo: string, orden: string) {
+  if (!cultivo) return { cultivo:"", orden:"", label:"SIN CULTIVO", color:"#4B5563", icon:"🌾", admite2do:false, usaHibrido:false };
   return CULTIVOS_LISTA.find(c => c.cultivo===cultivo && c.orden===orden) ||
     CULTIVOS_LISTA.find(c => c.cultivo===cultivo) ||
-    { cultivo, orden, label:cultivo.toUpperCase(), color:"#6B7280", icon:"🌱", admite2do:false, usaHibrido:false };
+    { cultivo, orden, label:(cultivo||"").toUpperCase(), color:"#6B7280", icon:"🌱", admite2do:false, usaHibrido:false };
 }
 
 export default function LotesPage() {
@@ -145,6 +146,7 @@ export default function LotesPage() {
 
   // Gráfico: cultivo activo por fecha
   const getCultivoActivoDelLote = (lote: Lote): Lote => {
+    if (!lote.cultivo) return lote;
     const segundos = lotes.filter(l => l.lote_id_primer_cultivo === lote.id);
     if (!segundos.length) return lote;
     const hoy = new Date();
@@ -160,9 +162,9 @@ export default function LotesPage() {
 
   const datosGrafico = (() => {
     const mapa: Record<string,{ha:number;color:string}> = {};
-    lotes.filter(l => !l.es_segundo_cultivo && l.cultivo).forEach(lote => {
+    lotes.filter(l => !l.es_segundo_cultivo && l.cultivo && l.cultivo !== "null").forEach(lote => {
       const lv = getCultivoActivoDelLote(lote);
-      const key = lv.cultivo_completo || lv.cultivo;
+      const key = lv.cultivo_completo || lv.cultivo || "sin cultivo";
       const info = getCultivoInfo(lv.cultivo, lv.cultivo_orden);
       if (!mapa[key]) mapa[key] = { ha:0, color:info.color };
       mapa[key].ha += lote.hectareas || 0;
@@ -309,13 +311,15 @@ export default function LotesPage() {
   // ===== ADJUNTAR ANÁLISIS =====
   const subirAdjunto = async (file: File, tipo: string) => {
     if (!empresaId || !loteActivo) return;
-    const sb = await getSB();
-    const ext = file.name.split(".").pop();
-    const path = `${empresaId}/${loteActivo.id}/${tipo}_${Date.now()}.${ext}`;
-    const { error } = await sb.storage.from("lotes-adjuntos").upload(path, file, { upsert:true });
-    if (error) { msg("❌ Error al subir: "+error.message); return; }
-    await sb.from("lote_adjuntos").insert({ empresa_id:empresaId, lote_id:loteActivo.id, tipo, nombre:file.name, path });
-    msg("✅ ARCHIVO ADJUNTADO");
+    try {
+      const sb = await getSB();
+      const ext = file.name.split(".").pop();
+      const path = `${empresaId}/${loteActivo.id}/${tipo}_${Date.now()}.${ext}`;
+      const { error } = await sb.storage.from("lotes-adjuntos").upload(path, file, { upsert:true });
+      if (error) { msg("❌ Error al subir: "+error.message); return; }
+      try { await sb.from("lote_adjuntos").insert({ empresa_id:empresaId, lote_id:loteActivo.id, tipo, nombre:file.name, path }); } catch {}
+      msg("✅ ARCHIVO ADJUNTADO");
+    } catch(e:any) { msg("❌ "+e.message); }
   };
 
   // ===== IMPORT/EXPORT =====
@@ -325,7 +329,7 @@ export default function LotesPage() {
       const mg=margenes.find(m=>m.lote_id===l.id);
       return { LOTE:l.nombre, HECTAREAS:l.hectareas, CULTIVO:l.cultivo_completo||l.cultivo,
         VARIEDAD_HIBRIDO:l.variedad||l.hibrido||"", ESTADO:l.estado,
-        FECHA_SIEMBRA:l.fecha_siembra||"", FECHA_COSECHA:l.fecha_cosecha||"",
+        FECHA_SIEMBRA:l.fecha_siembra||"", FECHA_COSECHA:l?.fecha_cosecha||"",
         TENENCIA:l.tipo_tenencia||"", PARTIDO:l.partido||"",
         REND_ESPERADO:l.rendimiento_esperado||0, REND_REAL:l.rendimiento_real||0,
         MARGEN_BRUTO:mg?Math.round(mg.margen_bruto):"", MB_HA:mg?Math.round(mg.margen_bruto_ha):"" };
@@ -525,7 +529,7 @@ export default function LotesPage() {
   const laboresLote = loteActivo ? labores.filter(l=>l.lote_id===loteActivo.id) : [];
   const margenLote = loteActivo ? margenes.find(m=>m.lote_id===loteActivo.id) : null;
   const segundosCultivos = loteActivo ? lotes.filter(l=>l.lote_id_primer_cultivo===loteActivo.id) : [];
-  const cultivoActivoInfo = loteActivo ? getCultivoInfo(loteActivo.cultivo,loteActivo.cultivo_orden) : null;
+  const cultivoActivoInfo = loteActivo ? getCultivoInfo(loteActivo.cultivo||"otro",loteActivo.cultivo_orden||"1ro") : null;
   const admite2do = cultivoActivoInfo?.admite2do ?? false;
   const usaHibrido = cultivoActivoInfo?.usaHibrido ?? false;
 
@@ -641,7 +645,7 @@ export default function LotesPage() {
                 {l:"PARTIDO",v:loteActivo.partido||"—",c:"#9CA3AF"},
                 {l:usaHibrido?"HÍBRIDO":"VARIEDAD",v:loteActivo.variedad||loteActivo.hibrido||"—",c:"#4ADE80"},
                 {l:"F. SIEMBRA",v:loteActivo.fecha_siembra||"SIN FECHA",c:"#60A5FA"},
-                {l:"F. COSECHA",v:loteActivo.fecha_cosecha||"—",c:"#A78BFA"},
+                {l:"F. COSECHA",v:loteActivo?.fecha_cosecha||"—",c:"#A78BFA"},
                 {l:"REND. ESPERADO",v:loteActivo.rendimiento_esperado?`${loteActivo.rendimiento_esperado} TN/HA`:"—",c:"#C9A227"},
                 {l:"MARGEN BRUTO",v:margenLote?`$${Math.round(margenLote.margen_bruto).toLocaleString("es-AR")}`:"—",c:margenLote&&margenLote.margen_bruto>=0?"#4ADE80":"#F87171"},
                 {l:"MB/HA",v:margenLote?`$${Math.round(margenLote.margen_bruto_ha).toLocaleString("es-AR")}/HA`:"—",c:"#C9A227"},
@@ -1015,7 +1019,7 @@ export default function LotesPage() {
                 ):(
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                     {lotes.filter(l=>!l.es_segundo_cultivo).map(lote=>{
-                      const ci=getCultivoInfo(lote.cultivo,lote.cultivo_orden);
+                      const ci=getCultivoInfo(lote.cultivo||"",lote.cultivo_orden||"");
                       const mg=margenes.find(m=>m.lote_id===lote.id);
                       const labsCount=labores.filter(l=>l.lote_id===lote.id).length;
                       const est=ESTADOS.find(e=>e.v===lote.estado);
@@ -1078,7 +1082,7 @@ export default function LotesPage() {
                     <tbody>
                       {margenes.map(m=>{
                         const lote=lotes.find(l=>l.id===m.lote_id);
-                        const ci=getCultivoInfo(m.cultivo,m.cultivo_orden);
+                        const ci=getCultivoInfo(m.cultivo||"",m.cultivo_orden||"");
                         return(
                           <tr key={m.id} className="border-b border-[#C9A227]/5 hover:bg-[#C9A227]/5 cursor-pointer" onClick={()=>{const l=lotes.find(x=>x.id===m.lote_id);if(l)setLoteActivo(l);}}>
                             <td className="px-4 py-3 font-bold text-[#E5E7EB] font-mono text-sm uppercase">{lote?.nombre||"—"}</td>
@@ -1153,4 +1157,3 @@ export default function LotesPage() {
     </div>
   );
 }
-
