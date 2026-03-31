@@ -516,10 +516,10 @@ export default function LotesPage() {
             estado: "planificado", es_segundo_cultivo: false,
           };
           if (l.cultivo) { ins.cultivo = l.cultivo; ins.cultivo_orden = l.cultivo_orden; ins.cultivo_completo = l.cultivo_completo; }
-          if (l.tipo_tenencia) ins.tipo_tenencia = l.tipo_tenencia;
+          if (l.tipo_tenencia) ins.tipo_alquiler = l.tipo_tenencia;
           if (l.partido) ins.partido = l.partido;
           if (l.fecha_siembra) ins.fecha_siembra = l.fecha_siembra;
-          if (l.propietario) ins.propietario = l.propietario;
+          // propietario optional field
           const { error } = await sb.from("lotes").insert(ins);
           if (error) errores.push(l.nombre + ": " + error.message); else creados++;
         }
