@@ -478,45 +478,62 @@ export default function LotesPage() {
   const confirmarImportLotes = async () => {
     if (!empresaId || !importPreview.length) return;
     const sb = await getSB();
-    // Asegurar campaña activa
+    // Obtener campaña — primero la activa, sino la primera disponible
     let cid = campanaActiva;
     if (!cid) {
-      const { data: camps } = await sb.from("campanas").select("id").eq("empresa_id", empresaId).order("fecha_inicio", { ascending: false }).limit(1);
-      if (camps?.[0]) { cid = camps[0].id; setCampanaActiva(cid); }
-      else {
-        const anio = new Date().getFullYear();
-        const { data: nueva } = await sb.from("campanas").insert({ empresa_id: empresaId, nombre: `${anio}/${anio+1}`, fecha_inicio: `${anio}-05-20`, fecha_fin: `${anio+1}-05-19`, activo: true }).select().single();
-        if (nueva) { cid = nueva.id; setCampanaActiva(cid); }
+      const { data: campsDB } = await sb.from("campanas").select("id,activo").eq("empresa_id", empresaId).order("año_inicio", { ascending: false });
+      const campActiva = campsDB?.find(c => c.activo) ?? campsDB?.[0];
+      if (campActiva) {
+        cid = campActiva.id;
+        setCampanaActiva(cid);
+        await fetchLotes(empresaId, cid);
       }
     }
-    if (!cid) { msg("❌ No se pudo obtener campaña"); return; }
+    if (!cid) {
+      // Último recurso: crear campaña con estructura correcta
+      const anio = new Date().getFullYear();
+      const { data: nueva, error: errNueva } = await sb.from("campanas").insert({
+        empresa_id: empresaId, nombre: `${anio}/${anio+1}`,
+        año_inicio: anio, año_fin: anio+1, activa: true,
+      }).select().single();
+      if (nueva) { cid = nueva.id; setCampanaActiva(cid); setCampanas(prev => [nueva as any, ...prev]); }
+      else { msg("❌ No hay campaña. Creá una primero desde el header."); console.error(errNueva); return; }
+    }
     let creados = 0; let actualizados = 0; const errores: string[] = [];
     for (const l of importPreview) {
       try {
-        if (l.accion==="actualizar" && l.id_existente) {
+        if (l.accion === "actualizar" && l.id_existente) {
           const upd: Record<string,any> = { hectareas: l.hectareas };
-          if (l.cultivo) { upd.cultivo=l.cultivo; upd.cultivo_orden=l.cultivo_orden; upd.cultivo_completo=l.cultivo_completo; }
+          if (l.cultivo) { upd.cultivo = l.cultivo; upd.cultivo_orden = l.cultivo_orden; upd.cultivo_completo = l.cultivo_completo; }
           if (l.partido) upd.partido = l.partido;
           if (l.fecha_siembra) upd.fecha_siembra = l.fecha_siembra;
-          await sb.from("lotes").update(upd).eq("id",l.id_existente);
-          actualizados++;
+          const { error } = await sb.from("lotes").update(upd).eq("id", l.id_existente);
+          if (error) errores.push(l.nombre + ": " + error.message); else actualizados++;
         } else {
-          const ins: Record<string,any> = { empresa_id:empresaId, campana_id:cid, nombre:l.nombre, hectareas:l.hectareas, estado:"planificado", es_segundo_cultivo:false };
-          if (l.cultivo) { ins.cultivo=l.cultivo; ins.cultivo_orden=l.cultivo_orden; ins.cultivo_completo=l.cultivo_completo; }
+          const ins: Record<string,any> = {
+            empresa_id: empresaId, campana_id: cid,
+            nombre: l.nombre, hectareas: l.hectareas || 0,
+            estado: "planificado", es_segundo_cultivo: false,
+          };
+          if (l.cultivo) { ins.cultivo = l.cultivo; ins.cultivo_orden = l.cultivo_orden; ins.cultivo_completo = l.cultivo_completo; }
           if (l.tipo_tenencia) ins.tipo_tenencia = l.tipo_tenencia;
           if (l.partido) ins.partido = l.partido;
           if (l.fecha_siembra) ins.fecha_siembra = l.fecha_siembra;
           if (l.propietario) ins.propietario = l.propietario;
-          await sb.from("lotes").insert(ins);
-          creados++;
+          const { error } = await sb.from("lotes").insert(ins);
+          if (error) errores.push(l.nombre + ": " + error.message); else creados++;
         }
-      } catch(e: any) { errores.push(l.nombre+": "+e.message); }
+      } catch(e: any) { errores.push(l.nombre + ": " + e.message); }
     }
-    const errMsg = errores.length ? ` · ${errores.length} errores` : "";
-    msg(`✅ ${creados} creados · ${actualizados} actualizados${errMsg}`);
-    if (errores.length) console.error("Errores import:", errores);
-    await fetchLotes(empresaId, cid);
-    setImportPreview([]); setImportMsg(""); setShowImport(false);
+    if (errores.length) { console.error("Errores:", errores); }
+    const total = creados + actualizados;
+    if (total > 0) {
+      msg(`✅ ${creados} creados · ${actualizados} actualizados${errores.length ? " · " + errores.length + " errores (ver consola)" : ""}`);
+      await fetchLotes(empresaId, cid);
+      setImportPreview([]); setImportMsg(""); setShowImport(false);
+    } else {
+      msg(`❌ No se pudo importar. Errores: ${errores.join(" | ")}`);
+    }
   };
 
   const leerExcelCuaderno = async (file: File) => {
