@@ -173,8 +173,16 @@ export default function IngenieroPanel() {
   };
 
   const entrarProductor = (prod: ProductorIng) => {
-    if (!prod.empresa_id) { msg("❌ ESTE PRODUCTOR NO TIENE CUENTA EN LA APP"); return; }
-    localStorage.setItem("ing_empresa_id", prod.empresa_id);
+    if (prod.empresa_id) {
+      // Modo compartido: tiene cuenta en la app
+      localStorage.setItem("ing_empresa_id", prod.empresa_id);
+      localStorage.setItem("ing_modo_compartido", "true");
+    } else {
+      // Modo propio: ingeniero gestiona lotes propios para este productor
+      // Usamos el id del productor como namespace de empresa virtual
+      localStorage.setItem("ing_empresa_id", prod.id);
+      localStorage.setItem("ing_modo_compartido", "false");
+    }
     localStorage.setItem("ing_empresa_nombre", prod.nombre);
     window.location.href = "/ingeniero/lotes";
   };
@@ -673,7 +681,7 @@ export default function IngenieroPanel() {
                       </div>
                       <div className="flex gap-2 flex-wrap">
                         {p.telefono && <a href={"https://wa.me/54"+p.telefono.replace(/\D/g,"")} target="_blank" rel="noreferrer" className="flex-1 text-center py-2 rounded-lg bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] text-xs font-mono font-bold hover:bg-[#25D366]/20">💬 WHATSAPP</a>}
-                        {p.tiene_cuenta && <button onClick={()=>entrarProductor(p)} className="flex-1 text-center py-2 rounded-lg bg-[#00FF80]/10 border border-[#00FF80]/30 text-[#00FF80] text-xs font-mono font-bold hover:bg-[#00FF80]/20">🌾 VER LOTES</button>}
+                        <button onClick={()=>entrarProductor(p)} className="flex-1 text-center py-2 rounded-lg bg-[#00FF80]/10 border border-[#00FF80]/30 text-[#00FF80] text-xs font-mono font-bold hover:bg-[#00FF80]/20">{p.tiene_cuenta?"🔗 VER LOTES COMPARTIDOS":"🌾 VER LOTES"}</button>
                       </div>
                     </div>
                     {p.observaciones && <div className="border-t border-[#00FF80]/10 px-5 py-2 text-xs text-[#4B5563] font-mono">{p.observaciones}</div>}
