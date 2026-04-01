@@ -134,11 +134,17 @@ export default function LotesPage() {
   const fetchLotes = async (eid: string, cid: string) => {
     const sb = await getSB();
     const [ls, lbs, mgs] = await Promise.all([
-      sb.from("lotes").select("*").eq("empresa_id", eid).eq("campana_id", cid).order("nombre"),
+      sb.from("lotes").select("*").eq("empresa_id", eid).eq("campana_id", cid),
       sb.from("lote_labores").select("*").eq("empresa_id", eid).order("fecha", { ascending: false }),
       sb.from("margen_bruto_detalle").select("*").eq("empresa_id", eid),
     ]);
-    setLotes(ls.data ?? []);
+    const sortedLotes = (ls.data ?? []).sort((a: any, b: any) => {
+      // Natural sort: numbers first, then alphabetical
+      const natA = a.nombre.replace(/(\d+)/g, (n: string) => n.padStart(10, "0"));
+      const natB = b.nombre.replace(/(\d+)/g, (n: string) => n.padStart(10, "0"));
+      return natA.localeCompare(natB, "es", { sensitivity: "base" });
+    });
+    setLotes(sortedLotes);
     setLabores(lbs.data ?? []);
     setMargenes(mgs.data ?? []);
   };
@@ -194,30 +200,30 @@ export default function LotesPage() {
     const sb = await getSB();
     const { data: todas } = await sb.from("campanas").select("*").eq("empresa_id", empresaId).order("año_inicio",{ascending:false});
     if (!todas || todas.length <= 1) return;
-    // Agrupar por año_inicio — quedarse con la más reciente de cada año
-    const porAnio: Record<number, any[]> = {};
-    todas.forEach((c:any) => {
-      if (!porAnio[c.año_inicio]) porAnio[c.año_inicio] = [];
-      porAnio[c.año_inicio].push(c);
-    });
-    // Eliminar duplicados — dejar solo 1 por año (la activa o la primera)
-    for (const [, camps] of Object.entries(porAnio)) {
-      if ((camps as any[]).length <= 1) continue;
-      const ordenadas = (camps as any[]).sort((a,b) => (b.activa?1:0)-(a.activa?1:0));
-      const aEliminar = ordenadas.slice(1).map((c:any)=>c.id);
-      for (const id of aEliminar) {
-        // Reasignar lotes al que quedó
-        await sb.from("lotes").update({campana_id: ordenadas[0].id}).eq("campana_id", id);
-        await sb.from("campanas").delete().eq("id", id);
+    const aniosVistos: number[] = [];
+    const aEliminar: string[] = [];
+    const keeper: Record<number, string> = {};
+    todas.forEach((c: any) => {
+      if (!aniosVistos.includes(c.año_inicio)) {
+        aniosVistos.push(c.año_inicio);
+        keeper[c.año_inicio] = c.id;
+      } else {
+        aEliminar.push(c.id);
       }
+    });
+    for (let i = 0; i < aEliminar.length; i++) {
+      const dupId = aEliminar[i];
+      const camp = todas.find((c: any) => c.id === dupId);
+      const keepId = camp ? keeper[camp.año_inicio] : null;
+      if (keepId) await sb.from("lotes").update({ campana_id: keepId }).eq("campana_id", dupId);
+      await sb.from("campanas").delete().eq("id", dupId);
     }
-    // Refrescar
     const { data: limpias } = await sb.from("campanas").select("*").eq("empresa_id", empresaId).order("año_inicio",{ascending:false});
     setCampanas(limpias ?? []);
-    const activa = (limpias ?? []).find((c:any)=>c.activa)?.id ?? limpias?.[0]?.id ?? "";
+    const activa = (limpias ?? []).find((c: any) => c.activa)?.id ?? limpias?.[0]?.id ?? "";
     setCampanaActiva(activa);
-    if (activa && empresaId) await fetchLotes(empresaId, activa);
-    msg("✅ CAMPAÑAS ORGANIZADAS");
+    if (activa) await fetchLotes(empresaId, activa);
+    msg("✅ CAMPAÑAS ORGANIZADAS — " + aEliminar.length + " DUPLICADAS ELIMINADAS");
   };
 
   const guardarLote = async () => {
