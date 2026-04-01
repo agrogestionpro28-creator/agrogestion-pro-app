@@ -81,6 +81,7 @@ export default function LotesPage() {
   const [loading, setLoading] = useState(true);
   const [loteActivo, setLoteActivo] = useState<Lote|null>(null);
   const [tab, setTab] = useState<"lotes"|"margen">("lotes");
+  const [filterCultivo, setFilterCultivo] = useState<string>("todos");
   const [showFormLote, setShowFormLote] = useState(false);
   const [showFormLabor, setShowFormLabor] = useState(false);
   const [showFormMargen, setShowFormMargen] = useState(false);
@@ -178,13 +179,45 @@ export default function LotesPage() {
   // ===== CRUD LOTES =====
   const getCampanaId = async (sb: any): Promise<string> => {
     if (campanaActiva) return campanaActiva;
-    const { data } = await sb.from("campanas").select("id,activa").eq("empresa_id", empresaId).order("año_inicio",{ascending:false});
+    const { data } = await sb.from("campanas").select("id,activa,año_inicio").eq("empresa_id", empresaId).order("año_inicio",{ascending:false});
     const c = data?.find((x:any)=>x.activa) ?? data?.[0];
     if (c) { setCampanaActiva(c.id); return c.id; }
     const anio = new Date().getFullYear();
     const { data: nueva } = await sb.from("campanas").insert({ empresa_id:empresaId, nombre:`${anio}/${anio+1}`, año_inicio:anio, año_fin:anio+1, activa:true }).select().single();
     if (nueva) { setCampanaActiva(nueva.id); setCampanas(p=>[nueva,...p]); return nueva.id; }
     return "";
+  };
+
+  // Limpiar campañas duplicadas — una sola por año
+  const limpiarCampanasDuplicadas = async () => {
+    if (!empresaId) return;
+    const sb = await getSB();
+    const { data: todas } = await sb.from("campanas").select("*").eq("empresa_id", empresaId).order("año_inicio",{ascending:false});
+    if (!todas || todas.length <= 1) return;
+    // Agrupar por año_inicio — quedarse con la más reciente de cada año
+    const porAnio: Record<number, any[]> = {};
+    todas.forEach((c:any) => {
+      if (!porAnio[c.año_inicio]) porAnio[c.año_inicio] = [];
+      porAnio[c.año_inicio].push(c);
+    });
+    // Eliminar duplicados — dejar solo 1 por año (la activa o la primera)
+    for (const [, camps] of Object.entries(porAnio)) {
+      if ((camps as any[]).length <= 1) continue;
+      const ordenadas = (camps as any[]).sort((a,b) => (b.activa?1:0)-(a.activa?1:0));
+      const aEliminar = ordenadas.slice(1).map((c:any)=>c.id);
+      for (const id of aEliminar) {
+        // Reasignar lotes al que quedó
+        await sb.from("lotes").update({campana_id: ordenadas[0].id}).eq("campana_id", id);
+        await sb.from("campanas").delete().eq("id", id);
+      }
+    }
+    // Refrescar
+    const { data: limpias } = await sb.from("campanas").select("*").eq("empresa_id", empresaId).order("año_inicio",{ascending:false});
+    setCampanas(limpias ?? []);
+    const activa = (limpias ?? []).find((c:any)=>c.activa)?.id ?? limpias?.[0]?.id ?? "";
+    setCampanaActiva(activa);
+    if (activa && empresaId) await fetchLotes(empresaId, activa);
+    msg("✅ CAMPAÑAS ORGANIZADAS");
   };
 
   const guardarLote = async () => {
@@ -448,7 +481,12 @@ export default function LotesPage() {
     const cid=await getCampanaId(sb);
     if(!cid){msg("❌ SIN CAMPAÑA ACTIVA");return;}
     let creados=0; let actualizados=0; const errores:string[]=[];
+    // Deduplicar por nombre antes de insertar
+    const nombresYaProcesados = new Set<string>();
     for(const l of importPreview){
+      const nombreKey = l.nombre.toLowerCase().trim();
+      if(nombresYaProcesados.has(nombreKey)) continue;
+      nombresYaProcesados.add(nombreKey);
       try{
         if(l.accion==="actualizar"&&l.id_existente){
           const upd:Record<string,any>={hectareas:l.hectareas};
@@ -614,8 +652,14 @@ export default function LotesPage() {
             <span className="text-xs text-[#4B5563] font-mono">🌾 CAMPAÑA:</span>
             <select value={campanaActiva} onChange={async e=>{setCampanaActiva(e.target.value);if(empresaId)await fetchLotes(empresaId,e.target.value);}}
               className="bg-[#0a1628]/80 border border-[#00FF80]/25 rounded-lg px-3 py-1.5 text-[#00FF80] text-xs font-mono focus:outline-none uppercase">
-              {campanas.map(c=><option key={c.id} value={c.id}>{c.nombre}{c.activa?" ★":""}</option>)}
+              {/* Dedup display — una por año */}
+              {campanas.filter((c,i,arr)=>arr.findIndex(x=>x.año_inicio===c.año_inicio)===i).map(c=><option key={c.id} value={c.id}>{c.nombre}{c.activa?" ★":""}</option>)}
             </select>
+            {campanas.length > campanas.filter((c,i,arr)=>arr.findIndex(x=>x.año_inicio===c.año_inicio)===i).length && (
+              <button onClick={limpiarCampanasDuplicadas} className="text-xs text-[#F87171] border border-[#F87171]/30 px-2 py-1.5 rounded-lg font-mono hover:bg-[#F87171]/10 uppercase font-bold" title="Hay campañas duplicadas — click para limpiar">
+                🧹 LIMPIAR
+              </button>
+            )}
           </div>
           <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}}
             className="flex items-center gap-2 px-4 py-2 rounded-xl border font-mono text-sm transition-all uppercase font-bold"
@@ -667,6 +711,9 @@ export default function LotesPage() {
                     setShowFormLote(true);
                   }} className="px-3 py-2 rounded-xl bg-[#C9A227]/15 border border-[#C9A227]/40 text-[#C9A227] font-mono text-xs font-bold hover:bg-[#C9A227]/25 uppercase">✏️ EDITAR</button>
                   <button onClick={()=>{setShowFormLabor(true);setEditandoLabor(null);setForm({});}} className="px-3 py-2 rounded-xl bg-[#4ADE80]/15 border border-[#4ADE80]/40 text-[#4ADE80] font-mono text-xs font-bold hover:bg-[#4ADE80]/25 uppercase">+ LABOR</button>
+                  {loteActivo.estado==="cosechado" && admite2do && segundosCultivos.length===0 && (
+                    <button onClick={()=>{setForm({es_segundo_cultivo:"true",lote_base_id:loteActivo.id,nombre:loteActivo.nombre+" (2do)",hectareas:String(loteActivo.hectareas),tipo_tenencia:loteActivo.tipo_tenencia||"Propio",partido:loteActivo.partido||"",estado:"planificado",cultivo_key:"soja|2da"});setEditandoLote(null);setShowFormLote(true);}} className="px-3 py-2 rounded-xl bg-[#00FF80]/15 border border-[#00FF80]/40 text-[#00FF80] font-mono text-xs font-bold hover:bg-[#00FF80]/25 uppercase">🔄 + 2DO CULTIVO</button>
+                  )}
                   <button onClick={()=>{const mg=margenes.find(m=>m.lote_id===loteActivo.id);if(mg)setForm({mg_rend_esp:String(mg.rendimiento_esperado),mg_rend_real:String(mg.rendimiento_real),mg_precio:String(mg.precio_tn),mg_semilla:String(mg.costo_semilla),mg_fertilizante:String(mg.costo_fertilizante),mg_agroquimicos:String(mg.costo_agroquimicos),mg_labores:String(mg.costo_labores),mg_alquiler:String(mg.costo_alquiler),mg_flete:String(mg.costo_flete),mg_comercializacion:String(mg.costo_comercializacion),mg_otros:String(mg.otros_costos)});setShowFormMargen(true);}} className="px-3 py-2 rounded-xl bg-[#60A5FA]/15 border border-[#60A5FA]/40 text-[#60A5FA] font-mono text-xs font-bold hover:bg-[#60A5FA]/25 uppercase">📊 MARGEN</button>
                   <button onClick={()=>eliminarLote(loteActivo.id)} className="px-3 py-2 rounded-xl border border-red-400/30 text-red-400 font-mono text-xs hover:bg-red-400/10 uppercase">🗑</button>
                 </div>
@@ -986,62 +1033,63 @@ export default function LotesPage() {
               </div>
             )}
 
-            {/* KPIs + Gráfico */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-              {/* KPIs izquierda */}
-              <div className="lg:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-3">
+            {/* KPIs compactos + filtros + gráfico */}
+            <div className="flex items-start gap-3 mb-4 flex-wrap">
+              {/* KPIs mini */}
+              <div className="flex gap-2 flex-shrink-0">
                 {[
-                  {l:"TOTAL LOTES",v:lotes.filter(l=>!l.es_segundo_cultivo).length+" LOTES",c:"#E5E7EB"},
-                  {l:"HECTÁREAS",v:`${totalHa.toLocaleString("es-AR")} HA`,c:"#C9A227"},
-                  {l:"MB ESTIMADO",v:`$${margenes.filter(m=>m.estado==="estimado").reduce((a,m)=>a+m.margen_bruto,0).toLocaleString("es-AR",{maximumFractionDigits:0})}`,c:"#4ADE80"},
-                  {l:"MB REAL",v:`$${margenes.filter(m=>m.estado==="real").reduce((a,m)=>a+m.margen_bruto,0).toLocaleString("es-AR",{maximumFractionDigits:0})}`,c:"#60A5FA"},
+                  {l:"LOTES",v:String(lotes.filter(l=>!l.es_segundo_cultivo).length),c:"#E5E7EB"},
+                  {l:"HA",v:totalHa.toLocaleString("es-AR"),c:"#C9A227"},
+                  {l:"MB EST.",v:`$${Math.round(margenes.filter(m=>m.estado==="estimado").reduce((a,m)=>a+m.margen_bruto,0)/1000)}K`,c:"#4ADE80"},
+                  {l:"MB REAL",v:`$${Math.round(margenes.filter(m=>m.estado==="real").reduce((a,m)=>a+m.margen_bruto,0)/1000)}K`,c:"#60A5FA"},
                 ].map(s=>(
-                  <div key={s.l} className="card-l p-4 text-center">
-                    <div className="text-xs text-[#4B5563] font-mono uppercase tracking-wider">{s.l}</div>
-                    <div className="text-lg font-bold font-mono mt-1 uppercase" style={{color:s.c}}>{s.v}</div>
+                  <div key={s.l} className="card-l px-3 py-2 text-center" style={{minWidth:68}}>
+                    <div className="text-xs text-[#4B5563] font-mono uppercase leading-none">{s.l}</div>
+                    <div className="text-sm font-bold font-mono mt-1" style={{color:s.c}}>{s.v}</div>
                   </div>
                 ))}
               </div>
-
-              {/* Gráfico derecha */}
+              {/* Filtros por cultivo */}
+              <div className="flex gap-1.5 flex-wrap items-center flex-1">
+                <button onClick={()=>setFilterCultivo("todos")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-mono border transition-all font-bold uppercase ${filterCultivo==="todos"?"border-[#C9A227] text-[#C9A227] bg-[#C9A227]/15":"border-[#C9A227]/20 text-[#4B5563] hover:text-[#9CA3AF]"}`}>
+                  TODOS ({lotes.filter(l=>!l.es_segundo_cultivo).length})
+                </button>
+                {datosGrafico.map(d=>(
+                  <button key={d.name} onClick={()=>setFilterCultivo(filterCultivo===d.name?"todos":d.name)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-mono border transition-all font-bold uppercase"
+                    style={{borderColor:filterCultivo===d.name?d.color:d.color+"50",background:filterCultivo===d.name?d.color+"20":"transparent",color:filterCultivo===d.name?d.color:d.color+"99"}}>
+                    {d.name} · {d.value}HA
+                  </button>
+                ))}
+              </div>
+              {/* Gráfico compacto */}
               {datosGrafico.length>0&&(
-                <div className="card-l p-4">
-                  <div className="text-xs text-[#4B5563] font-mono uppercase tracking-wider mb-2">SUPERFICIE POR CULTIVO</div>
-                  <div className="flex items-center gap-3">
-                    <div style={{width:110,height:110,flexShrink:0}}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie data={datosGrafico} cx="50%" cy="50%" outerRadius={50} innerRadius={22} dataKey="value" labelLine={false} label={renderLabel} paddingAngle={2}>
-                            {datosGrafico.map((e,i)=><Cell key={i} fill={e.color} stroke="rgba(2,8,16,0.5)" strokeWidth={2}/>)}
-                          </Pie>
-                          <Tooltip formatter={(v:any,n:string)=>[`${v} HA`,n]} contentStyle={{background:"#0a1628",border:"1px solid rgba(201,162,39,0.3)",borderRadius:"8px",fontFamily:"monospace",fontSize:"11px"}}/>
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex-1 space-y-1.5">
-                      {datosGrafico.map((d,i)=>{
-                        const pct=totalHa>0?(d.value/totalHa*100).toFixed(0):"0";
-                        return(
-                          <div key={i} className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{background:d.color}}/>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs font-mono uppercase truncate" style={{color:d.color}}>{d.name}</div>
-                              <div className="flex items-center gap-1 mt-0.5">
-                                <div className="flex-1 h-1 bg-[#1a2535] rounded-full overflow-hidden">
-                                  <div className="h-full rounded-full" style={{width:`${pct}%`,background:d.color}}/>
-                                </div>
-                                <span className="text-xs text-[#4B5563] font-mono">{d.value}HA</span>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                <div className="card-l p-3 flex items-center gap-3 flex-shrink-0">
+                  <div style={{width:80,height:80}}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={datosGrafico} cx="50%" cy="50%" outerRadius={38} innerRadius={16} dataKey="value" labelLine={false} label={renderLabel} paddingAngle={2}>
+                          {datosGrafico.map((e,i)=><Cell key={i} fill={e.color} stroke="rgba(2,8,16,0.5)" strokeWidth={2}/>)}
+                        </Pie>
+                        <Tooltip formatter={(v:any,n:string)=>[`${v} HA`,n]} contentStyle={{background:"#0a1628",border:"1px solid rgba(201,162,39,0.3)",borderRadius:"8px",fontFamily:"monospace",fontSize:"11px"}}/>
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="space-y-1" style={{minWidth:110}}>
+                    {datosGrafico.map((d,i)=>(
+                      <div key={i} className="flex items-center gap-1.5 cursor-pointer" onClick={()=>setFilterCultivo(filterCultivo===d.name?"todos":d.name)}>
+                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{background:d.color}}/>
+                        <span className="text-xs font-mono uppercase flex-1 truncate" style={{color:d.color,maxWidth:75}}>{d.name}</span>
+                        <span className="text-xs text-[#4B5563] font-mono">{d.value}HA</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
             </div>
 
+            
             {/* Lista lotes — grilla 3 columnas */}
             {tab==="lotes"&&(
               <div>
@@ -1053,7 +1101,19 @@ export default function LotesPage() {
                   </div>
                 ):(
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                    {lotes.filter(l=>!l.es_segundo_cultivo).map(lote=>{
+                    {(()=>{
+                      // Dedup: si hay lotes con mismo nombre en esta campaña, mostrar solo 1
+                      const vistos = new Set<string>();
+                      return lotes.filter(l=>!l.es_segundo_cultivo).filter(lote=>{
+                        const key = lote.nombre.toLowerCase().trim();
+                        if (vistos.has(key)) return false;
+                        vistos.add(key);
+                        if(filterCultivo==="todos") return true;
+                        const loteKey = lote.cultivo_completo||lote.cultivo||"";
+                        const ci2 = getCultivoInfo(lote.cultivo||"",lote.cultivo_orden||"");
+                        return loteKey===filterCultivo || ci2.label===filterCultivo;
+                      });
+                    })().map(lote=>{
                       const ci=getCultivoInfo(lote.cultivo||"",lote.cultivo_orden||"");
                       const mg=margenes.find(m=>m.lote_id===lote.id);
                       const labsCount=labores.filter(l=>l.lote_id===lote.id).length;
