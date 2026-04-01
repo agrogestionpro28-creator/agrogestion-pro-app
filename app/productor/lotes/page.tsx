@@ -35,7 +35,7 @@ type MargenDetalle = {
 const CULTIVOS_LISTA = [
   { cultivo:"soja", orden:"1ra", label:"SOJA 1RA", color:"#4ADE80", icon:"🌱", admite2do:false, usaHibrido:false },
   { cultivo:"soja", orden:"2da", label:"SOJA 2DA", color:"#86EFAC", icon:"🌿", admite2do:false, usaHibrido:false },
-  { cultivo:"maiz", orden:"1ro_temprano", label:"MAIZ 1RO TEMPRANO", color:"#C9A227", icon:"🌽", admite2do:false, usaHibrido:true },
+  { cultivo:"maiz", orden:"1ro_temprano", label:"MAIZ 1RO", color:"#C9A227", icon:"🌽", admite2do:false, usaHibrido:true },
   { cultivo:"maiz", orden:"1ro_tardio", label:"MAIZ 1RO TARDIO", color:"#D97706", icon:"🌽", admite2do:false, usaHibrido:true },
   { cultivo:"maiz", orden:"2do", label:"MAIZ 2DO", color:"#FCD34D", icon:"🌽", admite2do:false, usaHibrido:true },
   { cultivo:"trigo", orden:"1ro", label:"TRIGO 1RO", color:"#F59E0B", icon:"🌾", admite2do:true, usaHibrido:false },
@@ -275,7 +275,11 @@ export default function LotesPage() {
 
   const datosGrafico = (() => {
     const mapa: Record<string,{ha:number;color:string}> = {};
+    const vistosDG: string[] = [];
     lotes.filter(l => !l.es_segundo_cultivo && l.cultivo && l.cultivo !== "null").forEach(lote => {
+      const kDG = lote.nombre.toLowerCase().trim();
+      if (vistosDG.includes(kDG)) return;
+      vistosDG.push(kDG);
       const lv = getCultivoActivoDelLote(lote);
       const key = lv.cultivo_completo || lv.cultivo || "SIN CULTIVO";
       const info = getCultivoInfo(lv.cultivo, lv.cultivo_orden);
@@ -288,7 +292,16 @@ export default function LotesPage() {
       .sort((a, b) => b.value - a.value);
   })();
 
-  const totalHa = lotes.filter(l => !l.es_segundo_cultivo).reduce((a, l) => a + (l.hectareas || 0), 0);
+  const lotesPrincipales = (() => {
+    const vistos: string[] = [];
+    return lotes.filter(l => !l.es_segundo_cultivo).filter(l => {
+      const k = l.nombre.toLowerCase().trim();
+      if (vistos.includes(k)) return false;
+      vistos.push(k);
+      return true;
+    });
+  })();
+  const totalHa = lotesPrincipales.reduce((a, l) => a + (l.hectareas || 0), 0);
 
   // CRUD Lotes
   const guardarLote = async () => {
@@ -778,7 +791,7 @@ export default function LotesPage() {
                   <div className="md:col-span-2"><label className={lCls}>CULTIVO</label>
                     <select value={form.cultivo_key??"soja|1ra"} onChange={e=>setForm({...form,cultivo_key:e.target.value})} className={iCls}>
                       <optgroup label="SOJA"><option value="soja|1ra">🌱 SOJA 1RA</option><option value="soja|2da">🌿 SOJA 2DA</option></optgroup>
-                      <optgroup label="MAIZ"><option value="maiz|1ro_temprano">🌽 MAIZ 1RO TEMPRANO</option><option value="maiz|1ro_tardio">🌽 MAIZ 1RO TARDIO</option><option value="maiz|2do">🌽 MAIZ 2DO</option></optgroup>
+                      <optgroup label="MAIZ"><option value="maiz|1ro_temprano">🌽 MAIZ 1RO</option><option value="maiz|1ro_tardio">🌽 MAIZ 1RO TARDIO</option><option value="maiz|2do">🌽 MAIZ 2DO</option></optgroup>
                       <optgroup label="INVIERNO"><option value="trigo|1ro">🌾 TRIGO 1RO</option><option value="cebada|1ra">🍃 CEBADA 1RA</option><option value="arveja|1ra">🫛 ARVEJA 1RA</option></optgroup>
                       <optgroup label="OTROS"><option value="girasol|1ro">🌻 GIRASOL 1RO</option><option value="girasol|2do">🌻 GIRASOL 2DO</option><option value="sorgo|1ro">🌿 SORGO 1RO</option><option value="sorgo|2do">🌿 SORGO 2DO</option><option value="vicia|cobertura">🌱 VICIA COBERTURA</option><option value="verdeo|invierno">🌾 VERDEO INVIERNO</option><option value="verdeo|verano">🌾 VERDEO VERANO</option></optgroup>
                     </select>
@@ -1024,7 +1037,7 @@ export default function LotesPage() {
                   <div className="md:col-span-2"><label className={lCls}>CULTIVO</label>
                     <select value={form.cultivo_key??"soja|1ra"} onChange={e=>setForm({...form,cultivo_key:e.target.value})} className={iCls}>
                       <optgroup label="SOJA"><option value="soja|1ra">🌱 SOJA 1RA</option><option value="soja|2da">🌿 SOJA 2DA</option></optgroup>
-                      <optgroup label="MAIZ"><option value="maiz|1ro_temprano">🌽 MAIZ 1RO TEMPRANO</option><option value="maiz|1ro_tardio">🌽 MAIZ 1RO TARDIO</option><option value="maiz|2do">🌽 MAIZ 2DO</option></optgroup>
+                      <optgroup label="MAIZ"><option value="maiz|1ro_temprano">🌽 MAIZ 1RO</option><option value="maiz|1ro_tardio">🌽 MAIZ 1RO TARDIO</option><option value="maiz|2do">🌽 MAIZ 2DO</option></optgroup>
                       <optgroup label="INVIERNO"><option value="trigo|1ro">🌾 TRIGO 1RO</option><option value="cebada|1ra">🍃 CEBADA 1RA</option><option value="arveja|1ra">🫛 ARVEJA 1RA</option></optgroup>
                       <optgroup label="OTROS"><option value="girasol|1ro">🌻 GIRASOL 1RO</option><option value="girasol|2do">🌻 GIRASOL 2DO</option><option value="sorgo|1ro">🌿 SORGO 1RO</option><option value="sorgo|2do">🌿 SORGO 2DO</option><option value="vicia|cobertura">🌱 VICIA COBERTURA</option><option value="verdeo|invierno">🌾 VERDEO INVIERNO</option><option value="verdeo|verano">🌾 VERDEO VERANO</option></optgroup>
                     </select>
@@ -1053,7 +1066,7 @@ export default function LotesPage() {
             <div className="flex items-start gap-3 mb-4 flex-wrap">
               <div className="flex gap-2 flex-shrink-0">
                 {[
-                  {l:"LOTES",v:String(lotes.filter(l=>!l.es_segundo_cultivo).length),c:"#E5E7EB"},
+                  {l:"LOTES",v:String(lotesPrincipales.length),c:"#E5E7EB"},
                   {l:"HA",v:totalHa.toLocaleString("es-AR"),c:"#C9A227"},
                   {l:"MB EST.",v:"$"+Math.round(margenes.filter(m=>m.estado==="estimado").reduce((a,m)=>a+m.margen_bruto,0)/1000)+"K",c:"#4ADE80"},
                   {l:"MB REAL",v:"$"+Math.round(margenes.filter(m=>m.estado==="real").reduce((a,m)=>a+m.margen_bruto,0)/1000)+"K",c:"#60A5FA"},
@@ -1067,7 +1080,7 @@ export default function LotesPage() {
               <div className="flex gap-1.5 flex-wrap items-center flex-1">
                 <button onClick={()=>setFilterCultivo("todos")}
                   className={"px-3 py-1.5 rounded-lg text-xs font-mono border transition-all font-bold " + (filterCultivo==="todos"?"border-[#C9A227] text-[#C9A227] bg-[#C9A227]/15":"border-[#C9A227]/20 text-[#4B5563] hover:text-[#9CA3AF]")}>
-                  TODOS ({lotes.filter(l=>!l.es_segundo_cultivo).length})
+                  TODOS ({lotesPrincipales.length})
                 </button>
                 {datosGrafico.map(d=>(
                   <button key={d.name} onClick={()=>setFilterCultivo(filterCultivo===d.name?"todos":d.name)}
@@ -1113,18 +1126,12 @@ export default function LotesPage() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                    {(() => {
-                      const vistos: string[] = [];
-                      return lotes.filter(l => !l.es_segundo_cultivo).filter(lote => {
-                        const key = lote.nombre.toLowerCase().trim();
-                        if (vistos.includes(key)) return false;
-                        vistos.push(key);
+                    {lotesPrincipales.filter(lote => {
                         if (filterCultivo === "todos") return true;
                         const loteKey = lote.cultivo_completo || lote.cultivo || "";
                         const ci2 = getCultivoInfo(lote.cultivo || "", lote.cultivo_orden || "");
                         return loteKey === filterCultivo || ci2.label === filterCultivo;
-                      });
-                    })().map(lote => {
+                      }).map(lote => {
                       const ci = getCultivoInfo(lote.cultivo || "", lote.cultivo_orden || "");
                       const mg = margenes.find(m => m.lote_id === lote.id);
                       const labsCount = labores.filter(l => l.lote_id === lote.id).length;
