@@ -140,8 +140,8 @@ export default function LotesPage() {
     ]);
     const sortedLotes = (ls.data ?? []).sort((a: any, b: any) => {
       // Natural sort: numbers first, then alphabetical
-      const natA = a.nombre.replace(/(\d+)/g, (n: string) => n.padStart(10, "0"));
-      const natB = b.nombre.replace(/(\d+)/g, (n: string) => n.padStart(10, "0"));
+      const natA = a.nombre.replace(/([0-9]+)/g, (n: string) => n.padStart(10, "0"));
+      const natB = b.nombre.replace(/([0-9]+)/g, (n: string) => n.padStart(10, "0"));
       return natA.localeCompare(natB, "es", { sensitivity: "base" });
     });
     setLotes(sortedLotes);
@@ -408,7 +408,7 @@ export default function LotesPage() {
       // Try to read with header:1 first to get raw rows
       const wsData: any[] = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});
       if (wsData.length<2){setImportMsg("SIN DATOS");return;}
-      const headers=wsData[0].map((h:any)=>String(h).toLowerCase().trim().replace(/[\s_]+/g,"_"));
+      const headers=wsData[0].map((h:any)=>String(h).toLowerCase().trim().replace(/[ _]+/g,"_"));
       
       // Flexible column detection — acepta muchos nombres posibles
       const ci=headers.findIndex((h:string)=>h.includes("lote")||h.includes("nombre")||h.includes("campo")||h.includes("parcela"));
