@@ -197,7 +197,7 @@ export default function IngenieroPanel() {
     if (!u) { msg("❌ NO SE ENCONTRO PRODUCTOR CON ESE CODIGO"); return; }
     const { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", u.id).single();
     if (!emp) { msg("❌ EL PRODUCTOR NO TIENE EMPRESA"); return; }
-    const { data: existe } = await sb.from("ing_productores").select("id").eq("ingeniero_id", ingenieroId).eq("empresa_id", emp.id).single();
+    const { data: existe } = await sb.from("ing_productores").select("id").eq("profesional_id", ingenieroId).eq("empresa_id", emp.id).single();
     if (existe) { msg("❌ YA ESTA EN TU LISTA"); return; }
     await sb.from("ing_productores").insert({
       ingeniero_id: ingenieroId, nombre: u.nombre, empresa_id: emp.id,
@@ -205,9 +205,9 @@ export default function IngenieroPanel() {
       honorario_monto: Number(form.honorario_monto ?? 0), activo: true,
     });
     // Crear vinculacion en tabla vinculaciones para compartir lotes
-    const { data: vincExiste } = await sb.from("vinculaciones").select("id").eq("ingeniero_id", ingenieroId).eq("empresa_id", emp.id).single();
+    const { data: vincExiste } = await sb.from("vinculaciones").select("id").eq("profesional_id", ingenieroId).eq("empresa_id", emp.id).single();
     if (!vincExiste) {
-      await sb.from("vinculaciones").insert({ ingeniero_id: ingenieroId, empresa_id: emp.id, activa: true, honorario_tipo: form.honorario_tipo ?? "mensual", honorario_monto: Number(form.honorario_monto ?? 0) });
+      await sb.from("vinculaciones").insert({ profesional_id: ingenieroId, empresa_id: emp.id, activa: true, rol_profesional: "ingeniero", honorario_tipo: form.honorario_tipo ?? "mensual", honorario_monto: Number(form.honorario_monto ?? 0) });
     }
     msg("✅ PRODUCTOR " + u.nombre + " VINCULADO — LOTES COMPARTIDOS");
     await fetchAll(ingenieroId); setShowFormVincular(false); setForm({});
