@@ -10,6 +10,11 @@ type Vinculacion = {
   id: string; ingeniero_nombre: string; empresa_nombre: string;
   propietario_nombre: string; activa: boolean;
 };
+type VinculacionDetalle = {
+  id: string; profesional_nombre: string; rol_profesional: string;
+  empresa_id: string; honorario_tipo: string; honorario_monto: number; activa: boolean;
+};
+
 type EmpresaDetalle = {
   id: string; nombre: string; propietario_id: string;
   propietario_nombre: string; propietario_email: string;
@@ -36,6 +41,9 @@ export default function AdminPanel() {
   const [vinculaciones, setVinculaciones] = useState<Vinculacion[]>([]);
   const [empresas, setEmpresas] = useState<EmpresaDetalle[]>([]);
   const [empresaActiva, setEmpresaActiva] = useState<EmpresaDetalle|null>(null);
+  const [vinculacionesEmpresa, setVinculacionesEmpresa] = useState<VinculacionDetalle[]>([]);
+  const [showVincLocal, setShowVincLocal] = useState(false);
+  const [formVinc, setFormVinc] = useState<Record<string,string>>({});
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"usuarios"|"vinculaciones">("usuarios");
   const [showForm, setShowForm] = useState(false);
@@ -154,6 +162,41 @@ export default function AdminPanel() {
     const sb = await getSB();
     await sb.from("vinculaciones").update({ activa: !activa }).eq("id", id);
     await fetchAll();
+    if (empresaActiva) await fetchVinculacionesEmpresa(empresaActiva.id);
+  };
+
+  const fetchVinculacionesEmpresa = async (empId: string) => {
+    const sb = await getSB();
+    const { data: vincs } = await sb.from("vinculaciones").select("*").eq("empresa_id", empId);
+    if (!vincs) { setVinculacionesEmpresa([]); return; }
+    const detalle: VinculacionDetalle[] = [];
+    for (const v of vincs) {
+      const { data: u } = await sb.from("usuarios").select("nombre,rol").eq("id", v.ingeniero_id).single();
+      detalle.push({
+        id: v.id, profesional_nombre: u?.nombre ?? "—",
+        rol_profesional: u?.rol ?? "ingeniero",
+        empresa_id: v.empresa_id, honorario_tipo: v.honorario_tipo ?? "mensual",
+        honorario_monto: v.honorario_monto ?? 0, activa: v.activa,
+      });
+    }
+    setVinculacionesEmpresa(detalle);
+  };
+
+  const vincularProfesionalAEmpresa = async () => {
+    if (!empresaActiva || !formVinc.usuario_id) { setMsg("❌ Selecciona un profesional"); return; }
+    const sb = await getSB();
+    const [usuarioId, rol] = formVinc.usuario_id.split("||");
+    const { data: existe } = await sb.from("vinculaciones").select("id").eq("ingeniero_id", usuarioId).eq("empresa_id", empresaActiva.id).single();
+    if (existe) { setMsg("❌ Ya esta vinculado"); return; }
+    await sb.from("vinculaciones").insert({
+      ingeniero_id: usuarioId, empresa_id: empresaActiva.id, activa: true,
+      honorario_tipo: formVinc.honorario_tipo ?? "mensual",
+      honorario_monto: Number(formVinc.honorario_monto ?? 0),
+    });
+    setMsg("✅ VINCULADO CORRECTAMENTE");
+    setFormVinc({}); setShowVincLocal(false);
+    await fetchVinculacionesEmpresa(empresaActiva.id);
+    await fetchAll();
   };
 
   const guardarEmpresaDetalle = async () => {
@@ -261,20 +304,61 @@ export default function AdminPanel() {
             </div>
           </div>
 
-          {/* Vinculaciones de este productor */}
+          {/* Vinculaciones de este productor — todos los roles */}
           <div className="bg-[#0a1628]/80 border border-[#60A5FA]/15 rounded-xl p-5 mt-5">
-            <h3 className="text-[#60A5FA] font-mono text-sm font-bold mb-3">🔗 INGENIEROS VINCULADOS</h3>
-            {vinculaciones.filter(v => empresaActiva && v.empresa_nombre === empresaActiva.nombre).length === 0 ? (
-              <p className="text-xs text-[#4B5563] font-mono">Sin ingenieros vinculados. Podés vincular uno desde la pestaña VINCULACIONES.</p>
-            ) : (
-              <div className="flex flex-wrap gap-3">
-                {vinculaciones.filter(v => empresaActiva && v.empresa_nombre === empresaActiva.nombre).map(v=>(
-                  <div key={v.id} className="flex items-center gap-2 px-3 py-2 bg-[#020810]/60 border border-[#60A5FA]/20 rounded-lg">
-                    <span className="text-[#60A5FA] text-xs font-mono font-bold">👨‍💼 {v.ingeniero_nombre}</span>
-                    <span className={"text-xs px-1.5 py-0.5 rounded font-mono "+(v.activa?"bg-[#4ADE80]/10 text-[#4ADE80]":"bg-[#F87171]/10 text-[#F87171]")}>{v.activa?"Activa":"Inactiva"}</span>
-                    <button onClick={()=>toggleVinculacion(v.id,v.activa)} className="text-xs text-[#4B5563] hover:text-[#9CA3AF] font-mono">{v.activa?"Desact.":"Activar"}</button>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[#60A5FA] font-mono text-sm font-bold">🔗 PROFESIONALES VINCULADOS</h3>
+              <button onClick={()=>setShowVincLocal(!showVincLocal)} className="text-xs text-[#60A5FA] border border-[#60A5FA]/30 px-3 py-1.5 rounded-lg font-mono hover:bg-[#60A5FA]/10 font-bold">
+                {showVincLocal?"CANCELAR":"+ VINCULAR"}
+              </button>
+            </div>
+
+            {showVincLocal && (
+              <div className="bg-[#020810]/60 border border-[#60A5FA]/20 rounded-xl p-4 mb-4">
+                <p className="text-xs text-[#4B5563] font-mono mb-3">Vinculá cualquier profesional con este productor</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div><label className={lCls}>PROFESIONAL</label>
+                    <select value={formVinc.usuario_id??""} onChange={e=>setFormVinc({...formVinc,usuario_id:e.target.value})} className={iCls}>
+                      <option value="">Seleccionar</option>
+                      {usuarios.filter(u=>u.rol!=="admin"&&u.rol!=="productor").map(u=>(
+                        <option key={u.id} value={u.id+"||"+u.rol}>{ROL_PREFIJOS[u.rol]?.icon} {u.nombre} ({ROL_PREFIJOS[u.rol]?.label}) — {u.codigo}</option>
+                      ))}
+                    </select>
                   </div>
-                ))}
+                  <div><label className={lCls}>TIPO HONORARIO</label>
+                    <select value={formVinc.honorario_tipo??"mensual"} onChange={e=>setFormVinc({...formVinc,honorario_tipo:e.target.value})} className={iCls}>
+                      <option value="mensual">Mensual</option><option value="por_ha">Por HA</option>
+                      <option value="por_campana">Por campaña</option><option value="por_servicio">Por servicio</option><option value="otro">Otro</option>
+                    </select>
+                  </div>
+                  <div><label className={lCls}>MONTO $</label><input type="number" value={formVinc.honorario_monto??""} onChange={e=>setFormVinc({...formVinc,honorario_monto:e.target.value})} className={iCls} placeholder="0"/></div>
+                  <div className="flex items-end"><button onClick={vincularProfesionalAEmpresa} className="w-full py-2.5 rounded-xl bg-[#60A5FA]/10 border border-[#60A5FA]/30 text-[#60A5FA] font-mono text-sm font-bold hover:bg-[#60A5FA]/20">▶ VINCULAR</button></div>
+                </div>
+              </div>
+            )}
+
+            {vinculacionesEmpresa.length === 0 ? (
+              <p className="text-xs text-[#4B5563] font-mono">Sin profesionales vinculados todavía.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {vinculacionesEmpresa.map(v=>{
+                  const config = ROL_PREFIJOS[v.rol_profesional] ?? ROL_PREFIJOS["ingeniero"];
+                  return(
+                    <div key={v.id} className="flex items-center justify-between px-4 py-3 bg-[#020810]/60 border border-[#60A5FA]/15 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg">{config.icon}</span>
+                        <div>
+                          <div className="text-sm font-bold font-mono" style={{color:config.color}}>{v.profesional_nombre}</div>
+                          <div className="text-xs text-[#4B5563] font-mono">{config.label} · {v.honorario_tipo?.replace("_"," ")} ${Number(v.honorario_monto||0).toLocaleString("es-AR")}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={"text-xs px-2 py-0.5 rounded font-mono "+(v.activa?"bg-[#4ADE80]/10 text-[#4ADE80]":"bg-[#F87171]/10 text-[#F87171]")}>{v.activa?"Activa":"Inactiva"}</span>
+                        <button onClick={()=>toggleVinculacion(v.id,v.activa)} className="text-xs text-[#4B5563] hover:text-[#9CA3AF] font-mono">{v.activa?"Desact.":"Activar"}</button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -413,7 +497,7 @@ export default function AdminPanel() {
                         </td>
                         <td className="px-5 py-3">
                           {empDeEsteUser && (
-                            <button onClick={()=>{setEmpresaActiva(empDeEsteUser);setForm({});}} className="text-xs text-[#C9A227] font-mono hover:underline border border-[#C9A227]/30 px-2 py-1 rounded hover:bg-[#C9A227]/10">
+                            <button onClick={async()=>{setEmpresaActiva(empDeEsteUser);setForm({});setShowVincLocal(false);setFormVinc({});await fetchVinculacionesEmpresa(empDeEsteUser.id);}} className="text-xs text-[#C9A227] font-mono hover:underline border border-[#C9A227]/30 px-2 py-1 rounded hover:bg-[#C9A227]/10">
                               📋 Ver datos
                             </button>
                           )}
