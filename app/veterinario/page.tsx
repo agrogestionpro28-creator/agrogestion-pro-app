@@ -1,62 +1,71 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Image from "next/image";
+import EscanerIA from "@/components/EscanerIA";
 
-type Seccion = "productores" | "recetas" | "historial" | "cobranza" | "vehiculo";
-type ModoProductor = "lista" | "vincular" | "crear";
+type Seccion = "perfil" | "productores" | "cobranza" | "vehiculo" | "ia_campo";
 
-type Productor = {
-  empresa_id: string; empresa_nombre: string;
-  propietario_nombre: string; propietario_email: string;
-  vinculacion_id: string; honorario_tipo: string;
-  honorario_monto: number;
+type ProductorVet = {
+  id: string; nombre: string; telefono: string; email: string;
+  localidad: string; provincia: string; hectareas_total: number;
+  cabezas_ganado: number; tipo_produccion: string;
+  observaciones: string; empresa_id: string | null;
+  tiene_cuenta: boolean; honorario_tipo: string; honorario_monto: number;
 };
-type CategoriaHacienda = { id: string; especie: string; categoria: string; cantidad: number; };
-type Receta = {
-  id: string; empresa_id: string; categoria_id: string; fecha: string;
-  diagnostico: string; tratamiento: string; producto: string; dosis: string;
-  via_administracion: string; duracion_dias: number; cantidad_animales: number;
-  periodo_retiro_dias: number; observaciones: string;
-};
-type Historial = {
-  id: string; empresa_id: string; categoria_id: string; fecha: string;
-  tipo: string; descripcion: string; diagnostico: string; tratamiento: string;
-  resultado: string; proximo_control: string; costo: number;
+type Visita = {
+  id: string; productor_id: string; fecha: string; tipo_servicio: string;
+  descripcion: string; animales: string; medicamentos: string;
+  dosis: string; observaciones: string; costo: number;
 };
 type Cobranza = {
-  id: string; empresa_id: string; concepto: string; monto: number;
-  fecha: string; estado: string; metodo_pago: string; observaciones: string;
+  id: string; productor_id: string; concepto: string;
+  monto: number; fecha: string; estado: string; metodo_pago: string;
 };
 type Vehiculo = {
-  id: string; nombre: string; marca: string; modelo: string; año: number;
-  patente: string; seguro_vencimiento: string; seguro_compania: string;
-  vtv_vencimiento: string; km_actuales: number; proximo_service_km: number;
+  id: string; nombre: string; marca: string; modelo: string;
+  anio: number; patente: string; seguro_vencimiento: string;
+  seguro_compania: string; vtv_vencimiento: string;
+  km_actuales: number; proximo_service_km: number;
 };
-type ServiceVehiculo = {
-  id: string; tipo: string; descripcion: string; costo: number; km: number; fecha: string; taller: string;
-};
+type ServiceVehiculo = { id: string; tipo: string; descripcion: string; costo: number; km: number; fecha: string; taller: string; };
+type MensajeIA = { rol: "user"|"assistant"; texto: string };
+type VozEstado = "idle"|"escuchando"|"procesando"|"respondiendo"|"error";
+
+const TIPOS_SERVICIO_VET = ["Receta veterinaria","Sanidad animal","Vacunacion","Diagnostico","Cirugia","Castracion","Analisis laboratorio","Asesoramiento reproductivo","Control hacienda","Aplicacion","Otro"];
 
 export default function VeterinarioPanel() {
   const [seccion, setSeccion] = useState<Seccion>("productores");
-  const [modoProductor, setModoProductor] = useState<ModoProductor>("lista");
-  const [vetId, setVetId] = useState<string | null>(null);
+  const [vetId, setVetId] = useState<string|null>(null);
   const [vetNombre, setVetNombre] = useState("");
-  const [productores, setProductores] = useState<Productor[]>([]);
-  const [prodSel, setProdSel] = useState<Productor | null>(null);
-  const [categorias, setCategorias] = useState<CategoriaHacienda[]>([]);
-  const [recetas, setRecetas] = useState<Receta[]>([]);
-  const [historial, setHistorial] = useState<Historial[]>([]);
+  const [vetData, setVetData] = useState<any>({});
+  const [productores, setProductores] = useState<ProductorVet[]>([]);
+  const [visitas, setVisitas] = useState<Visita[]>([]);
   const [cobranzas, setCobranzas] = useState<Cobranza[]>([]);
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
   const [servicios, setServicios] = useState<ServiceVehiculo[]>([]);
-  const [vehiculoSel, setVehiculoSel] = useState<Vehiculo | null>(null);
+  const [vehiculoSel, setVehiculoSel] = useState<Vehiculo|null>(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<Record<string, string>>({});
-  const [msg, setMsg] = useState("");
-  const [alertas, setAlertas] = useState<{ msg: string; urgencia: string }[]>([]);
-  const [aiMsg, setAiMsg] = useState("");
+  const [showFormVisita, setShowFormVisita] = useState(false);
+  const [showFormVincular, setShowFormVincular] = useState(false);
+  const [editandoProductor, setEditandoProductor] = useState<string|null>(null);
+  const [form, setForm] = useState<Record<string,string>>({});
+  const [msgExito, setMsgExito] = useState("");
+  const [alertas, setAlertas] = useState<{msg:string;urgencia:string}[]>([]);
+  const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [importMsg, setImportMsg] = useState("");
+  const [showImport, setShowImport] = useState(false);
+  const importRef = useRef<HTMLInputElement>(null);
+  const [vozEstado, setVozEstado] = useState<VozEstado>("idle");
+  const [vozPanel, setVozPanel] = useState(false);
+  const [vozTranscripcion, setVozTranscripcion] = useState("");
+  const [vozRespuesta, setVozRespuesta] = useState("");
+  const [vozInput, setVozInput] = useState("");
+  const recRef = useRef<any>(null);
+  const [aiChat, setAiChat] = useState<MensajeIA[]>([]);
+  const [aiInput, setAiInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [listening, setListening] = useState(false);
 
   const getSB = async () => {
     const { createClient } = await import("@supabase/supabase-js");
@@ -69,1061 +78,444 @@ export default function VeterinarioPanel() {
     const sb = await getSB();
     const { data: { user } } = await sb.auth.getUser();
     if (!user) { window.location.href = "/login"; return; }
-    const { data: u } = await sb.from("usuarios").select("id, nombre, rol").eq("auth_id", user.id).single();
+    const { data: u } = await sb.from("usuarios").select("*").eq("auth_id", user.id).single();
     if (!u || u.rol !== "veterinario") { window.location.href = "/login"; return; }
-    setVetId(u.id);
-    setVetNombre(u.nombre);
+    setVetId(u.id); setVetNombre(u.nombre); setVetData(u);
     await fetchAll(u.id);
     setLoading(false);
   };
 
   const fetchAll = async (vid: string) => {
     const sb = await getSB();
-    // Productores vinculados
-    const { data: vincs } = await sb.from("vinculaciones").select("*, empresas(id, nombre, propietario_id)").eq("ingeniero_id", vid).eq("activa", true);
-    if (vincs && vincs.length > 0) {
-      const prods: Productor[] = [];
-      for (const v of vincs) {
-        const emp = (v as any).empresas;
-        if (!emp) continue;
-        const { data: prop } = await sb.from("usuarios").select("nombre, email").eq("id", emp.propietario_id).single();
-        prods.push({
-          empresa_id: emp.id, empresa_nombre: emp.nombre,
-          propietario_nombre: prop?.nombre ?? "—",
-          propietario_email: prop?.email ?? "—",
-          vinculacion_id: v.id,
-          honorario_tipo: v.honorario_tipo ?? "mensual",
-          honorario_monto: v.honorario_monto ?? 0,
-        });
-      }
-      setProductores(prods);
-    } else { setProductores([]); }
-    // Recetas e historial
-    const [recs, hist, cobs, vehs] = await Promise.all([
-      sb.from("vet_recetas").select("*").eq("veterinario_id", vid).order("fecha", { ascending: false }),
-      sb.from("vet_historial").select("*").eq("veterinario_id", vid).order("fecha", { ascending: false }),
-      sb.from("vet_cobranzas").select("*").eq("veterinario_id", vid).order("fecha", { ascending: false }),
-      sb.from("vet_vehiculos").select("*").eq("veterinario_id", vid),
-    ]);
-    setRecetas(recs.data ?? []);
-    setHistorial(hist.data ?? []);
-    setCobranzas(cobs.data ?? []);
-    setVehiculos(vehs.data ?? []);
-    calcularAlertas(vehs.data ?? [], hist.data ?? [], cobs.data ?? []);
+    const { data: prods } = await sb.from("vet_productores").select("*").eq("veterinario_id", vid).eq("activo", true).order("nombre");
+    setProductores(prods ?? []);
+    const { data: vis } = await sb.from("vet_visitas").select("*").eq("veterinario_id", vid).order("fecha", { ascending: false });
+    setVisitas(vis ?? []);
+    const { data: cobs } = await sb.from("ing_cobranzas").select("*").eq("ingeniero_id", vid).order("fecha", { ascending: false });
+    setCobranzas(cobs ?? []);
+    const { data: vehs } = await sb.from("ing_vehiculos").select("*").eq("ingeniero_id", vid);
+    setVehiculos(vehs ?? []);
+    calcularAlertas(vehs ?? []);
   };
 
-  const calcularAlertas = (vehs: Vehiculo[], hist: Historial[], cobs: Cobranza[]) => {
-    const alerts: { msg: string; urgencia: string }[] = [];
+  const calcularAlertas = (vehs: Vehiculo[]) => {
+    const alerts: {msg:string;urgencia:string}[] = [];
     const hoy = new Date();
     vehs.forEach(v => {
       if (v.seguro_vencimiento) {
-        const diff = (new Date(v.seguro_vencimiento).getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24);
-        if (diff < 0) alerts.push({ msg: `${v.nombre}: Seguro VENCIDO`, urgencia: "alta" });
-        else if (diff <= 30) alerts.push({ msg: `${v.nombre}: Seguro vence en ${Math.round(diff)} días`, urgencia: diff <= 7 ? "alta" : "media" });
+        const d = (new Date(v.seguro_vencimiento).getTime() - hoy.getTime()) / (1000*60*60*24);
+        if (d < 0) alerts.push({ msg: v.nombre+": Seguro VENCIDO", urgencia:"alta" });
+        else if (d <= 30) alerts.push({ msg: v.nombre+": Seguro vence en "+Math.round(d)+" dias", urgencia: d<=7?"alta":"media" });
       }
       if (v.vtv_vencimiento) {
-        const diff = (new Date(v.vtv_vencimiento).getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24);
-        if (diff < 0) alerts.push({ msg: `${v.nombre}: VTV VENCIDA`, urgencia: "alta" });
-        else if (diff <= 30) alerts.push({ msg: `${v.nombre}: VTV vence en ${Math.round(diff)} días`, urgencia: diff <= 7 ? "alta" : "media" });
+        const d = (new Date(v.vtv_vencimiento).getTime() - hoy.getTime()) / (1000*60*60*24);
+        if (d < 0) alerts.push({ msg: v.nombre+": VTV VENCIDA", urgencia:"alta" });
+        else if (d <= 30) alerts.push({ msg: v.nombre+": VTV vence en "+Math.round(d)+" dias", urgencia: d<=7?"alta":"media" });
       }
-    });
-    hist.filter(h => h.proximo_control).forEach(h => {
-      const diff = (new Date(h.proximo_control).getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24);
-      if (diff < 0) alerts.push({ msg: `Control vencido: ${h.descripcion}`, urgencia: "alta" });
-      else if (diff <= 7) alerts.push({ msg: `Control en ${Math.round(diff)} días: ${h.descripcion}`, urgencia: "media" });
-    });
-    cobs.filter(c => c.estado === "pendiente").forEach(c => {
-      const diff = (hoy.getTime() - new Date(c.fecha).getTime()) / (1000 * 60 * 60 * 24);
-      if (diff > 30) alerts.push({ msg: `Cobro pendiente +30 días: $${c.monto.toLocaleString("es-AR")}`, urgencia: "media" });
     });
     setAlertas(alerts);
   };
 
-  const fetchCategorias = async (empId: string) => {
-    const sb = await getSB();
-    const { data } = await sb.from("hacienda_categorias").select("id, especie, categoria, cantidad").eq("empresa_id", empId);
-    setCategorias(data ?? []);
-  };
+  const msg = (t: string) => { setMsgExito(t); setTimeout(() => setMsgExito(""), 4000); };
 
-  const crearProductor = async () => {
-    if (!vetId) return;
-    setMsg("Creando productor...");
-    const sb = await getSB();
-    try {
-      const { data: todos } = await sb.from("usuarios").select("codigo").eq("rol", "productor");
-      const codigos = (todos ?? []).map((u: any) => Number(u.codigo)).filter((c: number) => c > 10000);
-      const nuevoCodigo = codigos.length === 0 ? 10001 : Math.max(...codigos) + 1;
-      const { data, error } = await sb.auth.signUp({
-        email: form.email_nuevo, password: form.password_nuevo,
-        options: { data: { nombre: form.nombre_nuevo } }
-      });
-      if (error) { setMsg("Error: " + error.message); return; }
-      if (!data.user) { setMsg("Error al crear usuario"); return; }
-      await sb.from("usuarios").insert({
-        auth_id: data.user.id, nombre: form.nombre_nuevo,
-        email: form.email_nuevo, rol: "productor",
-        codigo: String(nuevoCodigo), activo: true,
-      });
-      const { data: nuevoUser } = await sb.from("usuarios").select("id").eq("auth_id", data.user.id).single();
-      let empId = null;
-      if (nuevoUser) {
-        const { data: newEmp } = await sb.from("empresas").insert({
-          nombre: form.nombre_empresa_nuevo || `Empresa de ${form.nombre_nuevo}`,
-          propietario_id: nuevoUser.id,
-        }).select().single();
-        empId = newEmp?.id;
-      }
-      if (empId && form.vincular_tambien === "si") {
-        await sb.from("vinculaciones").insert({
-          ingeniero_id: vetId, empresa_id: empId, activa: true,
-          honorario_tipo: form.honorario_tipo ?? "mensual",
-          honorario_monto: Number(form.honorario_monto ?? 0),
-        });
-      }
-      const vinMsg = form.vincular_tambien === "si" ? "— Vinculado con vos" : "— Sin vincular";
-      setMsg(`✅ Productor creado — Código: ${nuevoCodigo} ${vinMsg}`);
-      await fetchAll(vetId);
-      setModoProductor("lista"); setForm({});
-    } catch { setMsg("Error inesperado"); }
-  };
-
-  const vincularProductor = async () => {
+  const guardarPerfil = async () => {
     if (!vetId) return;
     const sb = await getSB();
-    const { data: u } = await sb.from("usuarios").select("id").eq("email", form.email_productor).single();
-    if (!u) { setMsg("Productor no encontrado"); return; }
-    const { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", u.id).single();
-    if (!emp) { setMsg("El productor no tiene empresa"); return; }
-    const { data: existe } = await sb.from("vinculaciones").select("id").eq("ingeniero_id", vetId).eq("empresa_id", emp.id).single();
-    if (existe) { setMsg("Ya estás vinculado con este productor"); return; }
-    await sb.from("vinculaciones").insert({
-      ingeniero_id: vetId, empresa_id: emp.id, activa: true,
+    await sb.from("usuarios").update({
+      nombre: form.nombre ?? vetData.nombre,
+      telefono: form.telefono ?? vetData.telefono ?? "",
+      matricula: form.matricula ?? vetData.matricula ?? "",
+      especialidad: form.especialidad ?? vetData.especialidad ?? "",
+      cuit: form.cuit ?? vetData.cuit ?? "",
+      localidad: form.localidad ?? vetData.localidad ?? "",
+      provincia: form.provincia ?? vetData.provincia ?? "",
+      direccion: form.direccion ?? vetData.direccion ?? "",
+    }).eq("id", vetId);
+    msg("✅ PERFIL GUARDADO");
+    const sb2 = await getSB();
+    const { data: updated } = await sb2.from("usuarios").select("*").eq("id", vetId).single();
+    if (updated) setVetData(updated);
+  };
+
+  const guardarProductor = async () => {
+    if (!vetId || !form.nombre?.trim()) { msg("❌ INGRESA EL NOMBRE"); return; }
+    const sb = await getSB();
+    let empresa_id = null; let tiene_cuenta = false;
+    if (form.email?.trim()) {
+      const { data: usuario } = await sb.from("usuarios").select("id").eq("email", form.email.trim()).single();
+      if (usuario) {
+        const { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", usuario.id).single();
+        if (emp) { empresa_id = emp.id; tiene_cuenta = true; }
+      }
+    }
+    const payload = {
+      veterinario_id: vetId, nombre: form.nombre.trim(),
+      telefono: form.telefono ?? "", email: form.email ?? "",
+      localidad: form.localidad ?? "", provincia: form.provincia ?? "Santa Fe",
+      hectareas_total: Number(form.hectareas_total ?? 0),
+      cabezas_ganado: Number(form.cabezas_ganado ?? 0),
+      tipo_produccion: form.tipo_produccion ?? "",
+      observaciones: form.observaciones ?? "",
       honorario_tipo: form.honorario_tipo ?? "mensual",
       honorario_monto: Number(form.honorario_monto ?? 0),
-    });
-    setMsg("✅ Vinculado correctamente");
-    await fetchAll(vetId);
-    setModoProductor("lista"); setForm({});
+      empresa_id, tiene_cuenta, activo: true,
+    };
+    if (editandoProductor) {
+      await sb.from("vet_productores").update(payload).eq("id", editandoProductor);
+      setEditandoProductor(null);
+    } else {
+      await sb.from("vet_productores").insert(payload);
+    }
+    msg(tiene_cuenta ? "✅ GUARDADO — VINCULADO A APP" : "✅ PRODUCTOR GUARDADO");
+    await fetchAll(vetId); setShowForm(false); setForm({});
   };
 
-  const desvincular = async (vinculacion_id: string) => {
-    if (!confirm("¿Desvincular este productor?")) return;
+  const vincularPorCodigo = async () => {
+    if (!vetId || !form.codigo_productor?.trim()) { msg("❌ INGRESA EL CODIGO"); return; }
     const sb = await getSB();
-    await sb.from("vinculaciones").update({ activa: false }).eq("id", vinculacion_id);
+    const { data: u } = await sb.from("usuarios").select("id,nombre").eq("codigo", form.codigo_productor.trim()).eq("rol","productor").single();
+    if (!u) { msg("❌ NO SE ENCONTRO PRODUCTOR CON ESE CODIGO"); return; }
+    const { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", u.id).single();
+    const empresa_id = emp?.id ?? null;
+    const { data: existe } = await sb.from("vet_productores").select("id").eq("veterinario_id", vetId).eq("nombre", u.nombre).single();
+    if (existe) { msg("❌ YA ESTA EN TU LISTA"); return; }
+    await sb.from("vet_productores").insert({
+      veterinario_id: vetId, nombre: u.nombre, empresa_id,
+      tiene_cuenta: true, honorario_tipo: form.honorario_tipo ?? "mensual",
+      honorario_monto: Number(form.honorario_monto ?? 0), activo: true,
+    });
+    if (empresa_id) {
+      const { data: vincExiste } = await sb.from("vinculaciones").select("id").eq("ingeniero_id", vetId).eq("empresa_id", empresa_id).single();
+      if (!vincExiste) await sb.from("vinculaciones").insert({ ingeniero_id: vetId, empresa_id, activa: true, honorario_tipo: form.honorario_tipo ?? "mensual", honorario_monto: Number(form.honorario_monto ?? 0) });
+    }
+    msg("✅ PRODUCTOR " + u.nombre + " VINCULADO");
+    await fetchAll(vetId); setShowFormVincular(false); setForm({});
+  };
+
+  const eliminarProductor = async (id: string) => {
+    if (!confirm("Eliminar?")) return;
+    const sb = await getSB();
+    await sb.from("vet_productores").update({ activo: false }).eq("id", id);
     if (vetId) await fetchAll(vetId);
   };
 
-  const guardarReceta = async () => {
-    if (!vetId) return;
+  const guardarVisita = async () => {
+    if (!vetId || !form.productor_id_v) { msg("❌ SELECCIONA PRODUCTOR"); return; }
     const sb = await getSB();
-    await sb.from("vet_recetas").insert({
-      veterinario_id: vetId,
-      empresa_id: form.empresa_id ?? null,
-      categoria_id: form.categoria_id || null,
-      fecha: form.fecha ?? new Date().toISOString().split("T")[0],
-      diagnostico: form.diagnostico ?? "",
-      tratamiento: form.tratamiento ?? "",
-      producto: form.producto ?? "",
-      dosis: form.dosis ?? "",
-      via_administracion: form.via_administracion ?? "",
-      duracion_dias: Number(form.duracion_dias ?? 1),
-      cantidad_animales: Number(form.cantidad_animales ?? 0),
-      periodo_retiro_dias: Number(form.periodo_retiro_dias ?? 0),
-      observaciones: form.observaciones ?? "",
+    await sb.from("vet_visitas").insert({
+      veterinario_id: vetId, productor_id: form.productor_id_v,
+      fecha: form.fecha_v ?? new Date().toISOString().split("T")[0],
+      tipo_servicio: form.tipo_servicio ?? "Sanidad animal",
+      descripcion: form.descripcion_v ?? "",
+      animales: form.animales_v ?? "", medicamentos: form.medicamentos_v ?? "",
+      dosis: form.dosis_v ?? "", observaciones: form.obs_v ?? "",
+      costo: Number(form.costo_v ?? 0),
     });
-    await fetchAll(vetId);
-    setShowForm(false); setForm({});
-    setMsg("✅ Receta guardada");
+    msg("✅ VISITA REGISTRADA");
+    await fetchAll(vetId); setShowFormVisita(false); setForm({});
   };
 
-  const guardarHistorial = async () => {
-    if (!vetId) return;
-    const sb = await getSB();
-    await sb.from("vet_historial").insert({
-      veterinario_id: vetId,
-      empresa_id: form.empresa_id ?? null,
-      categoria_id: form.categoria_id || null,
-      fecha: form.fecha ?? new Date().toISOString().split("T")[0],
-      tipo: form.tipo_hist ?? "consulta",
-      descripcion: form.descripcion ?? "",
-      diagnostico: form.diagnostico ?? "",
-      tratamiento: form.tratamiento ?? "",
-      resultado: form.resultado ?? "",
-      proximo_control: form.proximo_control || null,
-      costo: Number(form.costo ?? 0),
-    });
-    await fetchAll(vetId);
-    setShowForm(false); setForm({});
-    setMsg("✅ Historial guardado");
+  const exportarExcel = async (tipo: "productores"|"visitas") => {
+    const XLSX = await import("xlsx");
+    let data: any[] = [];
+    if (tipo === "productores") {
+      data = productores.map(p => ({ NOMBRE:p.nombre, TELEFONO:p.telefono, EMAIL:p.email, LOCALIDAD:p.localidad, HA:p.hectareas_total, CABEZAS:p.cabezas_ganado, TIPO_PRODUCCION:p.tipo_produccion, HONORARIO_TIPO:p.honorario_tipo, HONORARIO_MONTO:p.honorario_monto, TIENE_CUENTA_APP:p.tiene_cuenta?"SI":"NO" }));
+    } else {
+      data = visitas.map(v => { const p = productores.find(x=>x.id===v.productor_id); return { PRODUCTOR:p?.nombre??"—", FECHA:v.fecha, SERVICIO:v.tipo_servicio, DESCRIPCION:v.descripcion, ANIMALES:v.animales, MEDICAMENTOS:v.medicamentos, DOSIS:v.dosis, COSTO:v.costo }; });
+    }
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws["!cols"] = Array(10).fill({ wch:18 });
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, tipo);
+    XLSX.writeFile(wb, tipo+"_"+new Date().toISOString().slice(0,10)+".xlsx");
   };
 
   const guardarCobranza = async () => {
     if (!vetId) return;
     const sb = await getSB();
-    await sb.from("vet_cobranzas").insert({
-      veterinario_id: vetId, empresa_id: form.empresa_id ?? null,
-      concepto: form.concepto ?? "", monto: Number(form.monto ?? 0),
-      fecha: form.fecha ?? new Date().toISOString().split("T")[0],
-      estado: form.estado ?? "pendiente", metodo_pago: form.metodo_pago ?? "",
-      observaciones: form.observaciones ?? "",
-    });
-    await fetchAll(vetId);
-    setShowForm(false); setForm({});
+    await sb.from("ing_cobranzas").insert({ ingeniero_id:vetId, productor_id:form.productor_id??null, concepto:form.concepto??"", monto:Number(form.monto??0), fecha:form.fecha??new Date().toISOString().split("T")[0], estado:form.estado??"pendiente", metodo_pago:form.metodo_pago??"" });
+    await fetchAll(vetId); setShowForm(false); setForm({}); msg("✅ COBRO REGISTRADO");
   };
-
-  const marcarCobrado = async (id: string) => {
-    const sb = await getSB();
-    await sb.from("vet_cobranzas").update({ estado: "cobrado" }).eq("id", id);
-    if (vetId) await fetchAll(vetId);
-  };
-
+  const marcarCobrado = async (id: string) => { const sb=await getSB(); await sb.from("ing_cobranzas").update({estado:"cobrado"}).eq("id",id); if(vetId)await fetchAll(vetId); };
   const guardarVehiculo = async () => {
-    if (!vetId) return;
+    if (!vetId||!form.nombre?.trim()) return;
     const sb = await getSB();
-    await sb.from("vet_vehiculos").insert({
-      veterinario_id: vetId, nombre: form.nombre, marca: form.marca ?? "",
-      modelo: form.modelo ?? "", año: Number(form.año ?? 0), patente: form.patente ?? "",
-      seguro_vencimiento: form.seguro_vencimiento || null, seguro_compania: form.seguro_compania ?? "",
-      vtv_vencimiento: form.vtv_vencimiento || null, km_actuales: Number(form.km_actuales ?? 0),
-      proximo_service_km: Number(form.proximo_service_km ?? 0),
-    });
-    await fetchAll(vetId);
-    setShowForm(false); setForm({});
+    await sb.from("ing_vehiculos").insert({ ingeniero_id:vetId, nombre:form.nombre, marca:form.marca??"", modelo:form.modelo??"", año:Number(form.anio??0), patente:form.patente??"", seguro_vencimiento:form.seguro_vencimiento||null, seguro_compania:form.seguro_compania??"", vtv_vencimiento:form.vtv_vencimiento||null, km_actuales:Number(form.km_actuales??0), proximo_service_km:Number(form.proximo_service_km??0) });
+    await fetchAll(vetId); setShowForm(false); setForm({}); msg("✅ VEHICULO GUARDADO");
   };
-
   const guardarService = async () => {
-    if (!vehiculoSel || !vetId) return;
+    if (!vehiculoSel||!vetId) return;
     const sb = await getSB();
-    await sb.from("vet_vehiculo_service").insert({
-      vehiculo_id: vehiculoSel.id, veterinario_id: vetId,
-      tipo: form.tipo_service ?? "service", descripcion: form.descripcion ?? "",
-      costo: Number(form.costo ?? 0), km: Number(form.km ?? 0),
-      fecha: form.fecha ?? new Date().toISOString().split("T")[0], taller: form.taller ?? "",
-    });
-    await fetchServicios(vehiculoSel.id);
-    setShowForm(false); setForm({});
+    await sb.from("ing_vehiculo_service").insert({ vehiculo_id:vehiculoSel.id, ingeniero_id:vetId, tipo:form.tipo_service??"service", descripcion:form.descripcion??"", costo:Number(form.costo??0), km:Number(form.km??0), fecha:form.fecha??new Date().toISOString().split("T")[0], taller:form.taller??"" });
+    const sb2=await getSB();const{data}=await sb2.from("ing_vehiculo_service").select("*").eq("vehiculo_id",vehiculoSel.id).order("fecha",{ascending:false});setServicios(data??[]);setShowForm(false);setForm({});msg("✅ SERVICE GUARDADO");
   };
+  const eliminar = async (tabla: string, id: string) => { if(!confirm("Eliminar?"))return; const sb=await getSB(); await sb.from(tabla).delete().eq("id",id); if(vetId)await fetchAll(vetId); };
 
-  const fetchServicios = async (vid: string) => {
-    const sb = await getSB();
-    const { data } = await sb.from("vet_vehiculo_service").select("*").eq("vehiculo_id", vid).order("fecha", { ascending: false });
-    setServicios(data ?? []);
-  };
+  const hablar = useCallback((texto: string) => {
+    if (typeof window==="undefined") return;
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(texto); utt.lang="es-AR"; utt.rate=1.05;
+    const v = window.speechSynthesis.getVoices().find(x=>x.lang.startsWith("es")); if(v)utt.voice=v;
+    utt.onstart=()=>setVozEstado("respondiendo"); utt.onend=()=>setVozEstado("idle");
+    window.speechSynthesis.speak(utt);
+  }, []);
 
-  const eliminar = async (tabla: string, id: string) => {
-    if (!confirm("¿Eliminar?")) return;
-    const sb = await getSB();
-    await sb.from(tabla).delete().eq("id", id);
-    if (vetId) await fetchAll(vetId);
-  };
-
-  const imprimirReceta = (r: Receta) => {
-    const prod = productores.find(p => p.empresa_id === r.empresa_id);
-    const cat = categorias.find(c => c.id === r.categoria_id);
-    const w = window.open("", "_blank");
-    if (!w) return;
-    w.document.write(`
-      <html><head><title>Receta Veterinaria</title>
-      <style>body{font-family:monospace;padding:40px;max-width:700px;margin:0 auto}
-      h1{border-bottom:2px solid #000;padding-bottom:10px}
-      .row{display:flex;justify-content:space-between;margin:8px 0}
-      .label{font-weight:bold;color:#555}
-      .box{border:1px solid #ccc;padding:15px;margin:15px 0;border-radius:8px}
-      .footer{margin-top:60px;border-top:1px solid #000;padding-top:20px;display:flex;justify-content:space-between}
-      </style></head><body>
-      <h1>🩺 RECETA VETERINARIA — AGROGESTION PRO</h1>
-      <div class="row"><span class="label">Veterinario:</span><span>${vetNombre}</span></div>
-      <div class="row"><span class="label">Fecha:</span><span>${r.fecha}</span></div>
-      <div class="row"><span class="label">Productor:</span><span>${prod?.propietario_nombre ?? "—"}</span></div>
-      <div class="row"><span class="label">Empresa:</span><span>${prod?.empresa_nombre ?? "—"}</span></div>
-      <div class="row"><span class="label">Categoría:</span><span>${cat ? `${cat.categoria} (${cat.especie})` : "—"}</span></div>
-      <div class="row"><span class="label">Cantidad animales:</span><span>${r.cantidad_animales}</span></div>
-      <div class="box">
-        <div class="label">DIAGNÓSTICO:</div><p>${r.diagnostico}</p>
-        <div class="label">TRATAMIENTO:</div><p>${r.tratamiento}</p>
-      </div>
-      <div class="box">
-        <div class="label">PRESCRIPCIÓN:</div>
-        <div class="row"><span class="label">Producto:</span><span>${r.producto}</span></div>
-        <div class="row"><span class="label">Dosis:</span><span>${r.dosis}</span></div>
-        <div class="row"><span class="label">Vía:</span><span>${r.via_administracion}</span></div>
-        <div class="row"><span class="label">Duración:</span><span>${r.duracion_dias} días</span></div>
-        <div class="row"><span class="label">Período de retiro:</span><span>${r.periodo_retiro_dias} días</span></div>
-      </div>
-      ${r.observaciones ? `<div class="box"><div class="label">OBSERVACIONES:</div><p>${r.observaciones}</p></div>` : ""}
-      <div class="footer">
-        <div><p>Firma y sello del veterinario</p><br/><br/>____________________</div>
-        <div style="text-align:right"><small>AgroGestión PRO · Receta generada digitalmente</small></div>
-      </div>
-      </body></html>
-    `);
-    w.document.close();
-    w.print();
-  };
-
-  const askAI = async (prompt: string) => {
-    setAiLoading(true); setAiMsg("");
+  const interpretarVoz = useCallback(async (texto: string) => {
+    setVozEstado("procesando");
+    const resumen = productores.slice(0,5).map(p=>p.nombre+" ("+p.cabezas_ganado+" cab)").join("; ");
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514", max_tokens: 1000,
-          messages: [{ role: "user", content: `Sos un veterinario experto en producción animal para Argentina. Respondé en español, de forma técnica y práctica. Veterinario: ${vetNombre}. Productores asesorados: ${productores.length}. ${prompt}` }]
-        })
-      });
+      const res = await fetch("/api/scanner",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,messages:[{role:"user",content:"Asistente veterinario. Productores: "+resumen+". Usuario: \""+texto+"\". JSON sin markdown: {\"texto\":\"respuesta\",\"accion\":\"consulta|crear_productor\",\"datos\":{}}"}]})});
       const data = await res.json();
-      setAiMsg(data.content?.[0]?.text ?? "Sin respuesta");
-    } catch { setAiMsg("Error al conectar con IA"); }
+      const parsed = JSON.parse((data.content?.[0]?.text??"{}").replace(/```json|```/g,"").trim());
+      setVozRespuesta(parsed.texto??""); hablar(parsed.texto??"");
+      setVozEstado("respondiendo");
+    } catch { const e="No pude interpretar."; setVozRespuesta(e); hablar(e); setVozEstado("error"); setTimeout(()=>setVozEstado("idle"),2000); }
+  }, [productores, hablar]);
+
+  const escucharVoz = () => {
+    const hasSR="webkitSpeechRecognition" in window||"SpeechRecognition" in window; if(!hasSR){alert("Usa Chrome");return;}
+    const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition;
+    const rec=new SR();rec.lang="es-AR";rec.continuous=false;
+    recRef.current=rec;setVozEstado("escuchando");setVozRespuesta("");setVozPanel(true);
+    rec.onresult=(e: any)=>{const t=e.results[0][0].transcript;setVozTranscripcion(t);interpretarVoz(t);};
+    rec.onerror=()=>{setVozEstado("error");setTimeout(()=>setVozEstado("idle"),2000);}; rec.start();
+  };
+
+  const askAI = async () => {
+    if(!aiInput.trim())return; const userMsg=aiInput.trim(); setAiInput(""); setAiLoading(true);
+    setAiChat(prev=>[...prev,{rol:"user",texto:userMsg}]);
+    try {
+      const hist=aiChat.map(m=>({role:m.rol==="user"?"user":"assistant",content:m.texto}));
+      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1500,system:"Sos un veterinario experto para ganaderia en Argentina. Respondé en español tecnico. Ayuda con sanidad animal, vacunacion, diagnostico, recetas, reproduccion, manejo de rodeos. Veterinario: "+vetNombre+". Productores: "+productores.length+".",messages:[...hist,{role:"user",content:userMsg}]})});
+      const data=await res.json();
+      setAiChat(prev=>[...prev,{rol:"assistant",texto:data.content?.[0]?.text??"Sin respuesta"}]);
+    } catch { setAiChat(prev=>[...prev,{rol:"assistant",texto:"Error IA"}]); }
     setAiLoading(false);
   };
 
-  const inputClass = "w-full bg-[#0a1628]/80 border border-[#A78BFA]/20 rounded-xl px-4 py-2.5 text-[#E5E7EB] text-sm focus:outline-none focus:border-[#A78BFA] font-mono transition-all";
-  const labelClass = "block text-xs text-[#6B5B8B] uppercase tracking-widest mb-1 font-mono";
-  const totalPendiente = cobranzas.filter(c => c.estado === "pendiente").reduce((a, c) => a + c.monto, 0);
-  const totalCobrado = cobranzas.filter(c => c.estado === "cobrado").reduce((a, c) => a + c.monto, 0);
+  const startVoiceIA = () => {
+    const hasSR="webkitSpeechRecognition" in window||"SpeechRecognition" in window; if(!hasSR){alert("Usa Chrome");return;}
+    const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition;
+    const rec=new SR();rec.lang="es-AR";setListening(true);
+    rec.onresult=(e: any)=>{setAiInput(e.results[0][0].transcript);setListening(false);}; rec.onerror=()=>setListening(false); rec.onend=()=>setListening(false); rec.start();
+  };
 
-  const secciones = [
-    { key: "productores" as Seccion, label: "MIS PRODUCTORES", icon: "👨‍🌾" },
-    { key: "recetas" as Seccion, label: "RECETAS", icon: "📋" },
-    { key: "historial" as Seccion, label: "HISTORIAL CLÍNICO", icon: "🩺" },
-    { key: "cobranza" as Seccion, label: "COBRANZA", icon: "💰" },
-    { key: "vehiculo" as Seccion, label: "MI VEHÍCULO", icon: "🚗" },
+  const VOZ_COLOR: Record<string,string>={idle:"#A78BFA",escuchando:"#F87171",procesando:"#C9A227",respondiendo:"#60A5FA",error:"#F87171"};
+  const VOZ_ICON: Record<string,string>={idle:"🎤",escuchando:"🔴",procesando:"⚙️",respondiendo:"🔊",error:"❌"};
+  const iCls="w-full bg-[#0a1628]/80 border border-[#A78BFA]/20 rounded-xl px-4 py-2.5 text-[#E5E7EB] text-sm focus:outline-none focus:border-[#A78BFA] font-mono transition-all";
+  const lCls="block text-xs text-[#5B4B6B] uppercase tracking-widest mb-1 font-mono";
+  const totalHa=productores.reduce((a,p)=>a+p.hectareas_total,0);
+  const totalCabezas=productores.reduce((a,p)=>a+p.cabezas_ganado,0);
+  const totalPendiente=cobranzas.filter(c=>c.estado==="pendiente").reduce((a,c)=>a+c.monto,0);
+  const totalCobrado=cobranzas.filter(c=>c.estado==="cobrado").reduce((a,c)=>a+c.monto,0);
+
+  const SECCIONES=[
+    {key:"perfil" as Seccion,label:"MI PERFIL",icon:"🩺"},
+    {key:"productores" as Seccion,label:"MIS PRODUCTORES",icon:"👨‍🌾"},
+    {key:"cobranza" as Seccion,label:"COBRANZA",icon:"💰"},
+    {key:"vehiculo" as Seccion,label:"MI VEHICULO",icon:"🚗"},
+    {key:"ia_campo" as Seccion,label:"IA VET",icon:"🤖"},
   ];
 
-  if (loading) return (
-    <div className="min-h-screen bg-[#020810] flex items-center justify-center text-[#A78BFA] font-mono animate-pulse">
-      ▶ Cargando Panel Veterinario...
-    </div>
-  );
+  if (loading) return <div className="min-h-screen bg-[#020810] flex items-center justify-center text-[#A78BFA] font-mono animate-pulse">CARGANDO...</div>;
 
   return (
     <div className="relative min-h-screen bg-[#020810] text-[#E5E7EB]">
       <style>{`
-        .card-vet:hover { border-color: rgba(167,139,250,0.4) !important; transform: translateY(-2px); }
-        .card-vet { transition: all 0.2s ease; }
-        .sec-vet-active { border-color: #A78BFA !important; color: #A78BFA !important; background: rgba(167,139,250,0.08) !important; }
-        .modo-vet-active { border-color: #C9A227 !important; color: #C9A227 !important; background: rgba(201,162,39,0.08) !important; }
+        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+        .card-vet{background:rgba(10,22,40,0.85);border:1px solid rgba(167,139,250,0.15);border-radius:12px;transition:all 0.2s}
+        .card-vet:hover{border-color:rgba(167,139,250,0.4);transform:translateY(-2px)}
+        .sec-active-vet{border-color:#A78BFA!important;color:#A78BFA!important;background:rgba(167,139,250,0.08)!important}
       `}</style>
+      <div className="absolute inset-0 z-0"><Image src="/dashboard-bg.png" alt="" fill style={{objectFit:"cover"}}/><div className="absolute inset-0 bg-[#020810]/88"/></div>
+      <div className="absolute inset-0 z-1 pointer-events-none opacity-[0.025]" style={{backgroundImage:"linear-gradient(rgba(167,139,250,0.5) 1px,transparent 1px),linear-gradient(90deg,rgba(167,139,250,0.5) 1px,transparent 1px)",backgroundSize:"50px 50px"}}/>
 
-      <div className="absolute inset-0 z-0">
-        <Image src="/dashboard-bg.png" alt="bg" fill style={{ objectFit: "cover" }} />
-        <div className="absolute inset-0 bg-[#020810]/88" />
-      </div>
-      <div className="absolute inset-0 z-1 pointer-events-none opacity-[0.03]"
-        style={{ backgroundImage: `linear-gradient(rgba(167,139,250,1) 1px, transparent 1px), linear-gradient(90deg, rgba(167,139,250,1) 1px, transparent 1px)`, backgroundSize: "50px 50px" }} />
-
-      {/* Header */}
-      <div className="relative z-10 border-b border-[#A78BFA]/20 bg-[#020810]/80 backdrop-blur-sm px-6 py-3 flex items-center gap-4">
-        <Image src="/logo.png" alt="Logo" width={100} height={35} className="object-contain" />
-        <div className="flex-1" />
+      {/* HEADER */}
+      <div className="relative z-10 bg-[#020810]/95 border-b border-[#A78BFA]/20 px-6 py-3 flex items-center gap-4">
+        <Image src="/logo.png" alt="" width={100} height={36} className="object-contain cursor-pointer" onClick={()=>window.location.href="/veterinario"}/>
+        <div className="flex-1"/>
         <div className="text-right">
-          <div className="text-xs text-[#E5E7EB] font-mono">{vetNombre}</div>
-          <div className="text-xs text-[#A78BFA] font-mono">VETERINARIO</div>
+          <div className="text-xs text-[#E5E7EB] font-mono font-bold">{vetNombre}</div>
+          <div className="text-xs text-[#A78BFA] font-mono">VETERINARIO · COD {vetData.codigo}</div>
         </div>
-        {alertas.length > 0 && (
-          <div className="w-8 h-8 rounded-full bg-[#F87171]/10 border border-[#F87171]/30 flex items-center justify-center">
-            <span className="text-[#F87171] text-xs font-bold">{alertas.length}</span>
-          </div>
-        )}
-        <button onClick={async () => { const sb = await getSB(); await sb.auth.signOut(); window.location.href = "/login"; }}
-          className="text-xs text-[#4B5563] hover:text-red-400 transition-colors font-mono">Salir</button>
+        {alertas.length > 0 && <div className="w-7 h-7 rounded-full bg-[#F87171]/10 border border-[#F87171]/30 flex items-center justify-center"><span className="text-[#F87171] text-xs font-bold">{alertas.length}</span></div>}
+        <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl border font-mono text-sm font-bold"
+          style={{borderColor:VOZ_COLOR[vozEstado]+"60",color:VOZ_COLOR[vozEstado],background:VOZ_COLOR[vozEstado]+"12"}}>
+          {VOZ_ICON[vozEstado]} VOZ
+        </button>
+        <button onClick={async()=>{const sb=await getSB();await sb.auth.signOut();window.location.href="/login";}} className="text-xs text-[#4B5563] hover:text-red-400 font-mono">Salir</button>
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto p-6">
-        <div className="mb-6">
+        <div className="mb-5">
           <h1 className="text-2xl font-bold text-[#E5E7EB] font-mono">◆ PANEL VETERINARIO</h1>
-          <p className="text-[#A78BFA] text-xs tracking-widest font-mono mt-1">{productores.length} PRODUCTOR{productores.length !== 1 ? "ES" : ""} ASESORADO{productores.length !== 1 ? "S" : ""} · IA VETERINARIA ACTIVA</p>
+          <p className="text-[#A78BFA] text-xs tracking-widest font-mono mt-1">{productores.length} PRODUCTORES · {totalHa.toLocaleString("es-AR")} HA · {totalCabezas.toLocaleString("es-AR")} CABEZAS</p>
         </div>
 
-        {/* Alertas */}
-        {alertas.length > 0 && (
-          <div className="bg-[#0a1628]/80 border border-[#F87171]/30 rounded-xl p-4 mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-2 h-2 rounded-full bg-[#F87171] animate-pulse" />
-              <span className="text-[#F87171] text-xs font-mono font-bold">⚠️ ALERTAS ({alertas.length})</span>
+        {alertas.length > 0 && <div className="bg-[#0a1628]/80 border border-[#F87171]/30 rounded-xl p-4 mb-5"><div className="flex items-center gap-2 mb-2"><div className="w-2 h-2 rounded-full bg-[#F87171] animate-pulse"/><span className="text-[#F87171] text-xs font-mono font-bold">ALERTAS ({alertas.length})</span></div><div className="flex flex-wrap gap-2">{alertas.map((a,i)=><div key={i} className={"px-3 py-1.5 rounded-lg text-xs font-mono border "+(a.urgencia==="alta"?"border-[#F87171]/30 text-[#F87171]":"border-[#C9A227]/30 text-[#C9A227]")}>{a.urgencia==="alta"?"🔴":"🟡"} {a.msg}</div>)}</div></div>}
+        {msgExito && <div className={"mb-4 px-4 py-2 rounded-lg text-sm font-mono border flex items-center justify-between "+(msgExito.startsWith("✅")?"border-[#4ADE80]/30 text-[#4ADE80] bg-[#4ADE80]/5":"border-[#F87171]/30 text-[#F87171] bg-[#F87171]/5")}>{msgExito}<button onClick={()=>setMsgExito("")}>✕</button></div>}
+
+        <div className="flex gap-2 mb-6 flex-wrap">
+          {SECCIONES.map(s=><button key={s.key} onClick={()=>{setSeccion(s.key);setShowForm(false);setForm({});setVehiculoSel(null);}} className={"px-5 py-2.5 rounded-xl border text-sm font-mono transition-all font-bold "+(seccion===s.key?"sec-active-vet":"border-[#A78BFA]/15 text-[#4B5563] hover:text-[#9CA3AF]")}>{s.icon} {s.label}</button>)}
+        </div>
+
+        {/* PERFIL */}
+        {seccion==="perfil" && (
+          <div className="card-vet p-6">
+            <h2 className="text-[#A78BFA] font-mono text-sm font-bold mb-5">🩺 MIS DATOS PROFESIONALES</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div><label className={lCls}>NOMBRE COMPLETO</label><input type="text" defaultValue={vetData.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls}/></div>
+              <div><label className={lCls}>TELEFONO / WA</label><input type="text" defaultValue={vetData.telefono??""} onChange={e=>setForm({...form,telefono:e.target.value})} className={iCls} placeholder="3400..."/></div>
+              <div><label className={lCls}>MATRICULA / COLEGIO</label><input type="text" defaultValue={vetData.matricula??""} onChange={e=>setForm({...form,matricula:e.target.value})} className={iCls} placeholder="MAT 1234"/></div>
+              <div><label className={lCls}>ESPECIALIDAD</label><input type="text" defaultValue={vetData.especialidad??""} onChange={e=>setForm({...form,especialidad:e.target.value})} className={iCls} placeholder="Bovinos, porcinos..."/></div>
+              <div><label className={lCls}>CUIT</label><input type="text" defaultValue={vetData.cuit??""} onChange={e=>setForm({...form,cuit:e.target.value})} className={iCls} placeholder="20-12345678-9"/></div>
+              <div><label className={lCls}>LOCALIDAD</label><input type="text" defaultValue={vetData.localidad??""} onChange={e=>setForm({...form,localidad:e.target.value})} className={iCls}/></div>
+              <div><label className={lCls}>PROVINCIA</label><input type="text" defaultValue={vetData.provincia??"Santa Fe"} onChange={e=>setForm({...form,provincia:e.target.value})} className={iCls}/></div>
+              <div className="md:col-span-2"><label className={lCls}>DIRECCION</label><input type="text" defaultValue={vetData.direccion??""} onChange={e=>setForm({...form,direccion:e.target.value})} className={iCls}/></div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {alertas.map((a, i) => (
-                <div key={i} className={`px-3 py-1.5 rounded-lg text-xs font-mono border ${a.urgencia === "alta" ? "border-[#F87171]/30 text-[#F87171] bg-[#F87171]/5" : "border-[#C9A227]/30 text-[#C9A227] bg-[#C9A227]/5"}`}>
-                  {a.urgencia === "alta" ? "🔴" : "🟡"} {a.msg}
-                </div>
+            <div className="mt-4 p-4 bg-[#020810]/40 rounded-xl border border-[#A78BFA]/15">
+              <div className="grid grid-cols-3 gap-4 text-xs font-mono">
+                <div className="text-center"><div className="text-[#4B5563]">CODIGO</div><div className="text-[#A78BFA] font-bold text-lg mt-1">{vetData.codigo}</div></div>
+                <div className="text-center"><div className="text-[#4B5563]">EMAIL</div><div className="text-[#E5E7EB] mt-1">{vetData.email}</div></div>
+                <div className="text-center"><div className="text-[#4B5563]">ROL</div><div className="text-[#A78BFA] font-bold mt-1">VETERINARIO</div></div>
+              </div>
+            </div>
+            <button onClick={guardarPerfil} className="mt-4 bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[#A78BFA] font-bold px-6 py-2.5 rounded-xl text-sm font-mono hover:bg-[#A78BFA]/20">▶ GUARDAR PERFIL</button>
+          </div>
+        )}
+
+        {/* MIS PRODUCTORES */}
+        {seccion==="productores" && (
+          <div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+              {[{l:"PRODUCTORES",v:String(productores.length),c:"#E5E7EB"},{l:"HA TOTALES",v:totalHa.toLocaleString("es-AR"),c:"#C9A227"},{l:"CABEZAS",v:totalCabezas.toLocaleString("es-AR"),c:"#A78BFA"},{l:"CON APP",v:String(productores.filter(p=>p.tiene_cuenta).length),c:"#4ADE80"}].map(s=>(
+                <div key={s.l} className="card-vet p-4 text-center"><div className="text-xs text-[#4B5563] font-mono">{s.l}</div><div className="text-xl font-bold font-mono mt-1" style={{color:s.c}}>{s.v}</div></div>
               ))}
             </div>
-          </div>
-        )}
+            <div className="flex gap-2 mb-4 flex-wrap">
+              <button onClick={()=>{setShowForm(!showForm);setEditandoProductor(null);setForm({provincia:"Santa Fe",honorario_tipo:"mensual"});}} className="px-4 py-2 rounded-xl bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[#A78BFA] font-mono text-sm font-bold hover:bg-[#A78BFA]/20">+ NUEVO PRODUCTOR</button>
+              <button onClick={()=>{setShowFormVincular(!showFormVincular);setForm({});}} className="px-4 py-2 rounded-xl bg-[#60A5FA]/10 border border-[#60A5FA]/30 text-[#60A5FA] font-mono text-sm font-bold hover:bg-[#60A5FA]/20">🔗 VINCULAR POR CODIGO</button>
+              <button onClick={()=>{setShowFormVisita(!showFormVisita);setForm({fecha_v:new Date().toISOString().split("T")[0]});}} className="px-4 py-2 rounded-xl bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-mono text-sm font-bold hover:bg-[#C9A227]/20">+ REGISTRAR VISITA</button>
+              <button onClick={()=>exportarExcel("productores")} className="px-4 py-2 rounded-xl border border-[#4ADE80]/30 text-[#4ADE80] font-mono text-sm font-bold hover:bg-[#4ADE80]/10">📤 EXPORTAR</button>
+            </div>
 
-        {/* Mensaje */}
-        {msg && (
-          <div className={`mb-4 px-4 py-2 rounded-lg text-sm font-mono border ${msg.startsWith("✅") ? "border-[#4ADE80]/30 text-[#4ADE80] bg-[#4ADE80]/5" : "border-[#F87171]/30 text-[#F87171] bg-[#F87171]/5"}`}>
-            {msg} <button onClick={() => setMsg("")} className="ml-3 opacity-50 hover:opacity-100">✕</button>
-          </div>
-        )}
+            {/* Vincular por código */}
+            {showFormVincular && (
+              <div className="card-vet p-5 mb-4">
+                <h3 className="text-[#60A5FA] font-mono text-sm font-bold mb-3">🔗 VINCULAR PRODUCTOR POR CODIGO</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div><label className={lCls}>CODIGO PRODUCTOR *</label><input type="text" value={form.codigo_productor??""} onChange={e=>setForm({...form,codigo_productor:e.target.value})} className={iCls} placeholder="10001"/></div>
+                  <div><label className={lCls}>HONORARIO TIPO</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className={iCls}><option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_cabeza">Por cabeza</option><option value="por_servicio">Por servicio</option><option value="otro">Otro</option></select></div>
+                  <div><label className={lCls}>MONTO $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls} placeholder="0"/></div>
+                </div>
+                <div className="flex gap-3 mt-4">
+                  <button onClick={vincularPorCodigo} className="bg-[#60A5FA]/10 border border-[#60A5FA]/30 text-[#60A5FA] font-bold px-6 py-2.5 rounded-xl text-sm font-mono hover:bg-[#60A5FA]/20">▶ VINCULAR</button>
+                  <button onClick={()=>{setShowFormVincular(false);setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">CANCELAR</button>
+                </div>
+              </div>
+            )}
 
-        {/* IA rápida */}
-        <div className="bg-[#0a1628]/60 border border-[#A78BFA]/15 rounded-xl p-4 mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-2 h-2 rounded-full bg-[#A78BFA] animate-pulse" />
-            <span className="text-[#A78BFA] text-xs font-mono tracking-widest">◆ ASISTENTE VETERINARIO IA</span>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {["Dosis de ivermectina en bovinos","Período de retiro de oxitetraciclina","Protocolo vacunación aftosa Argentina","Signos de tristeza parasitaria"].map(q => (
-              <button key={q} onClick={() => askAI(q)}
-                className="text-xs text-[#6B5B8B] hover:text-[#A78BFA] border border-[#A78BFA]/10 hover:border-[#A78BFA]/30 px-3 py-1.5 rounded-lg font-mono transition-all">
-                {q}
-              </button>
-            ))}
-          </div>
-          {aiLoading && <p className="text-[#A78BFA] text-xs font-mono mt-3 animate-pulse">▶ Consultando base veterinaria...</p>}
-          {aiMsg && <div className="mt-3 p-3 bg-[#A78BFA]/5 border border-[#A78BFA]/20 rounded-lg"><p className="text-[#9CA3AF] text-sm leading-relaxed">{aiMsg}</p></div>}
-        </div>
+            {/* Form visita veterinaria */}
+            {showFormVisita && (
+              <div className="card-vet p-5 mb-4">
+                <h3 className="text-[#C9A227] font-mono text-sm font-bold mb-4">+ REGISTRAR VISITA VETERINARIA</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div><label className={lCls}>PRODUCTOR</label><select value={form.productor_id_v??""} onChange={e=>setForm({...form,productor_id_v:e.target.value})} className={iCls}><option value="">Seleccionar</option>{productores.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
+                  <div><label className={lCls}>FECHA</label><input type="date" value={form.fecha_v??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_v:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>TIPO SERVICIO</label><select value={form.tipo_servicio??"Sanidad animal"} onChange={e=>setForm({...form,tipo_servicio:e.target.value})} className={iCls}>{TIPOS_SERVICIO_VET.map(t=><option key={t} value={t}>{t.toUpperCase()}</option>)}</select></div>
+                  <div><label className={lCls}>COSTO $</label><input type="number" value={form.costo_v??""} onChange={e=>setForm({...form,costo_v:e.target.value})} className={iCls} placeholder="0"/></div>
+                  <div className="md:col-span-2"><label className={lCls}>DESCRIPCION / DIAGNOSTICO</label><input type="text" value={form.descripcion_v??""} onChange={e=>setForm({...form,descripcion_v:e.target.value})} className={iCls} placeholder="Descripcion del servicio..."/></div>
+                  <div><label className={lCls}>ANIMALES TRATADOS</label><input type="text" value={form.animales_v??""} onChange={e=>setForm({...form,animales_v:e.target.value})} className={iCls} placeholder="50 bovinos, lote A"/></div>
+                  <div><label className={lCls}>MEDICAMENTOS</label><input type="text" value={form.medicamentos_v??""} onChange={e=>setForm({...form,medicamentos_v:e.target.value})} className={iCls} placeholder="Ivermectina, Vitamina AD3E"/></div>
+                  <div><label className={lCls}>DOSIS / APLICACION</label><input type="text" value={form.dosis_v??""} onChange={e=>setForm({...form,dosis_v:e.target.value})} className={iCls} placeholder="1ml/kg subcutaneo"/></div>
+                  <div className="md:col-span-2"><label className={lCls}>OBSERVACIONES</label><input type="text" value={form.obs_v??""} onChange={e=>setForm({...form,obs_v:e.target.value})} className={iCls}/></div>
+                </div>
+                <div className="flex gap-3 mt-4">
+                  <button onClick={guardarVisita} className="bg-[#C9A227]/15 border border-[#C9A227]/40 text-[#C9A227] font-bold px-6 py-2.5 rounded-xl text-sm font-mono hover:bg-[#C9A227]/25">▶ GUARDAR</button>
+                  <button onClick={()=>{setShowFormVisita(false);setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">CANCELAR</button>
+                </div>
+              </div>
+            )}
 
-        {/* Navegación */}
-        <div className="flex gap-2 mb-6 flex-wrap">
-          {secciones.map(s => (
-            <button key={s.key} onClick={() => { setSeccion(s.key); setShowForm(false); setForm({}); setVehiculoSel(null); setModoProductor("lista"); setMsg(""); }}
-              className={`px-5 py-2.5 rounded-xl border border-[#A78BFA]/15 text-sm font-mono transition-all ${seccion === s.key ? "sec-vet-active" : "text-[#4B5563] hover:text-[#9CA3AF]"}`}>
-              {s.icon} {s.label}
-            </button>
-          ))}
-        </div>
+            {/* Form productor */}
+            {showForm && (
+              <div className="card-vet p-5 mb-4">
+                <h3 className="text-[#A78BFA] font-mono text-sm font-bold mb-4">{editandoProductor?"✏️ EDITAR":"+"} PRODUCTOR</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div><label className={lCls}>NOMBRE *</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>TELEFONO / WA</label><input type="text" value={form.telefono??""} onChange={e=>setForm({...form,telefono:e.target.value})} className={iCls} placeholder="3400..."/></div>
+                  <div><label className={lCls}>EMAIL <span className="normal-case text-[#4B5563]">(si tiene app)</span></label><input type="email" value={form.email??""} onChange={e=>setForm({...form,email:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>LOCALIDAD</label><input type="text" value={form.localidad??""} onChange={e=>setForm({...form,localidad:e.target.value})} className={iCls} placeholder="Rafaela"/></div>
+                  <div><label className={lCls}>HECTAREAS</label><input type="number" value={form.hectareas_total??""} onChange={e=>setForm({...form,hectareas_total:e.target.value})} className={iCls} placeholder="0"/></div>
+                  <div><label className={lCls}>CABEZAS DE GANADO</label><input type="number" value={form.cabezas_ganado??""} onChange={e=>setForm({...form,cabezas_ganado:e.target.value})} className={iCls} placeholder="0"/></div>
+                  <div><label className={lCls}>TIPO PRODUCCION</label><select value={form.tipo_produccion??""} onChange={e=>setForm({...form,tipo_produccion:e.target.value})} className={iCls}><option value="">—</option><option value="Cria">Cria</option><option value="Invernada">Invernada</option><option value="Tambo">Tambo</option><option value="Feedlot">Feedlot</option><option value="Mixto">Mixto</option><option value="Porcinos">Porcinos</option><option value="Ovinos">Ovinos</option><option value="Otro">Otro</option></select></div>
+                  <div><label className={lCls}>HONORARIO TIPO</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className={iCls}><option value="mensual">Mensual</option><option value="por_cabeza">Por cabeza</option><option value="por_servicio">Por servicio</option><option value="otro">Otro</option></select></div>
+                  <div><label className={lCls}>HONORARIO $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls} placeholder="0"/></div>
+                  <div className="md:col-span-2"><label className={lCls}>OBSERVACIONES</label><input type="text" value={form.observaciones??""} onChange={e=>setForm({...form,observaciones:e.target.value})} className={iCls}/></div>
+                </div>
+                <div className="flex gap-3 mt-4">
+                  <button onClick={guardarProductor} className="bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[#A78BFA] font-bold px-6 py-2.5 rounded-xl text-sm font-mono hover:bg-[#A78BFA]/20">▶ GUARDAR</button>
+                  <button onClick={()=>{setShowForm(false);setEditandoProductor(null);setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">CANCELAR</button>
+                </div>
+              </div>
+            )}
 
-        {/* ===== PRODUCTORES ===== */}
-        {seccion === "productores" && (
-          <div>
-            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+            {productores.length===0?(
+              <div className="text-center py-20 card-vet"><div className="text-5xl mb-4 opacity-20">🩺</div><p className="text-[#4B5563] font-mono">SIN PRODUCTORES — AGREGA O VINCULA UNO</p></div>
+            ):(
               <div>
-                <h2 className="text-lg font-bold font-mono text-[#E5E7EB]">👨‍🌾 MIS PRODUCTORES</h2>
-                <p className="text-xs text-[#4B5563] font-mono">Clickeá un productor para ver su hacienda</p>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => { setModoProductor(modoProductor === "crear" ? "lista" : "crear"); setForm({}); setMsg(""); }}
-                  className={`px-4 py-2 rounded-xl border font-mono text-sm transition-all ${modoProductor === "crear" ? "modo-vet-active" : "border-[#C9A227]/30 text-[#C9A227] hover:bg-[#C9A227]/10"}`}>
-                  + Crear Productor
-                </button>
-                <button onClick={() => { setModoProductor(modoProductor === "vincular" ? "lista" : "vincular"); setForm({}); setMsg(""); }}
-                  className={`px-4 py-2 rounded-xl border font-mono text-sm transition-all ${modoProductor === "vincular" ? "sec-vet-active" : "border-[#A78BFA]/30 text-[#A78BFA] hover:bg-[#A78BFA]/10"}`}>
-                  🔗 Vincular Existente
-                </button>
-              </div>
-            </div>
-
-            {/* Form CREAR */}
-            {modoProductor === "crear" && (
-              <div className="bg-[#0a1628]/80 border border-[#C9A227]/30 rounded-xl p-5 mb-6">
-                <h3 className="text-[#C9A227] font-mono text-sm font-bold mb-2">+ CREAR NUEVO PRODUCTOR</h3>
-                <p className="text-xs text-[#4B5563] font-mono mb-4">Se crea el usuario y su empresa. Podés vincularte o dejarlo solo.</p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div><label className={labelClass}>Nombre completo</label>
-                    <input type="text" value={form.nombre_nuevo ?? ""} onChange={e => setForm({ ...form, nombre_nuevo: e.target.value })} className={inputClass} placeholder="Nombre y apellido" />
-                  </div>
-                  <div><label className={labelClass}>Email</label>
-                    <input type="email" value={form.email_nuevo ?? ""} onChange={e => setForm({ ...form, email_nuevo: e.target.value })} className={inputClass} placeholder="email@productor.com" />
-                  </div>
-                  <div><label className={labelClass}>Contraseña inicial</label>
-                    <input type="text" value={form.password_nuevo ?? ""} onChange={e => setForm({ ...form, password_nuevo: e.target.value })} className={inputClass} placeholder="Clave temporal" />
-                  </div>
-                  <div><label className={labelClass}>Nombre empresa</label>
-                    <input type="text" value={form.nombre_empresa_nuevo ?? ""} onChange={e => setForm({ ...form, nombre_empresa_nuevo: e.target.value })} className={inputClass} placeholder="Ej: Establecimiento Don Juan" />
-                  </div>
-                </div>
-                <div className="mt-4 p-4 bg-[#020810]/60 border border-[#C9A227]/15 rounded-xl">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <div onClick={() => setForm({ ...form, vincular_tambien: form.vincular_tambien === "si" ? "no" : "si" })}
-                      className={"w-5 h-5 rounded border-2 flex items-center justify-center transition-all " + (form.vincular_tambien === "si" ? "bg-[#C9A227] border-[#C9A227]" : "border-[#4B5563] bg-transparent")}>
-                      {form.vincular_tambien === "si" && <span className="text-[#020810] text-xs font-bold">✓</span>}
-                    </div>
-                    <div>
-                      <div className="text-sm text-[#E5E7EB] font-mono">Vincularme como veterinario de este productor</div>
-                      <div className="text-xs text-[#4B5563] font-mono">Si lo activás, aparecerá en tu lista de productores</div>
-                    </div>
-                  </label>
-                  {form.vincular_tambien === "si" && (
-                    <div className="grid grid-cols-2 gap-4 mt-4">
-                      <div><label className={labelClass}>Tipo honorario</label>
-                        <select value={form.honorario_tipo ?? "mensual"} onChange={e => setForm({ ...form, honorario_tipo: e.target.value })} className={inputClass}>
-                          <option value="mensual">Mensual</option>
-                          <option value="por_visita">Por visita</option>
-                          <option value="por_campaña">Por campaña</option>
-                          <option value="otro">Otro</option>
-                        </select>
-                      </div>
-                      <div><label className={labelClass}>Monto</label>
-                        <input type="number" value={form.honorario_monto ?? ""} onChange={e => setForm({ ...form, honorario_monto: e.target.value })} className={inputClass} placeholder="0" />
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-3 mt-4">
-                  <button onClick={crearProductor} className="bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-bold px-6 py-2.5 rounded-xl text-sm hover:bg-[#C9A227]/20 transition-all font-mono">▶ Crear Productor</button>
-                  <button onClick={() => { setModoProductor("lista"); setForm({}); setMsg(""); }} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">Cancelar</button>
-                </div>
-              </div>
-            )}
-
-            {/* Form VINCULAR */}
-            {modoProductor === "vincular" && (
-              <div className="bg-[#0a1628]/80 border border-[#A78BFA]/30 rounded-xl p-5 mb-6">
-                <h3 className="text-[#A78BFA] font-mono text-sm font-bold mb-2">🔗 VINCULAR PRODUCTOR EXISTENTE</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="md:col-span-2"><label className={labelClass}>Email del productor</label>
-                    <input type="email" value={form.email_productor ?? ""} onChange={e => setForm({ ...form, email_productor: e.target.value })} className={inputClass} placeholder="email@productor.com" />
-                  </div>
-                  <div><label className={labelClass}>Tipo honorario</label>
-                    <select value={form.honorario_tipo ?? "mensual"} onChange={e => setForm({ ...form, honorario_tipo: e.target.value })} className={inputClass}>
-                      <option value="mensual">Mensual</option>
-                      <option value="por_visita">Por visita</option>
-                      <option value="otro">Otro</option>
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Monto</label>
-                    <input type="number" value={form.honorario_monto ?? ""} onChange={e => setForm({ ...form, honorario_monto: e.target.value })} className={inputClass} placeholder="0" />
-                  </div>
-                </div>
-                <div className="flex gap-3 mt-4">
-                  <button onClick={vincularProductor} className="bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[#A78BFA] font-bold px-6 py-2.5 rounded-xl text-sm hover:bg-[#A78BFA]/20 transition-all font-mono">▶ Vincular</button>
-                  <button onClick={() => { setModoProductor("lista"); setForm({}); setMsg(""); }} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">Cancelar</button>
-                </div>
-              </div>
-            )}
-
-            {productores.length === 0 ? (
-              <div className="text-center py-20 bg-[#0a1628]/60 border border-[#A78BFA]/15 rounded-xl">
-                <div className="text-5xl mb-4 opacity-20">👨‍🌾</div>
-                <p className="text-[#4B5563] font-mono text-sm">No tenés productores vinculados todavía</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {productores.map(p => (
-                  <div key={p.empresa_id} className="card-vet bg-[#0a1628]/80 border border-[#A78BFA]/15 rounded-xl overflow-hidden">
-                    <div className="p-5 cursor-pointer" onClick={() => { setProdSel(p); fetchCategorias(p.empresa_id); }}>
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-[#A78BFA]/10 border border-[#A78BFA]/30 flex items-center justify-center text-lg">👨‍🌾</div>
-                          <div>
-                            <div className="font-bold text-[#E5E7EB] font-mono">{p.propietario_nombre}</div>
-                            <div className="text-xs text-[#4B5563] font-mono">{p.empresa_nombre}</div>
-                          </div>
-                        </div>
-                        <div className="w-2 h-2 rounded-full bg-[#A78BFA] animate-pulse" />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-xs text-[#4B5563] font-mono">Honorario</div>
-                          <div className="text-sm font-bold font-mono text-[#C9A227]">${p.honorario_monto.toLocaleString("es-AR")} / {p.honorario_tipo.replace("_"," ")}</div>
-                        </div>
-                        <div className="text-xs text-[#A78BFA] font-mono border border-[#A78BFA]/20 px-3 py-1.5 rounded-lg hover:bg-[#A78BFA]/10 transition-colors">Ver hacienda →</div>
-                      </div>
-                    </div>
-                    <div className="border-t border-[#A78BFA]/10 px-5 py-2 flex items-center justify-between">
-                      <span className="text-xs text-[#4B5563] font-mono">{p.propietario_email}</span>
-                      <button onClick={() => desvincular(p.vinculacion_id)} className="text-xs text-[#4B5563] hover:text-red-400 font-mono">Desvincular</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Panel hacienda del productor seleccionado */}
-            {prodSel && (
-              <div className="mt-6 bg-[#0a1628]/80 border border-[#A78BFA]/20 rounded-xl p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-[#A78BFA] font-mono font-bold">🐄 HACIENDA DE: {prodSel.propietario_nombre.toUpperCase()}</h3>
-                    <p className="text-xs text-[#4B5563] font-mono">{prodSel.empresa_nombre}</p>
-                  </div>
-                  <button onClick={() => { setProdSel(null); setCategorias([]); }} className="text-xs text-[#4B5563] hover:text-[#9CA3AF] font-mono">✕ Cerrar</button>
-                </div>
-                {categorias.length === 0 ? (
-                  <p className="text-[#4B5563] font-mono text-sm text-center py-8">Sin categorías de hacienda registradas</p>
-                ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {categorias.map(c => (
-                      <div key={c.id} className="bg-[#020810]/60 border border-[#A78BFA]/10 rounded-xl p-3 text-center">
-                        <div className="text-xs text-[#4B5563] font-mono">{c.especie}</div>
-                        <div className="font-bold text-[#E5E7EB] font-mono">{c.categoria}</div>
-                        <div className="text-2xl font-bold text-[#A78BFA] font-mono">{c.cantidad}</div>
-                        <div className="text-xs text-[#4B5563] font-mono">cabezas</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ===== RECETAS ===== */}
-        {seccion === "recetas" && (
-          <div>
-            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-              <h2 className="text-lg font-bold font-mono text-[#E5E7EB]">📋 RECETAS Y PRESCRIPCIONES</h2>
-              <button onClick={() => { setShowForm(!showForm); setForm({ fecha: new Date().toISOString().split("T")[0] }); }}
-                className="px-4 py-2 rounded-xl bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[#A78BFA] hover:bg-[#A78BFA]/20 font-mono text-sm transition-all">
-                + Nueva Receta
-              </button>
-            </div>
-
-            {showForm && (
-              <div className="bg-[#0a1628]/80 border border-[#A78BFA]/30 rounded-xl p-5 mb-6">
-                <h3 className="text-[#A78BFA] font-mono text-sm font-bold mb-4">+ NUEVA RECETA VETERINARIA</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div><label className={labelClass}>Productor</label>
-                    <select value={form.empresa_id ?? ""} onChange={e => { setForm({ ...form, empresa_id: e.target.value, categoria_id: "" }); if (e.target.value) fetchCategorias(e.target.value); }} className={inputClass}>
-                      <option value="">Seleccionar</option>
-                      {productores.map(p => <option key={p.empresa_id} value={p.empresa_id}>{p.propietario_nombre}</option>)}
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Categoría / Especie</label>
-                    <select value={form.categoria_id ?? ""} onChange={e => setForm({ ...form, categoria_id: e.target.value })} className={inputClass}>
-                      <option value="">Todas las categorías</option>
-                      {categorias.map(c => <option key={c.id} value={c.id}>{c.categoria} ({c.especie}) — {c.cantidad} cab.</option>)}
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Fecha</label>
-                    <input type="date" value={form.fecha ?? ""} onChange={e => setForm({ ...form, fecha: e.target.value })} className={inputClass} />
-                  </div>
-                  <div><label className={labelClass}>Cantidad animales</label>
-                    <input type="number" value={form.cantidad_animales ?? ""} onChange={e => setForm({ ...form, cantidad_animales: e.target.value })} className={inputClass} placeholder="0" />
-                  </div>
-                  <div className="md:col-span-2"><label className={labelClass}>Diagnóstico</label>
-                    <input type="text" value={form.diagnostico ?? ""} onChange={e => setForm({ ...form, diagnostico: e.target.value })} className={inputClass} placeholder="Diagnóstico clínico" />
-                  </div>
-                  <div className="md:col-span-3"><label className={labelClass}>Tratamiento indicado</label>
-                    <input type="text" value={form.tratamiento ?? ""} onChange={e => setForm({ ...form, tratamiento: e.target.value })} className={inputClass} placeholder="Descripción del tratamiento" />
-                  </div>
-                  <div><label className={labelClass}>Producto / Medicamento</label>
-                    <input type="text" value={form.producto ?? ""} onChange={e => setForm({ ...form, producto: e.target.value })} className={inputClass} placeholder="Nombre del producto" />
-                  </div>
-                  <div><label className={labelClass}>Dosis</label>
-                    <input type="text" value={form.dosis ?? ""} onChange={e => setForm({ ...form, dosis: e.target.value })} className={inputClass} placeholder="Ej: 1ml/10kg" />
-                  </div>
-                  <div><label className={labelClass}>Vía de administración</label>
-                    <select value={form.via_administracion ?? ""} onChange={e => setForm({ ...form, via_administracion: e.target.value })} className={inputClass}>
-                      <option value="">Seleccionar</option>
-                      <option value="intramuscular">Intramuscular</option>
-                      <option value="subcutanea">Subcutánea</option>
-                      <option value="endovenosa">Endovenosa</option>
-                      <option value="oral">Oral</option>
-                      <option value="topica">Tópica</option>
-                      <option value="pour_on">Pour-On</option>
-                      <option value="otro">Otro</option>
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Duración (días)</label>
-                    <input type="number" value={form.duracion_dias ?? ""} onChange={e => setForm({ ...form, duracion_dias: e.target.value })} className={inputClass} placeholder="1" />
-                  </div>
-                  <div><label className={labelClass}>Período retiro (días)</label>
-                    <input type="number" value={form.periodo_retiro_dias ?? ""} onChange={e => setForm({ ...form, periodo_retiro_dias: e.target.value })} className={inputClass} placeholder="0" />
-                  </div>
-                  <div><label className={labelClass}>Observaciones</label>
-                    <input type="text" value={form.observaciones ?? ""} onChange={e => setForm({ ...form, observaciones: e.target.value })} className={inputClass} placeholder="Notas" />
-                  </div>
-                </div>
-                <div className="flex gap-3 mt-4">
-                  <button onClick={guardarReceta} className="bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[#A78BFA] font-bold px-6 py-2.5 rounded-xl text-sm hover:bg-[#A78BFA]/20 transition-all font-mono">▶ Guardar Receta</button>
-                  <button onClick={() => { setShowForm(false); setForm({}); }} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">Cancelar</button>
-                </div>
-              </div>
-            )}
-
-            <div className="bg-[#0a1628]/80 border border-[#A78BFA]/15 rounded-xl overflow-hidden">
-              {recetas.length === 0 ? (
-                <div className="text-center py-16 text-[#4B5563] font-mono">Sin recetas registradas</div>
-              ) : (
-                <table className="w-full">
-                  <thead><tr className="border-b border-[#A78BFA]/10">
-                    {["Fecha","Productor","Diagnóstico","Producto","Dosis","Vía","Retiro",""].map(h => (
-                      <th key={h} className="text-left px-4 py-3 text-xs text-[#4B5563] uppercase tracking-widest font-mono">{h}</th>
-                    ))}
-                  </tr></thead>
-                  <tbody>
-                    {recetas.map(r => {
-                      const prod = productores.find(p => p.empresa_id === r.empresa_id);
-                      return (
-                        <tr key={r.id} className="border-b border-[#A78BFA]/5 hover:bg-[#A78BFA]/5 transition-colors">
-                          <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{r.fecha}</td>
-                          <td className="px-4 py-3 text-xs text-[#E5E7EB] font-mono">{prod?.propietario_nombre ?? "—"}</td>
-                          <td className="px-4 py-3 text-sm text-[#E5E7EB] font-mono">{r.diagnostico}</td>
-                          <td className="px-4 py-3 text-xs text-[#A78BFA] font-mono font-bold">{r.producto}</td>
-                          <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{r.dosis}</td>
-                          <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{r.via_administracion}</td>
-                          <td className="px-4 py-3 text-xs font-mono" style={{ color: r.periodo_retiro_dias > 0 ? "#F87171" : "#4B5563" }}>
-                            {r.periodo_retiro_dias > 0 ? `${r.periodo_retiro_dias} días` : "—"}
-                          </td>
-                          <td className="px-4 py-3 flex items-center gap-2">
-                            <button onClick={() => imprimirReceta(r)} className="text-xs text-[#A78BFA] hover:text-[#A78BFA]/70 font-mono">🖨️ Imprimir</button>
-                            <button onClick={() => eliminar("vet_recetas", r.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ===== HISTORIAL CLÍNICO ===== */}
-        {seccion === "historial" && (
-          <div>
-            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-              <h2 className="text-lg font-bold font-mono text-[#E5E7EB]">🩺 HISTORIAL CLÍNICO</h2>
-              <button onClick={() => { setShowForm(!showForm); setForm({ fecha: new Date().toISOString().split("T")[0], tipo_hist: "consulta" }); }}
-                className="px-4 py-2 rounded-xl bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[#A78BFA] hover:bg-[#A78BFA]/20 font-mono text-sm transition-all">
-                + Nuevo Evento
-              </button>
-            </div>
-
-            {showForm && (
-              <div className="bg-[#0a1628]/80 border border-[#A78BFA]/30 rounded-xl p-5 mb-6">
-                <h3 className="text-[#A78BFA] font-mono text-sm font-bold mb-4">+ EVENTO CLÍNICO</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div><label className={labelClass}>Tipo</label>
-                    <select value={form.tipo_hist ?? "consulta"} onChange={e => setForm({ ...form, tipo_hist: e.target.value })} className={inputClass}>
-                      <option value="consulta">Consulta</option>
-                      <option value="cirugia">Cirugía</option>
-                      <option value="emergencia">Emergencia</option>
-                      <option value="control">Control</option>
-                      <option value="vacunacion">Vacunación</option>
-                      <option value="otro">Otro</option>
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Productor</label>
-                    <select value={form.empresa_id ?? ""} onChange={e => { setForm({ ...form, empresa_id: e.target.value }); if (e.target.value) fetchCategorias(e.target.value); }} className={inputClass}>
-                      <option value="">Seleccionar</option>
-                      {productores.map(p => <option key={p.empresa_id} value={p.empresa_id}>{p.propietario_nombre}</option>)}
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Categoría</label>
-                    <select value={form.categoria_id ?? ""} onChange={e => setForm({ ...form, categoria_id: e.target.value })} className={inputClass}>
-                      <option value="">Todas</option>
-                      {categorias.map(c => <option key={c.id} value={c.id}>{c.categoria} ({c.especie})</option>)}
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Fecha</label>
-                    <input type="date" value={form.fecha ?? ""} onChange={e => setForm({ ...form, fecha: e.target.value })} className={inputClass} />
-                  </div>
-                  <div><label className={labelClass}>Próximo control</label>
-                    <input type="date" value={form.proximo_control ?? ""} onChange={e => setForm({ ...form, proximo_control: e.target.value })} className={inputClass} />
-                  </div>
-                  <div><label className={labelClass}>Costo</label>
-                    <input type="number" value={form.costo ?? ""} onChange={e => setForm({ ...form, costo: e.target.value })} className={inputClass} placeholder="0" />
-                  </div>
-                  <div className="md:col-span-3"><label className={labelClass}>Descripción</label>
-                    <input type="text" value={form.descripcion ?? ""} onChange={e => setForm({ ...form, descripcion: e.target.value })} className={inputClass} placeholder="Descripción del evento" />
-                  </div>
-                  <div className="md:col-span-2"><label className={labelClass}>Diagnóstico</label>
-                    <input type="text" value={form.diagnostico ?? ""} onChange={e => setForm({ ...form, diagnostico: e.target.value })} className={inputClass} placeholder="Diagnóstico" />
-                  </div>
-                  <div><label className={labelClass}>Tratamiento</label>
-                    <input type="text" value={form.tratamiento ?? ""} onChange={e => setForm({ ...form, tratamiento: e.target.value })} className={inputClass} placeholder="Tratamiento indicado" />
-                  </div>
-                  <div className="md:col-span-2"><label className={labelClass}>Resultado / Evolución</label>
-                    <input type="text" value={form.resultado ?? ""} onChange={e => setForm({ ...form, resultado: e.target.value })} className={inputClass} placeholder="Cómo evolucionó" />
-                  </div>
-                </div>
-                <div className="flex gap-3 mt-4">
-                  <button onClick={guardarHistorial} className="bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[#A78BFA] font-bold px-5 py-2 rounded-xl text-sm hover:bg-[#A78BFA]/20 transition-all font-mono">▶ Guardar</button>
-                  <button onClick={() => { setShowForm(false); setForm({}); }} className="border border-[#1C2128] text-[#4B5563] px-5 py-2 rounded-xl text-sm font-mono">Cancelar</button>
-                </div>
-              </div>
-            )}
-
-            <div className="bg-[#0a1628]/80 border border-[#A78BFA]/15 rounded-xl overflow-hidden">
-              {historial.length === 0 ? (
-                <div className="text-center py-16 text-[#4B5563] font-mono">Sin historial clínico registrado</div>
-              ) : (
-                <table className="w-full">
-                  <thead><tr className="border-b border-[#A78BFA]/10">
-                    {["Fecha","Tipo","Productor","Descripción","Diagnóstico","Próx. Control","Costo",""].map(h => (
-                      <th key={h} className="text-left px-4 py-3 text-xs text-[#4B5563] uppercase tracking-widest font-mono">{h}</th>
-                    ))}
-                  </tr></thead>
-                  <tbody>
-                    {historial.map(h => {
-                      const prod = productores.find(p => p.empresa_id === h.empresa_id);
-                      const vencido = h.proximo_control && new Date(h.proximo_control) < new Date();
-                      return (
-                        <tr key={h.id} className="border-b border-[#A78BFA]/5 hover:bg-[#A78BFA]/5 transition-colors">
-                          <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{h.fecha}</td>
-                          <td className="px-4 py-3"><span className="text-xs bg-[#A78BFA]/10 text-[#A78BFA] px-2 py-0.5 rounded font-mono">{h.tipo}</span></td>
-                          <td className="px-4 py-3 text-xs text-[#E5E7EB] font-mono">{prod?.propietario_nombre ?? "—"}</td>
-                          <td className="px-4 py-3 text-sm text-[#E5E7EB] font-mono">{h.descripcion}</td>
-                          <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{h.diagnostico || "—"}</td>
-                          <td className="px-4 py-3 text-xs font-mono" style={{ color: vencido ? "#F87171" : "#9CA3AF" }}>
-                            {h.proximo_control || "—"} {vencido && "⚠️"}
-                          </td>
-                          <td className="px-4 py-3 font-bold font-mono text-[#C9A227]">{h.costo ? `$${Number(h.costo).toLocaleString("es-AR")}` : "—"}</td>
-                          <td className="px-4 py-3"><button onClick={() => eliminar("vet_historial", h.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ===== COBRANZA ===== */}
-        {seccion === "cobranza" && (
-          <div>
-            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-              <div>
-                <h2 className="text-lg font-bold font-mono text-[#E5E7EB]">💰 COBRANZA</h2>
-                <div className="flex gap-4 mt-1">
-                  <span className="text-xs font-mono text-[#F87171]">Pendiente: <strong>${totalPendiente.toLocaleString("es-AR")}</strong></span>
-                  <span className="text-xs font-mono text-[#4ADE80]">Cobrado: <strong>${totalCobrado.toLocaleString("es-AR")}</strong></span>
-                </div>
-              </div>
-              <button onClick={() => { setShowForm(!showForm); setForm({ estado: "pendiente", fecha: new Date().toISOString().split("T")[0] }); }}
-                className="px-4 py-2 rounded-xl bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] hover:bg-[#C9A227]/20 font-mono text-sm transition-all">
-                + Nuevo Cobro
-              </button>
-            </div>
-
-            {showForm && (
-              <div className="bg-[#0a1628]/80 border border-[#C9A227]/30 rounded-xl p-5 mb-6">
-                <h3 className="text-[#C9A227] font-mono text-sm font-bold mb-4">+ REGISTRAR COBRO</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div><label className={labelClass}>Productor</label>
-                    <select value={form.empresa_id ?? ""} onChange={e => setForm({ ...form, empresa_id: e.target.value })} className={inputClass}>
-                      <option value="">Sin productor</option>
-                      {productores.map(p => <option key={p.empresa_id} value={p.empresa_id}>{p.propietario_nombre}</option>)}
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Concepto</label>
-                    <input type="text" value={form.concepto ?? ""} onChange={e => setForm({ ...form, concepto: e.target.value })} className={inputClass} placeholder="Ej: Visita enero" />
-                  </div>
-                  <div><label className={labelClass}>Monto</label>
-                    <input type="number" value={form.monto ?? ""} onChange={e => setForm({ ...form, monto: e.target.value })} className={inputClass} placeholder="0" />
-                  </div>
-                  <div><label className={labelClass}>Fecha</label>
-                    <input type="date" value={form.fecha ?? ""} onChange={e => setForm({ ...form, fecha: e.target.value })} className={inputClass} />
-                  </div>
-                  <div><label className={labelClass}>Estado</label>
-                    <select value={form.estado ?? "pendiente"} onChange={e => setForm({ ...form, estado: e.target.value })} className={inputClass}>
-                      <option value="pendiente">Pendiente</option>
-                      <option value="cobrado">Cobrado</option>
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Método pago</label>
-                    <select value={form.metodo_pago ?? ""} onChange={e => setForm({ ...form, metodo_pago: e.target.value })} className={inputClass}>
-                      <option value="">—</option>
-                      <option value="transferencia">Transferencia</option>
-                      <option value="efectivo">Efectivo</option>
-                      <option value="cheque">Cheque</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="flex gap-3 mt-4">
-                  <button onClick={guardarCobranza} className="bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-bold px-5 py-2 rounded-xl text-sm hover:bg-[#C9A227]/20 transition-all font-mono">▶ Guardar</button>
-                  <button onClick={() => { setShowForm(false); setForm({}); }} className="border border-[#1C2128] text-[#4B5563] px-5 py-2 rounded-xl text-sm font-mono">Cancelar</button>
-                </div>
-              </div>
-            )}
-
-            <div className="bg-[#0a1628]/80 border border-[#C9A227]/15 rounded-xl overflow-hidden">
-              {cobranzas.length === 0 ? (
-                <div className="text-center py-16 text-[#4B5563] font-mono">Sin cobros registrados</div>
-              ) : (
-                <table className="w-full">
-                  <thead><tr className="border-b border-[#C9A227]/10">
-                    {["Fecha","Productor","Concepto","Monto","Estado","Método",""].map(h => (
-                      <th key={h} className="text-left px-4 py-3 text-xs text-[#4B5563] uppercase tracking-widest font-mono">{h}</th>
-                    ))}
-                  </tr></thead>
-                  <tbody>
-                    {cobranzas.map(c => {
-                      const prod = productores.find(p => p.empresa_id === c.empresa_id);
-                      return (
-                        <tr key={c.id} className="border-b border-[#C9A227]/5 hover:bg-[#C9A227]/5 transition-colors">
-                          <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{c.fecha}</td>
-                          <td className="px-4 py-3 text-xs text-[#E5E7EB] font-mono">{prod?.propietario_nombre ?? "—"}</td>
-                          <td className="px-4 py-3 text-sm text-[#E5E7EB] font-mono">{c.concepto}</td>
-                          <td className="px-4 py-3 font-bold font-mono text-[#C9A227]">${Number(c.monto).toLocaleString("es-AR")}</td>
-                          <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded font-mono ${c.estado === "cobrado" ? "bg-[#4ADE80]/10 text-[#4ADE80]" : "bg-[#F87171]/10 text-[#F87171]"}`}>{c.estado}</span></td>
-                          <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{c.metodo_pago || "—"}</td>
-                          <td className="px-4 py-3 flex gap-2">
-                            {c.estado === "pendiente" && <button onClick={() => marcarCobrado(c.id)} className="text-xs text-[#4ADE80] font-mono">✓ Cobrar</button>}
-                            <button onClick={() => eliminar("vet_cobranzas", c.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ===== VEHÍCULO ===== */}
-        {seccion === "vehiculo" && (
-          <div>
-            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-              <h2 className="text-lg font-bold font-mono text-[#E5E7EB]">🚗 MI VEHÍCULO</h2>
-              {!vehiculoSel ? (
-                <button onClick={() => { setShowForm(true); setForm({}); }}
-                  className="px-4 py-2 rounded-xl bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[#A78BFA] hover:bg-[#A78BFA]/20 font-mono text-sm transition-all">
-                  + Agregar Vehículo
-                </button>
-              ) : (
-                <div className="flex gap-3">
-                  <button onClick={() => { setShowForm(true); setForm({}); }}
-                    className="px-4 py-2 rounded-xl bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[#A78BFA] hover:bg-[#A78BFA]/20 font-mono text-sm transition-all">
-                    + Service / Reparación
-                  </button>
-                  <button onClick={() => { setVehiculoSel(null); setServicios([]); setShowForm(false); }}
-                    className="px-4 py-2 rounded-xl border border-[#1C2128] text-[#4B5563] hover:text-[#9CA3AF] font-mono text-sm">← Volver</button>
-                </div>
-              )}
-            </div>
-
-            {showForm && !vehiculoSel && (
-              <div className="bg-[#0a1628]/80 border border-[#A78BFA]/30 rounded-xl p-5 mb-6">
-                <h3 className="text-[#A78BFA] font-mono text-sm font-bold mb-4">+ NUEVO VEHÍCULO</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div><label className={labelClass}>Nombre</label><input type="text" value={form.nombre ?? ""} onChange={e => setForm({ ...form, nombre: e.target.value })} className={inputClass} placeholder="Ej: Ford Ranger" /></div>
-                  <div><label className={labelClass}>Marca</label><input type="text" value={form.marca ?? ""} onChange={e => setForm({ ...form, marca: e.target.value })} className={inputClass} /></div>
-                  <div><label className={labelClass}>Modelo</label><input type="text" value={form.modelo ?? ""} onChange={e => setForm({ ...form, modelo: e.target.value })} className={inputClass} /></div>
-                  <div><label className={labelClass}>Año</label><input type="number" value={form.año ?? ""} onChange={e => setForm({ ...form, año: e.target.value })} className={inputClass} /></div>
-                  <div><label className={labelClass}>Patente</label><input type="text" value={form.patente ?? ""} onChange={e => setForm({ ...form, patente: e.target.value })} className={inputClass} /></div>
-                  <div><label className={labelClass}>Venc. Seguro</label><input type="date" value={form.seguro_vencimiento ?? ""} onChange={e => setForm({ ...form, seguro_vencimiento: e.target.value })} className={inputClass} /></div>
-                  <div><label className={labelClass}>Compañía</label><input type="text" value={form.seguro_compania ?? ""} onChange={e => setForm({ ...form, seguro_compania: e.target.value })} className={inputClass} /></div>
-                  <div><label className={labelClass}>Venc. VTV</label><input type="date" value={form.vtv_vencimiento ?? ""} onChange={e => setForm({ ...form, vtv_vencimiento: e.target.value })} className={inputClass} /></div>
-                  <div><label className={labelClass}>Km actuales</label><input type="number" value={form.km_actuales ?? ""} onChange={e => setForm({ ...form, km_actuales: e.target.value })} className={inputClass} /></div>
-                  <div><label className={labelClass}>Próx. service (km)</label><input type="number" value={form.proximo_service_km ?? ""} onChange={e => setForm({ ...form, proximo_service_km: e.target.value })} className={inputClass} /></div>
-                </div>
-                <div className="flex gap-3 mt-4">
-                  <button onClick={guardarVehiculo} className="bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[#A78BFA] font-bold px-6 py-2.5 rounded-xl text-sm hover:bg-[#A78BFA]/20 transition-all font-mono">▶ Guardar</button>
-                  <button onClick={() => { setShowForm(false); setForm({}); }} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">Cancelar</button>
-                </div>
-              </div>
-            )}
-
-            {!vehiculoSel ? (
-              vehiculos.length === 0 ? (
-                <div className="text-center py-20 bg-[#0a1628]/60 border border-[#A78BFA]/15 rounded-xl">
-                  <div className="text-5xl mb-4 opacity-20">🚗</div>
-                  <p className="text-[#4B5563] font-mono">Sin vehículos registrados</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {vehiculos.map(v => {
-                    const segVenc = v.seguro_vencimiento && new Date(v.seguro_vencimiento) < new Date();
-                    const vtvVenc = v.vtv_vencimiento && new Date(v.vtv_vencimiento) < new Date();
-                    return (
-                      <div key={v.id} className="card-vet bg-[#0a1628]/80 border border-[#A78BFA]/15 rounded-xl p-5 cursor-pointer"
-                        onClick={() => { setVehiculoSel(v); fetchServicios(v.id); }}>
-                        <div className="flex items-start justify-between mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+                  {productores.map(p=>(
+                    <div key={p.id} className="card-vet overflow-hidden">
+                      <div className="p-5">
+                        <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-3">
-                            <span className="text-3xl">🚗</span>
+                            <div className="w-10 h-10 rounded-full bg-[#A78BFA]/10 border border-[#A78BFA]/30 flex items-center justify-center text-lg">👨‍🌾</div>
                             <div>
-                              <div className="font-bold text-[#E5E7EB] font-mono">{v.nombre}</div>
-                              <div className="text-xs text-[#4B5563] font-mono">{v.marca} {v.modelo} · {v.año} · {v.patente}</div>
+                              <div className="font-bold text-[#E5E7EB] font-mono uppercase">{p.nombre}</div>
+                              <div className="text-xs text-[#4B5563] font-mono">{p.localidad}{p.provincia?", "+p.provincia:""}</div>
+                              {p.tipo_produccion&&<div className="text-xs text-[#A78BFA] font-mono">{p.tipo_produccion}</div>}
+                              {p.tiene_cuenta&&<div className="text-xs text-[#4ADE80] font-mono">✓ USA LA APP</div>}
                             </div>
                           </div>
-                          <button onClick={e => { e.stopPropagation(); eliminar("vet_vehiculos", v.id); }} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button>
+                          <div className="flex gap-1">
+                            <button onClick={()=>{setEditandoProductor(p.id);setForm({nombre:p.nombre,telefono:p.telefono,email:p.email,localidad:p.localidad,provincia:p.provincia,hectareas_total:String(p.hectareas_total),cabezas_ganado:String(p.cabezas_ganado),tipo_produccion:p.tipo_produccion,honorario_tipo:p.honorario_tipo,honorario_monto:String(p.honorario_monto),observaciones:p.observaciones});setShowForm(true);}} className="text-[#C9A227] text-xs px-2 py-1 rounded hover:bg-[#C9A227]/10">✏️</button>
+                            <button onClick={()=>eliminarProductor(p.id)} className="text-[#4B5563] hover:text-red-400 text-xs px-2 py-1 rounded">✕</button>
+                          </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-3 mb-3">
-                          <div className="bg-[#020810]/60 rounded-lg p-3">
-                            <div className="text-xs text-[#4B5563] font-mono">Km actuales</div>
-                            <div className="text-lg font-bold font-mono text-[#A78BFA]">{v.km_actuales.toLocaleString()} km</div>
-                          </div>
-                          <div className="bg-[#020810]/60 rounded-lg p-3">
-                            <div className="text-xs text-[#4B5563] font-mono">Próx. service</div>
-                            <div className="text-lg font-bold font-mono text-[#C9A227]">{v.proximo_service_km ? `${v.proximo_service_km.toLocaleString()} km` : "—"}</div>
-                          </div>
+                        <div className="grid grid-cols-3 gap-2 text-xs font-mono mb-3">
+                          <div className="bg-[#020810]/40 rounded-lg p-2 text-center"><div className="text-[#4B5563]">HA</div><div className="font-bold text-[#C9A227] mt-0.5">{p.hectareas_total.toLocaleString()}</div></div>
+                          <div className="bg-[#020810]/40 rounded-lg p-2 text-center"><div className="text-[#4B5563]">CABEZAS</div><div className="font-bold text-[#A78BFA] mt-0.5">{p.cabezas_ganado.toLocaleString()}</div></div>
+                          <div className="bg-[#020810]/40 rounded-lg p-2 text-center"><div className="text-[#4B5563]">HONOR.</div><div className="font-bold text-[#00FF80] mt-0.5">${p.honorario_monto.toLocaleString()}</div></div>
                         </div>
                         <div className="flex gap-2">
-                          <span className={`text-xs px-2 py-1 rounded font-mono ${segVenc ? "bg-[#F87171]/10 text-[#F87171]" : "bg-[#4ADE80]/10 text-[#4ADE80]"}`}>
-                            🛡️ {segVenc ? "Seguro VENCIDO" : `Seguro ${v.seguro_vencimiento || "—"}`}
-                          </span>
-                          <span className={`text-xs px-2 py-1 rounded font-mono ${vtvVenc ? "bg-[#F87171]/10 text-[#F87171]" : "bg-[#4ADE80]/10 text-[#4ADE80]"}`}>
-                            📋 {vtvVenc ? "VTV VENCIDA" : `VTV ${v.vtv_vencimiento || "—"}`}
-                          </span>
+                          {p.telefono&&<a href={"https://wa.me/54"+p.telefono.replace(/\D/g,"")} target="_blank" rel="noreferrer" className="flex-1 text-center py-2 rounded-lg bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] text-xs font-mono font-bold">💬 WA</a>}
                         </div>
                       </div>
-                    );
-                  })}
+                      {p.observaciones&&<div className="border-t border-[#A78BFA]/10 px-5 py-2 text-xs text-[#4B5563] font-mono">{p.observaciones}</div>}
+                    </div>
+                  ))}
                 </div>
-              )
-            ) : (
-              <div>
-                <div className="bg-[#0a1628]/80 border border-[#A78BFA]/15 rounded-xl p-5 mb-4">
-                  <div className="flex items-center gap-4 mb-4">
-                    <span className="text-4xl">🚗</span>
-                    <div>
-                      <div className="font-bold text-xl text-[#E5E7EB] font-mono">{vehiculoSel.nombre}</div>
-                      <div className="text-xs text-[#4B5563] font-mono">{vehiculoSel.marca} {vehiculoSel.modelo} · {vehiculoSel.año} · {vehiculoSel.patente}</div>
-                    </div>
+                {/* Historial visitas veterinarias */}
+                <div className="card-vet overflow-hidden">
+                  <div className="px-5 py-3 border-b border-[#C9A227]/15 flex items-center justify-between">
+                    <span className="text-[#C9A227] font-mono text-sm font-bold">📋 HISTORIAL DE VISITAS VETERINARIAS</span>
+                    <button onClick={()=>exportarExcel("visitas")} className="text-xs text-[#4ADE80] border border-[#4ADE80]/20 px-3 py-1.5 rounded-lg font-mono hover:bg-[#4ADE80]/10 font-bold">📤 EXPORTAR</button>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {[
-                      { label: "Km actuales", value: `${vehiculoSel.km_actuales.toLocaleString()} km`, color: "#A78BFA" },
-                      { label: "Próx. service", value: vehiculoSel.proximo_service_km ? `${vehiculoSel.proximo_service_km.toLocaleString()} km` : "—", color: "#C9A227" },
-                      { label: "Seguro", value: vehiculoSel.seguro_vencimiento || "—", color: vehiculoSel.seguro_vencimiento && new Date(vehiculoSel.seguro_vencimiento) < new Date() ? "#F87171" : "#4ADE80" },
-                      { label: "VTV", value: vehiculoSel.vtv_vencimiento || "—", color: vehiculoSel.vtv_vencimiento && new Date(vehiculoSel.vtv_vencimiento) < new Date() ? "#F87171" : "#4ADE80" },
-                    ].map(d => (
-                      <div key={d.label} className="bg-[#020810]/60 rounded-lg p-3">
-                        <div className="text-xs text-[#4B5563] font-mono">{d.label}</div>
-                        <div className="text-sm font-bold font-mono mt-1" style={{ color: d.color }}>{d.value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                {showForm && (
-                  <div className="bg-[#0a1628]/80 border border-[#C9A227]/30 rounded-xl p-5 mb-4">
-                    <h3 className="text-[#C9A227] font-mono text-sm font-bold mb-4">+ SERVICE / REPARACIÓN</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      <div><label className={labelClass}>Tipo</label>
-                        <select value={form.tipo_service ?? "service"} onChange={e => setForm({ ...form, tipo_service: e.target.value })} className={inputClass}>
-                          <option value="service">Service</option>
-                          <option value="reparacion">Reparación</option>
-                          <option value="vtv">VTV</option>
-                          <option value="otro">Otro</option>
-                        </select>
-                      </div>
-                      <div><label className={labelClass}>Descripción</label><input type="text" value={form.descripcion ?? ""} onChange={e => setForm({ ...form, descripcion: e.target.value })} className={inputClass} /></div>
-                      <div><label className={labelClass}>Taller</label><input type="text" value={form.taller ?? ""} onChange={e => setForm({ ...form, taller: e.target.value })} className={inputClass} /></div>
-                      <div><label className={labelClass}>Km</label><input type="number" value={form.km ?? ""} onChange={e => setForm({ ...form, km: e.target.value })} className={inputClass} /></div>
-                      <div><label className={labelClass}>Costo</label><input type="number" value={form.costo ?? ""} onChange={e => setForm({ ...form, costo: e.target.value })} className={inputClass} /></div>
-                      <div><label className={labelClass}>Fecha</label><input type="date" value={form.fecha ?? new Date().toISOString().split("T")[0]} onChange={e => setForm({ ...form, fecha: e.target.value })} className={inputClass} /></div>
-                    </div>
-                    <div className="flex gap-3 mt-4">
-                      <button onClick={guardarService} className="bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-bold px-5 py-2 rounded-xl text-sm font-mono">▶ Guardar</button>
-                      <button onClick={() => { setShowForm(false); setForm({}); }} className="border border-[#1C2128] text-[#4B5563] px-5 py-2 rounded-xl text-sm font-mono">Cancelar</button>
-                    </div>
-                  </div>
-                )}
-                <div className="bg-[#0a1628]/80 border border-[#A78BFA]/15 rounded-xl overflow-hidden">
-                  <div className="px-5 py-3 border-b border-[#A78BFA]/10">
-                    <span className="text-[#A78BFA] text-sm font-mono font-bold">🔧 HISTORIAL</span>
-                  </div>
-                  {servicios.length === 0 ? (
-                    <div className="text-center py-10 text-[#4B5563] font-mono text-sm">Sin historial</div>
-                  ) : (
-                    <table className="w-full">
-                      <thead><tr className="border-b border-[#A78BFA]/10">
-                        {["Fecha","Tipo","Descripción","Taller","Km","Costo",""].map(h => (
-                          <th key={h} className="text-left px-4 py-3 text-xs text-[#4B5563] uppercase tracking-widest font-mono">{h}</th>
-                        ))}
-                      </tr></thead>
-                      <tbody>
-                        {servicios.map(s => (
-                          <tr key={s.id} className="border-b border-[#A78BFA]/5 hover:bg-[#A78BFA]/5 transition-colors">
-                            <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{s.fecha}</td>
-                            <td className="px-4 py-3"><span className="text-xs bg-[#C9A227]/10 text-[#C9A227] px-2 py-0.5 rounded font-mono">{s.tipo}</span></td>
-                            <td className="px-4 py-3 text-sm text-[#E5E7EB] font-mono">{s.descripcion}</td>
-                            <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{s.taller}</td>
-                            <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{s.km ? `${s.km.toLocaleString()} km` : "—"}</td>
-                            <td className="px-4 py-3 font-bold font-mono text-[#F87171]">${Number(s.costo).toLocaleString("es-AR")}</td>
-                            <td className="px-4 py-3"><button onClick={() => eliminar("vet_vehiculo_service", s.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button></td>
-                          </tr>
-                        ))}
+                  {visitas.length===0?<div className="text-center py-10 text-[#4B5563] font-mono text-sm">SIN VISITAS REGISTRADAS</div>:(
+                    <table className="w-full"><thead><tr className="border-b border-[#C9A227]/10">{["FECHA","PRODUCTOR","SERVICIO","DESCRIPCION","ANIMALES","MEDICAMENTOS","COSTO",""].map(h=><th key={h} className="text-left px-4 py-2.5 text-xs text-[#4B5563] font-mono whitespace-nowrap">{h}</th>)}</tr></thead>
+                      <tbody>{visitas.slice(0,20).map(v=>{const p=productores.find(x=>x.id===v.productor_id);return(
+                        <tr key={v.id} className="border-b border-[#C9A227]/5 hover:bg-[#C9A227]/5">
+                          <td className="px-4 py-3 text-xs text-[#6B7280] font-mono">{v.fecha}</td>
+                          <td className="px-4 py-3 text-xs text-[#E5E7EB] font-mono font-bold">{p?.nombre??"—"}</td>
+                          <td className="px-4 py-3"><span className="text-xs bg-[#A78BFA]/10 text-[#A78BFA] px-2 py-0.5 rounded font-mono font-bold">{v.tipo_servicio}</span></td>
+                          <td className="px-4 py-3 text-sm text-[#E5E7EB] font-mono">{v.descripcion}</td>
+                          <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{v.animales||"—"}</td>
+                          <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{v.medicamentos||"—"}</td>
+                          <td className="px-4 py-3 font-bold text-[#C9A227] font-mono">{v.costo?"$"+Number(v.costo).toLocaleString("es-AR"):"-"}</td>
+                          <td className="px-4 py-3"><button onClick={()=>eliminar("vet_visitas",v.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button></td>
+                        </tr>
+                      );})}
                       </tbody>
                     </table>
                   )}
@@ -1132,8 +524,152 @@ export default function VeterinarioPanel() {
             )}
           </div>
         )}
+
+        {/* COBRANZA — igual que ingeniero */}
+        {seccion==="cobranza" && (
+          <div>
+            <div className="flex items-center justify-between mb-5 flex-wrap gap-4">
+              <div><h2 className="text-lg font-bold font-mono text-[#E5E7EB]">💰 COBRANZA</h2><div className="flex gap-4 mt-1"><span className="text-xs font-mono text-[#F87171]">Pendiente: <strong>${totalPendiente.toLocaleString("es-AR")}</strong></span><span className="text-xs font-mono text-[#4ADE80]">Cobrado: <strong>${totalCobrado.toLocaleString("es-AR")}</strong></span></div></div>
+              <button onClick={()=>{setShowForm(!showForm);setForm({estado:"pendiente",fecha:new Date().toISOString().split("T")[0]});}} className="px-4 py-2 rounded-xl bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-mono text-sm font-bold hover:bg-[#C9A227]/20">+ NUEVO COBRO</button>
+            </div>
+            {showForm && (
+              <div className="card-vet p-5 mb-5">
+                <h3 className="text-[#C9A227] font-mono text-sm font-bold mb-4">+ REGISTRAR COBRO</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div><label className={lCls}>PRODUCTOR</label><select value={form.productor_id??""} onChange={e=>setForm({...form,productor_id:e.target.value})} className={iCls}><option value="">Sin productor</option>{productores.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
+                  <div><label className={lCls}>CONCEPTO</label><input type="text" value={form.concepto??""} onChange={e=>setForm({...form,concepto:e.target.value})} className={iCls} placeholder="Sanidad enero"/></div>
+                  <div><label className={lCls}>MONTO</label><input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>FECHA</label><input type="date" value={form.fecha??""} onChange={e=>setForm({...form,fecha:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>ESTADO</label><select value={form.estado??"pendiente"} onChange={e=>setForm({...form,estado:e.target.value})} className={iCls}><option value="pendiente">Pendiente</option><option value="cobrado">Cobrado</option></select></div>
+                  <div><label className={lCls}>METODO</label><select value={form.metodo_pago??""} onChange={e=>setForm({...form,metodo_pago:e.target.value})} className={iCls}><option value="">—</option><option value="transferencia">Transferencia</option><option value="efectivo">Efectivo</option><option value="cheque">Cheque</option></select></div>
+                </div>
+                <div className="flex gap-3 mt-4">
+                  <button onClick={guardarCobranza} className="bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-bold px-5 py-2 rounded-xl text-sm font-mono hover:bg-[#C9A227]/20">▶ GUARDAR</button>
+                  <button onClick={()=>{setShowForm(false);setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-5 py-2 rounded-xl text-sm font-mono">CANCELAR</button>
+                </div>
+              </div>
+            )}
+            <div className="card-vet overflow-hidden">
+              {cobranzas.length===0?<div className="text-center py-16 text-[#4B5563] font-mono">SIN COBROS</div>:(
+                <table className="w-full"><thead><tr className="border-b border-[#A78BFA]/10">{["FECHA","PRODUCTOR","CONCEPTO","MONTO","ESTADO","METODO",""].map(h=><th key={h} className="text-left px-4 py-3 text-xs text-[#4B5563] font-mono">{h}</th>)}</tr></thead>
+                  <tbody>{cobranzas.map(c=>{const p=productores.find(x=>x.id===c.productor_id);return(
+                    <tr key={c.id} className="border-b border-[#A78BFA]/5 hover:bg-[#A78BFA]/5">
+                      <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{c.fecha}</td>
+                      <td className="px-4 py-3 text-xs text-[#E5E7EB] font-mono">{p?.nombre??"—"}</td>
+                      <td className="px-4 py-3 text-sm text-[#E5E7EB] font-mono">{c.concepto}</td>
+                      <td className="px-4 py-3 font-bold text-[#C9A227] font-mono">${Number(c.monto).toLocaleString("es-AR")}</td>
+                      <td className="px-4 py-3"><span className={"text-xs px-2 py-0.5 rounded font-mono "+(c.estado==="cobrado"?"bg-[#4ADE80]/10 text-[#4ADE80]":"bg-[#F87171]/10 text-[#F87171]")}>{c.estado}</span></td>
+                      <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{c.metodo_pago||"—"}</td>
+                      <td className="px-4 py-3 flex gap-2">
+                        {c.estado==="pendiente"&&<button onClick={()=>marcarCobrado(c.id)} className="text-xs text-[#4ADE80] font-mono">✓</button>}
+                        <button onClick={()=>eliminar("ing_cobranzas",c.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button>
+                      </td>
+                    </tr>
+                  );})}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* VEHICULO — igual que ingeniero */}
+        {seccion==="vehiculo" && (
+          <div>
+            <div className="flex items-center justify-between mb-5"><h2 className="text-lg font-bold font-mono text-[#E5E7EB]">🚗 MI VEHICULO</h2>
+              {!vehiculoSel?<button onClick={()=>{setShowForm(true);setForm({});}} className="px-4 py-2 rounded-xl bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[#A78BFA] font-mono text-sm font-bold hover:bg-[#A78BFA]/20">+ AGREGAR</button>:<button onClick={()=>{setVehiculoSel(null);setServicios([]);setShowForm(false);}} className="px-4 py-2 rounded-xl border border-[#1C2128] text-[#4B5563] font-mono text-sm">← VOLVER</button>}
+            </div>
+            {showForm&&!vehiculoSel&&(
+              <div className="card-vet p-5 mb-5">
+                <h3 className="text-[#A78BFA] font-mono text-sm font-bold mb-4">+ NUEVO VEHICULO</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div><label className={lCls}>NOMBRE</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls} placeholder="Toyota Hilux"/></div>
+                  <div><label className={lCls}>MARCA</label><input type="text" value={form.marca??""} onChange={e=>setForm({...form,marca:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>MODELO</label><input type="text" value={form.modelo??""} onChange={e=>setForm({...form,modelo:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>AÑO</label><input type="number" value={form.anio??""} onChange={e=>setForm({...form,anio:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>PATENTE</label><input type="text" value={form.patente??""} onChange={e=>setForm({...form,patente:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>VENC. SEGURO</label><input type="date" value={form.seguro_vencimiento??""} onChange={e=>setForm({...form,seguro_vencimiento:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>VENC. VTV</label><input type="date" value={form.vtv_vencimiento??""} onChange={e=>setForm({...form,vtv_vencimiento:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>KM ACTUALES</label><input type="number" value={form.km_actuales??""} onChange={e=>setForm({...form,km_actuales:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>PROX. SERVICE KM</label><input type="number" value={form.proximo_service_km??""} onChange={e=>setForm({...form,proximo_service_km:e.target.value})} className={iCls}/></div>
+                </div>
+                <div className="flex gap-3 mt-4">
+                  <button onClick={guardarVehiculo} className="bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[#A78BFA] font-bold px-6 py-2.5 rounded-xl text-sm font-mono hover:bg-[#A78BFA]/20">▶ GUARDAR</button>
+                  <button onClick={()=>{setShowForm(false);setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">CANCELAR</button>
+                </div>
+              </div>
+            )}
+            {!vehiculoSel?(
+              vehiculos.length===0?<div className="text-center py-20 card-vet"><div className="text-5xl mb-4 opacity-20">🚗</div><p className="text-[#4B5563] font-mono">SIN VEHICULOS</p></div>:(
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {vehiculos.map(v=>{const segVenc=v.seguro_vencimiento&&new Date(v.seguro_vencimiento)<new Date();return(
+                    <div key={v.id} className="card-vet p-5 cursor-pointer" onClick={async()=>{setVehiculoSel(v);const sb=await getSB();const{data}=await sb.from("ing_vehiculo_service").select("*").eq("vehiculo_id",v.id).order("fecha",{ascending:false});setServicios(data??[]);}}>
+                      <div className="flex items-center justify-between mb-3"><div className="flex items-center gap-3"><span className="text-2xl">🚗</span><div><div className="font-bold text-[#E5E7EB] font-mono">{v.nombre}</div><div className="text-xs text-[#4B5563] font-mono">{v.marca} {v.modelo} · {v.anio} · {v.patente}</div></div></div><button onClick={e=>{e.stopPropagation();eliminar("ing_vehiculos",v.id);}} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button></div>
+                      <div className="flex gap-2 flex-wrap">
+                        <span className={"text-xs px-2 py-1 rounded font-mono "+(segVenc?"bg-[#F87171]/10 text-[#F87171]":"bg-[#4ADE80]/10 text-[#4ADE80]")}>🛡️ {segVenc?"VENCIDO":v.seguro_vencimiento||"—"}</span>
+                        <span className="text-xs px-2 py-1 rounded font-mono bg-[#A78BFA]/10 text-[#A78BFA]">⚙️ {v.km_actuales?.toLocaleString()||0} km</span>
+                      </div>
+                    </div>
+                  );})}
+                </div>
+              )
+            ):(
+              <div>
+                <div className="card-vet p-5 mb-4">
+                  <div className="flex items-center justify-between mb-4"><div className="flex items-center gap-3"><span className="text-3xl">🚗</span><div><div className="font-bold text-lg text-[#E5E7EB] font-mono">{vehiculoSel.nombre}</div><div className="text-xs text-[#4B5563] font-mono">{vehiculoSel.marca} {vehiculoSel.modelo} · {vehiculoSel.patente}</div></div></div><button onClick={()=>{setShowForm(true);setForm({});}} className="px-4 py-2 rounded-xl bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-mono text-sm font-bold">+ SERVICE</button></div>
+                </div>
+                {showForm&&vehiculoSel&&(
+                  <div className="card-vet p-5 mb-4">
+                    <h3 className="text-[#C9A227] font-mono text-sm font-bold mb-4">+ SERVICE</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div><label className={lCls}>TIPO</label><select value={form.tipo_service??"service"} onChange={e=>setForm({...form,tipo_service:e.target.value})} className={iCls}><option value="service">Service</option><option value="reparacion">Reparacion</option><option value="vtv">VTV</option><option value="otro">Otro</option></select></div>
+                      <div><label className={lCls}>DESCRIPCION</label><input type="text" value={form.descripcion??""} onChange={e=>setForm({...form,descripcion:e.target.value})} className={iCls}/></div>
+                      <div><label className={lCls}>KM</label><input type="number" value={form.km??""} onChange={e=>setForm({...form,km:e.target.value})} className={iCls}/></div>
+                      <div><label className={lCls}>COSTO</label><input type="number" value={form.costo??""} onChange={e=>setForm({...form,costo:e.target.value})} className={iCls}/></div>
+                      <div><label className={lCls}>FECHA</label><input type="date" value={form.fecha??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha:e.target.value})} className={iCls}/></div>
+                    </div>
+                    <div className="flex gap-3 mt-4"><button onClick={guardarService} className="bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-bold px-5 py-2 rounded-xl text-sm font-mono">▶ GUARDAR</button><button onClick={()=>{setShowForm(false);setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-5 py-2 rounded-xl text-sm font-mono">CANCELAR</button></div>
+                  </div>
+                )}
+                <div className="card-vet overflow-hidden"><div className="px-5 py-3 border-b border-[#A78BFA]/10"><span className="text-[#A78BFA] text-sm font-mono font-bold">🔧 HISTORIAL</span></div>
+                  {servicios.length===0?<div className="text-center py-10 text-[#4B5563] font-mono text-sm">SIN HISTORIAL</div>:(
+                    <table className="w-full"><thead><tr className="border-b border-[#A78BFA]/10">{["FECHA","TIPO","DESCRIPCION","KM","COSTO",""].map(h=><th key={h} className="text-left px-4 py-3 text-xs text-[#4B5563] font-mono">{h}</th>)}</tr></thead>
+                      <tbody>{servicios.map(s=><tr key={s.id} className="border-b border-[#A78BFA]/5 hover:bg-[#A78BFA]/5"><td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{s.fecha}</td><td className="px-4 py-3"><span className="text-xs bg-[#A78BFA]/10 text-[#A78BFA] px-2 py-0.5 rounded font-mono">{s.tipo}</span></td><td className="px-4 py-3 text-sm text-[#E5E7EB] font-mono">{s.descripcion}</td><td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{s.km?(s.km.toLocaleString()+" km"):"—"}</td><td className="px-4 py-3 font-bold font-mono text-[#F87171]">${Number(s.costo).toLocaleString("es-AR")}</td><td className="px-4 py-3"><button onClick={()=>eliminar("ing_vehiculo_service",s.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button></td></tr>)}</tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* IA VET */}
+        {seccion==="ia_campo" && (
+          <div>
+            <div className="mb-5"><h2 className="text-lg font-bold font-mono text-[#E5E7EB]">🤖 IA VET — ASISTENTE VETERINARIO</h2><p className="text-xs text-[#4B5563] font-mono mt-1">Consulta sobre sanidad animal, vacunacion, diagnostico, recetas, reproduccion</p></div>
+            {aiChat.length===0&&<div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">{["Calendario sanitario bovinos","Protocolo vacunacion terneros Argentina","Diagnostico tristeza bovina sintomas","Manejo reproductivo rodeo cria","Dosis ivermectina bovinos kg","Cuando aplicar fiebre aftosa"].map(q=><button key={q} onClick={()=>setAiInput(q)} className="text-left text-xs text-[#5B4B6B] hover:text-[#A78BFA] border border-[#A78BFA]/10 hover:border-[#A78BFA]/30 px-4 py-3 rounded-xl font-mono transition-all bg-[#0a1628]/60">🩺 {q}</button>)}</div>}
+            <div className="card-vet overflow-hidden mb-4">
+              <div className="px-5 py-3 border-b border-[#A78BFA]/10 flex items-center justify-between"><div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-[#A78BFA] animate-pulse"/><span className="text-[#A78BFA] text-xs font-mono">◆ IA VETERINARIA ACTIVA</span></div>{aiChat.length>0&&<button onClick={()=>setAiChat([])} className="text-xs text-[#4B5563] font-mono">Limpiar</button>}</div>
+              <div className="p-4 space-y-4 max-h-96 overflow-y-auto">
+                {aiChat.length===0&&<div className="text-center py-10 text-[#4B5563] font-mono text-sm"><div className="text-4xl mb-3 opacity-30">🐄</div>Hace tu consulta veterinaria...</div>}
+                {aiChat.map((m,i)=><div key={i} className={"flex "+(m.rol==="user"?"justify-end":"justify-start")}><div className={"max-w-[80%] px-4 py-3 rounded-xl text-sm font-mono "+(m.rol==="user"?"bg-[#A78BFA]/10 border border-[#A78BFA]/20 text-[#E5E7EB]":"bg-[#0F1115] border border-[#1C2128] text-[#9CA3AF]")}>{m.rol==="assistant"&&<div className="text-[#A78BFA] text-xs mb-2">◆ IA VETERINARIA</div>}<p className="leading-relaxed whitespace-pre-wrap">{m.texto}</p></div></div>)}
+                {aiLoading&&<div className="flex justify-start"><div className="bg-[#0F1115] border border-[#1C2128] px-4 py-3 rounded-xl"><p className="text-[#A78BFA] text-xs font-mono animate-pulse">▶ Analizando...</p></div></div>}
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={()=>{const hasSR="webkitSpeechRecognition" in window||"SpeechRecognition" in window;if(!hasSR){alert("Usa Chrome");return;}const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition;const rec=new SR();rec.lang="es-AR";setListening(true);rec.onresult=(e: any)=>{setAiInput(e.results[0][0].transcript);setListening(false);};rec.onerror=()=>setListening(false);rec.onend=()=>setListening(false);rec.start();}} className={"flex items-center gap-2 px-4 py-3 rounded-xl border font-mono text-sm flex-shrink-0 "+(listening?"border-red-400 text-red-400 animate-pulse":"border-[#A78BFA]/30 text-[#A78BFA] hover:bg-[#A78BFA]/10")}>🎤 {listening?"...":"VOZ"}</button>
+              <input type="text" value={aiInput} onChange={e=>setAiInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&askAI()} placeholder="Consulta sobre sanidad, vacunacion, diagnostico, recetas..." className="flex-1 bg-[#0a1628]/80 border border-[#A78BFA]/20 rounded-xl px-4 py-3 text-[#E5E7EB] text-sm focus:outline-none focus:border-[#A78BFA] font-mono"/>
+              <button onClick={askAI} disabled={aiLoading||!aiInput.trim()} className="px-6 py-3 rounded-xl bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[#A78BFA] font-mono text-sm disabled:opacity-40 flex-shrink-0 font-bold">▶ ENVIAR</button>
+            </div>
+          </div>
+        )}
       </div>
-      <p className="relative z-10 text-center text-[#0a0a2a] text-xs pb-4 tracking-[0.3em] font-mono">© AGROGESTION PRO · PANEL VETERINARIO</p>
+
+      {/* Panel voz */}
+      {vozPanel&&<div className="fixed bottom-44 right-6 z-50 w-80 bg-[#0a1628]/97 border border-[#A78BFA]/30 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-sm"><div className="flex items-center justify-between px-4 py-3 border-b border-[#A78BFA]/20"><div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{background:VOZ_COLOR[vozEstado]}}/><span className="text-[#A78BFA] text-xs font-mono font-bold">🎤 ASISTENTE VET</span></div><button onClick={()=>{setVozPanel(false);window.speechSynthesis?.cancel();recRef.current?.stop();setVozEstado("idle");}} className="text-[#4B5563] text-sm">✕</button></div><div className="px-4 pt-3 pb-2 min-h-20">{vozEstado==="escuchando"&&<div className="flex items-center gap-3 py-2"><div className="flex gap-1 items-end h-8">{[1,2,3,4,5].map(i=><div key={i} className="w-1.5 rounded-full bg-[#F87171]" style={{height:(10+i*5)+"px"}}/>)}</div><span className="text-[#F87171] text-sm font-mono">ESCUCHANDO...</span></div>}{vozRespuesta&&<div className="bg-[#A78BFA]/8 border border-[#A78BFA]/20 rounded-lg px-3 py-2 mb-2"><p className="text-[#E5E7EB] text-sm font-mono">{vozRespuesta}</p></div>}{!vozRespuesta&&!vozTranscripcion&&vozEstado==="idle"&&<div className="space-y-1 py-1">{["CUANTOS PRODUCTORES TENGO","CUANTAS CABEZAS EN TOTAL"].map(q=><button key={q} onClick={()=>{setVozTranscripcion(q);interpretarVoz(q);}} className="w-full text-left text-xs text-[#5B4B6B] hover:text-[#A78BFA] border border-[#A78BFA]/10 px-3 py-2 rounded-lg font-mono">🩺 {q}</button>)}</div>}</div><div className="px-3 pb-3 flex gap-2 border-t border-[#A78BFA]/10 pt-3"><input value={vozInput} onChange={e=>setVozInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&vozInput.trim()){setVozTranscripcion(vozInput);interpretarVoz(vozInput);setVozInput("");}}} placeholder="Escribi o habla..." className="flex-1 bg-[#020810]/80 border border-[#A78BFA]/20 rounded-lg px-3 py-2 text-[#E5E7EB] text-xs font-mono focus:outline-none focus:border-[#A78BFA]"/><button onClick={()=>{if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else escucharVoz();}} className="px-3 py-2 rounded-lg text-sm" style={{background:VOZ_COLOR[vozEstado]+"20",border:"1px solid "+VOZ_COLOR[vozEstado],color:VOZ_COLOR[vozEstado]}}>{VOZ_ICON[vozEstado]}</button>{vozInput&&<button onClick={()=>{setVozTranscripcion(vozInput);interpretarVoz(vozInput);setVozInput("");}} className="px-3 py-2 rounded-lg bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[#A78BFA] text-xs font-mono">▶</button>}</div></div>}
+      <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}} className="fixed bottom-24 right-6 z-40 w-14 h-14 rounded-full flex items-center justify-center text-xl shadow-lg" style={{background:VOZ_COLOR[vozEstado]+"18",border:"2px solid "+VOZ_COLOR[vozEstado],color:VOZ_COLOR[vozEstado],animation:vozEstado==="idle"?"float 3s ease-in-out infinite":"none"}}>{VOZ_ICON[vozEstado]}</button>
+      <p className="relative z-10 text-center text-[#0a0a1a] text-xs pb-4 font-mono mt-6">AGROGESTION PRO · PANEL VETERINARIO</p>
+      {vetId&&<EscanerIA empresaId={vetId}/>}
     </div>
   );
 }
