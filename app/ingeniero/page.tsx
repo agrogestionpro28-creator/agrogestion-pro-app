@@ -49,7 +49,6 @@ export default function IngenieroPanel() {
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
   const [servicios, setServicios] = useState<ServiceVehiculo[]>([]);
   const [vehiculoSel, setVehiculoSel] = useState<Vehiculo|null>(null);
-  const [productorActivo, setProductorActivo] = useState<ProductorIng|null>(null);
   const [todosLotes, setTodosLotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -89,7 +88,7 @@ export default function IngenieroPanel() {
       const sb = await getSB();
       const { data: { user } } = await sb.auth.getUser();
       if (!user) { window.location.href = "/login"; return; }
-      const { data: u } = await sb.from("usuarios").select("id,nombre,rol,codigo,email,telefono,matricula,especialidad,cuit,localidad,provincia,direccion").eq("auth_id", user.id).single();
+      const { data: u } = await sb.from("usuarios").select("*").eq("auth_id", user.id).single();
       if (!u || u.rol !== "ingeniero") { window.location.href = "/login"; return; }
       setIngenieroId(u.id); setIngenieroNombre(u.nombre); setIngenieroData(u);
       await fetchAll(u.id);
