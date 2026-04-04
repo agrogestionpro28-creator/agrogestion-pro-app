@@ -5,6 +5,8 @@ import Image from "next/image";
 type Usuario = {
   id: string; nombre: string; email: string;
   rol: string; codigo: string; activo: boolean;
+  telefono?: string; matricula?: string; especialidad?: string;
+  cuit?: string; localidad?: string; provincia?: string; direccion?: string;
 };
 type Vinculacion = {
   id: string; ingeniero_nombre: string; empresa_nombre: string;
