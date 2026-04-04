@@ -85,14 +85,19 @@ export default function IngenieroPanel() {
   useEffect(() => { init(); }, []);
 
   const init = async () => {
-    const sb = await getSB();
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) { window.location.href = "/login"; return; }
-    const { data: u } = await sb.from("usuarios").select("*").eq("auth_id", user.id).single();
-    if (!u || u.rol !== "ingeniero") { window.location.href = "/login"; return; }
-    setIngenieroId(u.id); setIngenieroNombre(u.nombre); setIngenieroData(u);
-    await fetchAll(u.id);
-    setLoading(false);
+    try {
+      const sb = await getSB();
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) { window.location.href = "/login"; return; }
+      const { data: u } = await sb.from("usuarios").select("id,nombre,rol,codigo,email,telefono,matricula,especialidad,cuit,localidad,provincia,direccion").eq("auth_id", user.id).single();
+      if (!u || u.rol !== "ingeniero") { window.location.href = "/login"; return; }
+      setIngenieroId(u.id); setIngenieroNombre(u.nombre); setIngenieroData(u);
+      await fetchAll(u.id);
+    } catch(e: any) {
+      console.error("init error:", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchAll = async (iid: string) => {
