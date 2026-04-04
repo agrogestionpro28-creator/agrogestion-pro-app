@@ -221,10 +221,17 @@ export default function IngenieroPanel() {
   };
 
   const entrarProductor = (prod: ProductorIng) => {
-    if (!prod.empresa_id) { msg("❌ ESTE PRODUCTOR NO TIENE CUENTA EN LA APP"); return; }
-    localStorage.setItem("ing_empresa_id", prod.empresa_id);
-    localStorage.setItem("ing_empresa_nombre", prod.nombre);
-    localStorage.setItem("ing_modo_compartido", "true");
+    if (!prod.empresa_id) {
+      // Sin cuenta en app — modo propio del ingeniero
+      localStorage.setItem("ing_empresa_id", prod.id);
+      localStorage.setItem("ing_empresa_nombre", prod.nombre);
+      localStorage.setItem("ing_modo_compartido", "false");
+    } else {
+      // Con cuenta — modo compartido
+      localStorage.setItem("ing_empresa_id", prod.empresa_id);
+      localStorage.setItem("ing_empresa_nombre", prod.nombre);
+      localStorage.setItem("ing_modo_compartido", "true");
+    }
     window.location.href = "/ingeniero/lotes";
   };
 
@@ -594,7 +601,7 @@ export default function IngenieroPanel() {
                         </div>
                         <div className="flex gap-2 flex-wrap">
                           {p.telefono&&<a href={"https://wa.me/54"+p.telefono.replace(/\D/g,"")} target="_blank" rel="noreferrer" className="flex-1 text-center py-2 rounded-lg bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] text-xs font-mono font-bold hover:bg-[#25D366]/20">💬 WA</a>}
-                          {p.tiene_cuenta&&<button onClick={()=>entrarProductor(p)} className="flex-1 text-center py-2 rounded-lg bg-[#00FF80]/10 border border-[#00FF80]/30 text-[#00FF80] text-xs font-mono font-bold hover:bg-[#00FF80]/20">🌾 LOTES</button>}
+                          <button onClick={()=>entrarProductor(p)} className="flex-1 text-center py-2 rounded-lg bg-[#00FF80]/10 border border-[#00FF80]/30 text-[#00FF80] text-xs font-mono font-bold hover:bg-[#00FF80]/20">{p.tiene_cuenta?"🔗 LOTES COMPARTIDOS":"🌾 MIS LOTES"}</button>
                         </div>
                       </div>
                       {p.observaciones&&<div className="border-t border-[#00FF80]/10 px-5 py-2 text-xs text-[#4B5563] font-mono">{p.observaciones}</div>}
