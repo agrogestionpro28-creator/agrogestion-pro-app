@@ -96,22 +96,30 @@ export default function IngenieroPanel() {
   };
 
   const fetchAll = async (iid: string) => {
-    const sb = await getSB();
-    const { data: prods } = await sb.from("ing_productores").select("*").eq("ingeniero_id", iid).eq("activo", true).order("nombre");
-    setProductores(prods ?? []);
-    const lotesTodos: any[] = [];
-    for (const p of (prods ?? []).filter((x: any) => x.empresa_id)) {
-      const { data: lotes } = await sb.from("lotes").select("*").eq("empresa_id", p.empresa_id).eq("es_segundo_cultivo", false);
-      (lotes ?? []).forEach((l: any) => lotesTodos.push({ ...l, productor_nombre: p.nombre }));
-    }
-    setTodosLotes(lotesTodos);
-    const { data: vis } = await sb.from("ing_visitas").select("*").eq("ingeniero_id", iid).order("fecha", { ascending: false });
-    setVisitas(vis ?? []);
-    const { data: cobs } = await sb.from("ing_cobranzas").select("*").eq("ingeniero_id", iid).order("fecha", { ascending: false });
-    setCobranzas(cobs ?? []);
-    const { data: vehs } = await sb.from("ing_vehiculos").select("*").eq("ingeniero_id", iid);
-    setVehiculos(vehs ?? []);
-    calcularAlertas(vehs ?? [], cobs ?? []);
+    try {
+      const sb = await getSB();
+      const { data: prods } = await sb.from("ing_productores").select("*").eq("ingeniero_id", iid).eq("activo", true).order("nombre");
+      setProductores(prods ?? []);
+      const lotesTodos: any[] = [];
+      for (const p of (prods ?? []).filter((x: any) => x.empresa_id)) {
+        try {
+          const { data: lotes } = await sb.from("lotes").select("*").eq("empresa_id", p.empresa_id).eq("es_segundo_cultivo", false);
+          (lotes ?? []).forEach((l: any) => lotesTodos.push({ ...l, productor_nombre: p.nombre }));
+        } catch {}
+      }
+      setTodosLotes(lotesTodos);
+      try {
+        const { data: vis } = await sb.from("ing_visitas").select("*").eq("ingeniero_id", iid).order("fecha", { ascending: false });
+        setVisitas(vis ?? []);
+      } catch { setVisitas([]); }
+      try {
+        const { data: cobs } = await sb.from("ing_cobranzas").select("*").eq("ingeniero_id", iid).order("fecha", { ascending: false });
+        setCobranzas(cobs ?? []);
+        const { data: vehs } = await sb.from("ing_vehiculos").select("*").eq("ingeniero_id", iid);
+        setVehiculos(vehs ?? []);
+        calcularAlertas(vehs ?? [], cobs ?? []);
+      } catch { setCobranzas([]); setVehiculos([]); }
+    } catch(e: any) { console.error("fetchAll error:", e); }
   };
 
   const calcularAlertas = (vehs: Vehiculo[], cobs: Cobranza[]) => {
@@ -197,7 +205,7 @@ export default function IngenieroPanel() {
     if (!u) { msg("❌ NO SE ENCONTRO PRODUCTOR CON ESE CODIGO"); return; }
     const { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", u.id).single();
     if (!emp) { msg("❌ EL PRODUCTOR NO TIENE EMPRESA"); return; }
-    const { data: existe } = await sb.from("ing_productores").select("id").eq("profesional_id", ingenieroId).eq("empresa_id", emp.id).single();
+    const { data: existe } = await sb.from("ing_productores").select("id").eq("ingeniero_id", ingenieroId).eq("empresa_id", emp.id).single();
     if (existe) { msg("❌ YA ESTA EN TU LISTA"); return; }
     await sb.from("ing_productores").insert({
       ingeniero_id: ingenieroId, nombre: u.nombre, empresa_id: emp.id,
