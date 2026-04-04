@@ -41,6 +41,7 @@ export default function AdminPanel() {
   const [vinculaciones, setVinculaciones] = useState<Vinculacion[]>([]);
   const [empresas, setEmpresas] = useState<EmpresaDetalle[]>([]);
   const [empresaActiva, setEmpresaActiva] = useState<EmpresaDetalle|null>(null);
+  const [usuarioEditar, setUsuarioEditar] = useState<Usuario|null>(null);
   const [vinculacionesEmpresa, setVinculacionesEmpresa] = useState<VinculacionDetalle[]>([]);
   const [showVincLocal, setShowVincLocal] = useState(false);
   const [formVinc, setFormVinc] = useState<Record<string,string>>({});
@@ -199,6 +200,51 @@ export default function AdminPanel() {
     await fetchAll();
   };
 
+  const guardarUsuarioProfesional = async () => {
+    if (!usuarioEditar) return;
+    const sb = await getSB();
+    await sb.from("usuarios").update({
+      nombre: form.nombre ?? usuarioEditar.nombre,
+      telefono: form.telefono ?? "",
+      matricula: form.matricula ?? "",
+      especialidad: form.especialidad ?? "",
+      cuit: form.cuit ?? "",
+      localidad: form.localidad ?? "",
+      provincia: form.provincia ?? "",
+    }).eq("id", usuarioEditar.id);
+    // Vincular a productor por codigo si se ingreso
+    if (form.codigo_vincular?.trim()) {
+      const { data: prod } = await sb.from("usuarios").select("id,nombre").eq("codigo", form.codigo_vincular.trim()).single();
+      if (prod) {
+        let { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", prod.id).single();
+        if (!emp) {
+          const { data: newEmp } = await sb.from("empresas").insert({ nombre: "Empresa de " + prod.nombre, propietario_id: prod.id }).select().single();
+          emp = newEmp;
+        }
+        if (emp) {
+          const { data: vincExiste } = await sb.from("vinculaciones").select("id").eq("profesional_id", usuarioEditar.id).eq("empresa_id", emp.id).single();
+          if (!vincExiste) {
+            await sb.from("vinculaciones").insert({ profesional_id: usuarioEditar.id, empresa_id: emp.id, activa: true, rol_profesional: usuarioEditar.rol });
+          }
+          // Si es ingeniero, tambien crear en ing_productores
+          if (usuarioEditar.rol === "ingeniero") {
+            const { data: ingProd } = await sb.from("ing_productores").select("id").eq("ingeniero_id", usuarioEditar.id).eq("empresa_id", emp.id).single();
+            if (!ingProd) {
+              await sb.from("ing_productores").insert({ ingeniero_id: usuarioEditar.id, nombre: prod.nombre, empresa_id: emp.id, tiene_cuenta: true, activo: true });
+            }
+          }
+          setMsg("✅ DATOS GUARDADOS Y VINCULADO CON " + prod.nombre.toUpperCase());
+        }
+      } else {
+        setMsg("⚠️ DATOS GUARDADOS — CODIGO DE PRODUCTOR NO ENCONTRADO");
+      }
+    } else {
+      setMsg("✅ DATOS GUARDADOS");
+    }
+    await fetchAll();
+    setUsuarioEditar(null); setForm({});
+  };
+
   const guardarEmpresaDetalle = async () => {
     if (!empresaActiva) return;
     const sb = await getSB();
@@ -231,6 +277,79 @@ export default function AdminPanel() {
   });
 
   if (loading) return <div className="min-h-screen bg-[#020810] flex items-center justify-center text-[#00FF80] font-mono animate-pulse">▶ Cargando Panel Admin...</div>;
+
+  // Vista editar profesional (ing, vet, aplicador, etc)
+  if (usuarioEditar) {
+    const config = ROL_PREFIJOS[usuarioEditar.rol] ?? { label: usuarioEditar.rol, color: "#60A5FA", icon: "👤" };
+    // Vinculaciones actuales de este profesional
+    const vincsProf = vinculaciones.filter(v => v.ingeniero_nombre === usuarioEditar.nombre);
+    return (
+      <div className="relative min-h-screen bg-[#020810] text-[#E5E7EB]">
+        <div className="absolute inset-0 z-0"><Image src="/login-bg.png" alt="" fill style={{objectFit:"cover"}}/><div className="absolute inset-0 bg-[#020810]/92"/></div>
+        <div className="relative z-10 bg-[#020810]/95 border-b border-[#00FF80]/20 px-6 py-3 flex items-center gap-4">
+          <button onClick={()=>setUsuarioEditar(null)} className="text-[#4B5563] hover:text-[#00FF80] font-mono text-sm">← VOLVER</button>
+          <div className="flex-1"/>
+          <span className="text-xs text-[#F87171] font-mono border border-[#F87171]/30 px-3 py-1 rounded-lg">👑 ADMINISTRADOR</span>
+        </div>
+        <div className="relative z-10 max-w-4xl mx-auto p-6">
+          {msg && <div className={"mb-4 px-4 py-2 rounded-lg text-sm font-mono border flex items-center justify-between "+(msg.startsWith("✅")?"border-[#4ADE80]/30 text-[#4ADE80] bg-[#4ADE80]/5":"border-[#F87171]/30 text-[#F87171] bg-[#F87171]/5")}>{msg}<button onClick={()=>setMsg("")}>✕</button></div>}
+
+          {/* Header */}
+          <div className="bg-[#0a1628]/80 border rounded-xl p-5 mb-5" style={{borderColor:config.color+"30"}}>
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl" style={{background:config.color+"15",border:"1px solid "+config.color+"50"}}>{config.icon}</div>
+              <div>
+                <div className="text-xl font-bold text-[#E5E7EB] font-mono uppercase">{usuarioEditar.nombre}</div>
+                <div className="text-xs font-mono" style={{color:config.color}}>{config.label} · COD {usuarioEditar.codigo} · {usuarioEditar.email}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Datos profesionales */}
+          <div className="bg-[#0a1628]/80 border border-[#00FF80]/15 rounded-xl p-5 mb-5">
+            <h3 className="text-[#00FF80] font-mono text-sm font-bold mb-4">📋 DATOS PROFESIONALES</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div><label className={lCls}>NOMBRE</label><input type="text" value={form.nombre??usuarioEditar.nombre} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls}/></div>
+              <div><label className={lCls}>TELEFONO</label><input type="text" value={form.telefono??""} onChange={e=>setForm({...form,telefono:e.target.value})} className={iCls} placeholder="3400..."/></div>
+              <div><label className={lCls}>MATRICULA</label><input type="text" value={form.matricula??""} onChange={e=>setForm({...form,matricula:e.target.value})} className={iCls} placeholder="MAT 1234"/></div>
+              <div><label className={lCls}>ESPECIALIDAD</label><input type="text" value={form.especialidad??""} onChange={e=>setForm({...form,especialidad:e.target.value})} className={iCls}/></div>
+              <div><label className={lCls}>CUIT</label><input type="text" value={form.cuit??""} onChange={e=>setForm({...form,cuit:e.target.value})} className={iCls} placeholder="20-12345678-9"/></div>
+              <div><label className={lCls}>LOCALIDAD</label><input type="text" value={form.localidad??""} onChange={e=>setForm({...form,localidad:e.target.value})} className={iCls}/></div>
+              <div><label className={lCls}>PROVINCIA</label><input type="text" value={form.provincia??""} onChange={e=>setForm({...form,provincia:e.target.value})} className={iCls}/></div>
+            </div>
+          </div>
+
+          {/* Vincular a productor por codigo */}
+          <div className="bg-[#0a1628]/80 border border-[#60A5FA]/20 rounded-xl p-5 mb-5">
+            <h3 className="text-[#60A5FA] font-mono text-sm font-bold mb-2">🔗 VINCULAR A PRODUCTOR</h3>
+            <p className="text-xs text-[#4B5563] font-mono mb-3">Ingresa el codigo del productor para vincularlo automaticamente (ej: 10001)</p>
+            <div className="flex gap-3 items-end">
+              <div className="flex-1"><label className={lCls}>CODIGO DEL PRODUCTOR</label><input type="text" value={form.codigo_vincular??""} onChange={e=>setForm({...form,codigo_vincular:e.target.value})} className={iCls} placeholder="10001"/></div>
+            </div>
+            {vincsProf.length > 0 && (
+              <div className="mt-4">
+                <div className="text-xs text-[#4B5563] font-mono mb-2">VINCULACIONES ACTUALES:</div>
+                <div className="flex flex-wrap gap-2">
+                  {vincsProf.map(v=>(
+                    <div key={v.id} className="flex items-center gap-2 px-3 py-2 bg-[#020810]/60 border border-[#60A5FA]/20 rounded-lg">
+                      <span className="text-[#4ADE80] text-xs font-mono font-bold">👨‍🌾 {v.propietario_nombre}</span>
+                      <span className={"text-xs px-1.5 py-0.5 rounded font-mono "+(v.activa?"bg-[#4ADE80]/10 text-[#4ADE80]":"bg-[#F87171]/10 text-[#F87171]")}>{v.activa?"Activa":"Inactiva"}</span>
+                      <button onClick={()=>toggleVinculacion(v.id,v.activa)} className="text-xs text-[#4B5563] hover:text-[#9CA3AF] font-mono">{v.activa?"Desact.":"Activar"}</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3">
+            <button onClick={guardarUsuarioProfesional} className="bg-[#00FF80]/10 border border-[#00FF80]/30 text-[#00FF80] font-bold px-6 py-2.5 rounded-xl text-sm font-mono hover:bg-[#00FF80]/20">▶ GUARDAR{form.codigo_vincular?" Y VINCULAR":""}</button>
+            <button onClick={()=>{setUsuarioEditar(null);setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">CANCELAR</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Vista detalle empresa/productor
   if (empresaActiva) {
@@ -496,11 +615,18 @@ export default function AdminPanel() {
                           {esAdmin && <span className="text-xs text-[#4B5563] font-mono opacity-40">—</span>}
                         </td>
                         <td className="px-5 py-3">
-                          {empDeEsteUser && (
-                            <button onClick={async()=>{setEmpresaActiva(empDeEsteUser);setForm({});setShowVincLocal(false);setFormVinc({});await fetchVinculacionesEmpresa(empDeEsteUser.id);}} className="text-xs text-[#C9A227] font-mono hover:underline border border-[#C9A227]/30 px-2 py-1 rounded hover:bg-[#C9A227]/10">
-                              📋 Ver datos
-                            </button>
-                          )}
+                          <div className="flex gap-2">
+                            {empDeEsteUser && (
+                              <button onClick={async()=>{setEmpresaActiva(empDeEsteUser);setForm({});setShowVincLocal(false);setFormVinc({});await fetchVinculacionesEmpresa(empDeEsteUser.id);}} className="text-xs text-[#C9A227] font-mono border border-[#C9A227]/30 px-2 py-1 rounded hover:bg-[#C9A227]/10">
+                                📋 Datos
+                              </button>
+                            )}
+                            {u.rol !== "admin" && u.rol !== "productor" && (
+                              <button onClick={()=>{setUsuarioEditar(u);setForm({nombre:u.nombre,telefono:u.telefono??"",matricula:u.matricula??"",especialidad:u.especialidad??"",cuit:u.cuit??"",localidad:u.localidad??"",provincia:u.provincia??"",codigo_vincular:""});}} className="text-xs text-[#60A5FA] font-mono border border-[#60A5FA]/30 px-2 py-1 rounded hover:bg-[#60A5FA]/10">
+                                ✏️ Editar
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
