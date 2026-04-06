@@ -286,7 +286,7 @@ export default function IngenieroPanel() {
             <div>
               {/* KPIs */}
               <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
-                {[{l:"PRODUCTORES",v:String(productores.length),c:"#E5E7EB"},{l:"HA TOTALES",v:totalHa.toLocaleString("es-AR"),c:"#C9A227"},{l:"LOTES APP",v:String(lotes.length),c:"#4ADE80"},{l:"CON CUENTA APP",v:String(productores.filter(p=>p.tiene_cuenta).length),c:"#60A5FA"}].map(s=>(
+                {[{l:"PRODUCTORES",v:String(productores.length),c:"#E5E7EB"},{l:"HA TOTALES",v:totalHa.toLocaleString("es-AR"),c:"#C9A227"},{l:"LOTES APP",v:String(lotes.filter((l:any)=>!l.es_segundo_cultivo).length),c:"#4ADE80"},{l:"CON CUENTA APP",v:String(productores.filter(p=>p.tiene_cuenta).length),c:"#60A5FA"}].map(s=>(
                   <div key={s.l} className="ci" style={{padding:16,textAlign:"center"}}>
                     <div style={{fontSize:11,color:"#4B5563",fontFamily:"monospace"}}>{s.l}</div>
                     <div style={{fontSize:22,fontWeight:"bold",fontFamily:"monospace",marginTop:4,color:s.c}}>{s.v}</div>
