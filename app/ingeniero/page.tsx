@@ -6,15 +6,14 @@ const getSB = async () => {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 };
 
-type Seccion = "perfil"|"productores"|"cobranza"|"vehiculo"|"ia_campo";
+type Seccion = "productores"|"cobranza"|"vehiculo"|"ia_campo";
 type ProductorIng = { id:string; nombre:string; telefono:string; email:string; localidad:string; provincia:string; hectareas_total:number; observaciones:string; empresa_id:string|null; tiene_cuenta:boolean; honorario_tipo:string; honorario_monto:number; };
-type Visita = { id:string; productor_id:string; fecha:string; tipo_servicio:string; descripcion:string; lotes:string; observaciones:string; costo:number; };
+type Campana = { id:string; nombre:string; activa:boolean; };
 type Cobranza = { id:string; productor_id:string; concepto:string; monto:number; fecha:string; estado:string; metodo_pago:string; };
 type Vehiculo = { id:string; nombre:string; marca:string; modelo:string; anio:number; patente:string; seguro_vencimiento:string; vtv_vencimiento:string; km_actuales:number; proximo_service_km:number; seguro_compania:string; };
 type ServiceVeh = { id:string; tipo:string; descripcion:string; costo:number; km:number; fecha:string; taller:string; };
 type MsgIA = { rol:"user"|"assistant"; texto:string };
-
-const SERVICIOS = ["Siembra","Cosecha","Aplicacion","Fumigacion","Fertilizacion","Analisis de suelo","Asesoramiento","Recorrida campo","Otro"];
+type LoteResumen = { nombre:string; hectareas:number; cultivo:string; cultivo_completo:string; estado:string; productor_nombre:string; };
 
 export default function IngenieroPanel() {
   const [seccion, setSeccion] = useState<Seccion>("productores");
@@ -22,15 +21,17 @@ export default function IngenieroPanel() {
   const [ingNombre, setIngNombre] = useState("");
   const [ingData, setIngData] = useState<any>({});
   const [productores, setProductores] = useState<ProductorIng[]>([]);
-  const [visitas, setVisitas] = useState<Visita[]>([]);
   const [cobranzas, setCobranzas] = useState<Cobranza[]>([]);
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
   const [servicios, setServicios] = useState<ServiceVeh[]>([]);
   const [vehiculoSel, setVehiculoSel] = useState<Vehiculo|null>(null);
-  const [lotes, setLotes] = useState<any[]>([]);
+  const [lotes, setLotes] = useState<LoteResumen[]>([]);
+  // Campañas por productor: { [empresa_id]: Campana[] }
+  const [campanasPorProd, setCampanasPorProd] = useState<Record<string,Campana[]>>({});
+  // Campaña seleccionada por productor: { [empresa_id]: campana_id }
+  const [campSelProd, setCampSelProd] = useState<Record<string,string>>({});
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [showVisita, setShowVisita] = useState(false);
   const [showVincular, setShowVincular] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editProd, setEditProd] = useState<string|null>(null);
@@ -47,6 +48,7 @@ export default function IngenieroPanel() {
   const [aiLoad, setAiLoad] = useState(false);
   const [listening, setListening] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
+  const recRef = useRef<any>(null);
 
   useEffect(() => { init(); }, []);
 
@@ -58,31 +60,69 @@ export default function IngenieroPanel() {
       const { data: u } = await sb.from("usuarios").select("*").eq("auth_id", user.id).single();
       if (!u || u.rol !== "ingeniero") { window.location.href = "/login"; return; }
       setIngId(u.id); setIngNombre(u.nombre); setIngData(u);
-      await Promise.all([fetchProds(u.id), fetchVisitas(u.id), fetchCobs(u.id), fetchVehs(u.id)]);
+      await fetchProds(u.id);
+      await fetchCobs(u.id);
+      await fetchVehs(u.id);
     } catch(e) { console.error(e); }
     finally { setLoading(false); }
   };
 
   const fetchProds = async (iid: string) => {
     const sb = await getSB();
-    const { data } = await sb.from("ing_productores").select("*").eq("ingeniero_id", iid).eq("activo", true).order("nombre");
-    setProductores(data ?? []);
-    const lotesAll: any[] = [];
-    for (const p of (data ?? []).filter((x:any) => x.empresa_id)) {
-      const { data: camps } = await sb.from("campanas").select("id").eq("empresa_id", p.empresa_id).eq("activa", true).single();
-      const campId = camps?.id;
-      if (!campId) continue;
-      const { data: ls } = await sb.from("lotes").select("nombre,hectareas,cultivo,cultivo_completo,estado,fecha_siembra,variedad").eq("empresa_id", p.empresa_id).eq("campana_id", campId).eq("es_segundo_cultivo", false);
-      (ls ?? []).forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre}));
+    const { data: prods } = await sb.from("ing_productores").select("*").eq("ingeniero_id", iid).eq("activo", true).order("nombre");
+    setProductores(prods ?? []);
+    // Para cada productor vinculado, cargar campañas
+    const cpMap: Record<string,Campana[]> = {};
+    const csMap: Record<string,string> = {};
+    const lotesAll: LoteResumen[] = [];
+    for (const p of (prods ?? []).filter((x:any) => x.empresa_id)) {
+      const { data: camps } = await sb.from("campanas").select("id,nombre,activa").eq("empresa_id", p.empresa_id).order("año_inicio", { ascending: false });
+      const campList = camps ?? [];
+      cpMap[p.empresa_id] = campList;
+      const activa = campList.find((c:any) => c.activa) ?? campList[0];
+      if (activa) {
+        csMap[p.empresa_id] = activa.id;
+        const { data: ls } = await sb.from("lotes").select("nombre,hectareas,cultivo,cultivo_completo,estado,fecha_siembra,variedad").eq("empresa_id", p.empresa_id).eq("campana_id", activa.id).eq("es_segundo_cultivo", false);
+        (ls ?? []).forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre}));
+      }
     }
+    setCampanasPorProd(cpMap);
+    setCampSelProd(csMap);
     setLotes(lotesAll);
   };
-  const fetchVisitas = async (iid: string) => { try { const sb=await getSB(); const{data}=await sb.from("ing_visitas").select("*").eq("ingeniero_id",iid).order("fecha",{ascending:false}); setVisitas(data??[]); } catch {} };
+
+  // Cambiar campaña de un productor
+  const cambiarCampana = async (empresa_id: string, campana_id: string, prod_nombre: string) => {
+    setCampSelProd(prev => ({...prev, [empresa_id]: campana_id}));
+    const sb = await getSB();
+    const { data: ls } = await sb.from("lotes").select("nombre,hectareas,cultivo,cultivo_completo,estado,fecha_siembra,variedad").eq("empresa_id", empresa_id).eq("campana_id", campana_id).eq("es_segundo_cultivo", false);
+    setLotes(prev => {
+      const sinEste = prev.filter(l => l.productor_nombre !== prod_nombre);
+      return [...sinEste, ...(ls ?? []).map((l:any) => ({...l, productor_nombre: prod_nombre}))];
+    });
+  };
+
+  // Crear campaña para un productor
+  const crearCampana = async (empresa_id: string, nombre: string) => {
+    const sb = await getSB();
+    const parts = nombre.split("/");
+    const anioInicio = Number(parts[0]) || new Date().getFullYear();
+    const anioFin = Number(parts[1]) || anioInicio + 1;
+    // Desactivar las anteriores
+    await sb.from("campanas").update({ activa: false }).eq("empresa_id", empresa_id);
+    const { data: nueva } = await sb.from("campanas").insert({ empresa_id, nombre, año_inicio: anioInicio, año_fin: anioFin, activa: true }).select().single();
+    if (nueva) {
+      setCampanasPorProd(prev => ({ ...prev, [empresa_id]: [nueva, ...(prev[empresa_id] ?? [])] }));
+      setCampSelProd(prev => ({ ...prev, [empresa_id]: nueva.id }));
+      m("✅ CAMPAÑA " + nombre + " CREADA");
+    }
+  };
+
   const fetchCobs = async (iid: string) => { try { const sb=await getSB(); const{data}=await sb.from("ing_cobranzas").select("*").eq("ingeniero_id",iid).order("fecha",{ascending:false}); setCobranzas(data??[]); } catch {} };
   const fetchVehs = async (iid: string) => {
     try {
       const sb=await getSB(); const{data}=await sb.from("ing_vehiculos").select("*").eq("ingeniero_id",iid); setVehiculos(data??[]);
-      const als: {msg:string;urgencia:string}[] = []; const hoy=new Date();
+      const als:{msg:string;urgencia:string}[]=[]; const hoy=new Date();
       (data??[]).forEach((v:any)=>{
         if(v.seguro_vencimiento){const d=(new Date(v.seguro_vencimiento).getTime()-hoy.getTime())/86400000;if(d<0)als.push({msg:v.nombre+": Seguro VENCIDO",urgencia:"alta"});else if(d<=30)als.push({msg:v.nombre+": Seguro vence en "+Math.round(d)+" dias",urgencia:d<=7?"alta":"media"});}
         if(v.vtv_vencimiento){const d=(new Date(v.vtv_vencimiento).getTime()-hoy.getTime())/86400000;if(d<0)als.push({msg:v.nombre+": VTV VENCIDA",urgencia:"alta"});else if(d<=30)als.push({msg:v.nombre+": VTV vence en "+Math.round(d)+" dias",urgencia:d<=7?"alta":"media"});}
@@ -128,17 +168,12 @@ export default function IngenieroPanel() {
   const eliminarProd = async (id:string) => { if(!confirm("Eliminar?"))return; const sb=await getSB(); await sb.from("ing_productores").update({activo:false}).eq("id",id); await fetchProds(ingId); };
 
   const entrar = (p:ProductorIng) => {
+    const campId = p.empresa_id ? campSelProd[p.empresa_id] : null;
     localStorage.setItem("ing_empresa_id", p.empresa_id ?? p.id);
     localStorage.setItem("ing_empresa_nombre", p.nombre);
     localStorage.setItem("ing_modo_compartido", p.empresa_id ? "true" : "false");
+    if (campId) localStorage.setItem("ing_campana_id", campId);
     window.location.href = "/ingeniero/lotes";
-  };
-
-  const guardarVisita = async () => {
-    if(!ingId||!form.prod_v){m("❌ SELECCIONA PRODUCTOR");return;}
-    const sb=await getSB();
-    await sb.from("ing_visitas").insert({ingeniero_id:ingId,productor_id:form.prod_v,fecha:form.fecha_v??new Date().toISOString().split("T")[0],tipo_servicio:form.tipo_v??"Asesoramiento",descripcion:form.desc_v??"",lotes:form.lotes_v??"",observaciones:form.obs_v??"",costo:Number(form.costo_v??0)});
-    m("✅ VISITA REGISTRADA"); await fetchVisitas(ingId); setShowVisita(false); setForm({});
   };
 
   const guardarCob = async () => {
@@ -162,11 +197,10 @@ export default function IngenieroPanel() {
     setServicios(data??[]); setShowForm(false); setForm({}); m("✅ SERVICE GUARDADO");
   };
 
-  const exportXLS = async (tipo:"productores"|"lotes"|"visitas") => {
+  const exportXLS = async (tipo:"productores"|"lotes") => {
     const XLSX=await import("xlsx"); let data:any[]=[];
     if(tipo==="productores")data=productores.map(p=>({NOMBRE:p.nombre,TEL:p.telefono,EMAIL:p.email,LOCALIDAD:p.localidad,HA:p.hectareas_total,HONORARIO:p.honorario_monto,APP:p.tiene_cuenta?"SI":"NO"}));
-    else if(tipo==="lotes"){let lf=lotes;if(fCultivo!=="todos")lf=lf.filter((l:any)=>(l.cultivo_completo||l.cultivo)===fCultivo);if(fProductor!=="todos")lf=lf.filter((l:any)=>l.productor_nombre===fProductor);if(fEstado!=="todos")lf=lf.filter((l:any)=>l.estado===fEstado);data=lf.map((l:any)=>({PRODUCTOR:l.productor_nombre,LOTE:l.nombre,HA:l.hectareas,CULTIVO:l.cultivo_completo||l.cultivo,ESTADO:l.estado,SIEMBRA:l.fecha_siembra||"",VARIEDAD:l.variedad||""}));}
-    else data=visitas.map(v=>{const p=productores.find(x=>x.id===v.productor_id);return{PRODUCTOR:p?.nombre??"—",FECHA:v.fecha,SERVICIO:v.tipo_servicio,DESC:v.descripcion,LOTES:v.lotes,COSTO:v.costo};});
+    else{let lf=lotes;if(fCultivo!=="todos")lf=lf.filter(l=>(l.cultivo_completo||l.cultivo)===fCultivo);if(fProductor!=="todos")lf=lf.filter(l=>l.productor_nombre===fProductor);if(fEstado!=="todos")lf=lf.filter(l=>l.estado===fEstado);data=lf.map(l=>({PRODUCTOR:l.productor_nombre,LOTE:l.nombre,HA:l.hectareas,CULTIVO:l.cultivo_completo||l.cultivo,ESTADO:l.estado}));}
     const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,tipo);XLSX.writeFile(wb,tipo+"_"+new Date().toISOString().slice(0,10)+".xlsx");
   };
 
@@ -206,32 +240,29 @@ export default function IngenieroPanel() {
   const totalHa=productores.reduce((a,p)=>a+(p.hectareas_total||0),0);
   const totPend=cobranzas.filter(c=>c.estado==="pendiente").reduce((a,c)=>a+c.monto,0);
   const totCob=cobranzas.filter(c=>c.estado==="cobrado").reduce((a,c)=>a+c.monto,0);
-  const cultivosU=[...new Set(lotes.map((l:any)=>l.cultivo_completo||l.cultivo).filter(Boolean))];
+  const cultivosU=[...new Set(lotes.map(l=>l.cultivo_completo||l.cultivo).filter(Boolean))];
 
   const iCls="w-full bg-[#0a1628] border border-[#00FF80]/20 rounded-xl px-4 py-2.5 text-[#E5E7EB] text-sm focus:outline-none focus:border-[#00FF80] font-mono";
   const lCls="block text-xs text-[#4B6B5B] uppercase tracking-widest mb-1 font-mono";
 
-  if(loading) return <div style={{minHeight:"100vh",background:"#020810",display:"flex",alignItems:"center",justifyContent:"center",color:"#00FF80",fontFamily:"monospace",fontSize:"1rem"}}>CARGANDO...</div>;
+  if(loading) return <div style={{minHeight:"100vh",background:"#020810",display:"flex",alignItems:"center",justifyContent:"center",color:"#00FF80",fontFamily:"monospace"}}>CARGANDO...</div>;
 
   return (
-    <div style={{minHeight:"100vh",background:"#020810",color:"#E5E7EB",position:"relative"}}>
+    <div style={{minHeight:"100vh",background:"#020810",color:"#E5E7EB"}}>
       <style>{`
         .ci{background:rgba(10,22,40,0.9);border:1px solid rgba(0,255,128,0.15);border-radius:12px}
-        .ci:hover{border-color:rgba(0,255,128,0.4)}
+        .ci:hover{border-color:rgba(0,255,128,0.35)}
         .sa{border-color:#00FF80!important;color:#00FF80!important;background:rgba(0,255,128,0.1)!important}
         *{box-sizing:border-box}
       `}</style>
 
-      {/* BG — pointer-events-none para que no bloquee clicks */}
-      <div style={{position:"fixed",inset:0,zIndex:0,backgroundImage:"url('/dashboard-bg.png')",backgroundSize:"cover",backgroundPosition:"center",opacity:0.3,pointerEvents:"none"}}/>
-      <div style={{position:"fixed",inset:0,zIndex:1,background:"rgba(2,8,16,0.75)",pointerEvents:"none"}}/>
+      <div style={{position:"fixed",inset:0,zIndex:0,backgroundImage:"url('/dashboard-bg.png')",backgroundSize:"cover",backgroundPosition:"center",opacity:0.25,pointerEvents:"none"}}/>
+      <div style={{position:"fixed",inset:0,zIndex:1,background:"rgba(2,8,16,0.78)",pointerEvents:"none"}}/>
 
-      {/* TODO EL CONTENIDO en z-index 10 */}
       <div style={{position:"relative",zIndex:10}}>
-
         {/* HEADER */}
         <div style={{background:"rgba(2,8,16,0.95)",borderBottom:"1px solid rgba(0,255,128,0.2)",padding:"12px 24px",display:"flex",alignItems:"center",gap:16}}>
-          <span style={{color:"#00FF80",fontFamily:"monospace",fontWeight:"bold",cursor:"pointer"}} onClick={()=>window.location.href="/ingeniero"}>AGROGESTION PRO</span>
+          <span style={{color:"#00FF80",fontFamily:"monospace",fontWeight:"bold",cursor:"pointer",fontSize:13}} onClick={()=>window.location.href="/ingeniero"}>AGROGESTION PRO</span>
           <div style={{flex:1}}/>
           <div style={{textAlign:"right"}}>
             <div style={{fontSize:12,color:"#E5E7EB",fontFamily:"monospace",fontWeight:"bold"}}>{ingNombre}</div>
@@ -243,17 +274,16 @@ export default function IngenieroPanel() {
 
         <div style={{maxWidth:1280,margin:"0 auto",padding:24}}>
           <div style={{marginBottom:20}}>
-            <h1 style={{fontSize:24,fontWeight:"bold",color:"#E5E7EB",fontFamily:"monospace",margin:0}}>◆ PANEL INGENIERO AGRONOMO</h1>
+            <h1 style={{fontSize:22,fontWeight:"bold",color:"#E5E7EB",fontFamily:"monospace",margin:0}}>◆ PANEL INGENIERO AGRONOMO</h1>
             <p style={{color:"#00FF80",fontSize:11,fontFamily:"monospace",marginTop:4,letterSpacing:2}}>{productores.length} PRODUCTORES · {totalHa.toLocaleString("es-AR")} HA · IA ACTIVA</p>
           </div>
 
           {alertas.length>0&&<div style={{background:"rgba(10,22,40,0.8)",border:"1px solid rgba(248,113,113,0.3)",borderRadius:12,padding:16,marginBottom:20}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><div style={{width:8,height:8,borderRadius:"50%",background:"#F87171"}}/><span style={{color:"#F87171",fontSize:11,fontFamily:"monospace",fontWeight:"bold"}}>ALERTAS ({alertas.length})</span></div><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{alertas.map((a,i)=><div key={i} style={{padding:"4px 12px",borderRadius:8,fontSize:11,fontFamily:"monospace",border:a.urgencia==="alta"?"1px solid rgba(248,113,113,0.3)":"1px solid rgba(201,162,39,0.3)",color:a.urgencia==="alta"?"#F87171":"#C9A227"}}>{a.urgencia==="alta"?"🔴":"🟡"} {a.msg}</div>)}</div></div>}
-
           {msj&&<div style={{marginBottom:16,padding:"8px 16px",borderRadius:8,fontSize:13,fontFamily:"monospace",border:msj.startsWith("✅")?"1px solid rgba(74,222,128,0.3)":"1px solid rgba(248,113,113,0.3)",color:msj.startsWith("✅")?"#4ADE80":"#F87171",background:msj.startsWith("✅")?"rgba(74,222,128,0.05)":"rgba(248,113,113,0.05)",display:"flex",justifyContent:"space-between"}}>{msj}<button onClick={()=>setMsj("")} style={{background:"none",border:"none",color:"inherit",cursor:"pointer"}}>✕</button></div>}
 
           {/* TABS */}
           <div style={{display:"flex",gap:8,marginBottom:24,flexWrap:"wrap"}}>
-            {[{k:"perfil",l:"👨‍💼 MI PERFIL"},{k:"productores",l:"👨‍🌾 MIS PRODUCTORES"},{k:"cobranza",l:"💰 COBRANZA"},{k:"vehiculo",l:"🚗 MI VEHICULO"},{k:"ia_campo",l:"🤖 IA CAMPO"}].map(s=>(
+            {[{k:"productores",l:"👨‍🌾 MIS PRODUCTORES"},{k:"cobranza",l:"💰 COBRANZA"},{k:"vehiculo",l:"🚗 MI VEHICULO"},{k:"ia_campo",l:"🤖 IA CAMPO"}].map(s=>(
               <button key={s.k} onClick={()=>{setSeccion(s.k as Seccion);setShowForm(false);setForm({});setVehiculoSel(null);}}
                 style={{padding:"10px 20px",borderRadius:12,border:seccion===s.k?"1px solid #00FF80":"1px solid rgba(0,255,128,0.15)",background:seccion===s.k?"rgba(0,255,128,0.1)":"transparent",color:seccion===s.k?"#00FF80":"#4B5563",fontFamily:"monospace",fontSize:13,fontWeight:"bold",cursor:"pointer"}}>
                 {s.l}
@@ -261,35 +291,12 @@ export default function IngenieroPanel() {
             ))}
           </div>
 
-          {/* PERFIL */}
-          {seccion==="perfil"&&(
-            <div className="ci" style={{padding:24}}>
-              <h2 style={{color:"#60A5FA",fontFamily:"monospace",fontSize:13,fontWeight:"bold",marginBottom:20}}>👨‍💼 MIS DATOS PROFESIONALES</h2>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:16}}>
-                {[["nombre","NOMBRE",ingData.nombre??"",[],false],["telefono","TELEFONO",ingData.telefono??"",[],false],["matricula","MATRICULA",ingData.matricula??"",[],false],["especialidad","ESPECIALIDAD",ingData.especialidad??"",[],false],["cuit","CUIT",ingData.cuit??"",[],false],["localidad","LOCALIDAD",ingData.localidad??"",[],false],["provincia","PROVINCIA",ingData.provincia??"Santa Fe",[],false],["direccion","DIRECCION",ingData.direccion??"",[],true]].map(([k,l,def,,wide])=>(
-                  <div key={k as string} style={{gridColumn:wide?"1/-1":"auto"}}>
-                    <label style={{display:"block",fontSize:10,color:"#4B6B5B",textTransform:"uppercase",letterSpacing:2,marginBottom:4,fontFamily:"monospace"}}>{l as string}</label>
-                    <input type="text" defaultValue={def as string} onChange={e=>setForm({...form,[k as string]:e.target.value})} className={iCls} style={{width:"100%"}}/>
-                  </div>
-                ))}
-              </div>
-              <div style={{marginTop:16,padding:16,background:"rgba(2,8,16,0.4)",borderRadius:12,border:"1px solid rgba(96,165,250,0.15)"}}>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,textAlign:"center",fontFamily:"monospace",fontSize:12}}>
-                  <div><div style={{color:"#4B5563"}}>CODIGO</div><div style={{color:"#60A5FA",fontWeight:"bold",fontSize:18,marginTop:4}}>{ingData.codigo}</div></div>
-                  <div><div style={{color:"#4B5563"}}>EMAIL</div><div style={{color:"#E5E7EB",marginTop:4,fontSize:11}}>{ingData.email}</div></div>
-                  <div><div style={{color:"#4B5563"}}>ROL</div><div style={{color:"#60A5FA",fontWeight:"bold",marginTop:4}}>INGENIERO</div></div>
-                </div>
-              </div>
-              <button onClick={guardarPerfil} style={{marginTop:16,padding:"10px 24px",borderRadius:12,background:"rgba(96,165,250,0.1)",border:"1px solid rgba(96,165,250,0.3)",color:"#60A5FA",fontFamily:"monospace",fontSize:13,fontWeight:"bold",cursor:"pointer"}}>▶ GUARDAR PERFIL</button>
-            </div>
-          )}
-
-          {/* MIS PRODUCTORES */}
+          {/* ===== MIS PRODUCTORES ===== */}
           {seccion==="productores"&&(
             <div>
               {/* KPIs */}
               <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
-                {[{l:"PRODUCTORES",v:String(productores.length),c:"#E5E7EB"},{l:"HA TOTALES",v:totalHa.toLocaleString("es-AR"),c:"#C9A227"},{l:"LOTES TOTALES",v:String(lotes.filter((l:any)=>!l.es_segundo_cultivo).length),c:"#4ADE80"},{l:"CON CUENTA APP",v:String(productores.filter(p=>p.tiene_cuenta).length),c:"#60A5FA"}].map(s=>(
+                {[{l:"PRODUCTORES",v:String(productores.length),c:"#E5E7EB"},{l:"HA TOTALES",v:totalHa.toLocaleString("es-AR"),c:"#C9A227"},{l:"LOTES TOTALES",v:String(lotes.length),c:"#4ADE80"},{l:"CON CUENTA APP",v:String(productores.filter(p=>p.tiene_cuenta).length),c:"#60A5FA"}].map(s=>(
                   <div key={s.l} className="ci" style={{padding:16,textAlign:"center"}}>
                     <div style={{fontSize:11,color:"#4B5563",fontFamily:"monospace"}}>{s.l}</div>
                     <div style={{fontSize:22,fontWeight:"bold",fontFamily:"monospace",marginTop:4,color:s.c}}>{s.v}</div>
@@ -297,9 +304,9 @@ export default function IngenieroPanel() {
                 ))}
               </div>
 
-              {/* Botones acción */}
+              {/* Botones */}
               <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-                {[{l:"+ NUEVO PRODUCTOR",c:"#00FF80",fn:()=>{setShowForm(!showForm);setEditProd(null);setForm({provincia:"Santa Fe",honorario_tipo:"mensual"});}},{l:"🔗 VINCULAR POR CODIGO",c:"#60A5FA",fn:()=>{setShowVincular(!showVincular);setForm({});}},{l:"+ REGISTRAR VISITA",c:"#C9A227",fn:()=>{setShowVisita(!showVisita);setForm({fecha_v:new Date().toISOString().split("T")[0]});}},{l:"📥 IMPORTAR",c:"#C9A227",fn:()=>setShowImport(!showImport)},{l:"📤 EXPORTAR",c:"#4ADE80",fn:()=>exportXLS("productores")}].map(b=>(
+                {[{l:"+ NUEVO PRODUCTOR",c:"#00FF80",fn:()=>{setShowForm(!showForm);setEditProd(null);setForm({provincia:"Santa Fe",honorario_tipo:"mensual"});}},{l:"🔗 VINCULAR POR CODIGO",c:"#60A5FA",fn:()=>{setShowVincular(!showVincular);setForm({});}},{l:"📥 IMPORTAR",c:"#C9A227",fn:()=>setShowImport(!showImport)},{l:"📤 EXPORTAR PRODUCTORES",c:"#4ADE80",fn:()=>exportXLS("productores")}].map(b=>(
                   <button key={b.l} onClick={b.fn} style={{padding:"8px 16px",borderRadius:12,background:"transparent",border:`1px solid ${b.c}40`,color:b.c,fontFamily:"monospace",fontSize:12,fontWeight:"bold",cursor:"pointer"}}>{b.l}</button>
                 ))}
               </div>
@@ -308,32 +315,12 @@ export default function IngenieroPanel() {
               {showVincular&&(
                 <div className="ci" style={{padding:20,marginBottom:16}}>
                   <h3 style={{color:"#60A5FA",fontFamily:"monospace",fontSize:13,fontWeight:"bold",marginBottom:8}}>🔗 VINCULAR POR CODIGO</h3>
-                  <p style={{color:"#4B5563",fontSize:11,fontFamily:"monospace",marginBottom:12}}>Ingresa el codigo del productor (ej: 10001)</p>
+                  <p style={{color:"#4B5563",fontSize:11,fontFamily:"monospace",marginBottom:12}}>Ingresá el código del productor (ej: 10001)</p>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr auto",gap:12,alignItems:"end"}}>
                     <div><label className={lCls}>CODIGO *</label><input type="text" value={form.codigo??""} onChange={e=>setForm({...form,codigo:e.target.value})} className={iCls} placeholder="10001"/></div>
-                    <div><label className={lCls}>HONORARIO</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className={iCls}><option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option><option value="por_servicio">Por servicio</option></select></div>
+                    <div><label className={lCls}>HONORARIO</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className={iCls}><option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option></select></div>
                     <div><label className={lCls}>MONTO $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls} placeholder="0"/></div>
                     <button onClick={vincularCodigo} style={{padding:"10px 20px",borderRadius:12,background:"rgba(96,165,250,0.1)",border:"1px solid rgba(96,165,250,0.3)",color:"#60A5FA",fontFamily:"monospace",fontSize:12,fontWeight:"bold",cursor:"pointer"}}>▶ VINCULAR</button>
-                  </div>
-                </div>
-              )}
-
-              {/* Form visita */}
-              {showVisita&&(
-                <div className="ci" style={{padding:20,marginBottom:16}}>
-                  <h3 style={{color:"#C9A227",fontFamily:"monospace",fontSize:13,fontWeight:"bold",marginBottom:16}}>+ REGISTRAR VISITA</h3>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
-                    <div><label className={lCls}>PRODUCTOR</label><select value={form.prod_v??""} onChange={e=>setForm({...form,prod_v:e.target.value})} className={iCls}><option value="">Seleccionar</option>{productores.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
-                    <div><label className={lCls}>FECHA</label><input type="date" value={form.fecha_v??""} onChange={e=>setForm({...form,fecha_v:e.target.value})} className={iCls}/></div>
-                    <div><label className={lCls}>TIPO SERVICIO</label><select value={form.tipo_v??"Asesoramiento"} onChange={e=>setForm({...form,tipo_v:e.target.value})} className={iCls}>{SERVICIOS.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
-                    <div><label className={lCls}>COSTO $</label><input type="number" value={form.costo_v??""} onChange={e=>setForm({...form,costo_v:e.target.value})} className={iCls} placeholder="0"/></div>
-                    <div style={{gridColumn:"span 2"}}><label className={lCls}>DESCRIPCION</label><input type="text" value={form.desc_v??""} onChange={e=>setForm({...form,desc_v:e.target.value})} className={iCls} placeholder="Detalle..."/></div>
-                    <div><label className={lCls}>LOTES</label><input type="text" value={form.lotes_v??""} onChange={e=>setForm({...form,lotes_v:e.target.value})} className={iCls}/></div>
-                    <div><label className={lCls}>OBSERVACIONES</label><input type="text" value={form.obs_v??""} onChange={e=>setForm({...form,obs_v:e.target.value})} className={iCls}/></div>
-                  </div>
-                  <div style={{display:"flex",gap:12,marginTop:16}}>
-                    <button onClick={guardarVisita} style={{padding:"10px 24px",borderRadius:12,background:"rgba(201,162,39,0.1)",border:"1px solid rgba(201,162,39,0.4)",color:"#C9A227",fontFamily:"monospace",fontSize:13,fontWeight:"bold",cursor:"pointer"}}>▶ GUARDAR</button>
-                    <button onClick={()=>{setShowVisita(false);setForm({});}} style={{padding:"10px 24px",borderRadius:12,border:"1px solid #1C2128",color:"#4B5563",fontFamily:"monospace",fontSize:13,cursor:"pointer",background:"none"}}>CANCELAR</button>
                   </div>
                 </div>
               )}
@@ -341,13 +328,15 @@ export default function IngenieroPanel() {
               {/* Import */}
               {showImport&&(
                 <div className="ci" style={{padding:20,marginBottom:16}}>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}><h3 style={{color:"#C9A227",fontFamily:"monospace",fontSize:13,fontWeight:"bold",margin:0}}>📥 IMPORTAR</h3><button onClick={()=>{setShowImport(false);setImportPrev([]);setImportMsg("");}} style={{background:"none",border:"none",color:"#4B5563",cursor:"pointer",fontSize:14}}>✕</button></div>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}><h3 style={{color:"#C9A227",fontFamily:"monospace",fontSize:13,fontWeight:"bold",margin:0}}>📥 IMPORTAR PRODUCTORES</h3><button onClick={()=>{setShowImport(false);setImportPrev([]);setImportMsg("");}} style={{background:"none",border:"none",color:"#4B5563",cursor:"pointer",fontSize:14}}>✕</button></div>
                   <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f)leerExcel(f);}}/>
                   {importPrev.length===0
                     ?<button onClick={()=>importRef.current?.click()} style={{padding:"12px 24px",border:"1px dashed rgba(201,162,39,0.4)",borderRadius:12,color:"#C9A227",fontFamily:"monospace",fontSize:12,cursor:"pointer",background:"none",width:"100%"}}>📁 SELECCIONAR ARCHIVO</button>
                     :<div>
                       <div style={{maxHeight:120,overflowY:"auto",marginBottom:12,border:"1px solid rgba(201,162,39,0.15)",borderRadius:8}}>
-                        <table style={{width:"100%",fontSize:11,fontFamily:"monospace"}}><thead><tr style={{borderBottom:"1px solid rgba(201,162,39,0.1)"}}>{["NOMBRE","TEL","LOCALIDAD","HA","ESTADO"].map(h=><th key={h} style={{padding:"6px 12px",textAlign:"left",color:"#4B5563"}}>{h}</th>)}</tr></thead><tbody>{importPrev.map((r,i)=><tr key={i} style={{borderBottom:"1px solid rgba(201,162,39,0.05)"}}><td style={{padding:"6px 12px",color:"#E5E7EB",fontWeight:"bold"}}>{r.nombre}</td><td style={{padding:"6px 12px",color:"#9CA3AF"}}>{r.telefono||"—"}</td><td style={{padding:"6px 12px",color:"#9CA3AF"}}>{r.localidad||"—"}</td><td style={{padding:"6px 12px",color:"#C9A227"}}>{r.hectareas_total||"—"}</td><td style={{padding:"6px 12px",color:r.existe?"#60A5FA":"#4ADE80"}}>{r.existe?"Ya existe":"Nuevo"}</td></tr>)}</tbody></table>
+                        <table style={{width:"100%",fontSize:11,fontFamily:"monospace"}}><thead><tr style={{borderBottom:"1px solid rgba(201,162,39,0.1)"}}>{["NOMBRE","TEL","LOCALIDAD","HA","ESTADO"].map(h=><th key={h} style={{padding:"6px 12px",textAlign:"left",color:"#4B5563"}}>{h}</th>)}</tr></thead>
+                          <tbody>{importPrev.map((r,i)=><tr key={i} style={{borderBottom:"1px solid rgba(201,162,39,0.05)"}}><td style={{padding:"6px 12px",color:"#E5E7EB",fontWeight:"bold"}}>{r.nombre}</td><td style={{padding:"6px 12px",color:"#9CA3AF"}}>{r.telefono||"—"}</td><td style={{padding:"6px 12px",color:"#9CA3AF"}}>{r.localidad||"—"}</td><td style={{padding:"6px 12px",color:"#C9A227"}}>{r.hectareas_total||"—"}</td><td style={{padding:"6px 12px",color:r.existe?"#60A5FA":"#4ADE80"}}>{r.existe?"Ya existe":"Nuevo"}</td></tr>)}</tbody>
+                        </table>
                       </div>
                       <div style={{display:"flex",gap:12}}>
                         <button onClick={confirmarImport} style={{padding:"8px 16px",borderRadius:8,background:"rgba(201,162,39,0.1)",border:"1px solid rgba(201,162,39,0.3)",color:"#C9A227",fontFamily:"monospace",fontSize:11,fontWeight:"bold",cursor:"pointer"}}>▶ IMPORTAR {importPrev.filter(p=>!p.existe).length} NUEVOS</button>
@@ -380,7 +369,7 @@ export default function IngenieroPanel() {
                 </div>
               )}
 
-              {/* Exportar lotes */}
+              {/* Exportar lotes con filtros */}
               {lotes.length>0&&(
                 <div className="ci" style={{padding:16,marginBottom:16}}>
                   <div style={{display:"flex",flexWrap:"wrap",gap:12,alignItems:"flex-end"}}>
@@ -395,10 +384,13 @@ export default function IngenieroPanel() {
 
               {/* Lista productores */}
               {productores.length===0
-                ?<div className="ci" style={{textAlign:"center",padding:80}}><div style={{fontSize:48,opacity:0.2,marginBottom:16}}>👨‍🌾</div><p style={{color:"#4B5563",fontFamily:"monospace",fontSize:13}}>SIN PRODUCTORES — AGREGA O VINCULA UNO</p></div>
-                :<div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16,marginBottom:24}}>
-                    {productores.map(p=>(
+                ?<div className="ci" style={{textAlign:"center",padding:80}}><div style={{fontSize:48,opacity:0.2,marginBottom:16}}>👨‍🌾</div><p style={{color:"#4B5563",fontFamily:"monospace",fontSize:13}}>SIN PRODUCTORES</p></div>
+                :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:16}}>
+                  {productores.map(p=>{
+                    const camps = p.empresa_id ? (campanasPorProd[p.empresa_id] ?? []) : [];
+                    const campActiva = p.empresa_id ? campSelProd[p.empresa_id] : null;
+                    const lotesP = lotes.filter(l=>l.productor_nombre===p.nombre);
+                    return(
                       <div key={p.id} className="ci" style={{overflow:"hidden"}}>
                         <div style={{padding:20}}>
                           <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:12}}>
@@ -415,49 +407,63 @@ export default function IngenieroPanel() {
                               <button onClick={()=>eliminarProd(p.id)} style={{fontSize:12,padding:"4px 8px",borderRadius:6,background:"none",border:"none",color:"#4B5563",cursor:"pointer"}}>✕</button>
                             </div>
                           </div>
+
+                          {/* Campaña selector */}
+                          {p.tiene_cuenta && camps.length > 0 && (
+                            <div style={{marginBottom:12}}>
+                              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                                <label style={{fontSize:10,color:"#4B6B5B",fontFamily:"monospace",textTransform:"uppercase",letterSpacing:2}}>CAMPAÑA</label>
+                              </div>
+                              <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                                <select
+                                  value={campActiva??""} 
+                                  onChange={e=>cambiarCampana(p.empresa_id!, e.target.value, p.nombre)}
+                                  style={{flex:1,background:"rgba(10,22,40,0.8)",border:"1px solid rgba(201,162,39,0.3)",borderRadius:8,padding:"6px 10px",color:"#C9A227",fontSize:12,fontFamily:"monospace",cursor:"pointer",outline:"none"}}>
+                                  {camps.map((c:any)=><option key={c.id} value={c.id}>{c.nombre}{c.activa?" ★":""}</option>)}
+                                </select>
+                                {/* Crear nueva campaña */}
+                                <button
+                                  onClick={()=>{
+                                    const anio=new Date().getFullYear();
+                                    const nombre=prompt(`Nueva campaña para ${p.nombre}:`, `${anio}/${anio+1}`);
+                                    if(nombre&&p.empresa_id)crearCampana(p.empresa_id,nombre);
+                                  }}
+                                  style={{padding:"6px 10px",borderRadius:8,background:"rgba(201,162,39,0.1)",border:"1px solid rgba(201,162,39,0.3)",color:"#C9A227",fontSize:11,fontFamily:"monospace",cursor:"pointer",fontWeight:"bold"}}>
+                                  + NUEVA
+                                </button>
+                              </div>
+                              <div style={{fontSize:10,color:"#4B5563",fontFamily:"monospace",marginTop:4}}>
+                                {lotesP.length} LOTES · {lotesP.reduce((a,l)=>a+(l.hectareas||0),0).toLocaleString("es-AR")} HA EN ESTA CAMPAÑA
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Sin cuenta — crear campaña propia */}
+                          {!p.tiene_cuenta && (
+                            <div style={{marginBottom:12,padding:"8px 12px",borderRadius:8,background:"rgba(96,165,250,0.05)",border:"1px solid rgba(96,165,250,0.15)"}}>
+                              <div style={{fontSize:11,color:"#60A5FA",fontFamily:"monospace"}}>Sin cuenta app — los lotes se gestionan desde el panel del ing</div>
+                            </div>
+                          )}
+
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
                             <div style={{background:"rgba(2,8,16,0.4)",borderRadius:8,padding:10,textAlign:"center"}}><div style={{fontSize:10,color:"#4B5563",fontFamily:"monospace"}}>HA</div><div style={{fontWeight:"bold",color:"#C9A227",fontFamily:"monospace",marginTop:2}}>{(p.hectareas_total||0).toLocaleString("es-AR")}</div></div>
                             <div style={{background:"rgba(2,8,16,0.4)",borderRadius:8,padding:10,textAlign:"center"}}><div style={{fontSize:10,color:"#4B5563",fontFamily:"monospace"}}>HONORARIO</div><div style={{fontWeight:"bold",color:"#00FF80",fontFamily:"monospace",marginTop:2}}>${(p.honorario_monto||0).toLocaleString("es-AR")}</div></div>
                           </div>
                           <div style={{display:"flex",gap:8}}>
                             {p.telefono&&<a href={"https://wa.me/54"+p.telefono.replace(/\D/g,"")} target="_blank" rel="noreferrer" style={{flex:1,textAlign:"center",padding:"8px",borderRadius:8,background:"rgba(37,211,102,0.1)",border:"1px solid rgba(37,211,102,0.3)",color:"#25D366",fontSize:11,fontFamily:"monospace",fontWeight:"bold",textDecoration:"none"}}>💬 WA</a>}
-                            <button onClick={()=>entrar(p)} style={{flex:1,padding:"8px",borderRadius:8,background:"rgba(0,255,128,0.1)",border:"1px solid rgba(0,255,128,0.3)",color:"#00FF80",fontSize:11,fontFamily:"monospace",fontWeight:"bold",cursor:"pointer"}}>{p.tiene_cuenta?"🔗 LOTES COMPARTIDOS":"🌾 MIS LOTES"}</button>
+                            <button onClick={()=>entrar(p)} style={{flex:1,padding:"8px",borderRadius:8,background:"rgba(0,255,128,0.1)",border:"1px solid rgba(0,255,128,0.3)",color:"#00FF80",fontSize:11,fontFamily:"monospace",fontWeight:"bold",cursor:"pointer"}}>{p.tiene_cuenta?"🔗 VER LOTES":"🌾 MIS LOTES"}</button>
                           </div>
                         </div>
                         {p.observaciones&&<div style={{borderTop:"1px solid rgba(0,255,128,0.1)",padding:"8px 20px",fontSize:11,color:"#4B5563",fontFamily:"monospace"}}>{p.observaciones}</div>}
                       </div>
-                    ))}
-                  </div>
-
-                  {/* Historial visitas */}
-                  <div className="ci" style={{overflow:"hidden"}}>
-                    <div style={{padding:"12px 20px",borderBottom:"1px solid rgba(201,162,39,0.15)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <span style={{color:"#C9A227",fontFamily:"monospace",fontSize:13,fontWeight:"bold"}}>📋 HISTORIAL DE VISITAS</span>
-                      <button onClick={()=>exportXLS("visitas")} style={{fontSize:11,color:"#4ADE80",border:"1px solid rgba(74,222,128,0.2)",padding:"4px 12px",borderRadius:6,fontFamily:"monospace",cursor:"pointer",background:"none"}}>📤 EXPORTAR</button>
-                    </div>
-                    {visitas.length===0
-                      ?<div style={{textAlign:"center",padding:40,color:"#4B5563",fontFamily:"monospace",fontSize:13}}>SIN VISITAS</div>
-                      :<div style={{overflowX:"auto"}}><table style={{width:"100%",fontSize:12,fontFamily:"monospace"}}><thead><tr style={{borderBottom:"1px solid rgba(201,162,39,0.1)"}}>{["FECHA","PRODUCTOR","SERVICIO","DESCRIPCION","LOTES","COSTO",""].map(h=><th key={h} style={{textAlign:"left",padding:"10px 16px",fontSize:11,color:"#4B5563"}}>{h}</th>)}</tr></thead>
-                        <tbody>{visitas.slice(0,20).map(v=>{const p=productores.find(x=>x.id===v.productor_id);return(
-                          <tr key={v.id} style={{borderBottom:"1px solid rgba(201,162,39,0.05)"}}>
-                            <td style={{padding:"12px 16px",color:"#6B7280"}}>{v.fecha}</td>
-                            <td style={{padding:"12px 16px",color:"#E5E7EB",fontWeight:"bold"}}>{p?.nombre??"—"}</td>
-                            <td style={{padding:"12px 16px"}}><span style={{background:"rgba(201,162,39,0.1)",color:"#C9A227",padding:"2px 8px",borderRadius:4,fontSize:11,fontWeight:"bold"}}>{v.tipo_servicio}</span></td>
-                            <td style={{padding:"12px 16px",color:"#E5E7EB"}}>{v.descripcion}</td>
-                            <td style={{padding:"12px 16px",color:"#9CA3AF"}}>{v.lotes||"—"}</td>
-                            <td style={{padding:"12px 16px",fontWeight:"bold",color:"#C9A227"}}>{v.costo?"$"+Number(v.costo).toLocaleString("es-AR"):"-"}</td>
-                            <td style={{padding:"12px 16px"}}><button onClick={async()=>{const sb=await getSB();await sb.from("ing_visitas").delete().eq("id",v.id);await fetchVisitas(ingId);}} style={{background:"none",border:"none",color:"#4B5563",cursor:"pointer",fontSize:12}}>✕</button></td>
-                          </tr>
-                        );})}</tbody>
-                      </table></div>
-                    }
-                  </div>
+                    );
+                  })}
                 </div>
               }
             </div>
           )}
 
-          {/* COBRANZA */}
+          {/* ===== COBRANZA ===== */}
           {seccion==="cobranza"&&(
             <div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:12}}>
@@ -507,7 +513,7 @@ export default function IngenieroPanel() {
             </div>
           )}
 
-          {/* VEHICULO */}
+          {/* ===== VEHICULO ===== */}
           {seccion==="vehiculo"&&(
             <div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
@@ -523,7 +529,7 @@ export default function IngenieroPanel() {
                 <div className="ci" style={{padding:20,marginBottom:20}}>
                   <h3 style={{color:"#00FF80",fontFamily:"monospace",fontSize:13,fontWeight:"bold",marginBottom:16}}>+ NUEVO VEHICULO</h3>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
-                    {[["nombre","NOMBRE","Toyota Hilux","text"],["marca","MARCA","","text"],["modelo","MODELO","","text"],["anio","AÑO","","number"],["patente","PATENTE","","text"],["seg_comp","COMP. SEGURO","","text"],["seg_venc","VENC. SEGURO","","date"],["vtv_venc","VENC. VTV","","date"],["km","KM ACTUALES","","number"],["prox_km","PROX. SERVICE KM","","number"]].map(([k,l,ph,t])=>(
+                    {[["nombre","NOMBRE","Toyota Hilux","text"],["marca","MARCA","","text"],["modelo","MODELO","","text"],["anio","AÑO","","number"],["patente","PATENTE","","text"],["seg_comp","COMPAÑIA SEGURO","","text"],["seg_venc","VENC. SEGURO","","date"],["vtv_venc","VENC. VTV","","date"],["km","KM ACTUALES","","number"],["prox_km","PROX. SERVICE KM","","number"]].map(([k,l,ph,t])=>(
                       <div key={k as string}><label className={lCls}>{l as string}</label><input type={t as string} value={form[k as string]??""} onChange={e=>setForm({...form,[k as string]:e.target.value})} className={iCls} placeholder={ph as string}/></div>
                     ))}
                   </div>
@@ -584,7 +590,7 @@ export default function IngenieroPanel() {
             </div>
           )}
 
-          {/* IA CAMPO */}
+          {/* ===== IA CAMPO ===== */}
           {seccion==="ia_campo"&&(
             <div>
               <div style={{marginBottom:20}}><h2 style={{fontSize:18,fontWeight:"bold",fontFamily:"monospace",color:"#E5E7EB",margin:0}}>🤖 IA CAMPO</h2><p style={{color:"#4B5563",fontSize:11,fontFamily:"monospace",marginTop:4}}>Consulta sobre dosis, plagas, enfermedades, cultivos y mercados</p></div>
@@ -598,13 +604,12 @@ export default function IngenieroPanel() {
                 </div>
               </div>
               <div style={{display:"flex",gap:12}}>
-                <button onClick={()=>{const hasSR="webkitSpeechRecognition" in window||"SpeechRecognition" in window;if(!hasSR){alert("Usa Chrome");return;}const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition;const rec=new SR();rec.lang="es-AR";setListening(true);rec.onresult=(e:any)=>{setAiInput(e.results[0][0].transcript);setListening(false);};rec.onerror=()=>setListening(false);rec.onend=()=>setListening(false);rec.start();}} style={{padding:"12px 16px",borderRadius:12,border:listening?"1px solid #F87171":"1px solid rgba(0,255,128,0.3)",color:listening?"#F87171":"#00FF80",fontFamily:"monospace",fontSize:13,cursor:"pointer",background:"none",flexShrink:0}}>🎤 {listening?"...":"VOZ"}</button>
+                <button onClick={()=>{const hasSR="webkitSpeechRecognition" in window||"SpeechRecognition" in window;if(!hasSR){alert("Usa Chrome");return;}const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition;const rec=new SR();rec.lang="es-AR";rec.onresult=(e:any)=>{setAiInput(e.results[0][0].transcript);};rec.start();}} style={{padding:"12px 16px",borderRadius:12,border:"1px solid rgba(0,255,128,0.3)",color:"#00FF80",fontFamily:"monospace",fontSize:13,cursor:"pointer",background:"none",flexShrink:0}}>🎤 VOZ</button>
                 <input type="text" value={aiInput} onChange={e=>setAiInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&askAI()} placeholder="Consulta agronomica..." style={{flex:1,background:"rgba(10,22,40,0.8)",border:"1px solid rgba(0,255,128,0.2)",borderRadius:12,padding:"12px 16px",color:"#E5E7EB",fontSize:13,fontFamily:"monospace",outline:"none"}}/>
                 <button onClick={askAI} disabled={aiLoad||!aiInput.trim()} style={{padding:"12px 24px",borderRadius:12,background:"rgba(0,255,128,0.1)",border:"1px solid rgba(0,255,128,0.3)",color:"#00FF80",fontFamily:"monospace",fontSize:13,fontWeight:"bold",cursor:"pointer",flexShrink:0,opacity:aiLoad||!aiInput.trim()?0.4:1}}>▶ ENVIAR</button>
               </div>
             </div>
           )}
-
         </div>
       </div>
     </div>
