@@ -48,6 +48,8 @@ export default function IngenieroPanel() {
   const [aiLoad, setAiLoad] = useState(false);
   const [listening, setListening] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
+  const [nuevaCampProd, setNuevaCampProd] = useState<string|null>(null);
+  const [nuevaCampNombre, setNuevaCampNombre] = useState("");
   const recRef = useRef<any>(null);
   const [vozEstado, setVozEstado] = useState<"idle"|"escuchando"|"procesando"|"respondiendo"|"error">("idle");
   const [vozPanel, setVozPanel] = useState(false);
@@ -78,18 +80,19 @@ export default function IngenieroPanel() {
     const sb = await getSB();
     const { data: prods } = await sb.from("ing_productores").select("*").eq("ingeniero_id", iid).eq("activo", true).order("nombre");
     setProductores(prods ?? []);
-    // Para cada productor vinculado, cargar campañas
     const cpMap: Record<string,Campana[]> = {};
     const csMap: Record<string,string> = {};
     const lotesAll: LoteResumen[] = [];
-    for (const p of (prods ?? []).filter((x:any) => x.empresa_id)) {
-      const { data: camps } = await sb.from("campanas").select("id,nombre,activa").eq("empresa_id", p.empresa_id).order("año_inicio", { ascending: false });
+    for (const p of (prods ?? [])) {
+      // Usar empresa_id si tiene cuenta, o ing_productor.id como namespace propio
+      const eid = p.empresa_id ?? p.id;
+      const { data: camps } = await sb.from("campanas").select("id,nombre,activa").eq("empresa_id", eid).order("año_inicio", { ascending: false });
       const campList = camps ?? [];
-      cpMap[p.empresa_id] = campList;
+      cpMap[eid] = campList;
       const activa = campList.find((c:any) => c.activa) ?? campList[0];
       if (activa) {
-        csMap[p.empresa_id] = activa.id;
-        const { data: ls } = await sb.from("lotes").select("nombre,hectareas,cultivo,cultivo_completo,estado,fecha_siembra,variedad").eq("empresa_id", p.empresa_id).eq("campana_id", activa.id).eq("es_segundo_cultivo", false);
+        csMap[eid] = activa.id;
+        const { data: ls } = await sb.from("lotes").select("nombre,hectareas,cultivo,cultivo_completo,estado,fecha_siembra,variedad").eq("empresa_id", eid).eq("campana_id", activa.id).eq("es_segundo_cultivo", false);
         (ls ?? []).forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre}));
       }
     }
@@ -99,10 +102,10 @@ export default function IngenieroPanel() {
   };
 
   // Cambiar campaña de un productor
-  const cambiarCampana = async (empresa_id: string, campana_id: string, prod_nombre: string) => {
-    setCampSelProd(prev => ({...prev, [empresa_id]: campana_id}));
+  const cambiarCampana = async (eid: string, campana_id: string, prod_nombre: string) => {
+    setCampSelProd(prev => ({...prev, [eid]: campana_id}));
     const sb = await getSB();
-    const { data: ls } = await sb.from("lotes").select("nombre,hectareas,cultivo,cultivo_completo,estado,fecha_siembra,variedad").eq("empresa_id", empresa_id).eq("campana_id", campana_id).eq("es_segundo_cultivo", false);
+    const { data: ls } = await sb.from("lotes").select("nombre,hectareas,cultivo,cultivo_completo,estado,fecha_siembra,variedad").eq("empresa_id", eid).eq("campana_id", campana_id).eq("es_segundo_cultivo", false);
     setLotes(prev => {
       const sinEste = prev.filter(l => l.productor_nombre !== prod_nombre);
       return [...sinEste, ...(ls ?? []).map((l:any) => ({...l, productor_nombre: prod_nombre}))];
@@ -110,17 +113,16 @@ export default function IngenieroPanel() {
   };
 
   // Crear campaña para un productor
-  const crearCampana = async (empresa_id: string, nombre: string) => {
+  const crearCampana = async (eid: string, nombre: string) => {
     const sb = await getSB();
     const parts = nombre.split("/");
     const anioInicio = Number(parts[0]) || new Date().getFullYear();
     const anioFin = Number(parts[1]) || anioInicio + 1;
-    // Desactivar las anteriores
-    await sb.from("campanas").update({ activa: false }).eq("empresa_id", empresa_id);
-    const { data: nueva } = await sb.from("campanas").insert({ empresa_id, nombre, año_inicio: anioInicio, año_fin: anioFin, activa: true }).select().single();
+    await sb.from("campanas").update({ activa: false }).eq("empresa_id", eid);
+    const { data: nueva } = await sb.from("campanas").insert({ empresa_id: eid, nombre, año_inicio: anioInicio, año_fin: anioFin, activa: true }).select().single();
     if (nueva) {
-      setCampanasPorProd(prev => ({ ...prev, [empresa_id]: [nueva, ...(prev[empresa_id] ?? [])] }));
-      setCampSelProd(prev => ({ ...prev, [empresa_id]: nueva.id }));
+      setCampanasPorProd(prev => ({ ...prev, [eid]: [nueva, ...(prev[eid] ?? [])] }));
+      setCampSelProd(prev => ({ ...prev, [eid]: nueva.id }));
       m("✅ CAMPAÑA " + nombre + " CREADA");
     }
   };
@@ -408,8 +410,9 @@ export default function IngenieroPanel() {
                 ?<div className="ci" style={{textAlign:"center",padding:80}}><div style={{fontSize:48,opacity:0.2,marginBottom:16}}>👨‍🌾</div><p style={{color:"#4B5563",fontFamily:"monospace",fontSize:13}}>SIN PRODUCTORES</p></div>
                 :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:16}}>
                   {productores.map(p=>{
-                    const camps = p.empresa_id ? (campanasPorProd[p.empresa_id] ?? []) : [];
-                    const campActiva = p.empresa_id ? campSelProd[p.empresa_id] : null;
+                    const eid = p.empresa_id ?? p.id;
+                    const camps = campanasPorProd[eid] ?? [];
+                    const campActiva = campSelProd[eid] ?? null;
                     const lotesP = lotes.filter(l=>l.productor_nombre===p.nombre);
                     return(
                       <div key={p.id} className="ci" style={{overflow:"hidden"}}>
@@ -430,7 +433,7 @@ export default function IngenieroPanel() {
                           </div>
 
                           {/* Campaña selector */}
-                          {camps.length > 0 && (
+                          {true && (
                             <div style={{marginBottom:12}}>
                               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
                                 <label style={{fontSize:10,color:"#4B6B5B",fontFamily:"monospace",textTransform:"uppercase",letterSpacing:2}}>CAMPAÑA</label>
@@ -438,20 +441,23 @@ export default function IngenieroPanel() {
                               <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
                                 <select
                                   value={campActiva??""} 
-                                  onChange={e=>cambiarCampana(p.empresa_id!, e.target.value, p.nombre)}
+                                  onChange={e=>cambiarCampana(eid, e.target.value, p.nombre)}
                                   style={{flex:1,background:"rgba(10,22,40,0.8)",border:"1px solid rgba(201,162,39,0.3)",borderRadius:8,padding:"6px 10px",color:"#C9A227",fontSize:12,fontFamily:"monospace",cursor:"pointer",outline:"none"}}>
                                   {camps.map((c:any)=><option key={c.id} value={c.id}>{c.nombre}{c.activa?" ★":""}</option>)}
                                 </select>
                                 {/* Crear nueva campaña */}
                                 <button
-                                  onClick={()=>{
-                                    const anio=new Date().getFullYear();
-                                    const nombre=prompt(`Nueva campaña para ${p.nombre}:`, `${anio}/${anio+1}`);
-                                    if(nombre&&p.empresa_id)crearCampana(p.empresa_id,nombre);
-                                  }}
+                                  onClick={()=>{setNuevaCampProd(p.id);setNuevaCampNombre(new Date().getFullYear()+"/"+(new Date().getFullYear()+1));}}
                                   style={{padding:"6px 10px",borderRadius:8,background:"rgba(201,162,39,0.1)",border:"1px solid rgba(201,162,39,0.3)",color:"#C9A227",fontSize:11,fontFamily:"monospace",cursor:"pointer",fontWeight:"bold"}}>
                                   + NUEVA
                                 </button>
+                                {nuevaCampProd===p.id&&(
+                                  <div style={{display:"flex",gap:6,marginTop:6,width:"100%",flexWrap:"wrap"}}>
+                                    <input value={nuevaCampNombre} onChange={e=>setNuevaCampNombre(e.target.value)} placeholder="2025/2026" style={{flex:1,minWidth:80,background:"rgba(2,8,16,0.8)",border:"1px solid rgba(201,162,39,0.4)",borderRadius:6,padding:"4px 8px",color:"#E5E7EB",fontSize:11,fontFamily:"monospace",outline:"none"}}/>
+                                    <button onClick={async()=>{if(nuevaCampNombre.trim()){await crearCampana(eid,nuevaCampNombre.trim());setNuevaCampProd(null);setNuevaCampNombre("");}}} style={{padding:"4px 10px",borderRadius:6,background:"rgba(74,222,128,0.15)",border:"1px solid rgba(74,222,128,0.4)",color:"#4ADE80",fontSize:11,fontFamily:"monospace",cursor:"pointer",fontWeight:"bold"}}>✓ OK</button>
+                                    <button onClick={()=>{setNuevaCampProd(null);setNuevaCampNombre("");}} style={{padding:"4px 8px",borderRadius:6,background:"none",border:"1px solid #1C2128",color:"#4B5563",fontSize:11,fontFamily:"monospace",cursor:"pointer"}}>✕</button>
+                                  </div>
+                                )}
                               </div>
                               <div style={{fontSize:10,color:"#4B5563",fontFamily:"monospace",marginTop:4}}>
                                 {lotesP.length} LOTES · {lotesP.reduce((a,l)=>a+(l.hectareas||0),0).toLocaleString("es-AR")} HA EN ESTA CAMPAÑA
