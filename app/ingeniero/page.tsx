@@ -49,6 +49,13 @@ export default function IngenieroPanel() {
   const [listening, setListening] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
   const recRef = useRef<any>(null);
+  const [vozEstado, setVozEstado] = useState<"idle"|"escuchando"|"procesando"|"respondiendo"|"error">("idle");
+  const [vozPanel, setVozPanel] = useState(false);
+  const [vozRespuesta, setVozRespuesta] = useState("");
+  const [vozInput, setVozInput] = useState("");
+  // Campaña global
+  const [campanaGlobal, setCampanaGlobal] = useState("");
+  const [todasCampanas, setTodasCampanas] = useState<{id:string;nombre:string;empresa_id:string}[]>([]);
 
   useEffect(() => { init(); }, []);
 
@@ -245,6 +252,20 @@ export default function IngenieroPanel() {
   const iCls="w-full bg-[#0a1628] border border-[#00FF80]/20 rounded-xl px-4 py-2.5 text-[#E5E7EB] text-sm focus:outline-none focus:border-[#00FF80] font-mono";
   const lCls="block text-xs text-[#4B6B5B] uppercase tracking-widest mb-1 font-mono";
 
+  const VOZ_COLOR:Record<string,string>={idle:"#00FF80",escuchando:"#F87171",procesando:"#C9A227",respondiendo:"#60A5FA",error:"#F87171"};
+  const VOZ_ICON:Record<string,string>={idle:"🎤",escuchando:"🔴",procesando:"⚙️",respondiendo:"🔊",error:"❌"};
+
+  const escucharVoz = () => {
+    const hasSR="webkitSpeechRecognition" in window||"SpeechRecognition" in window;
+    if(!hasSR){alert("Usa Chrome");return;}
+    const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition;
+    const rec=new SR();rec.lang="es-AR";rec.continuous=false;
+    recRef.current=rec;setVozEstado("escuchando");setVozRespuesta("");setVozPanel(true);
+    rec.onresult=(e:any)=>{const t=e.results[0][0].transcript;setAiInput(t);setVozEstado("idle");setSeccion("ia_campo");};
+    rec.onerror=()=>{setVozEstado("error");setTimeout(()=>setVozEstado("idle"),2000);};
+    rec.start();
+  };
+
   if(loading) return <div style={{minHeight:"100vh",background:"#020810",display:"flex",alignItems:"center",justifyContent:"center",color:"#00FF80",fontFamily:"monospace"}}>CARGANDO...</div>;
 
   return (
@@ -374,7 +395,7 @@ export default function IngenieroPanel() {
                 <div className="ci" style={{padding:16,marginBottom:16}}>
                   <div style={{display:"flex",flexWrap:"wrap",gap:12,alignItems:"flex-end"}}>
                     <span style={{color:"#C9A227",fontFamily:"monospace",fontSize:13,fontWeight:"bold"}}>📊 EXPORTAR LOTES:</span>
-                    {[["CULTIVO",fCultivo,setFCultivo,["todos",...cultivosU]],["PRODUCTOR",fProductor,setFProductor,["todos",...productores.filter(p=>p.tiene_cuenta).map(p=>p.nombre)]],["ESTADO",fEstado,setFEstado,["todos","planificado","sembrado","en_desarrollo","cosechado"]]].map(([l,v,fn,opts])=>(
+                    {[["CULTIVO",fCultivo,setFCultivo,["todos",...cultivosU]],["PRODUCTOR",fProductor,setFProductor,["todos",...productores.map(p=>p.nombre)]],["ESTADO",fEstado,setFEstado,["todos","planificado","sembrado","en_desarrollo","cosechado"]]].map(([l,v,fn,opts])=>(
                       <div key={l as string}><label className={lCls}>{l as string}</label><select value={v as string} onChange={e=>(fn as any)(e.target.value)} className={iCls} style={{width:140}}>{(opts as string[]).map(o=><option key={o} value={o}>{o.toUpperCase()}</option>)}</select></div>
                     ))}
                     <button onClick={()=>exportXLS("lotes")} style={{padding:"10px 20px",borderRadius:12,background:"rgba(74,222,128,0.1)",border:"1px solid rgba(74,222,128,0.3)",color:"#4ADE80",fontFamily:"monospace",fontSize:12,fontWeight:"bold",cursor:"pointer"}}>📤 EXPORTAR</button>
@@ -409,7 +430,7 @@ export default function IngenieroPanel() {
                           </div>
 
                           {/* Campaña selector */}
-                          {p.tiene_cuenta && camps.length > 0 && (
+                          {camps.length > 0 && (
                             <div style={{marginBottom:12}}>
                               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
                                 <label style={{fontSize:10,color:"#4B6B5B",fontFamily:"monospace",textTransform:"uppercase",letterSpacing:2}}>CAMPAÑA</label>
@@ -438,10 +459,10 @@ export default function IngenieroPanel() {
                             </div>
                           )}
 
-                          {/* Sin cuenta — crear campaña propia */}
-                          {!p.tiene_cuenta && (
+                          {/* Sin cuenta — mostrar info */}
+                          {!p.tiene_cuenta && camps.length === 0 && (
                             <div style={{marginBottom:12,padding:"8px 12px",borderRadius:8,background:"rgba(96,165,250,0.05)",border:"1px solid rgba(96,165,250,0.15)"}}>
-                              <div style={{fontSize:11,color:"#60A5FA",fontFamily:"monospace"}}>Sin cuenta app — los lotes se gestionan desde el panel del ing</div>
+                              <div style={{fontSize:11,color:"#60A5FA",fontFamily:"monospace"}}>Sin campañas — creá una para empezar a cargar lotes</div>
                             </div>
                           )}
 
@@ -612,6 +633,30 @@ export default function IngenieroPanel() {
           )}
         </div>
       </div>
+      {/* BOTON FLOTANTE VOZ */}
+      <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}}
+        style={{position:"fixed",bottom:24,right:24,zIndex:50,width:56,height:56,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",background:VOZ_COLOR[vozEstado]+"18",border:"2px solid "+VOZ_COLOR[vozEstado],color:VOZ_COLOR[vozEstado],animation:vozEstado==="idle"?"float 3s ease-in-out infinite":"none",boxShadow:"0 4px 20px rgba(0,255,128,0.3)"}}>
+        {VOZ_ICON[vozEstado]}
+      </button>
+      {/* PANEL VOZ */}
+      {vozPanel&&(
+        <div style={{position:"fixed",bottom:96,right:24,zIndex:50,width:300,background:"rgba(10,22,40,0.97)",border:"1px solid rgba(0,255,128,0.3)",borderRadius:16,overflow:"hidden",boxShadow:"0 8px 32px rgba(0,0,0,0.5)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderBottom:"1px solid rgba(0,255,128,0.15)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}><div style={{width:8,height:8,borderRadius:"50%",background:VOZ_COLOR[vozEstado]}}/><span style={{color:"#00FF80",fontSize:11,fontFamily:"monospace",fontWeight:"bold"}}>🎤 ASISTENTE VOZ</span></div>
+            <button onClick={()=>{setVozPanel(false);recRef.current?.stop();setVozEstado("idle");}} style={{background:"none",border:"none",color:"#4B5563",cursor:"pointer",fontSize:14}}>✕</button>
+          </div>
+          <div style={{padding:"12px 16px",minHeight:60}}>
+            {vozEstado==="escuchando"&&<p style={{color:"#F87171",fontFamily:"monospace",fontSize:12,animation:"pulse 1s infinite"}}>🔴 Escuchando...</p>}
+            {vozRespuesta&&<p style={{color:"#E5E7EB",fontFamily:"monospace",fontSize:12,lineHeight:1.5}}>{vozRespuesta}</p>}
+            {vozEstado==="idle"&&!vozRespuesta&&<div style={{display:"flex",flexDirection:"column",gap:6}}>{["Cuantos lotes tiene NN","Exportar lotes de soja","Dosis glifosato"].map(q=><button key={q} onClick={()=>{setAiInput(q);setVozPanel(false);setSeccion("ia_campo");}} style={{textAlign:"left",fontSize:11,color:"#4B6B5B",border:"1px solid rgba(0,255,128,0.1)",padding:"8px 12px",borderRadius:8,fontFamily:"monospace",cursor:"pointer",background:"none"}}>💬 {q}</button>)}</div>}
+          </div>
+          <div style={{padding:"8px 12px",borderTop:"1px solid rgba(0,255,128,0.1)",display:"flex",gap:8}}>
+            <input value={vozInput} onChange={e=>setVozInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&vozInput.trim()){setAiInput(vozInput);setVozInput("");setVozPanel(false);setSeccion("ia_campo");}}} placeholder="Escribi..." style={{flex:1,background:"rgba(2,8,16,0.8)",border:"1px solid rgba(0,255,128,0.2)",borderRadius:8,padding:"6px 10px",color:"#E5E7EB",fontSize:12,fontFamily:"monospace",outline:"none"}}/>
+            <button onClick={escucharVoz} style={{padding:"6px 10px",borderRadius:8,background:"rgba(0,255,128,0.1)",border:"1px solid rgba(0,255,128,0.3)",color:"#00FF80",fontSize:14,cursor:"pointer"}}>🎤</button>
+          </div>
+        </div>
+      )}
+      <style>{`@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}} @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
     </div>
   );
 }
