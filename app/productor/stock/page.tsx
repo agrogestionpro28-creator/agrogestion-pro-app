@@ -49,7 +49,6 @@ export default function StockPage() {
   const [cultivoActivo, setCultivoActivo] = useState<string|null>(null);
   const [gasoilActivo, setGasoilActivo] = useState<string|null>(null);
 
-  // Forms
   const [showFormUbicacion, setShowFormUbicacion] = useState(false);
   const [showFormVenta, setShowFormVenta] = useState(false);
   const [showFormInsumo, setShowFormInsumo] = useState(false);
@@ -61,7 +60,6 @@ export default function StockPage() {
   const [showProveedores, setShowProveedores] = useState(false);
   const [showFormProveedor, setShowFormProveedor] = useState(false);
 
-  // Edición
   const [editandoUbicacion, setEditandoUbicacion] = useState<string|null>(null);
   const [editandoInsumo, setEditandoInsumo] = useState<string|null>(null);
   const [editandoVarios, setEditandoVarios] = useState<string|null>(null);
@@ -72,7 +70,6 @@ export default function StockPage() {
   const [msgExito, setMsgExito] = useState("");
   const importRef = useRef<HTMLInputElement>(null);
 
-  // VOZ
   const [vozEstado, setVozEstado] = useState<VozEstado>("idle");
   const [vozPanel, setVozPanel] = useState(false);
   const [vozTranscripcion, setVozTranscripcion] = useState("");
@@ -84,6 +81,33 @@ export default function StockPage() {
     const { createClient } = await import("@supabase/supabase-js");
     return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
   };
+
+  // ── HELPER: obtener campana_id con fallback a la activa ──
+  const getCampanaId = async (eid: string): Promise<string> => {
+    let cid = localStorage.getItem("campana_id") ?? "";
+    if (!cid) {
+      const sb = await getSB();
+      // Intentar campaña activa primero
+      const { data: activa } = await sb.from("campanas")
+        .select("id")
+        .eq("empresa_id", eid)
+        .eq("activa", true)
+        .single();
+      if (activa) { cid = activa.id; localStorage.setItem("campana_id", cid); }
+      else {
+        // Si no hay activa, tomar la más reciente
+        const { data: reciente } = await sb.from("campanas")
+          .select("id")
+          .eq("empresa_id", eid)
+          .order("año_inicio", { ascending: false })
+          .limit(1)
+          .single();
+        if (reciente) { cid = reciente.id; localStorage.setItem("campana_id", cid); }
+      }
+    }
+    return cid;
+  };
+  // ─────────────────────────────────────────────────────────
 
   useEffect(() => { init(); }, []);
 
@@ -102,7 +126,9 @@ export default function StockPage() {
 
   const fetchAll = async (eid: string) => {
     const sb = await getSB();
-    const cid = localStorage.getItem("campana_id") ?? "";
+    // ── FIX: usar getCampanaId con fallback ──
+    const cid = await getCampanaId(eid);
+    // ─────────────────────────────────────────
     const [ub, vt, ins, gas, gmov, var_, prov] = await Promise.all([
       sb.from("stock_granos_ubicaciones").select("*").eq("empresa_id", eid).eq("campana_id", cid),
       sb.from("stock_ventas_pactadas").select("*").eq("empresa_id", eid).eq("campana_id", cid).eq("estado","pactada"),
@@ -169,7 +195,6 @@ export default function StockPage() {
       setVozRespuesta(parsed.texto ?? "");
       hablar(parsed.texto ?? "");
 
-      // Ejecutar acción automáticamente
       if (parsed.accion === "consumir_gasoil" && parsed.datos?.litros && empresaId) {
         const tanque = gasoil[0];
         if (tanque) {
@@ -235,7 +260,7 @@ export default function StockPage() {
   const guardarUbicacion = async () => {
     if (!empresaId || !form.cultivo) return;
     const sb = await getSB();
-    const cid = localStorage.getItem("campana_id") ?? "";
+    const cid = await getCampanaId(empresaId);
     if (editandoUbicacion) {
       await sb.from("stock_granos_ubicaciones").update({
         tipo_ubicacion: form.tipo_ubicacion ?? "silo",
@@ -258,7 +283,7 @@ export default function StockPage() {
   const guardarVenta = async () => {
     if (!empresaId || !form.cultivo) return;
     const sb = await getSB();
-    const cid = localStorage.getItem("campana_id") ?? "";
+    const cid = await getCampanaId(empresaId);
     await sb.from("stock_ventas_pactadas").insert({
       empresa_id: empresaId, campana_id: cid, cultivo: form.cultivo,
       cantidad_tn: Number(form.cantidad_tn ?? 0), precio_tn: Number(form.precio_tn ?? 0),
@@ -371,12 +396,11 @@ export default function StockPage() {
     if (empresaId) await fetchAll(empresaId);
   };
 
-  // WhatsApp proveedores
   const enviarWAProveedor = (proveedor: Proveedor, tipo: "gasoil"|"insumo", extra: string = "") => {
     const totalGasoilL = gasoil.reduce((a,g) => a + g.cantidad_litros, 0);
     let msg = "";
     if (tipo === "gasoil") {
-      msg = `Hola ${proveedor.nombre}! Necesito cotización de gasoil.\nCantidad estimada: 2000 litros.\nStockactual: ${totalGasoilL}L.\n¿Precio y disponibilidad?`;
+      msg = `Hola ${proveedor.nombre}! Necesito cotización de gasoil.\nCantidad estimada: 2000 litros.\nStock actual: ${totalGasoilL}L.\n¿Precio y disponibilidad?`;
     } else {
       msg = `Hola ${proveedor.nombre}! Necesito cotización de insumos.\n${extra}\n¿Precio y disponibilidad?`;
     }
@@ -392,7 +416,6 @@ export default function StockPage() {
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
   };
 
-  // Import/Export Excel
   const leerExcelGranos = async (file: File) => {
     setImportMsg("Leyendo archivo...");
     try {
@@ -420,7 +443,7 @@ export default function StockPage() {
   const confirmarImport = async () => {
     if (!empresaId || !importPreview.length) return;
     const sb = await getSB();
-    const cid = localStorage.getItem("campana_id") ?? "";
+    const cid = await getCampanaId(empresaId);
     for (const r of importPreview) await sb.from("stock_granos_ubicaciones").insert({ empresa_id: empresaId, campana_id: cid, ...r });
     mostrarMsg(`✅ ${importPreview.length} registros importados`);
     await fetchAll(empresaId); setImportPreview([]); setImportMsg(""); setShowImport(false);
@@ -429,7 +452,6 @@ export default function StockPage() {
   const exportarExcel = async () => {
     const XLSX = await import("xlsx");
     const wb = XLSX.utils.book_new();
-    // Granos
     if (tab === "granos") {
       const data = cultivosConStock.map(c => {
         const { totalFisico, totalPactado, balance, ubs } = stockPorCultivo(c);
@@ -489,7 +511,6 @@ export default function StockPage() {
             ← {cultivoActivo||gasoilActivo?"Volver":"Dashboard"}
           </button>
           <div className="flex-1"/>
-          {/* Botón voz en header */}
           <button onClick={vozEstado==="escuchando"?(()=>{recRef.current?.stop();setVozEstado("idle");}):(()=>{setVozPanel(true);escucharVoz();})}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl border font-mono text-sm transition-all ${vozEstado==="escuchando"?"border-red-400 text-red-400 btn-voz-esc":vozEstado==="procesando"?"border-[#C9A227] text-[#C9A227]":vozEstado==="respondiendo"?"border-[#60A5FA] text-[#60A5FA]":"border-[#00FF80]/30 text-[#00FF80] hover:bg-[#00FF80]/10"}`}>
             {VOZ_ICON[vozEstado]} {VOZ_LABEL[vozEstado]}
@@ -500,36 +521,25 @@ export default function StockPage() {
 
       <div className="relative z-10 max-w-6xl mx-auto p-6">
 
-        {/* Mensaje éxito */}
         {msgExito && (
           <div className="mb-4 px-4 py-2 rounded-lg border border-[#4ADE80]/30 text-[#4ADE80] bg-[#4ADE80]/5 text-sm font-mono flex items-center justify-between">
             {msgExito} <button onClick={()=>setMsgExito("")} className="opacity-50 hover:opacity-100">✕</button>
           </div>
         )}
 
-        {/* Title + acciones */}
         <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold text-[#E5E7EB] font-mono">▣ STOCK</h1>
             <p className="text-[#00FF80] text-xs tracking-widest font-mono mt-1">SISTEMA DE INVENTARIO AGROPECUARIO</p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <button onClick={()=>setShowProveedores(!showProveedores)}
-              className="px-4 py-2 rounded-xl border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/10 font-mono text-sm transition-all">
-              💬 Proveedores WA
-            </button>
-            <button onClick={()=>setShowImport(!showImport)}
-              className="px-4 py-2 rounded-xl border border-[#C9A227]/30 text-[#C9A227] hover:bg-[#C9A227]/10 font-mono text-sm transition-all">
-              📥 Importar
-            </button>
-            <button onClick={exportarExcel}
-              className="px-4 py-2 rounded-xl border border-[#4ADE80]/30 text-[#4ADE80] hover:bg-[#4ADE80]/10 font-mono text-sm transition-all">
-              📤 Exportar
-            </button>
+            <button onClick={()=>setShowProveedores(!showProveedores)} className="px-4 py-2 rounded-xl border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/10 font-mono text-sm transition-all">💬 Proveedores WA</button>
+            <button onClick={()=>setShowImport(!showImport)} className="px-4 py-2 rounded-xl border border-[#C9A227]/30 text-[#C9A227] hover:bg-[#C9A227]/10 font-mono text-sm transition-all">📥 Importar</button>
+            <button onClick={exportarExcel} className="px-4 py-2 rounded-xl border border-[#4ADE80]/30 text-[#4ADE80] hover:bg-[#4ADE80]/10 font-mono text-sm transition-all">📤 Exportar</button>
           </div>
         </div>
 
-        {/* Panel proveedores WhatsApp */}
+        {/* Panel proveedores */}
         {showProveedores && (
           <div className="bg-[#0a1628]/80 border border-[#25D366]/30 rounded-xl p-5 mb-5">
             <div className="flex items-center justify-between mb-4">
@@ -570,10 +580,7 @@ export default function StockPage() {
                       <div className="text-xs text-[#4B5563] font-mono">{p.categoria==="proveedor_gasoil"?"⛽ Gasoil":"🧪 Insumos"} · {p.telefono}</div>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={()=>enviarWAProveedor(p, p.categoria==="proveedor_gasoil"?"gasoil":"insumo")}
-                        className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] text-xs font-mono hover:bg-[#25D366]/20">
-                        💬 Cotizar
-                      </button>
+                      <button onClick={()=>enviarWAProveedor(p, p.categoria==="proveedor_gasoil"?"gasoil":"insumo")} className="flex items-center gap-1 px-3 py-2 rounded-lg bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] text-xs font-mono hover:bg-[#25D366]/20">💬 Cotizar</button>
                       <button onClick={()=>eliminarItem("contactos",p.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button>
                     </div>
                   </div>
@@ -956,7 +963,6 @@ export default function StockPage() {
                 </div>
               </div>
             )}
-
             {gasoil.length===0?<div className="text-center py-16 text-[#4B5563] font-mono bg-[#0a1628]/80 border border-[#60A5FA]/15 rounded-xl">Sin stock de gasoil</div>:(
               <div className="space-y-4">
                 {gasoil.map(g=>{
@@ -980,45 +986,27 @@ export default function StockPage() {
                           <span className="text-[#C9A227] font-mono font-bold">${g.precio_litro}/L · Total: ${(g.cantidad_litros*g.precio_litro).toLocaleString("es-AR")}</span>
                           <button onClick={()=>eliminarItem("stock_gasoil",g.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button>
                         </div>
-                        {/* Botones carga/consumo */}
                         <div className="flex gap-2 mb-3">
-                          <button onClick={()=>{setShowFormGasoilMov(g.id+"_carga");setForm({fecha_mov:new Date().toISOString().split("T")[0]});}}
-                            className="flex-1 py-2 rounded-lg bg-[#4ADE80]/10 border border-[#4ADE80]/30 text-[#4ADE80] text-xs font-mono hover:bg-[#4ADE80]/20">
-                            ⬆️ Registrar carga
-                          </button>
-                          <button onClick={()=>{setShowFormGasoilMov(g.id+"_consumo");setForm({fecha_mov:new Date().toISOString().split("T")[0]});}}
-                            className="flex-1 py-2 rounded-lg bg-[#F87171]/10 border border-[#F87171]/30 text-[#F87171] text-xs font-mono hover:bg-[#F87171]/20">
-                            ⬇️ Registrar consumo
-                          </button>
-                          {/* WA proveedores gasoil */}
+                          <button onClick={()=>{setShowFormGasoilMov(g.id+"_carga");setForm({fecha_mov:new Date().toISOString().split("T")[0]});}} className="flex-1 py-2 rounded-lg bg-[#4ADE80]/10 border border-[#4ADE80]/30 text-[#4ADE80] text-xs font-mono hover:bg-[#4ADE80]/20">⬆️ Registrar carga</button>
+                          <button onClick={()=>{setShowFormGasoilMov(g.id+"_consumo");setForm({fecha_mov:new Date().toISOString().split("T")[0]});}} className="flex-1 py-2 rounded-lg bg-[#F87171]/10 border border-[#F87171]/30 text-[#F87171] text-xs font-mono hover:bg-[#F87171]/20">⬇️ Registrar consumo</button>
                           {proveedores.filter(p=>p.categoria==="proveedor_gasoil").length > 0 && (
-                            <button onClick={()=>{const p=proveedores.find(x=>x.categoria==="proveedor_gasoil");if(p)enviarWAProveedor(p,"gasoil");}}
-                              className="px-3 py-2 rounded-lg bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] text-xs font-mono hover:bg-[#25D366]/20">
-                              💬 Cotizar
-                            </button>
+                            <button onClick={()=>{const p=proveedores.find(x=>x.categoria==="proveedor_gasoil");if(p)enviarWAProveedor(p,"gasoil");}} className="px-3 py-2 rounded-lg bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] text-xs font-mono hover:bg-[#25D366]/20">💬 Cotizar</button>
                           )}
                         </div>
-
-                        {/* Form movimiento gasoil */}
                         {(showFormGasoilMov === g.id+"_carga" || showFormGasoilMov === g.id+"_consumo") && (
                           <div className="bg-[#020810]/60 rounded-xl p-3 mb-3 border border-[#60A5FA]/20">
-                            <h4 className="text-[#60A5FA] font-mono text-xs font-bold mb-3">
-                              {showFormGasoilMov.endsWith("_carga")?"⬆️ CARGAR GASOIL":"⬇️ REGISTRAR CONSUMO"}
-                            </h4>
+                            <h4 className="text-[#60A5FA] font-mono text-xs font-bold mb-3">{showFormGasoilMov.endsWith("_carga")?"⬆️ CARGAR GASOIL":"⬇️ REGISTRAR CONSUMO"}</h4>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                               <div><label className={lCls}>Litros</label><input type="number" value={form.litros_mov??""} onChange={e=>setForm({...form,litros_mov:e.target.value})} className={iCls}/></div>
                               <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_mov??""} onChange={e=>setForm({...form,fecha_mov:e.target.value})} className={iCls}/></div>
                               <div><label className={lCls}>Descripción</label><input type="text" value={form.descripcion_mov??""} onChange={e=>setForm({...form,descripcion_mov:e.target.value})} className={iCls} placeholder="Ej: Cosecha, tractor..."/></div>
                             </div>
                             <div className="flex gap-2 mt-3">
-                              <button onClick={()=>registrarMovGasoil(g.id,showFormGasoilMov.endsWith("_carga")?"carga":"consumo")}
-                                className="bg-[#60A5FA]/10 border border-[#60A5FA]/30 text-[#60A5FA] font-bold px-4 py-2 rounded-lg text-xs font-mono">▶ Guardar</button>
+                              <button onClick={()=>registrarMovGasoil(g.id,showFormGasoilMov.endsWith("_carga")?"carga":"consumo")} className="bg-[#60A5FA]/10 border border-[#60A5FA]/30 text-[#60A5FA] font-bold px-4 py-2 rounded-lg text-xs font-mono">▶ Guardar</button>
                               <button onClick={()=>{setShowFormGasoilMov("");setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-4 py-2 rounded-lg text-xs font-mono">Cancelar</button>
                             </div>
                           </div>
                         )}
-
-                        {/* Historial movimientos */}
                         {isActivo && movsDeTanque.length > 0 && (
                           <div className="border-t border-[#60A5FA]/15 pt-3">
                             <div className="text-xs text-[#60A5FA] font-mono font-bold mb-2">HISTORIAL DE MOVIMIENTOS</div>
@@ -1103,13 +1091,10 @@ export default function StockPage() {
             </div>
             <button onClick={()=>{setVozPanel(false);window.speechSynthesis?.cancel();recRef.current?.stop();setVozEstado("idle");}} className="text-[#4B5563] hover:text-white text-sm">✕</button>
           </div>
-
           <div className="px-4 pt-3 pb-2 min-h-24">
             {vozEstado==="escuchando"&&(
               <div className="flex items-center gap-3 py-3">
-                <div className="flex gap-1 items-end h-8">
-                  {[1,2,3,4,5].map(i=><div key={i} className="w-1.5 rounded-full bg-[#F87171]" style={{height:`${10+i*5}px`,animation:`wave ${0.3+i*0.1}s ease-in-out infinite alternate`}}/>)}
-                </div>
+                <div className="flex gap-1 items-end h-8">{[1,2,3,4,5].map(i=><div key={i} className="w-1.5 rounded-full bg-[#F87171]" style={{height:`${10+i*5}px`,animation:`wave ${0.3+i*0.1}s ease-in-out infinite alternate`}}/>)}</div>
                 <span className="text-[#F87171] text-sm font-mono">Escuchando...</span>
               </div>
             )}
@@ -1128,11 +1113,7 @@ export default function StockPage() {
                 <p className="text-[#9CA3AF] text-xs font-mono italic">"{vozTranscripcion}"</p>
               </div>
             )}
-            {vozRespuesta&&(
-              <div className="bg-[#00FF80]/8 border border-[#00FF80]/20 rounded-lg px-3 py-2 mb-2">
-                <p className="text-[#E5E7EB] text-sm font-mono leading-relaxed">{vozRespuesta}</p>
-              </div>
-            )}
+            {vozRespuesta&&<div className="bg-[#00FF80]/8 border border-[#00FF80]/20 rounded-lg px-3 py-2 mb-2"><p className="text-[#E5E7EB] text-sm font-mono leading-relaxed">{vozRespuesta}</p></div>}
             {!vozRespuesta && !vozTranscripcion && vozEstado==="idle" && (
               <div className="space-y-1 py-1">
                 {["¿Cuánto gasoil tengo?","¿Qué insumos me quedan?","¿Cuánto stock de soja tengo disponible?","Usé 200 litros de gasoil hoy"].map(q=>(
@@ -1141,21 +1122,14 @@ export default function StockPage() {
               </div>
             )}
           </div>
-
           <div className="px-3 pb-3 flex gap-2 border-t border-[#00FF80]/10 pt-3">
-            <input value={vozInput} onChange={e=>setVozInput(e.target.value)}
-              onKeyDown={e=>{if(e.key==="Enter"&&vozInput.trim()){setVozTranscripcion(vozInput);interpretarVoz(vozInput);setVozInput("");}}}
-              placeholder="Escribí o hablá..." className="flex-1 bg-[#020810]/80 border border-[#00FF80]/20 rounded-lg px-3 py-2 text-[#E5E7EB] text-xs font-mono focus:outline-none focus:border-[#00FF80]"/>
-            <button onClick={()=>{if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else escucharVoz();}}
-              className="px-3 py-2 rounded-lg text-sm transition-all font-mono font-bold" style={{background:VOZ_COLOR[vozEstado]+"20",border:`1px solid ${VOZ_COLOR[vozEstado]}`,color:VOZ_COLOR[vozEstado]}}>
-              {VOZ_ICON[vozEstado]}
-            </button>
+            <input value={vozInput} onChange={e=>setVozInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&vozInput.trim()){setVozTranscripcion(vozInput);interpretarVoz(vozInput);setVozInput("");}}} placeholder="Escribí o hablá..." className="flex-1 bg-[#020810]/80 border border-[#00FF80]/20 rounded-lg px-3 py-2 text-[#E5E7EB] text-xs font-mono focus:outline-none focus:border-[#00FF80]"/>
+            <button onClick={()=>{if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else escucharVoz();}} className="px-3 py-2 rounded-lg text-sm transition-all font-mono font-bold" style={{background:VOZ_COLOR[vozEstado]+"20",border:`1px solid ${VOZ_COLOR[vozEstado]}`,color:VOZ_COLOR[vozEstado]}}>{VOZ_ICON[vozEstado]}</button>
             {vozInput&&<button onClick={()=>{setVozTranscripcion(vozInput);interpretarVoz(vozInput);setVozInput("");}} className="px-3 py-2 rounded-lg bg-[#00FF80]/10 border border-[#00FF80]/30 text-[#00FF80] text-xs font-mono">▶</button>}
           </div>
         </div>
       )}
 
-      {/* Botón flotante voz */}
       <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}}
         className="fixed bottom-24 right-6 z-40 w-14 h-14 rounded-full flex items-center justify-center text-xl shadow-lg transition-all"
         style={{background:VOZ_COLOR[vozEstado]+"18",border:`2px solid ${VOZ_COLOR[vozEstado]}`,color:VOZ_COLOR[vozEstado],animation:vozEstado==="idle"?"float 3s ease-in-out infinite":vozEstado==="escuchando"?"pulse-ring 1s infinite":"none"}}>
