@@ -87,19 +87,11 @@ function naturalSort(a: string, b: string): number {
     }
     return partes;
   };
-  const pa = segmentar(a);
-  const pb = segmentar(b);
+  const pa = segmentar(a); const pb = segmentar(b);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const va = pa[i] ?? 0;
-    const vb = pb[i] ?? 0;
-    if (typeof va === "number" && typeof vb === "number") {
-      if (va !== vb) return va - vb;
-    } else {
-      const sa = String(va);
-      const sb = String(vb);
-      if (sa < sb) return -1;
-      if (sa > sb) return 1;
-    }
+    const va = pa[i] ?? 0; const vb = pb[i] ?? 0;
+    if (typeof va === "number" && typeof vb === "number") { if (va !== vb) return va - vb; }
+    else { const sa = String(va); const sb = String(vb); if (sa < sb) return -1; if (sa > sb) return 1; }
   }
   return 0;
 }
@@ -164,6 +156,10 @@ export default function LotesPage() {
   const [importMsg, setImportMsg] = useState("");
   const [cuadernoPreview, setCuadernoPreview] = useState<any[]>([]);
   const [cuadernoMsg, setCuadernoMsg] = useState("");
+  // ── NUEVO: estado para crear campaña desde el header ──
+  const [showNuevaCamp, setShowNuevaCamp] = useState(false);
+  const [nuevaCampNombre, setNuevaCampNombre] = useState("");
+  // ─────────────────────────────────────────────────────
   const importRef = useRef<HTMLInputElement>(null);
   const importCuadernoRef = useRef<HTMLInputElement>(null);
   const adjuntoRef = useRef<HTMLInputElement>(null);
@@ -208,9 +204,7 @@ export default function LotesPage() {
       sb.from("margen_bruto_detalle").select("*").eq("empresa_id", eid),
     ]);
     const sorted = (ls.data ?? []).sort((a: any, b: any) => naturalSort(a.nombre ?? "", b.nombre ?? ""));
-    setLotes(sorted);
-    setLabores(lbs.data ?? []);
-    setMargenes(mgs.data ?? []);
+    setLotes(sorted); setLabores(lbs.data ?? []); setMargenes(mgs.data ?? []);
   };
 
   const msg = (t: string) => { setMsgExito(t); setTimeout(() => setMsgExito(""), 4000); };
@@ -226,21 +220,38 @@ export default function LotesPage() {
     return "";
   };
 
+  // ── NUEVA FUNCIÓN: crear campaña desde el header ──
+  const crearCampana = async () => {
+    if (!empresaId || !nuevaCampNombre.trim()) return;
+    const sb = await getSB();
+    const parts = nuevaCampNombre.trim().split("/");
+    const anioInicio = Number(parts[0]) || new Date().getFullYear();
+    const anioFin = Number(parts[1]) || anioInicio + 1;
+    await sb.from("campanas").update({ activa: false }).eq("empresa_id", empresaId);
+    const { data: nueva, error } = await sb.from("campanas")
+      .insert({ empresa_id: empresaId, nombre: nuevaCampNombre.trim(), año_inicio: anioInicio, año_fin: anioFin, activa: true })
+      .select().single();
+    if (error) { msg("❌ " + error.message); return; }
+    if (nueva) {
+      setCampanas(prev => [nueva, ...prev]);
+      setCampanaActiva(nueva.id);
+      await fetchLotes(empresaId, nueva.id);
+      msg("✅ CAMPAÑA " + nuevaCampNombre.trim() + " CREADA");
+    }
+    setShowNuevaCamp(false);
+    setNuevaCampNombre("");
+  };
+  // ─────────────────────────────────────────────────
+
   const limpiarCampanasDuplicadas = async () => {
     if (!empresaId) return;
     const sb = await getSB();
     const { data: todas } = await sb.from("campanas").select("*").eq("empresa_id", empresaId).order("año_inicio", { ascending: false });
     if (!todas || todas.length <= 1) return;
-    const aniosVistos: number[] = [];
-    const aEliminar: string[] = [];
-    const keeper: Record<number, string> = {};
+    const aniosVistos: number[] = []; const aEliminar: string[] = []; const keeper: Record<number, string> = {};
     todas.forEach((c: any) => {
-      if (!aniosVistos.includes(c.año_inicio)) {
-        aniosVistos.push(c.año_inicio);
-        keeper[c.año_inicio] = c.id;
-      } else {
-        aEliminar.push(c.id);
-      }
+      if (!aniosVistos.includes(c.año_inicio)) { aniosVistos.push(c.año_inicio); keeper[c.año_inicio] = c.id; }
+      else { aEliminar.push(c.id); }
     });
     for (let i = 0; i < aEliminar.length; i++) {
       const dupId = aEliminar[i];
@@ -257,17 +268,13 @@ export default function LotesPage() {
     msg("✅ CAMPAÑAS ORGANIZADAS — " + aEliminar.length + " DUPLICADAS ELIMINADAS");
   };
 
-  // Gráfico torta
   const getCultivoActivoDelLote = (lote: Lote): Lote => {
     if (!lote.cultivo) return lote;
     const segundos = lotes.filter(l => l.lote_id_primer_cultivo === lote.id);
     if (!segundos.length) return lote;
     const hoy = new Date();
     const fp = lote.fecha_siembra ? new Date(lote.fecha_siembra) : null;
-    if (fp && fp <= hoy) {
-      const seg = segundos.find(s => s.fecha_siembra && new Date(s.fecha_siembra) <= hoy);
-      return seg ?? lote;
-    }
+    if (fp && fp <= hoy) { const seg = segundos.find(s => s.fecha_siembra && new Date(s.fecha_siembra) <= hoy); return seg ?? lote; }
     const todos = [lote, ...segundos];
     todos.sort((a, b) => (ORDEN_ESTACIONAL[a.cultivo+"|"+a.cultivo_orden] ?? 99) - (ORDEN_ESTACIONAL[b.cultivo+"|"+b.cultivo_orden] ?? 99));
     return todos[0];
@@ -278,16 +285,14 @@ export default function LotesPage() {
     const vistosDG: string[] = [];
     lotes.filter(l => !l.es_segundo_cultivo && l.cultivo && l.cultivo !== "null").forEach(lote => {
       const kDG = lote.nombre.toLowerCase().trim();
-      if (vistosDG.includes(kDG)) return;
-      vistosDG.push(kDG);
+      if (vistosDG.includes(kDG)) return; vistosDG.push(kDG);
       const lv = getCultivoActivoDelLote(lote);
       const key = lv.cultivo_completo || lv.cultivo || "SIN CULTIVO";
       const info = getCultivoInfo(lv.cultivo, lv.cultivo_orden);
       if (!mapa[key]) mapa[key] = { ha: 0, color: info.color };
       mapa[key].ha += lote.hectareas || 0;
     });
-    return Object.entries(mapa)
-      .filter(([,v]) => v.ha > 0)
+    return Object.entries(mapa).filter(([,v]) => v.ha > 0)
       .map(([name, v]) => ({ name, value: Math.round(v.ha * 10) / 10, color: v.color }))
       .sort((a, b) => b.value - a.value);
   })();
@@ -296,14 +301,11 @@ export default function LotesPage() {
     const vistos: string[] = [];
     return lotes.filter(l => !l.es_segundo_cultivo).filter(l => {
       const k = l.nombre.toLowerCase().trim();
-      if (vistos.includes(k)) return false;
-      vistos.push(k);
-      return true;
+      if (vistos.includes(k)) return false; vistos.push(k); return true;
     });
   })();
   const totalHa = lotesPrincipales.reduce((a, l) => a + (l.hectareas || 0), 0);
 
-  // CRUD Lotes
   const guardarLote = async () => {
     if (!empresaId || !form.nombre?.trim()) { msg("❌ INGRESA EL NOMBRE DEL LOTE"); return; }
     const sb = await getSB();
@@ -328,8 +330,7 @@ export default function LotesPage() {
         const { error } = await sb.from("lotes").update(payload).eq("id", editandoLote);
         if (error) { msg("❌ " + error.message); return; }
         const { data: updated } = await sb.from("lotes").select("*").eq("id", editandoLote).single();
-        if (updated) setLoteActivo(updated);
-        setEditandoLote(null);
+        if (updated) setLoteActivo(updated); setEditandoLote(null);
       } else {
         const { error } = await sb.from("lotes").insert(payload);
         if (error) { msg("❌ " + error.message); return; }
@@ -355,7 +356,6 @@ export default function LotesPage() {
     if (empresaId) await fetchLotes(empresaId, campanaActiva);
   };
 
-  // CRUD Labores
   const guardarLabor = async () => {
     if (!empresaId || !loteActivo) return;
     const sb = await getSB();
@@ -368,12 +368,8 @@ export default function LotesPage() {
       costo_total: Number(form.costo_total_lab ?? 0), observaciones: form.obs_lab ?? "",
       metodo_carga: "manual",
     };
-    if (editandoLabor) {
-      await sb.from("lote_labores").update(payload).eq("id", editandoLabor);
-      setEditandoLabor(null);
-    } else {
-      await sb.from("lote_labores").insert(payload);
-    }
+    if (editandoLabor) { await sb.from("lote_labores").update(payload).eq("id", editandoLabor); setEditandoLabor(null); }
+    else { await sb.from("lote_labores").insert(payload); }
     msg("✅ LABOR GUARDADA");
     await fetchLotes(empresaId, campanaActiva);
     setShowFormLabor(false); setForm({});
@@ -386,7 +382,6 @@ export default function LotesPage() {
     if (empresaId) await fetchLotes(empresaId, campanaActiva);
   };
 
-  // Margen
   const guardarMargen = async () => {
     if (!empresaId || !loteActivo) return;
     const sb = await getSB();
@@ -433,43 +428,25 @@ export default function LotesPage() {
     } catch(e: any) { msg("❌ " + e.message); }
   };
 
-  // Export
   const exportarLotes = async () => {
     const XLSX = await import("xlsx");
     const data = lotes.filter(l => !l.es_segundo_cultivo).map(l => {
       const mg = margenes.find(m => m.lote_id === l.id);
-      return {
-        LOTE: l.nombre, HECTAREAS: l.hectareas, CULTIVO: l.cultivo_completo || l.cultivo,
-        VARIEDAD: l.variedad || l.hibrido || "", ESTADO: l.estado,
-        FECHA_SIEMBRA: l.fecha_siembra || "", FECHA_COSECHA: l.fecha_cosecha || "",
-        TENENCIA: l.tipo_tenencia || "", PARTIDO: l.partido || "",
-        REND_ESPERADO: l.rendimiento_esperado || 0, REND_REAL: l.rendimiento_real || 0,
-        MARGEN_BRUTO: mg ? Math.round(mg.margen_bruto) : "",
-        MB_HA: mg ? Math.round(mg.margen_bruto_ha) : "",
-      };
+      return { LOTE: l.nombre, HECTAREAS: l.hectareas, CULTIVO: l.cultivo_completo || l.cultivo, VARIEDAD: l.variedad || l.hibrido || "", ESTADO: l.estado, FECHA_SIEMBRA: l.fecha_siembra || "", FECHA_COSECHA: l.fecha_cosecha || "", TENENCIA: l.tipo_tenencia || "", PARTIDO: l.partido || "", REND_ESPERADO: l.rendimiento_esperado || 0, REND_REAL: l.rendimiento_real || 0, MARGEN_BRUTO: mg ? Math.round(mg.margen_bruto) : "", MB_HA: mg ? Math.round(mg.margen_bruto_ha) : "" };
     });
-    const ws = XLSX.utils.json_to_sheet(data);
-    ws["!cols"] = Array(14).fill({ wch: 16 });
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Lotes");
+    const ws = XLSX.utils.json_to_sheet(data); ws["!cols"] = Array(14).fill({ wch: 16 });
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Lotes");
     XLSX.writeFile(wb, "lotes_" + new Date().toISOString().slice(0,10) + ".xlsx");
   };
 
   const exportarCuaderno = async () => {
     if (!loteActivo) return;
     const XLSX = await import("xlsx");
-    const data = labores.filter(l => l.lote_id === loteActivo.id).map(l => ({
-      LOTE: loteActivo.nombre, FECHA: l.fecha, TIPO: l.tipo, DESCRIPCION: l.descripcion,
-      SUPERFICIE_HA: l.superficie_ha, MAQUINARIA: l.maquinaria || "",
-      OPERARIO: l.operario || "", COSTO_TOTAL: l.costo_total || 0,
-    }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Labores");
+    const data = labores.filter(l => l.lote_id === loteActivo.id).map(l => ({ LOTE: loteActivo.nombre, FECHA: l.fecha, TIPO: l.tipo, DESCRIPCION: l.descripcion, SUPERFICIE_HA: l.superficie_ha, MAQUINARIA: l.maquinaria || "", OPERARIO: l.operario || "", COSTO_TOTAL: l.costo_total || 0 }));
+    const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Labores");
     XLSX.writeFile(wb, "cuaderno_" + loteActivo.nombre + "_" + new Date().toISOString().slice(0,10) + ".xlsx");
   };
 
-  // Import
   const leerExcelLotes = async (file: File) => {
     setImportMsg("LEYENDO ARCHIVO...");
     try {
@@ -499,17 +476,7 @@ export default function LotesPage() {
         const fechaObjKey = Object.keys(objRow).find(k => k.toLowerCase().includes("siem") || k.toLowerCase().includes("fecha"));
         const fechaSiembra = fechaCol || (fechaObjKey ? parseFecha(objRow[fechaObjKey]) : null);
         const existe = lotes.find(l => l.nombre.toLowerCase().trim() === nombre.toLowerCase());
-        return {
-          nombre,
-          hectareas: ch >= 0 ? (Number(r[ch]) || 0) : 0,
-          cultivo: cultivo || null, cultivo_orden: orden || "1ra",
-          cultivo_completo: cultivo ? getCultivoInfo(cultivo, orden).label : "",
-          partido: cp >= 0 ? String(r[cp]).trim() : "",
-          fecha_siembra: fechaSiembra,
-          variedad,
-          accion: existe ? "actualizar" : "crear",
-          id_existente: existe?.id ?? null,
-        };
+        return { nombre, hectareas: ch >= 0 ? (Number(r[ch]) || 0) : 0, cultivo: cultivo || null, cultivo_orden: orden || "1ra", cultivo_completo: cultivo ? getCultivoInfo(cultivo, orden).label : "", partido: cp >= 0 ? String(r[cp]).trim() : "", fecha_siembra: fechaSiembra, variedad, accion: existe ? "actualizar" : "crear", id_existente: existe?.id ?? null };
       });
       setImportPreview(preview);
       const conCultivo = preview.filter((p: any) => p.cultivo).length;
@@ -528,42 +495,33 @@ export default function LotesPage() {
     for (let i = 0; i < importPreview.length; i++) {
       const l = importPreview[i];
       const key = l.nombre.toLowerCase().trim();
-      if (nombresYaProcesados.includes(key)) continue;
-      nombresYaProcesados.push(key);
+      if (nombresYaProcesados.includes(key)) continue; nombresYaProcesados.push(key);
       try {
         if (l.accion === "actualizar" && l.id_existente) {
           const upd: Record<string,any> = { hectareas: l.hectareas };
           if (l.cultivo) { upd.cultivo = l.cultivo; upd.cultivo_orden = l.cultivo_orden; upd.cultivo_completo = l.cultivo_completo; }
-          if (l.partido) upd.partido = l.partido;
-          if (l.fecha_siembra) upd.fecha_siembra = l.fecha_siembra;
+          if (l.partido) upd.partido = l.partido; if (l.fecha_siembra) upd.fecha_siembra = l.fecha_siembra;
           if (l.variedad) { upd.variedad = l.variedad; upd.hibrido = l.variedad; }
           const { error } = await sb.from("lotes").update(upd).eq("id", l.id_existente);
           if (error) errores.push(l.nombre + ": " + error.message); else actualizados++;
         } else {
           const ins: Record<string,any> = { empresa_id: empresaId, campana_id: cid, nombre: l.nombre, hectareas: l.hectareas || 0, estado: "planificado", es_segundo_cultivo: false };
           if (l.cultivo) { ins.cultivo = l.cultivo; ins.cultivo_orden = l.cultivo_orden; ins.cultivo_completo = l.cultivo_completo; }
-          if (l.partido) ins.partido = l.partido;
-          if (l.fecha_siembra) ins.fecha_siembra = l.fecha_siembra;
+          if (l.partido) ins.partido = l.partido; if (l.fecha_siembra) ins.fecha_siembra = l.fecha_siembra;
           if (l.variedad) { ins.variedad = l.variedad; ins.hibrido = l.variedad; }
           const { error } = await sb.from("lotes").insert(ins);
           if (error) errores.push(l.nombre + ": " + error.message); else creados++;
         }
       } catch(e: any) { errores.push(l.nombre + ": " + e.message); }
     }
-    const total = creados + actualizados;
-    if (total > 0) {
+    if (creados + actualizados > 0) {
       msg("✅ " + creados + " CREADOS · " + actualizados + " ACTUALIZADOS" + (errores.length ? " · " + errores.length + " ERRORES" : ""));
-      await fetchLotes(empresaId, cid);
-      setImportPreview([]); setImportMsg(""); setShowImport(false);
-    } else {
-      msg("❌ ERRORES: " + errores.slice(0, 2).join(" | "));
-      console.error("Import errors:", errores);
-    }
+      await fetchLotes(empresaId, cid); setImportPreview([]); setImportMsg(""); setShowImport(false);
+    } else { msg("❌ ERRORES: " + errores.slice(0, 2).join(" | ")); }
   };
 
   const leerExcelCuaderno = async (file: File) => {
-    if (!loteActivo) return;
-    setCuadernoMsg("LEYENDO...");
+    if (!loteActivo) return; setCuadernoMsg("LEYENDO...");
     try {
       const XLSX = await import("xlsx");
       const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
@@ -581,8 +539,7 @@ export default function LotesPage() {
         const tipo = tipoRaw || (dl.includes("siem") ? "Siembra" : dl.includes("cosech") ? "Cosecha" : dl.includes("fertil") ? "Fertilizacion" : "Aplicacion");
         return { fecha: parseFecha(r[cf]), tipo, descripcion: desc };
       });
-      setCuadernoPreview(preview);
-      setCuadernoMsg("✅ " + preview.length + " LABORES DETECTADAS");
+      setCuadernoPreview(preview); setCuadernoMsg("✅ " + preview.length + " LABORES DETECTADAS");
     } catch(e: any) { setCuadernoMsg("❌ " + e.message); }
   };
 
@@ -598,7 +555,6 @@ export default function LotesPage() {
     setCuadernoPreview([]); setCuadernoMsg(""); setShowImportCuaderno(false);
   };
 
-  // Voz
   const hablar = useCallback((texto: string) => {
     if (typeof window === "undefined") return;
     window.speechSynthesis.cancel();
@@ -606,8 +562,7 @@ export default function LotesPage() {
     utt.lang = "es-AR"; utt.rate = 1.05;
     const v = window.speechSynthesis.getVoices().find(x => x.lang.startsWith("es"));
     if (v) utt.voice = v;
-    utt.onstart = () => setVozEstado("respondiendo");
-    utt.onend = () => setVozEstado("idle");
+    utt.onstart = () => setVozEstado("respondiendo"); utt.onend = () => setVozEstado("idle");
     window.speechSynthesis.speak(utt);
   }, []);
 
@@ -615,10 +570,7 @@ export default function LotesPage() {
     setVozEstado("procesando");
     const resumen = lotes.slice(0, 8).map(l => l.nombre + ": " + l.hectareas + "ha " + (l.cultivo_completo || l.cultivo) + " (" + l.estado + ")").join("; ");
     try {
-      const res = await fetch("/api/scanner", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 400, messages: [{ role: "user", content: "Asistente de lotes agropecuarios. Lotes: " + resumen + ". Usuario dijo: " + texto + ". Respondé SOLO en JSON sin markdown: {\"texto\":\"respuesta breve\",\"accion\":\"consulta|crear_lote\",\"datos\":{}}" }] })
-      });
+      const res = await fetch("/api/scanner", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 400, messages: [{ role: "user", content: "Asistente de lotes agropecuarios. Lotes: " + resumen + ". Usuario dijo: " + texto + ". Respondé SOLO en JSON sin markdown: {\"texto\":\"respuesta breve\",\"accion\":\"consulta|crear_lote\",\"datos\":{}}" }] }) });
       const data = await res.json();
       const rawText = (data.content?.[0]?.text ?? "{}").replace(/```json/g, "").replace(/```/g, "").trim();
       const parsed = JSON.parse(rawText);
@@ -630,8 +582,7 @@ export default function LotesPage() {
       }
       setVozEstado("respondiendo");
     } catch {
-      const e = "No pude interpretar.";
-      setVozRespuesta(e); hablar(e); setVozEstado("error");
+      const e = "No pude interpretar."; setVozRespuesta(e); hablar(e); setVozEstado("error");
       setTimeout(() => setVozEstado("idle"), 2000);
     }
   }, [lotes, hablar]);
@@ -661,14 +612,11 @@ export default function LotesPage() {
 
   const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
     if (percent < 0.05) return null;
-    const R = Math.PI / 180;
-    const r = innerRadius + (outerRadius - innerRadius) * 0.55;
-    const x = cx + r * Math.cos(-midAngle * R);
-    const y = cy + r * Math.sin(-midAngle * R);
+    const R = Math.PI / 180; const r = innerRadius + (outerRadius - innerRadius) * 0.55;
+    const x = cx + r * Math.cos(-midAngle * R); const y = cy + r * Math.sin(-midAngle * R);
     return <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontFamily="monospace" fontWeight="bold">{Math.round(percent * 100) + "%"}</text>;
   };
 
-  // Campañas deduplicadas para mostrar
   const campanasSinDuplicados = campanas.filter((c, i, arr) => arr.findIndex(x => x.año_inicio === c.año_inicio) === i);
   const hayDuplicados = campanas.length > campanasSinDuplicados.length;
 
@@ -690,35 +638,94 @@ export default function LotesPage() {
       <div className="absolute inset-0 z-0"><Image src="/dashboard-bg.png" alt="" fill style={{objectFit:"cover"}}/><div className="absolute inset-0 bg-[#020810]/88"/></div>
       <div className="absolute inset-0 z-1 pointer-events-none opacity-[0.025]" style={{backgroundImage:"linear-gradient(rgba(0,255,128,0.5) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,128,0.5) 1px,transparent 1px)",backgroundSize:"50px 50px"}}/>
 
-      {/* HEADER */}
+      {/* ===== HEADER ===== */}
       <div className="relative z-10">
         <div className="absolute bottom-0 left-0 right-0 h-[1px]" style={{background:"linear-gradient(90deg,transparent,#00FF80,#C9A227,#00FF80,transparent)",backgroundSize:"200% 100%",animation:"gf 4s ease infinite"}}/>
         <div className="absolute inset-0 bg-[#020810]/95"/>
         <div className="relative px-6 py-3 flex items-center gap-3 flex-wrap">
-          <button onClick={() => loteActivo ? setLoteActivo(null) : window.location.href = "/productor/dashboard"} className="text-[#4B5563] hover:text-[#00FF80] transition-colors font-mono text-sm">
+
+          {/* Botón volver */}
+          <button onClick={() => loteActivo ? setLoteActivo(null) : window.location.href = "/productor/dashboard"}
+            className="text-[#4B5563] hover:text-[#00FF80] transition-colors font-mono text-sm flex-shrink-0">
             {loteActivo ? "← VOLVER" : "← DASHBOARD"}
           </button>
+
           <div className="flex-1"/>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-[#4B5563] font-mono">CAMPAÑA:</span>
-            <select value={campanaActiva} onChange={async e => { setCampanaActiva(e.target.value); if (empresaId) await fetchLotes(empresaId, e.target.value); }}
-              className="bg-[#0a1628]/80 border border-[#00FF80]/25 rounded-lg px-3 py-1.5 text-[#00FF80] text-xs font-mono focus:outline-none">
-              {campanasSinDuplicados.map(c => <option key={c.id} value={c.id}>{c.nombre}{c.activa ? " ★" : ""}</option>)}
+
+          {/* ── BLOQUE CAMPAÑA MEJORADO ── */}
+          <div className="flex items-center gap-2 flex-wrap">
+
+            {/* Label */}
+            <span className="text-xs text-[#4B5563] font-mono hidden sm:block flex-shrink-0">CAMPAÑA:</span>
+
+            {/* Selector */}
+            <select
+              value={campanaActiva}
+              onChange={async e => { setCampanaActiva(e.target.value); if (empresaId) await fetchLotes(empresaId, e.target.value); }}
+              className="bg-[#0a1628]/80 border border-[#00FF80]/25 rounded-lg px-3 py-1.5 text-[#00FF80] text-xs font-mono focus:outline-none focus:border-[#00FF80]"
+              style={{ minWidth: 120 }}
+            >
+              {campanasSinDuplicados.map(c => (
+                <option key={c.id} value={c.id}>{c.nombre}{c.activa ? " ★" : ""}</option>
+              ))}
             </select>
-            {hayDuplicados && (
-              <button onClick={limpiarCampanasDuplicadas} className="text-xs text-[#F87171] border border-[#F87171]/30 px-2 py-1.5 rounded-lg font-mono hover:bg-[#F87171]/10 font-bold" title="Campañas duplicadas detectadas">
-                🧹 LIMPIAR
+
+            {/* Botón + Nueva campaña / form inline */}
+            {!showNuevaCamp ? (
+              <button
+                onClick={() => { setShowNuevaCamp(true); setNuevaCampNombre(new Date().getFullYear() + "/" + (new Date().getFullYear() + 1)); }}
+                className="px-3 py-1.5 rounded-lg bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-mono text-xs font-bold hover:bg-[#C9A227]/20 whitespace-nowrap flex-shrink-0"
+              >
+                + NUEVA
               </button>
+            ) : (
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <input
+                  type="text"
+                  value={nuevaCampNombre}
+                  onChange={e => setNuevaCampNombre(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") crearCampana(); if (e.key === "Escape") { setShowNuevaCamp(false); setNuevaCampNombre(""); } }}
+                  placeholder="2025/2026"
+                  autoFocus
+                  className="w-24 bg-[#020810]/80 border border-[#C9A227]/40 rounded-lg px-2 py-1.5 text-[#E5E7EB] text-xs font-mono focus:outline-none focus:border-[#C9A227]"
+                />
+                <button
+                  onClick={crearCampana}
+                  className="px-2 py-1.5 rounded-lg bg-[#4ADE80]/10 border border-[#4ADE80]/30 text-[#4ADE80] font-mono text-xs font-bold hover:bg-[#4ADE80]/20"
+                >✓</button>
+                <button
+                  onClick={() => { setShowNuevaCamp(false); setNuevaCampNombre(""); }}
+                  className="px-2 py-1.5 rounded-lg border border-[#1C2128] text-[#4B5563] font-mono text-xs hover:text-[#9CA3AF]"
+                >✕</button>
+              </div>
+            )}
+
+            {/* Limpiar duplicados (solo si hay) */}
+            {hayDuplicados && (
+              <button
+                onClick={limpiarCampanasDuplicadas}
+                className="text-xs text-[#F87171] border border-[#F87171]/30 px-2 py-1.5 rounded-lg font-mono hover:bg-[#F87171]/10 font-bold flex-shrink-0"
+                title="Campañas duplicadas detectadas — clic para limpiar"
+              >🧹</button>
             )}
           </div>
-          <button onClick={() => { if (vozEstado === "idle") { setVozPanel(true); escucharVoz(); } else if (vozEstado === "escuchando") { recRef.current?.stop(); setVozEstado("idle"); } else setVozPanel(!vozPanel); }}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border font-mono text-sm transition-all font-bold"
+          {/* ── FIN BLOQUE CAMPAÑA ── */}
+
+          {/* Botón VOZ */}
+          <button
+            onClick={() => { if (vozEstado === "idle") { setVozPanel(true); escucharVoz(); } else if (vozEstado === "escuchando") { recRef.current?.stop(); setVozEstado("idle"); } else setVozPanel(!vozPanel); }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border font-mono text-sm transition-all font-bold flex-shrink-0"
             style={{ borderColor: VOZ_COLOR[vozEstado] + "60", color: VOZ_COLOR[vozEstado], background: VOZ_COLOR[vozEstado] + "12" }}>
             {VOZ_ICON[vozEstado]} VOZ
           </button>
-          <div className="logo-b" onClick={() => window.location.href = "/productor/dashboard"}><Image src="/logo.png" alt="" width={100} height={36} className="object-contain"/></div>
+
+          {/* Logo */}
+          <div className="logo-b flex-shrink-0" onClick={() => window.location.href = "/productor/dashboard"}>
+            <Image src="/logo.png" alt="" width={100} height={36} className="object-contain"/>
+          </div>
         </div>
       </div>
+      {/* ===== FIN HEADER ===== */}
 
       <div className="relative z-10 max-w-7xl mx-auto p-5">
         {msgExito && <div className="mb-4 px-4 py-2 rounded-lg border border-[#4ADE80]/30 text-[#4ADE80] bg-[#4ADE80]/5 text-sm font-mono font-bold flex items-center justify-between uppercase">{msgExito}<button onClick={() => setMsgExito("")}>✕</button></div>}
@@ -741,12 +748,7 @@ export default function LotesPage() {
                 </div>
               </div>
               <div className="flex gap-2 flex-wrap">
-                <button onClick={() => {
-                  const ci3 = CULTIVOS_LISTA.find(c => c.cultivo === loteActivo.cultivo && c.orden === loteActivo.cultivo_orden);
-                  setEditandoLote(loteActivo.id);
-                  setForm({ nombre: loteActivo.nombre, hectareas: String(loteActivo.hectareas), tipo_tenencia: loteActivo.tipo_tenencia || "Propio", partido: loteActivo.partido || "", cultivo_key: ci3 ? ci3.cultivo + "|" + ci3.orden : "soja|1ra", fecha_siembra: loteActivo.fecha_siembra || "", fecha_cosecha: loteActivo.fecha_cosecha || "", variedad: loteActivo.variedad || loteActivo.hibrido || "", rendimiento_esperado: String(loteActivo.rendimiento_esperado || ""), estado: loteActivo.estado || "planificado", observaciones: loteActivo.observaciones || "" });
-                  setShowFormLote(true);
-                }} className="px-3 py-2 rounded-xl bg-[#C9A227]/15 border border-[#C9A227]/40 text-[#C9A227] font-mono text-xs font-bold hover:bg-[#C9A227]/25">✏️ EDITAR</button>
+                <button onClick={() => { const ci3 = CULTIVOS_LISTA.find(c => c.cultivo === loteActivo.cultivo && c.orden === loteActivo.cultivo_orden); setEditandoLote(loteActivo.id); setForm({ nombre: loteActivo.nombre, hectareas: String(loteActivo.hectareas), tipo_tenencia: loteActivo.tipo_tenencia || "Propio", partido: loteActivo.partido || "", cultivo_key: ci3 ? ci3.cultivo + "|" + ci3.orden : "soja|1ra", fecha_siembra: loteActivo.fecha_siembra || "", fecha_cosecha: loteActivo.fecha_cosecha || "", variedad: loteActivo.variedad || loteActivo.hibrido || "", rendimiento_esperado: String(loteActivo.rendimiento_esperado || ""), estado: loteActivo.estado || "planificado", observaciones: loteActivo.observaciones || "" }); setShowFormLote(true); }} className="px-3 py-2 rounded-xl bg-[#C9A227]/15 border border-[#C9A227]/40 text-[#C9A227] font-mono text-xs font-bold hover:bg-[#C9A227]/25">✏️ EDITAR</button>
                 <button onClick={() => { setShowFormLabor(true); setEditandoLabor(null); setForm({}); }} className="px-3 py-2 rounded-xl bg-[#4ADE80]/15 border border-[#4ADE80]/40 text-[#4ADE80] font-mono text-xs font-bold hover:bg-[#4ADE80]/25">+ LABOR</button>
                 <button onClick={() => { const mg = margenes.find(m => m.lote_id === loteActivo.id); if (mg) setForm({ mg_rend_esp: String(mg.rendimiento_esperado), mg_rend_real: String(mg.rendimiento_real), mg_precio: String(mg.precio_tn), mg_semilla: String(mg.costo_semilla), mg_fertilizante: String(mg.costo_fertilizante), mg_agroquimicos: String(mg.costo_agroquimicos), mg_labores: String(mg.costo_labores), mg_alquiler: String(mg.costo_alquiler), mg_flete: String(mg.costo_flete), mg_comercializacion: String(mg.costo_comercializacion), mg_otros: String(mg.otros_costos) }); setShowFormMargen(true); }} className="px-3 py-2 rounded-xl bg-[#60A5FA]/15 border border-[#60A5FA]/40 text-[#60A5FA] font-mono text-xs font-bold hover:bg-[#60A5FA]/25">📊 MARGEN</button>
                 {loteActivo.estado === "cosechado" && admite2do && segundosCultivos.length === 0 && (
@@ -756,37 +758,19 @@ export default function LotesPage() {
               </div>
             </div>
 
-            {/* Info cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {[
-                {l:"TENENCIA", v:loteActivo.tipo_tenencia||"—", c:"#C9A227"},
-                {l:"PARTIDO", v:loteActivo.partido||"—", c:"#9CA3AF"},
-                {l:usaHibrido?"HIBRIDO":"VARIEDAD", v:loteActivo.variedad||loteActivo.hibrido||"—", c:"#4ADE80"},
-                {l:"F. SIEMBRA", v:loteActivo.fecha_siembra||"SIN FECHA", c:"#60A5FA"},
-                {l:"F. COSECHA", v:loteActivo.fecha_cosecha||"—", c:"#A78BFA"},
-                {l:"REND. ESPERADO", v:loteActivo.rendimiento_esperado ? loteActivo.rendimiento_esperado + " TN/HA" : "—", c:"#C9A227"},
-                {l:"MARGEN BRUTO", v:margenLote ? "$" + Math.round(margenLote.margen_bruto).toLocaleString("es-AR") : "—", c:margenLote && margenLote.margen_bruto >= 0 ? "#4ADE80" : "#F87171"},
-                {l:"MB/HA", v:margenLote ? "$" + Math.round(margenLote.margen_bruto_ha).toLocaleString("es-AR") + "/HA" : "—", c:"#C9A227"},
-              ].map(s => (
-                <div key={s.l} className="card-l p-3">
-                  <div className="text-xs text-[#4B5563] font-mono uppercase tracking-wider">{s.l}</div>
-                  <div className="text-sm font-bold font-mono mt-1 uppercase" style={{color:s.c}}>{s.v}</div>
-                </div>
+              {[{l:"TENENCIA",v:loteActivo.tipo_tenencia||"—",c:"#C9A227"},{l:"PARTIDO",v:loteActivo.partido||"—",c:"#9CA3AF"},{l:usaHibrido?"HIBRIDO":"VARIEDAD",v:loteActivo.variedad||loteActivo.hibrido||"—",c:"#4ADE80"},{l:"F. SIEMBRA",v:loteActivo.fecha_siembra||"SIN FECHA",c:"#60A5FA"},{l:"F. COSECHA",v:loteActivo.fecha_cosecha||"—",c:"#A78BFA"},{l:"REND. ESPERADO",v:loteActivo.rendimiento_esperado?loteActivo.rendimiento_esperado+" TN/HA":"—",c:"#C9A227"},{l:"MARGEN BRUTO",v:margenLote?"$"+Math.round(margenLote.margen_bruto).toLocaleString("es-AR"):"—",c:margenLote&&margenLote.margen_bruto>=0?"#4ADE80":"#F87171"},{l:"MB/HA",v:margenLote?"$"+Math.round(margenLote.margen_bruto_ha).toLocaleString("es-AR")+"/HA":"—",c:"#C9A227"}].map(s=>(
+                <div key={s.l} className="card-l p-3"><div className="text-xs text-[#4B5563] font-mono uppercase tracking-wider">{s.l}</div><div className="text-sm font-bold font-mono mt-1 uppercase" style={{color:s.c}}>{s.v}</div></div>
               ))}
             </div>
 
-            {/* Form editar lote */}
             {showFormLote && editandoLote && (
               <div className="card-l p-5">
                 <h3 className="text-[#C9A227] font-mono text-sm font-bold mb-4">✏️ EDITAR LOTE</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div><label className={lCls}>NOMBRE</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls}/></div>
                   <div><label className={lCls}>HECTAREAS</label><input type="number" value={form.hectareas??""} onChange={e=>setForm({...form,hectareas:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>TENENCIA</label>
-                    <select value={form.tipo_tenencia??"Propio"} onChange={e=>setForm({...form,tipo_tenencia:e.target.value})} className={iCls}>
-                      {["Propio","Arrendado","Contrato accidental","Aparceria","Otro"].map(t=><option key={t} value={t}>{t.toUpperCase()}</option>)}
-                    </select>
-                  </div>
+                  <div><label className={lCls}>TENENCIA</label><select value={form.tipo_tenencia??"Propio"} onChange={e=>setForm({...form,tipo_tenencia:e.target.value})} className={iCls}>{["Propio","Arrendado","Contrato accidental","Aparceria","Otro"].map(t=><option key={t} value={t}>{t.toUpperCase()}</option>)}</select></div>
                   <div><label className={lCls}>PARTIDO</label><input type="text" value={form.partido??""} onChange={e=>setForm({...form,partido:e.target.value})} className={iCls}/></div>
                   <div className="md:col-span-2"><label className={lCls}>CULTIVO</label>
                     <select value={form.cultivo_key??"soja|1ra"} onChange={e=>setForm({...form,cultivo_key:e.target.value})} className={iCls}>
@@ -796,14 +780,8 @@ export default function LotesPage() {
                       <optgroup label="OTROS"><option value="girasol|1ro">🌻 GIRASOL 1RO</option><option value="girasol|2do">🌻 GIRASOL 2DO</option><option value="sorgo|1ro">🌿 SORGO 1RO</option><option value="sorgo|2do">🌿 SORGO 2DO</option><option value="vicia|cobertura">🌱 VICIA COBERTURA</option><option value="verdeo|invierno">🌾 VERDEO INVIERNO</option><option value="verdeo|verano">🌾 VERDEO VERANO</option></optgroup>
                     </select>
                   </div>
-                  <div><label className={lCls}>{(() => { const ci4 = CULTIVOS_LISTA.find(c => c.cultivo + "|" + c.orden === form.cultivo_key); return ci4?.usaHibrido ? "HIBRIDO" : "VARIEDAD"; })()}</label>
-                    <input type="text" value={form.variedad??""} onChange={e=>setForm({...form,variedad:e.target.value})} className={iCls} placeholder="EJ: DM4612, ALFORJA..."/>
-                  </div>
-                  <div><label className={lCls}>ESTADO</label>
-                    <select value={form.estado??"planificado"} onChange={e=>setForm({...form,estado:e.target.value})} className={iCls}>
-                      {ESTADOS.map(e=><option key={e.v} value={e.v}>{e.l}</option>)}
-                    </select>
-                  </div>
+                  <div><label className={lCls}>{(()=>{const ci4=CULTIVOS_LISTA.find(c=>c.cultivo+"|"+c.orden===form.cultivo_key);return ci4?.usaHibrido?"HIBRIDO":"VARIEDAD";})()}</label><input type="text" value={form.variedad??""} onChange={e=>setForm({...form,variedad:e.target.value})} className={iCls} placeholder="EJ: DM4612, ALFORJA..."/></div>
+                  <div><label className={lCls}>ESTADO</label><select value={form.estado??"planificado"} onChange={e=>setForm({...form,estado:e.target.value})} className={iCls}>{ESTADOS.map(e=><option key={e.v} value={e.v}>{e.l}</option>)}</select></div>
                   <div><label className={lCls}>FECHA SIEMBRA</label><input type="date" value={form.fecha_siembra??""} onChange={e=>setForm({...form,fecha_siembra:e.target.value})} className={iCls}/></div>
                   <div><label className={lCls}>FECHA COSECHA</label><input type="date" value={form.fecha_cosecha??""} onChange={e=>setForm({...form,fecha_cosecha:e.target.value})} className={iCls}/></div>
                   <div><label className={lCls}>REND. ESPERADO TN/HA</label><input type="number" value={form.rendimiento_esperado??""} onChange={e=>setForm({...form,rendimiento_esperado:e.target.value})} className={iCls} placeholder="0"/></div>
@@ -811,27 +789,12 @@ export default function LotesPage() {
                 </div>
                 <div className="mt-4 pt-4 border-t border-[#C9A227]/15">
                   <span className="text-xs text-[#4B5563] font-mono uppercase">CAMBIAR ESTADO RAPIDO:</span>
-                  <div className="flex gap-2 mt-2 flex-wrap">
-                    {ESTADOS.map(e=>(
-                      <button key={e.v} onClick={()=>setForm({...form,estado:e.v})} className="px-3 py-1.5 rounded-lg text-xs font-mono border transition-all font-bold"
-                        style={{borderColor:form.estado===e.v?e.c:e.c+"30",background:form.estado===e.v?e.c+"20":"transparent",color:e.c}}>
-                        {e.l}
-                      </button>
-                    ))}
-                  </div>
+                  <div className="flex gap-2 mt-2 flex-wrap">{ESTADOS.map(e=><button key={e.v} onClick={()=>setForm({...form,estado:e.v})} className="px-3 py-1.5 rounded-lg text-xs font-mono border transition-all font-bold" style={{borderColor:form.estado===e.v?e.c:e.c+"30",background:form.estado===e.v?e.c+"20":"transparent",color:e.c}}>{e.l}</button>)}</div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-[#C9A227]/15">
                   <span className="text-xs text-[#4B5563] font-mono uppercase">ADJUNTAR ANALISIS:</span>
-                  <input ref={adjuntoRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.xlsx" className="hidden"
-                    onChange={async e => { const f = e.target.files?.[0]; if (f) { await subirAdjunto(f, form.adjunto_tipo || "suelo"); } }}/>
-                  <div className="flex gap-3 mt-2 flex-wrap">
-                    {[["suelo","🌍 ANALISIS SUELO"],["agua","💧 ANALISIS AGUA"],["otro","📎 OTRO"]].map(([tipo,label])=>(
-                      <button key={tipo} onClick={()=>{setForm({...form,adjunto_tipo:tipo});adjuntoRef.current?.click();}}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#C9A227]/25 text-[#C9A227] text-xs font-mono hover:bg-[#C9A227]/10 font-bold">
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                  <input ref={adjuntoRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.xlsx" className="hidden" onChange={async e=>{const f=e.target.files?.[0];if(f){await subirAdjunto(f,form.adjunto_tipo||"suelo");}}}/>
+                  <div className="flex gap-3 mt-2 flex-wrap">{[["suelo","🌍 ANALISIS SUELO"],["agua","💧 ANALISIS AGUA"],["otro","📎 OTRO"]].map(([tipo,label])=><button key={tipo} onClick={()=>{setForm({...form,adjunto_tipo:tipo});adjuntoRef.current?.click();}} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[#C9A227]/25 text-[#C9A227] text-xs font-mono hover:bg-[#C9A227]/10 font-bold">{label}</button>)}</div>
                 </div>
                 <div className="flex gap-3 mt-4">
                   <button onClick={guardarLote} className="bg-[#C9A227]/15 border border-[#C9A227]/40 text-[#C9A227] font-bold px-6 py-2.5 rounded-xl text-sm font-mono hover:bg-[#C9A227]/25">▶ GUARDAR</button>
@@ -840,7 +803,6 @@ export default function LotesPage() {
               </div>
             )}
 
-            {/* Form margen */}
             {showFormMargen && (
               <div className="card-l p-5">
                 <h3 className="text-[#60A5FA] font-mono text-sm font-bold mb-1">📊 MARGEN BRUTO — {loteActivo.nombre}</h3>
@@ -856,24 +818,11 @@ export default function LotesPage() {
                     <div key={k}><label className={lCls}>{l}</label><input type="number" value={form[k]??""} onChange={e=>setForm({...form,[k]:e.target.value})} className={iCls} placeholder="0"/></div>
                   ))}
                 </div>
-                {form.mg_precio && form.mg_rend_esp && (() => {
-                  const ha = loteActivo.hectareas || 0;
-                  const rend = Number(form.mg_rend_real || form.mg_rend_esp || 0);
-                  const precio = Number(form.mg_precio || 0);
-                  const ing = ha * rend * precio;
-                  const costos2 = [form.mg_semilla,form.mg_fertilizante,form.mg_agroquimicos,form.mg_labores,form.mg_alquiler,form.mg_flete,form.mg_comercializacion,form.mg_otros];
-                  const cd = costos2.reduce((a, v) => a + Number(v || 0), 0);
-                  const mb = ing - cd;
-                  return (
-                    <div className="p-3 bg-[#020810]/60 rounded-xl grid grid-cols-3 gap-3 text-xs font-mono mb-4">
-                      {[{l:"INGRESO BRUTO",v:"$"+Math.round(ing).toLocaleString("es-AR"),c:"#E5E7EB"},{l:"COSTO DIRECTO",v:"$"+Math.round(cd).toLocaleString("es-AR"),c:"#F87171"},{l:"MARGEN BRUTO",v:"$"+Math.round(mb).toLocaleString("es-AR"),c:mb>=0?"#4ADE80":"#F87171"},{l:"MB/HA",v:"$"+(ha>0?Math.round(mb/ha).toLocaleString("es-AR"):0)+"/HA",c:"#C9A227"},{l:"MB USD",v:"USD "+Math.round(mb/usdUsado).toLocaleString("es-AR"),c:"#60A5FA"},{l:"ESTADO",v:form.mg_rend_real?"REAL":"ESTIMADO",c:form.mg_rend_real?"#4ADE80":"#C9A227"}].map(s=>(
-                        <div key={s.l} className="text-center bg-[#0a1628]/60 rounded-lg p-2">
-                          <div className="text-[#4B5563] mb-1">{s.l}</div>
-                          <div className="font-bold" style={{color:s.c}}>{s.v}</div>
-                        </div>
-                      ))}
-                    </div>
-                  );
+                {form.mg_precio && form.mg_rend_esp && (()=>{
+                  const ha=loteActivo.hectareas||0; const rend=Number(form.mg_rend_real||form.mg_rend_esp||0); const precio=Number(form.mg_precio||0);
+                  const ing=ha*rend*precio; const costos2=[form.mg_semilla,form.mg_fertilizante,form.mg_agroquimicos,form.mg_labores,form.mg_alquiler,form.mg_flete,form.mg_comercializacion,form.mg_otros];
+                  const cd=costos2.reduce((a,v)=>a+Number(v||0),0); const mb=ing-cd;
+                  return(<div className="p-3 bg-[#020810]/60 rounded-xl grid grid-cols-3 gap-3 text-xs font-mono mb-4">{[{l:"INGRESO BRUTO",v:"$"+Math.round(ing).toLocaleString("es-AR"),c:"#E5E7EB"},{l:"COSTO DIRECTO",v:"$"+Math.round(cd).toLocaleString("es-AR"),c:"#F87171"},{l:"MARGEN BRUTO",v:"$"+Math.round(mb).toLocaleString("es-AR"),c:mb>=0?"#4ADE80":"#F87171"},{l:"MB/HA",v:"$"+(ha>0?Math.round(mb/ha).toLocaleString("es-AR"):0)+"/HA",c:"#C9A227"},{l:"MB USD",v:"USD "+Math.round(mb/usdUsado).toLocaleString("es-AR"),c:"#60A5FA"},{l:"ESTADO",v:form.mg_rend_real?"REAL":"ESTIMADO",c:form.mg_rend_real?"#4ADE80":"#C9A227"}].map(s=><div key={s.l} className="text-center bg-[#0a1628]/60 rounded-lg p-2"><div className="text-[#4B5563] mb-1">{s.l}</div><div className="font-bold" style={{color:s.c}}>{s.v}</div></div>)}</div>);
                 })()}
                 <div className="flex gap-3">
                   <button onClick={guardarMargen} className="bg-[#60A5FA]/10 border border-[#60A5FA]/30 text-[#60A5FA] font-bold px-6 py-2.5 rounded-xl text-sm font-mono">▶ GUARDAR</button>
@@ -882,16 +831,11 @@ export default function LotesPage() {
               </div>
             )}
 
-            {/* Form labor */}
             {showFormLabor && (
               <div className="card-l p-5">
                 <h3 className="text-[#4ADE80] font-mono text-sm font-bold mb-4">{editandoLabor?"✏️ EDITAR":"+"} LABOR — {loteActivo.nombre}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div><label className={lCls}>TIPO</label>
-                    <select value={form.tipo_lab??"Siembra"} onChange={e=>setForm({...form,tipo_lab:e.target.value})} className={iCls}>
-                      {TIPOS_LABOR.map(t=><option key={t} value={t}>{t.toUpperCase()}</option>)}
-                    </select>
-                  </div>
+                  <div><label className={lCls}>TIPO</label><select value={form.tipo_lab??"Siembra"} onChange={e=>setForm({...form,tipo_lab:e.target.value})} className={iCls}>{TIPOS_LABOR.map(t=><option key={t} value={t}>{t.toUpperCase()}</option>)}</select></div>
                   <div><label className={lCls}>FECHA</label><input type="date" value={form.fecha_lab??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_lab:e.target.value})} className={iCls}/></div>
                   <div className="md:col-span-2"><label className={lCls}>DESCRIPCION</label><input type="text" value={form.descripcion_lab??""} onChange={e=>setForm({...form,descripcion_lab:e.target.value})} className={iCls} placeholder="EJ: GLIFOSATO 4L/HA + 2,4D 0.5L/HA"/></div>
                   <div><label className={lCls}>SUPERFICIE HA</label><input type="number" value={form.superficie_ha??String(loteActivo.hectareas)} onChange={e=>setForm({...form,superficie_ha:e.target.value})} className={iCls}/></div>
@@ -906,50 +850,17 @@ export default function LotesPage() {
               </div>
             )}
 
-            {/* Historial labores */}
             <div className="card-l overflow-hidden">
               <div className="px-5 py-3 border-b border-[#C9A227]/15 flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-3">
-                  <span className="text-[#C9A227] font-mono text-sm font-bold">📋 HISTORIAL DE LABORES</span>
-                  <span className="text-xs text-[#4B5563] font-mono">{laboresLote.length} REGISTROS</span>
-                </div>
+                <div className="flex items-center gap-3"><span className="text-[#C9A227] font-mono text-sm font-bold">📋 HISTORIAL DE LABORES</span><span className="text-xs text-[#4B5563] font-mono">{laboresLote.length} REGISTROS</span></div>
                 <div className="flex gap-2">
                   <button onClick={exportarCuaderno} className="text-xs text-[#4ADE80] font-mono border border-[#4ADE80]/20 px-3 py-1.5 rounded-lg hover:bg-[#4ADE80]/10 font-bold">📤 EXPORTAR</button>
                   <button onClick={()=>{setShowImportCuaderno(!showImportCuaderno);setCuadernoPreview([]);setCuadernoMsg("");}} className="text-xs text-[#C9A227] font-mono border border-[#C9A227]/20 px-3 py-1.5 rounded-lg hover:bg-[#C9A227]/10 font-bold">📥 IMPORTAR</button>
                 </div>
               </div>
-              {showImportCuaderno && (
-                <div className="border-b border-[#C9A227]/15 bg-[#020810]/40 p-4">
-                  <p className="text-xs text-[#4B5563] font-mono mb-3">COLUMNAS: <span className="text-[#C9A227]">FECHA · TIPO · DESCRIPCION</span></p>
-                  <input ref={importCuadernoRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)leerExcelCuaderno(f);}}/>
-                  {cuadernoPreview.length===0?(
-                    <button onClick={()=>importCuadernoRef.current?.click()} className="flex items-center gap-2 px-4 py-3 border border-dashed border-[#C9A227]/30 rounded-xl text-[#C9A227] font-mono text-xs w-full justify-center">📁 SELECCIONAR ARCHIVO</button>
-                  ):(
-                    <div>
-                      <div className="max-h-36 overflow-y-auto mb-3 rounded-lg border border-[#C9A227]/15">
-                        <table className="w-full text-xs">
-                          <thead><tr className="border-b border-[#C9A227]/10">{["FECHA","TIPO","DESCRIPCION"].map(h=><th key={h} className="text-left px-3 py-2 text-[#4B5563] font-mono">{h}</th>)}</tr></thead>
-                          <tbody>{cuadernoPreview.map((r,i)=>(
-                            <tr key={i} className="border-b border-[#C9A227]/5">
-                              <td className="px-3 py-2 text-[#E5E7EB] font-mono">{r.fecha}</td>
-                              <td className="px-3 py-2"><span className="bg-[#C9A227]/10 text-[#C9A227] px-2 py-0.5 rounded font-mono">{r.tipo}</span></td>
-                              <td className="px-3 py-2 text-[#9CA3AF] font-mono truncate max-w-xs">{r.descripcion}</td>
-                            </tr>
-                          ))}</tbody>
-                        </table>
-                      </div>
-                      <div className="flex gap-3">
-                        <button onClick={confirmarImportCuaderno} className="bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-bold px-4 py-2 rounded-lg text-xs font-mono">▶ IMPORTAR {cuadernoPreview.length} LABORES</button>
-                        <button onClick={()=>setCuadernoPreview([])} className="border border-[#1C2128] text-[#4B5563] px-4 py-2 rounded-lg text-xs font-mono">CANCELAR</button>
-                      </div>
-                    </div>
-                  )}
-                  {cuadernoMsg && <p className={`mt-2 text-xs font-mono ${cuadernoMsg.startsWith("✅")?"text-[#4ADE80]":"text-[#F87171]"}`}>{cuadernoMsg}</p>}
-                </div>
-              )}
-              {laboresLote.length===0 ? <div className="text-center py-10 text-[#4B5563] font-mono text-sm">SIN LABORES REGISTRADAS</div> : (
-                <table className="w-full">
-                  <thead><tr className="border-b border-[#C9A227]/10">{["FECHA","TIPO","DESCRIPCION","HA","MAQUINARIA","COSTO",""].map(h=><th key={h} className="text-left px-4 py-2.5 text-xs text-[#4B5563] font-mono">{h}</th>)}</tr></thead>
+              {showImportCuaderno&&(<div className="border-b border-[#C9A227]/15 bg-[#020810]/40 p-4"><p className="text-xs text-[#4B5563] font-mono mb-3">COLUMNAS: <span className="text-[#C9A227]">FECHA · TIPO · DESCRIPCION</span></p><input ref={importCuadernoRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)leerExcelCuaderno(f);}}/>{cuadernoPreview.length===0?<button onClick={()=>importCuadernoRef.current?.click()} className="flex items-center gap-2 px-4 py-3 border border-dashed border-[#C9A227]/30 rounded-xl text-[#C9A227] font-mono text-xs w-full justify-center">📁 SELECCIONAR ARCHIVO</button>:(<div><div className="max-h-36 overflow-y-auto mb-3 rounded-lg border border-[#C9A227]/15"><table className="w-full text-xs"><thead><tr className="border-b border-[#C9A227]/10">{["FECHA","TIPO","DESCRIPCION"].map(h=><th key={h} className="text-left px-3 py-2 text-[#4B5563] font-mono">{h}</th>)}</tr></thead><tbody>{cuadernoPreview.map((r,i)=><tr key={i} className="border-b border-[#C9A227]/5"><td className="px-3 py-2 text-[#E5E7EB] font-mono">{r.fecha}</td><td className="px-3 py-2"><span className="bg-[#C9A227]/10 text-[#C9A227] px-2 py-0.5 rounded font-mono">{r.tipo}</span></td><td className="px-3 py-2 text-[#9CA3AF] font-mono truncate max-w-xs">{r.descripcion}</td></tr>)}</tbody></table></div><div className="flex gap-3"><button onClick={confirmarImportCuaderno} className="bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-bold px-4 py-2 rounded-lg text-xs font-mono">▶ IMPORTAR {cuadernoPreview.length} LABORES</button><button onClick={()=>setCuadernoPreview([])} className="border border-[#1C2128] text-[#4B5563] px-4 py-2 rounded-lg text-xs font-mono">CANCELAR</button></div></div>)}{cuadernoMsg&&<p className={`mt-2 text-xs font-mono ${cuadernoMsg.startsWith("✅")?"text-[#4ADE80]":"text-[#F87171]"}`}>{cuadernoMsg}</p>}</div>)}
+              {laboresLote.length===0?<div className="text-center py-10 text-[#4B5563] font-mono text-sm">SIN LABORES REGISTRADAS</div>:(
+                <table className="w-full"><thead><tr className="border-b border-[#C9A227]/10">{["FECHA","TIPO","DESCRIPCION","HA","MAQUINARIA","COSTO",""].map(h=><th key={h} className="text-left px-4 py-2.5 text-xs text-[#4B5563] font-mono">{h}</th>)}</tr></thead>
                   <tbody>{laboresLote.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(l=>(
                     <tr key={l.id} className="border-b border-[#C9A227]/5 hover:bg-[#C9A227]/5">
                       <td className="px-4 py-3 text-xs text-[#6B7280] font-mono">{l.fecha}</td>
@@ -958,10 +869,7 @@ export default function LotesPage() {
                       <td className="px-4 py-3 text-sm text-[#9CA3AF] font-mono">{l.superficie_ha}</td>
                       <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{l.maquinaria||"—"}</td>
                       <td className="px-4 py-3 font-bold text-[#C9A227] font-mono">{l.costo_total?"$"+Number(l.costo_total).toLocaleString("es-AR"):"-"}</td>
-                      <td className="px-4 py-3 flex gap-2">
-                        <button onClick={()=>{setEditandoLabor(l.id);setForm({tipo_lab:l.tipo,fecha_lab:l.fecha,descripcion_lab:l.descripcion,superficie_ha:String(l.superficie_ha),maquinaria:l.maquinaria,operario:l.operario,costo_total_lab:String(l.costo_total),obs_lab:l.observaciones});setShowFormLabor(true);}} className="text-[#C9A227] text-xs">✏️</button>
-                        <button onClick={()=>eliminarLabor(l.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button>
-                      </td>
+                      <td className="px-4 py-3 flex gap-2"><button onClick={()=>{setEditandoLabor(l.id);setForm({tipo_lab:l.tipo,fecha_lab:l.fecha,descripcion_lab:l.descripcion,superficie_ha:String(l.superficie_ha),maquinaria:l.maquinaria,operario:l.operario,costo_total_lab:String(l.costo_total),obs_lab:l.observaciones});setShowFormLabor(true);}} className="text-[#C9A227] text-xs">✏️</button><button onClick={()=>eliminarLabor(l.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button></td>
                     </tr>
                   ))}</tbody>
                 </table>
@@ -975,59 +883,16 @@ export default function LotesPage() {
           <div>
             <div className="flex items-center gap-2 mb-4 flex-wrap">
               {[{k:"lotes",l:"📋 LOTES"},{k:"margen",l:"📊 MARGEN GENERAL"}].map(t=>(
-                <button key={t.k} onClick={()=>setTab(t.k as "lotes"|"margen")}
-                  className={"px-4 py-2 rounded-xl text-xs font-mono border transition-all font-bold " + (tab===t.k?"border-[#C9A227] text-[#C9A227] bg-[#C9A227]/10":"border-[#C9A227]/15 text-[#4B5563] hover:text-[#9CA3AF]")}>
-                  {t.l}
-                </button>
+                <button key={t.k} onClick={()=>setTab(t.k as "lotes"|"margen")} className={"px-4 py-2 rounded-xl text-xs font-mono border transition-all font-bold "+(tab===t.k?"border-[#C9A227] text-[#C9A227] bg-[#C9A227]/10":"border-[#C9A227]/15 text-[#4B5563] hover:text-[#9CA3AF]")}>{t.l}</button>
               ))}
               <div className="flex-1"/>
               <button onClick={()=>setShowImport(!showImport)} className="px-3 py-2 rounded-xl border border-[#C9A227]/30 text-[#C9A227] hover:bg-[#C9A227]/10 font-mono text-xs font-bold">📥 IMPORTAR</button>
               <button onClick={exportarLotes} className="px-3 py-2 rounded-xl border border-[#4ADE80]/30 text-[#4ADE80] hover:bg-[#4ADE80]/10 font-mono text-xs font-bold">📤 EXPORTAR</button>
-              <button onClick={()=>{setEditandoLote(null);setForm({estado:"planificado",tipo_tenencia:"Propio",cultivo_key:"soja|1ra"});setShowFormLote(!showFormLote);}}
-                className="px-4 py-2 rounded-xl bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-mono text-xs font-bold hover:bg-[#C9A227]/20">
-                + NUEVO LOTE
-              </button>
+              <button onClick={()=>{setEditandoLote(null);setForm({estado:"planificado",tipo_tenencia:"Propio",cultivo_key:"soja|1ra"});setShowFormLote(!showFormLote);}} className="px-4 py-2 rounded-xl bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-mono text-xs font-bold hover:bg-[#C9A227]/20">+ NUEVO LOTE</button>
             </div>
 
-            {/* Import panel */}
-            {showImport && (
-              <div className="card-l p-5 mb-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-[#C9A227] font-mono text-sm font-bold">📥 IMPORTAR LOTES DESDE EXCEL</h3>
-                  <button onClick={()=>{setShowImport(false);setImportPreview([]);setImportMsg("");}} className="text-[#4B5563] text-sm">✕</button>
-                </div>
-                <p className="text-xs text-[#4B5563] font-mono mb-3">COLUMNAS AUTO-DETECTADAS: <span className="text-[#C9A227]">LOTE · HA · CULTIVO · FECHA SIEMBRA · PARTIDO · VARIEDAD/HIBRIDO</span></p>
-                <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)leerExcelLotes(f);}}/>
-                {importPreview.length===0?(
-                  <button onClick={()=>importRef.current?.click()} className="flex items-center gap-2 px-4 py-3 border border-dashed border-[#C9A227]/40 rounded-xl text-[#C9A227] font-mono text-sm w-full justify-center hover:border-[#C9A227]/70 transition-all">📁 SELECCIONAR ARCHIVO EXCEL</button>
-                ):(
-                  <div>
-                    <div className="max-h-40 overflow-y-auto mb-3 rounded-lg border border-[#C9A227]/15">
-                      <table className="w-full text-xs">
-                        <thead><tr className="border-b border-[#C9A227]/10">{["LOTE","HA","CULTIVO","VAR/HIB","F.SIEMBRA","ACCION"].map(h=><th key={h} className="text-left px-3 py-2 text-[#4B5563] font-mono">{h}</th>)}</tr></thead>
-                        <tbody>{importPreview.map((r,i)=>(
-                          <tr key={i} className="border-b border-[#C9A227]/5">
-                            <td className="px-3 py-2 text-[#E5E7EB] font-mono font-bold">{r.nombre}</td>
-                            <td className="px-3 py-2 text-[#C9A227] font-mono">{r.hectareas||"—"}</td>
-                            <td className="px-3 py-2 text-[#4ADE80] font-mono">{r.cultivo_completo||"—"}</td>
-                            <td className="px-3 py-2 text-[#60A5FA] font-mono">{r.variedad||"—"}</td>
-                            <td className="px-3 py-2 text-[#9CA3AF] font-mono">{r.fecha_siembra||"—"}</td>
-                            <td className="px-3 py-2"><span className={"text-xs px-2 py-0.5 rounded font-mono font-bold " + (r.accion==="crear"?"bg-[#4ADE80]/10 text-[#4ADE80]":"bg-[#60A5FA]/10 text-[#60A5FA]")}>{r.accion==="crear"?"+ CREAR":"✎ ACTUALIZAR"}</span></td>
-                          </tr>
-                        ))}</tbody>
-                      </table>
-                    </div>
-                    <div className="flex gap-3">
-                      <button onClick={confirmarImportLotes} className="bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-bold px-4 py-2 rounded-lg text-xs font-mono hover:bg-[#C9A227]/20">▶ CONFIRMAR {importPreview.length} LOTES</button>
-                      <button onClick={()=>{setImportPreview([]);importRef.current?.click();}} className="border border-[#1C2128] text-[#4B5563] px-4 py-2 rounded-lg text-xs font-mono">CAMBIAR ARCHIVO</button>
-                    </div>
-                  </div>
-                )}
-                {importMsg && <p className={"mt-2 text-xs font-mono " + (importMsg.startsWith("✅")?"text-[#4ADE80]":"text-[#F87171]")}>{importMsg}</p>}
-              </div>
-            )}
+            {showImport&&(<div className="card-l p-5 mb-4"><div className="flex items-center justify-between mb-3"><h3 className="text-[#C9A227] font-mono text-sm font-bold">📥 IMPORTAR LOTES DESDE EXCEL</h3><button onClick={()=>{setShowImport(false);setImportPreview([]);setImportMsg("");}} className="text-[#4B5563] text-sm">✕</button></div><p className="text-xs text-[#4B5563] font-mono mb-3">COLUMNAS AUTO-DETECTADAS: <span className="text-[#C9A227]">LOTE · HA · CULTIVO · FECHA SIEMBRA · PARTIDO · VARIEDAD/HIBRIDO</span></p><input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)leerExcelLotes(f);}}/>{importPreview.length===0?<button onClick={()=>importRef.current?.click()} className="flex items-center gap-2 px-4 py-3 border border-dashed border-[#C9A227]/40 rounded-xl text-[#C9A227] font-mono text-sm w-full justify-center hover:border-[#C9A227]/70 transition-all">📁 SELECCIONAR ARCHIVO EXCEL</button>:(<div><div className="max-h-40 overflow-y-auto mb-3 rounded-lg border border-[#C9A227]/15"><table className="w-full text-xs"><thead><tr className="border-b border-[#C9A227]/10">{["LOTE","HA","CULTIVO","VAR/HIB","F.SIEMBRA","ACCION"].map(h=><th key={h} className="text-left px-3 py-2 text-[#4B5563] font-mono">{h}</th>)}</tr></thead><tbody>{importPreview.map((r,i)=><tr key={i} className="border-b border-[#C9A227]/5"><td className="px-3 py-2 text-[#E5E7EB] font-mono font-bold">{r.nombre}</td><td className="px-3 py-2 text-[#C9A227] font-mono">{r.hectareas||"—"}</td><td className="px-3 py-2 text-[#4ADE80] font-mono">{r.cultivo_completo||"—"}</td><td className="px-3 py-2 text-[#60A5FA] font-mono">{r.variedad||"—"}</td><td className="px-3 py-2 text-[#9CA3AF] font-mono">{r.fecha_siembra||"—"}</td><td className="px-3 py-2"><span className={"text-xs px-2 py-0.5 rounded font-mono font-bold "+(r.accion==="crear"?"bg-[#4ADE80]/10 text-[#4ADE80]":"bg-[#60A5FA]/10 text-[#60A5FA]")}>{r.accion==="crear"?"+ CREAR":"✎ ACTUALIZAR"}</span></td></tr>)}</tbody></table></div><div className="flex gap-3"><button onClick={confirmarImportLotes} className="bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-bold px-4 py-2 rounded-lg text-xs font-mono hover:bg-[#C9A227]/20">▶ CONFIRMAR {importPreview.length} LOTES</button><button onClick={()=>{setImportPreview([]);importRef.current?.click();}} className="border border-[#1C2128] text-[#4B5563] px-4 py-2 rounded-lg text-xs font-mono">CAMBIAR ARCHIVO</button></div></div>)}{importMsg&&<p className={"mt-2 text-xs font-mono "+(importMsg.startsWith("✅")?"text-[#4ADE80]":"text-[#F87171]")}>{importMsg}</p>}</div>)}
 
-            {/* Form nuevo lote */}
             {showFormLote && !editandoLote && (
               <div className="card-l p-5 mb-4">
                 <h3 className="text-[#C9A227] font-mono text-sm font-bold mb-4">+ NUEVO LOTE</h3>
@@ -1043,17 +908,9 @@ export default function LotesPage() {
                     </select>
                   </div>
                   <div><label className={lCls}>FECHA SIEMBRA</label><input type="date" value={form.fecha_siembra??""} onChange={e=>setForm({...form,fecha_siembra:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>TENENCIA</label>
-                    <select value={form.tipo_tenencia??"Propio"} onChange={e=>setForm({...form,tipo_tenencia:e.target.value})} className={iCls}>
-                      {["Propio","Arrendado","Contrato accidental","Aparceria","Otro"].map(t=><option key={t} value={t}>{t.toUpperCase()}</option>)}
-                    </select>
-                  </div>
+                  <div><label className={lCls}>TENENCIA</label><select value={form.tipo_tenencia??"Propio"} onChange={e=>setForm({...form,tipo_tenencia:e.target.value})} className={iCls}>{["Propio","Arrendado","Contrato accidental","Aparceria","Otro"].map(t=><option key={t} value={t}>{t.toUpperCase()}</option>)}</select></div>
                   <div><label className={lCls}>PARTIDO</label><input type="text" value={form.partido??""} onChange={e=>setForm({...form,partido:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>ESTADO</label>
-                    <select value={form.estado??"planificado"} onChange={e=>setForm({...form,estado:e.target.value})} className={iCls}>
-                      {ESTADOS.map(e=><option key={e.v} value={e.v}>{e.l}</option>)}
-                    </select>
-                  </div>
+                  <div><label className={lCls}>ESTADO</label><select value={form.estado??"planificado"} onChange={e=>setForm({...form,estado:e.target.value})} className={iCls}>{ESTADOS.map(e=><option key={e.v} value={e.v}>{e.l}</option>)}</select></div>
                 </div>
                 <div className="flex gap-3 mt-4">
                   <button onClick={guardarLote} className="bg-[#C9A227]/15 border border-[#C9A227]/40 text-[#C9A227] font-bold px-6 py-2.5 rounded-xl text-sm font-mono hover:bg-[#C9A227]/25">▶ GUARDAR</button>
@@ -1062,44 +919,23 @@ export default function LotesPage() {
               </div>
             )}
 
-            {/* KPIs + filtros + grafico */}
             <div className="flex items-start gap-3 mb-4 flex-wrap">
               <div className="flex gap-2 flex-shrink-0">
-                {[
-                  {l:"LOTES",v:String(lotesPrincipales.length),c:"#E5E7EB"},
-                  {l:"HA",v:totalHa.toLocaleString("es-AR"),c:"#C9A227"},
-                  {l:"MB EST.",v:"$"+Math.round(margenes.filter(m=>m.estado==="estimado").reduce((a,m)=>a+m.margen_bruto,0)/1000)+"K",c:"#4ADE80"},
-                  {l:"MB REAL",v:"$"+Math.round(margenes.filter(m=>m.estado==="real").reduce((a,m)=>a+m.margen_bruto,0)/1000)+"K",c:"#60A5FA"},
-                ].map(s=>(
-                  <div key={s.l} className="card-l px-3 py-2 text-center" style={{minWidth:68}}>
-                    <div className="text-xs text-[#4B5563] font-mono leading-none">{s.l}</div>
-                    <div className="text-sm font-bold font-mono mt-1" style={{color:s.c}}>{s.v}</div>
-                  </div>
+                {[{l:"LOTES",v:String(lotesPrincipales.length),c:"#E5E7EB"},{l:"HA",v:totalHa.toLocaleString("es-AR"),c:"#C9A227"},{l:"MB EST.",v:"$"+Math.round(margenes.filter(m=>m.estado==="estimado").reduce((a,m)=>a+m.margen_bruto,0)/1000)+"K",c:"#4ADE80"},{l:"MB REAL",v:"$"+Math.round(margenes.filter(m=>m.estado==="real").reduce((a,m)=>a+m.margen_bruto,0)/1000)+"K",c:"#60A5FA"}].map(s=>(
+                  <div key={s.l} className="card-l px-3 py-2 text-center" style={{minWidth:68}}><div className="text-xs text-[#4B5563] font-mono leading-none">{s.l}</div><div className="text-sm font-bold font-mono mt-1" style={{color:s.c}}>{s.v}</div></div>
                 ))}
               </div>
               <div className="flex gap-1.5 flex-wrap items-center flex-1">
-                <button onClick={()=>setFilterCultivo("todos")}
-                  className={"px-3 py-1.5 rounded-lg text-xs font-mono border transition-all font-bold " + (filterCultivo==="todos"?"border-[#C9A227] text-[#C9A227] bg-[#C9A227]/15":"border-[#C9A227]/20 text-[#4B5563] hover:text-[#9CA3AF]")}>
-                  TODOS ({lotesPrincipales.length})
-                </button>
-                {datosGrafico.map(d=>(
-                  <button key={d.name} onClick={()=>setFilterCultivo(filterCultivo===d.name?"todos":d.name)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-mono border transition-all font-bold"
-                    style={{borderColor:filterCultivo===d.name?d.color:d.color+"50",background:filterCultivo===d.name?d.color+"20":"transparent",color:filterCultivo===d.name?d.color:d.color+"80"}}>
-                    {d.name} · {d.value}HA
-                  </button>
-                ))}
+                <button onClick={()=>setFilterCultivo("todos")} className={"px-3 py-1.5 rounded-lg text-xs font-mono border transition-all font-bold "+(filterCultivo==="todos"?"border-[#C9A227] text-[#C9A227] bg-[#C9A227]/15":"border-[#C9A227]/20 text-[#4B5563] hover:text-[#9CA3AF]")}>TODOS ({lotesPrincipales.length})</button>
+                {datosGrafico.map(d=><button key={d.name} onClick={()=>setFilterCultivo(filterCultivo===d.name?"todos":d.name)} className="px-3 py-1.5 rounded-lg text-xs font-mono border transition-all font-bold" style={{borderColor:filterCultivo===d.name?d.color:d.color+"50",background:filterCultivo===d.name?d.color+"20":"transparent",color:filterCultivo===d.name?d.color:d.color+"80"}}>{d.name} · {d.value}HA</button>)}
               </div>
-              {datosGrafico.length > 0 && (
+              {datosGrafico.length>0&&(
                 <div className="card-l p-3 flex items-center gap-3 flex-shrink-0">
                   <div style={{width:80,height:80}}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={datosGrafico} cx="50%" cy="50%" outerRadius={38} innerRadius={16} dataKey="value" labelLine={false} label={renderLabel} paddingAngle={2}>
-                          {datosGrafico.map((e,i)=><Cell key={i} fill={e.color} stroke="rgba(2,8,16,0.5)" strokeWidth={2}/>)}
-                        </Pie>
-                        <Tooltip formatter={(v:any,n:string)=>[String(v)+" HA",n]} contentStyle={{background:"#0a1628",border:"1px solid rgba(201,162,39,0.3)",borderRadius:"8px",fontFamily:"monospace",fontSize:"11px"}}/>
-                      </PieChart>
+                      <PieChart><Pie data={datosGrafico} cx="50%" cy="50%" outerRadius={38} innerRadius={16} dataKey="value" labelLine={false} label={renderLabel} paddingAngle={2}>
+                        {datosGrafico.map((e,i)=><Cell key={i} fill={e.color} stroke="rgba(2,8,16,0.5)" strokeWidth={2}/>)}
+                      </Pie><Tooltip formatter={(v:any,n:string)=>[String(v)+" HA",n]} contentStyle={{background:"#0a1628",border:"1px solid rgba(201,162,39,0.3)",borderRadius:"8px",fontFamily:"monospace",fontSize:"11px"}}/></PieChart>
                     </ResponsiveContainer>
                   </div>
                   <div className="space-y-1" style={{minWidth:110}}>
@@ -1115,30 +951,20 @@ export default function LotesPage() {
               )}
             </div>
 
-            {/* Lista lotes */}
-            {tab==="lotes" && (
+            {tab==="lotes"&&(
               <div>
-                {lotes.length===0 ? (
-                  <div className="text-center py-20 card-l">
-                    <div className="text-5xl mb-4 opacity-20">🌾</div>
-                    <p className="text-[#4B5563] font-mono mb-4">SIN LOTES EN ESTA CAMPAÑA</p>
-                    <button onClick={()=>setShowFormLote(true)} className="px-4 py-2 rounded-xl bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-mono text-sm font-bold">+ AGREGAR PRIMER LOTE</button>
-                  </div>
-                ) : (
+                {lotes.length===0?(
+                  <div className="text-center py-20 card-l"><div className="text-5xl mb-4 opacity-20">🌾</div><p className="text-[#4B5563] font-mono mb-4">SIN LOTES EN ESTA CAMPAÑA</p><button onClick={()=>setShowFormLote(true)} className="px-4 py-2 rounded-xl bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-mono text-sm font-bold">+ AGREGAR PRIMER LOTE</button></div>
+                ):(
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                    {lotesPrincipales.filter(lote => {
-                        if (filterCultivo === "todos") return true;
-                        const loteKey = lote.cultivo_completo || lote.cultivo || "";
-                        const ci2 = getCultivoInfo(lote.cultivo || "", lote.cultivo_orden || "");
-                        return loteKey === filterCultivo || ci2.label === filterCultivo;
-                      }).map(lote => {
-                      const ci = getCultivoInfo(lote.cultivo || "", lote.cultivo_orden || "");
-                      const mg = margenes.find(m => m.lote_id === lote.id);
-                      const labsCount = labores.filter(l => l.lote_id === lote.id).length;
-                      const est = ESTADOS.find(e => e.v === lote.estado);
-                      const segundos = lotes.filter(l => l.lote_id_primer_cultivo === lote.id);
-                      return (
-                        <div key={lote.id} className="lote-card card-l overflow-hidden" onClick={() => setLoteActivo(lote)}>
+                    {lotesPrincipales.filter(lote=>{if(filterCultivo==="todos")return true;const loteKey=lote.cultivo_completo||lote.cultivo||"";const ci2=getCultivoInfo(lote.cultivo||"",lote.cultivo_orden||"");return loteKey===filterCultivo||ci2.label===filterCultivo;}).map(lote=>{
+                      const ci=getCultivoInfo(lote.cultivo||"",lote.cultivo_orden||"");
+                      const mg=margenes.find(m=>m.lote_id===lote.id);
+                      const labsCount=labores.filter(l=>l.lote_id===lote.id).length;
+                      const est=ESTADOS.find(e=>e.v===lote.estado);
+                      const segundos=lotes.filter(l=>l.lote_id_primer_cultivo===lote.id);
+                      return(
+                        <div key={lote.id} className="lote-card card-l overflow-hidden" onClick={()=>setLoteActivo(lote)}>
                           <div className="flex items-center gap-3 p-4 border-b border-[#C9A227]/10">
                             <div className="w-1 self-stretch rounded-full flex-shrink-0" style={{background:ci.color}}/>
                             <span className="text-xl flex-shrink-0">{ci.icon}</span>
@@ -1146,34 +972,18 @@ export default function LotesPage() {
                               <div className="font-bold text-white font-mono truncate">{lote.nombre}</div>
                               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                 <span className="text-xs font-bold font-mono" style={{color:ci.color}}>{ci.label}</span>
-                                {est && <span className="text-xs px-1.5 py-0.5 rounded font-mono font-bold" style={{background:est.c+"20",color:est.c}}>{est.l}</span>}
-                                {segundos.length > 0 && <span className="text-xs text-[#4ADE80] font-mono">+{segundos.length} 2DO</span>}
+                                {est&&<span className="text-xs px-1.5 py-0.5 rounded font-mono font-bold" style={{background:est.c+"20",color:est.c}}>{est.l}</span>}
+                                {segundos.length>0&&<span className="text-xs text-[#4ADE80] font-mono">+{segundos.length} 2DO</span>}
                               </div>
                             </div>
                             <button onClick={e=>{e.stopPropagation();eliminarLote(lote.id);}} className="text-[#4B5563] hover:text-red-400 text-xs flex-shrink-0">✕</button>
                           </div>
                           <div className="px-4 py-3 grid grid-cols-3 gap-2 text-xs font-mono">
-                            <div className="text-center">
-                              <div className="text-[#4B5563]">HA</div>
-                              <div className="font-bold text-[#C9A227] mt-0.5">{lote.hectareas}</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-[#4B5563]">LABORES</div>
-                              <div className="font-bold text-[#E5E7EB] mt-0.5">{labsCount}</div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-[#4B5563]">MB/HA</div>
-                              <div className="font-bold mt-0.5" style={{color:mg ? (mg.margen_bruto_ha >= 0 ? "#4ADE80" : "#F87171") : "#4B5563"}}>
-                                {mg ? "$" + Math.round(mg.margen_bruto_ha).toLocaleString("es-AR") : "—"}
-                              </div>
-                            </div>
+                            <div className="text-center"><div className="text-[#4B5563]">HA</div><div className="font-bold text-[#C9A227] mt-0.5">{lote.hectareas}</div></div>
+                            <div className="text-center"><div className="text-[#4B5563]">LABORES</div><div className="font-bold text-[#E5E7EB] mt-0.5">{labsCount}</div></div>
+                            <div className="text-center"><div className="text-[#4B5563]">MB/HA</div><div className="font-bold mt-0.5" style={{color:mg?(mg.margen_bruto_ha>=0?"#4ADE80":"#F87171"):"#4B5563"}}>{mg?"$"+Math.round(mg.margen_bruto_ha).toLocaleString("es-AR"):"—"}</div></div>
                           </div>
-                          {(lote.fecha_siembra || lote.variedad || lote.hibrido) && (
-                            <div className="px-4 pb-3 flex gap-3 text-xs font-mono text-[#6B7280]">
-                              {lote.fecha_siembra && <span>🗓 {lote.fecha_siembra}</span>}
-                              {(lote.variedad || lote.hibrido) && <span>🌱 {lote.variedad || lote.hibrido}</span>}
-                            </div>
-                          )}
+                          {(lote.fecha_siembra||lote.variedad||lote.hibrido)&&<div className="px-4 pb-3 flex gap-3 text-xs font-mono text-[#6B7280]">{lote.fecha_siembra&&<span>🗓 {lote.fecha_siembra}</span>}{(lote.variedad||lote.hibrido)&&<span>🌱 {lote.variedad||lote.hibrido}</span>}</div>}
                         </div>
                       );
                     })}
@@ -1182,35 +992,27 @@ export default function LotesPage() {
               </div>
             )}
 
-            {/* Margen general */}
-            {tab==="margen" && (
+            {tab==="margen"&&(
               <div className="card-l overflow-hidden">
-                <div className="px-5 py-3 border-b border-[#C9A227]/15 flex items-center justify-between">
-                  <span className="font-bold text-[#E5E7EB] font-mono">MARGEN BRUTO POR LOTE</span>
-                  <span className="text-xs text-[#4B5563] font-mono">USD ${usdUsado}</span>
-                </div>
-                {margenes.length===0 ? <div className="text-center py-12 text-[#4B5563] font-mono text-sm">SIN MARGENES CARGADOS — ENTRA A UN LOTE Y CARGA EL MARGEN</div> : (
+                <div className="px-5 py-3 border-b border-[#C9A227]/15 flex items-center justify-between"><span className="font-bold text-[#E5E7EB] font-mono">MARGEN BRUTO POR LOTE</span><span className="text-xs text-[#4B5563] font-mono">USD ${usdUsado}</span></div>
+                {margenes.length===0?<div className="text-center py-12 text-[#4B5563] font-mono text-sm">SIN MARGENES CARGADOS — ENTRA A UN LOTE Y CARGA EL MARGEN</div>:(
                   <table className="w-full">
                     <thead><tr className="border-b border-[#C9A227]/10">{["LOTE","CULTIVO","HA","REND.","INGRESO","COSTO","MARGEN","MB/HA","MB USD","ESTADO"].map(h=><th key={h} className="text-left px-4 py-3 text-xs text-[#4B5563] font-mono whitespace-nowrap">{h}</th>)}</tr></thead>
                     <tbody>
-                      {margenes.map(m => {
-                        const lote = lotes.find(l => l.id === m.lote_id);
-                        const ci = getCultivoInfo(m.cultivo || "", m.cultivo_orden || "");
-                        return (
-                          <tr key={m.id} className="border-b border-[#C9A227]/5 hover:bg-[#C9A227]/5 cursor-pointer" onClick={() => { const l = lotes.find(x => x.id === m.lote_id); if (l) setLoteActivo(l); }}>
-                            <td className="px-4 py-3 font-bold text-[#E5E7EB] font-mono text-sm">{lote?.nombre || "—"}</td>
-                            <td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded-full font-mono font-bold" style={{background:ci.color+"20",color:ci.color}}>{ci.icon} {ci.label}</span></td>
-                            <td className="px-4 py-3 text-sm text-[#9CA3AF] font-mono">{m.hectareas}</td>
-                            <td className="px-4 py-3 text-sm text-[#C9A227] font-mono">{m.rendimiento_real||m.rendimiento_esperado} TN/HA</td>
-                            <td className="px-4 py-3 text-sm text-[#E5E7EB] font-mono">${Math.round(m.ingreso_bruto).toLocaleString("es-AR")}</td>
-                            <td className="px-4 py-3 text-sm text-[#F87171] font-mono">${Math.round(m.costo_directo_total).toLocaleString("es-AR")}</td>
-                            <td className="px-4 py-3 font-bold font-mono text-sm" style={{color:m.margen_bruto>=0?"#4ADE80":"#F87171"}}>${Math.round(m.margen_bruto).toLocaleString("es-AR")}</td>
-                            <td className="px-4 py-3 text-sm text-[#C9A227] font-mono">${Math.round(m.margen_bruto_ha).toLocaleString("es-AR")}</td>
-                            <td className="px-4 py-3 text-sm text-[#60A5FA] font-mono">USD {Math.round(m.margen_bruto_usd).toLocaleString("es-AR")}</td>
-                            <td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded-full font-mono font-bold" style={{background:m.estado==="real"?"rgba(74,222,128,0.15)":"rgba(201,162,39,0.15)",color:m.estado==="real"?"#4ADE80":"#C9A227"}}>{m.estado==="real"?"✅ REAL":"📋 EST."}</span></td>
-                          </tr>
-                        );
-                      })}
+                      {margenes.map(m=>{const lote=lotes.find(l=>l.id===m.lote_id);const ci=getCultivoInfo(m.cultivo||"",m.cultivo_orden||"");return(
+                        <tr key={m.id} className="border-b border-[#C9A227]/5 hover:bg-[#C9A227]/5 cursor-pointer" onClick={()=>{const l=lotes.find(x=>x.id===m.lote_id);if(l)setLoteActivo(l);}}>
+                          <td className="px-4 py-3 font-bold text-[#E5E7EB] font-mono text-sm">{lote?.nombre||"—"}</td>
+                          <td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded-full font-mono font-bold" style={{background:ci.color+"20",color:ci.color}}>{ci.icon} {ci.label}</span></td>
+                          <td className="px-4 py-3 text-sm text-[#9CA3AF] font-mono">{m.hectareas}</td>
+                          <td className="px-4 py-3 text-sm text-[#C9A227] font-mono">{m.rendimiento_real||m.rendimiento_esperado} TN/HA</td>
+                          <td className="px-4 py-3 text-sm text-[#E5E7EB] font-mono">${Math.round(m.ingreso_bruto).toLocaleString("es-AR")}</td>
+                          <td className="px-4 py-3 text-sm text-[#F87171] font-mono">${Math.round(m.costo_directo_total).toLocaleString("es-AR")}</td>
+                          <td className="px-4 py-3 font-bold font-mono text-sm" style={{color:m.margen_bruto>=0?"#4ADE80":"#F87171"}}>${Math.round(m.margen_bruto).toLocaleString("es-AR")}</td>
+                          <td className="px-4 py-3 text-sm text-[#C9A227] font-mono">${Math.round(m.margen_bruto_ha).toLocaleString("es-AR")}</td>
+                          <td className="px-4 py-3 text-sm text-[#60A5FA] font-mono">USD {Math.round(m.margen_bruto_usd).toLocaleString("es-AR")}</td>
+                          <td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded-full font-mono font-bold" style={{background:m.estado==="real"?"rgba(74,222,128,0.15)":"rgba(201,162,39,0.15)",color:m.estado==="real"?"#4ADE80":"#C9A227"}}>{m.estado==="real"?"✅ REAL":"📋 EST."}</span></td>
+                        </tr>
+                      );})}
                       <tr className="border-t-2 border-[#C9A227]/30 bg-[#C9A227]/5">
                         <td colSpan={4} className="px-4 py-3 font-bold text-[#C9A227] font-mono text-sm">TOTALES</td>
                         <td className="px-4 py-3 font-bold text-[#E5E7EB] font-mono">${Math.round(margenes.reduce((a,m)=>a+m.ingreso_bruto,0)).toLocaleString("es-AR")}</td>
@@ -1229,28 +1031,18 @@ export default function LotesPage() {
         )}
       </div>
 
-      {/* Panel voz */}
-      {vozPanel && (
+      {vozPanel&&(
         <div className="fixed bottom-44 right-6 z-50 w-80 bg-[#0a1628]/97 border border-[#00FF80]/30 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-sm">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#00FF80]/20">
-            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{background:VOZ_COLOR[vozEstado]}}/><span className="text-[#00FF80] text-xs font-mono font-bold">🎤 ASISTENTE DE LOTES</span></div>
-            <button onClick={()=>{setVozPanel(false);window.speechSynthesis?.cancel();recRef.current?.stop();setVozEstado("idle");}} className="text-[#4B5563] hover:text-white text-sm">✕</button>
-          </div>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#00FF80]/20"><div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{background:VOZ_COLOR[vozEstado]}}/><span className="text-[#00FF80] text-xs font-mono font-bold">🎤 ASISTENTE DE LOTES</span></div><button onClick={()=>{setVozPanel(false);window.speechSynthesis?.cancel();recRef.current?.stop();setVozEstado("idle");}} className="text-[#4B5563] hover:text-white text-sm">✕</button></div>
           <div className="px-4 pt-3 pb-2 min-h-20">
-            {vozEstado==="escuchando" && <div className="flex items-center gap-3 py-2"><div className="flex gap-1 items-end h-8">{[1,2,3,4,5].map(i=><div key={i} className="w-1.5 rounded-full bg-[#F87171]" style={{height:(10+i*5)+"px"}}/>)}</div><span className="text-[#F87171] text-sm font-mono">ESCUCHANDO...</span></div>}
-            {vozRespuesta && <div className="bg-[#00FF80]/8 border border-[#00FF80]/20 rounded-lg px-3 py-2 mb-2"><p className="text-[#E5E7EB] text-sm font-mono leading-relaxed">{vozRespuesta}</p></div>}
-            {!vozRespuesta && !vozTranscripcion && vozEstado==="idle" && (
-              <div className="space-y-1 py-1">
-                {["CUANTAS HECTAREAS TENGO","QUE LOTES ESTAN SEMBRADOS","NUEVO LOTE EL NORTE 150 HA SOJA"].map(q=>(
-                  <button key={q} onClick={()=>{setVozTranscripcion(q);interpretarVoz(q);}} className="w-full text-left text-xs text-[#4B6B5B] hover:text-[#00FF80] border border-[#00FF80]/10 hover:border-[#00FF80]/30 px-3 py-2 rounded-lg font-mono transition-all">💬 {q}</button>
-                ))}
-              </div>
-            )}
+            {vozEstado==="escuchando"&&<div className="flex items-center gap-3 py-2"><div className="flex gap-1 items-end h-8">{[1,2,3,4,5].map(i=><div key={i} className="w-1.5 rounded-full bg-[#F87171]" style={{height:(10+i*5)+"px"}}/>)}</div><span className="text-[#F87171] text-sm font-mono">ESCUCHANDO...</span></div>}
+            {vozRespuesta&&<div className="bg-[#00FF80]/8 border border-[#00FF80]/20 rounded-lg px-3 py-2 mb-2"><p className="text-[#E5E7EB] text-sm font-mono leading-relaxed">{vozRespuesta}</p></div>}
+            {!vozRespuesta&&!vozTranscripcion&&vozEstado==="idle"&&(<div className="space-y-1 py-1">{["CUANTAS HECTAREAS TENGO","QUE LOTES ESTAN SEMBRADOS","NUEVO LOTE EL NORTE 150 HA SOJA"].map(q=><button key={q} onClick={()=>{setVozTranscripcion(q);interpretarVoz(q);}} className="w-full text-left text-xs text-[#4B6B5B] hover:text-[#00FF80] border border-[#00FF80]/10 hover:border-[#00FF80]/30 px-3 py-2 rounded-lg font-mono transition-all">💬 {q}</button>)}</div>)}
           </div>
           <div className="px-3 pb-3 flex gap-2 border-t border-[#00FF80]/10 pt-3">
             <input value={vozInput} onChange={e=>setVozInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&vozInput.trim()){setVozTranscripcion(vozInput);interpretarVoz(vozInput);setVozInput("");}}} placeholder="Escribe o habla..." className="flex-1 bg-[#020810]/80 border border-[#00FF80]/20 rounded-lg px-3 py-2 text-[#E5E7EB] text-xs font-mono focus:outline-none focus:border-[#00FF80]"/>
             <button onClick={()=>{if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else escucharVoz();}} className="px-3 py-2 rounded-lg text-sm" style={{background:VOZ_COLOR[vozEstado]+"20",border:"1px solid "+VOZ_COLOR[vozEstado],color:VOZ_COLOR[vozEstado]}}>{VOZ_ICON[vozEstado]}</button>
-            {vozInput && <button onClick={()=>{setVozTranscripcion(vozInput);interpretarVoz(vozInput);setVozInput("");}} className="px-3 py-2 rounded-lg bg-[#00FF80]/10 border border-[#00FF80]/30 text-[#00FF80] text-xs font-mono">▶</button>}
+            {vozInput&&<button onClick={()=>{setVozTranscripcion(vozInput);interpretarVoz(vozInput);setVozInput("");}} className="px-3 py-2 rounded-lg bg-[#00FF80]/10 border border-[#00FF80]/30 text-[#00FF80] text-xs font-mono">▶</button>}
           </div>
         </div>
       )}
