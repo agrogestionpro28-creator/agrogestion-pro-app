@@ -69,7 +69,10 @@ export default function IngenieroPanel() {
     setProductores(data ?? []);
     const lotesAll: any[] = [];
     for (const p of (data ?? []).filter((x:any) => x.empresa_id)) {
-      const { data: ls } = await sb.from("lotes").select("nombre,hectareas,cultivo,cultivo_completo,estado,fecha_siembra,variedad").eq("empresa_id", p.empresa_id).eq("es_segundo_cultivo", false);
+      const { data: camps } = await sb.from("campanas").select("id").eq("empresa_id", p.empresa_id).eq("activa", true).single();
+      const campId = camps?.id;
+      if (!campId) continue;
+      const { data: ls } = await sb.from("lotes").select("nombre,hectareas,cultivo,cultivo_completo,estado,fecha_siembra,variedad").eq("empresa_id", p.empresa_id).eq("campana_id", campId).eq("es_segundo_cultivo", false);
       (ls ?? []).forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre}));
     }
     setLotes(lotesAll);
