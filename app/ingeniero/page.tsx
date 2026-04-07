@@ -26,9 +26,7 @@ export default function IngenieroPanel() {
   const [servicios, setServicios] = useState<ServiceVeh[]>([]);
   const [vehiculoSel, setVehiculoSel] = useState<Vehiculo|null>(null);
   const [lotes, setLotes] = useState<LoteResumen[]>([]);
-  // Campañas por productor: { [empresa_id]: Campana[] }
   const [campanasPorProd, setCampanasPorProd] = useState<Record<string,Campana[]>>({});
-  // Campaña seleccionada por productor: { [empresa_id]: campana_id }
   const [campSelProd, setCampSelProd] = useState<Record<string,string>>({});
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -46,7 +44,6 @@ export default function IngenieroPanel() {
   const [aiChat, setAiChat] = useState<MsgIA[]>([]);
   const [aiInput, setAiInput] = useState("");
   const [aiLoad, setAiLoad] = useState(false);
-  const [listening, setListening] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
   const [nuevaCampProd, setNuevaCampProd] = useState<string|null>(null);
   const [nuevaCampNombre, setNuevaCampNombre] = useState("");
@@ -55,9 +52,6 @@ export default function IngenieroPanel() {
   const [vozPanel, setVozPanel] = useState(false);
   const [vozRespuesta, setVozRespuesta] = useState("");
   const [vozInput, setVozInput] = useState("");
-  // Campaña global
-  const [campanaGlobal, setCampanaGlobal] = useState("");
-  const [todasCampanas, setTodasCampanas] = useState<{id:string;nombre:string;empresa_id:string}[]>([]);
 
   useEffect(() => { init(); }, []);
 
@@ -84,11 +78,12 @@ export default function IngenieroPanel() {
     const csMap: Record<string,string> = {};
     const lotesAll: LoteResumen[] = [];
     for (const p of (prods ?? [])) {
-      // Usar empresa_id si tiene cuenta, o ing_productor.id como namespace propio
       const eid = p.empresa_id ?? p.id;
+      if (!p.empresa_id) continue; // Sin empresa_id no hay campañas ni lotes
       const { data: camps } = await sb.from("campanas").select("id,nombre,activa").eq("empresa_id", eid).order("año_inicio", { ascending: false });
       const campList = camps ?? [];
       cpMap[eid] = campList;
+      // Tomar siempre la campaña activa, si no hay activa tomar la más reciente
       const activa = campList.find((c:any) => c.activa) ?? campList[0];
       if (activa) {
         csMap[eid] = activa.id;
@@ -101,7 +96,6 @@ export default function IngenieroPanel() {
     setLotes(lotesAll);
   };
 
-  // Cambiar campaña de un productor
   const cambiarCampana = async (eid: string, campana_id: string, prod_nombre: string) => {
     setCampSelProd(prev => ({...prev, [eid]: campana_id}));
     const sb = await getSB();
@@ -112,7 +106,6 @@ export default function IngenieroPanel() {
     });
   };
 
-  // Crear campaña para un productor
   const crearCampana = async (eid: string, nombre: string) => {
     const sb = await getSB();
     const parts = nombre.split("/");
@@ -128,6 +121,7 @@ export default function IngenieroPanel() {
   };
 
   const fetchCobs = async (iid: string) => { try { const sb=await getSB(); const{data}=await sb.from("ing_cobranzas").select("*").eq("ingeniero_id",iid).order("fecha",{ascending:false}); setCobranzas(data??[]); } catch {} };
+
   const fetchVehs = async (iid: string) => {
     try {
       const sb=await getSB(); const{data}=await sb.from("ing_vehiculos").select("*").eq("ingeniero_id",iid); setVehiculos(data??[]);
@@ -154,7 +148,14 @@ export default function IngenieroPanel() {
     let empresa_id=null; let tiene_cuenta=false;
     if(form.email?.trim()){const{data:ue}=await sb.from("usuarios").select("id").eq("email",form.email.trim()).single();if(ue){const{data:emp}=await sb.from("empresas").select("id").eq("propietario_id",ue.id).single();if(emp){empresa_id=emp.id;tiene_cuenta=true;}}}
     const pay={ingeniero_id:ingId,nombre:form.nombre.trim(),telefono:form.telefono??"",email:form.email??"",localidad:form.localidad??"",provincia:form.provincia??"Santa Fe",hectareas_total:Number(form.hectareas_total??0),observaciones:form.obs??"",honorario_tipo:form.honorario_tipo??"mensual",honorario_monto:Number(form.honorario_monto??0),empresa_id,tiene_cuenta,activo:true};
-    if(editProd){await sb.from("ing_productores").update(pay).eq("id",editProd);setEditProd(null);}else{await sb.from("ing_productores").insert(pay);}
+    if(editProd){await sb.from("ing_productores").update(pay).eq("id",editProd);setEditProd(null);}else{
+      // Al crear productor sin cuenta → crear empresa propia para el ingeniero
+      const{data:nuevo}=await sb.from("ing_productores").insert(pay).select().single();
+      if(nuevo&&!empresa_id){
+        const{data:emp}=await sb.from("empresas").insert({nombre:form.nombre.trim()+" (Ing)",propietario_id:ingId}).select().single();
+        if(emp){await sb.from("ing_productores").update({empresa_id:emp.id}).eq("id",nuevo.id);}
+      }
+    }
     m(tiene_cuenta?"✅ GUARDADO — CON CUENTA APP":"✅ GUARDADO"); await fetchProds(ingId); setShowForm(false); setForm({});
   };
 
@@ -177,8 +178,9 @@ export default function IngenieroPanel() {
   const eliminarProd = async (id:string) => { if(!confirm("Eliminar?"))return; const sb=await getSB(); await sb.from("ing_productores").update({activo:false}).eq("id",id); await fetchProds(ingId); };
 
   const entrar = (p:ProductorIng) => {
-    const campId = p.empresa_id ? campSelProd[p.empresa_id] : null;
-    localStorage.setItem("ing_empresa_id", p.empresa_id ?? p.id);
+    const eid = p.empresa_id ?? p.id;
+    const campId = campSelProd[eid] ?? null;
+    localStorage.setItem("ing_empresa_id", eid);
     localStorage.setItem("ing_empresa_nombre", p.nombre);
     localStorage.setItem("ing_modo_compartido", p.empresa_id ? "true" : "false");
     if (campId) localStorage.setItem("ing_campana_id", campId);
@@ -208,8 +210,20 @@ export default function IngenieroPanel() {
 
   const exportXLS = async (tipo:"productores"|"lotes") => {
     const XLSX=await import("xlsx"); let data:any[]=[];
-    if(tipo==="productores")data=productores.map(p=>({NOMBRE:p.nombre,TEL:p.telefono,EMAIL:p.email,LOCALIDAD:p.localidad,HA:p.hectareas_total,HONORARIO:p.honorario_monto,APP:p.tiene_cuenta?"SI":"NO"}));
-    else{let lf=lotes;if(fCultivo!=="todos")lf=lf.filter(l=>(l.cultivo_completo||l.cultivo)===fCultivo);if(fProductor!=="todos")lf=lf.filter(l=>l.productor_nombre===fProductor);if(fEstado!=="todos")lf=lf.filter(l=>l.estado===fEstado);data=lf.map(l=>({PRODUCTOR:l.productor_nombre,LOTE:l.nombre,HA:l.hectareas,CULTIVO:l.cultivo_completo||l.cultivo,ESTADO:l.estado}));}
+    if(tipo==="productores"){
+      data=productores.map(p=>{
+        const eid=p.empresa_id??p.id;
+        const lotesP=lotes.filter(l=>l.productor_nombre===p.nombre);
+        const haReales=lotesP.reduce((a,l)=>a+(l.hectareas||0),0);
+        return{NOMBRE:p.nombre,TEL:p.telefono,EMAIL:p.email,LOCALIDAD:p.localidad,HA:haReales,HONORARIO:p.honorario_monto,APP:p.tiene_cuenta?"SI":"NO"};
+      });
+    } else {
+      let lf=lotes;
+      if(fCultivo!=="todos")lf=lf.filter(l=>(l.cultivo_completo||l.cultivo)===fCultivo);
+      if(fProductor!=="todos")lf=lf.filter(l=>l.productor_nombre===fProductor);
+      if(fEstado!=="todos")lf=lf.filter(l=>l.estado===fEstado);
+      data=lf.map(l=>({PRODUCTOR:l.productor_nombre,LOTE:l.nombre,HA:l.hectareas,CULTIVO:l.cultivo_completo||l.cultivo,ESTADO:l.estado}));
+    }
     const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,tipo);XLSX.writeFile(wb,tipo+"_"+new Date().toISOString().slice(0,10)+".xlsx");
   };
 
@@ -231,7 +245,12 @@ export default function IngenieroPanel() {
 
   const confirmarImport = async () => {
     const sb=await getSB();let c=0;
-    for(const p of importPrev.filter(x=>!x.existe)){await sb.from("ing_productores").insert({ingeniero_id:ingId,nombre:p.nombre,telefono:p.telefono,localidad:p.localidad,hectareas_total:p.hectareas_total,honorario_tipo:"mensual",honorario_monto:0,activo:true});c++;}
+    for(const p of importPrev.filter(x=>!x.existe)){
+      const{data:nuevo}=await sb.from("ing_productores").insert({ingeniero_id:ingId,nombre:p.nombre,telefono:p.telefono,localidad:p.localidad,hectareas_total:p.hectareas_total,honorario_tipo:"mensual",honorario_monto:0,activo:true}).select().single();
+      // Crear empresa para cada productor importado
+      if(nuevo){const{data:emp}=await sb.from("empresas").insert({nombre:p.nombre+" (Ing)",propietario_id:ingId}).select().single();if(emp){await sb.from("ing_productores").update({empresa_id:emp.id}).eq("id",nuevo.id);}}
+      c++;
+    }
     m("✅ "+c+" IMPORTADOS");await fetchProds(ingId);setImportPrev([]);setImportMsg("");setShowImport(false);
   };
 
@@ -240,13 +259,14 @@ export default function IngenieroPanel() {
     setAiChat(prev=>[...prev,{rol:"user",texto:userMsg}]);
     try {
       const hist=aiChat.map(m=>({role:m.rol==="user"?"user":"assistant",content:m.texto}));
-      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1500,system:"Asistente agronomico experto Argentina. Respondé técnico. Ingeniero: "+ingNombre+".",messages:[...hist,{role:"user",content:userMsg}]})});
+      const res=await fetch("/api/scanner",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1500,system:"Asistente agronomico experto Argentina. Respondé técnico. Ingeniero: "+ingNombre+".",messages:[...hist,{role:"user",content:userMsg}]})});
       const d=await res.json();setAiChat(prev=>[...prev,{rol:"assistant",texto:d.content?.[0]?.text??"Sin respuesta"}]);
     } catch{setAiChat(prev=>[...prev,{rol:"assistant",texto:"Error IA"}]);}
     setAiLoad(false);
   };
 
-  const totalHa=productores.reduce((a,p)=>a+(p.hectareas_total||0),0);
+  // ── KPIs calculados desde lotes reales (no desde hectareas_total manual) ──
+  const totalHa = lotes.reduce((a,l) => a + (l.hectareas||0), 0);
   const totPend=cobranzas.filter(c=>c.estado==="pendiente").reduce((a,c)=>a+c.monto,0);
   const totCob=cobranzas.filter(c=>c.estado==="cobrado").reduce((a,c)=>a+c.monto,0);
   const cultivosU=[...new Set(lotes.map(l=>l.cultivo_completo||l.cultivo).filter(Boolean))];
@@ -317,9 +337,14 @@ export default function IngenieroPanel() {
           {/* ===== MIS PRODUCTORES ===== */}
           {seccion==="productores"&&(
             <div>
-              {/* KPIs */}
+              {/* KPIs — HA calculadas desde lotes reales */}
               <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
-                {[{l:"PRODUCTORES",v:String(productores.length),c:"#E5E7EB"},{l:"HA TOTALES",v:totalHa.toLocaleString("es-AR"),c:"#C9A227"},{l:"LOTES TOTALES",v:String(lotes.length),c:"#4ADE80"},{l:"CON CUENTA APP",v:String(productores.filter(p=>p.tiene_cuenta).length),c:"#60A5FA"}].map(s=>(
+                {[
+                  {l:"PRODUCTORES",v:String(productores.length),c:"#E5E7EB"},
+                  {l:"HA TOTALES",v:totalHa.toLocaleString("es-AR"),c:"#C9A227"},
+                  {l:"LOTES TOTALES",v:String(lotes.length),c:"#4ADE80"},
+                  {l:"CON CUENTA APP",v:String(productores.filter(p=>p.tiene_cuenta).length),c:"#60A5FA"}
+                ].map(s=>(
                   <div key={s.l} className="ci" style={{padding:16,textAlign:"center"}}>
                     <div style={{fontSize:11,color:"#4B5563",fontFamily:"monospace"}}>{s.l}</div>
                     <div style={{fontSize:22,fontWeight:"bold",fontFamily:"monospace",marginTop:4,color:s.c}}>{s.v}</div>
@@ -329,7 +354,12 @@ export default function IngenieroPanel() {
 
               {/* Botones */}
               <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-                {[{l:"+ NUEVO PRODUCTOR",c:"#00FF80",fn:()=>{setShowForm(!showForm);setEditProd(null);setForm({provincia:"Santa Fe",honorario_tipo:"mensual"});}},{l:"🔗 VINCULAR POR CODIGO",c:"#60A5FA",fn:()=>{setShowVincular(!showVincular);setForm({});}},{l:"📥 IMPORTAR",c:"#C9A227",fn:()=>setShowImport(!showImport)},{l:"📤 EXPORTAR PRODUCTORES",c:"#4ADE80",fn:()=>exportXLS("productores")}].map(b=>(
+                {[
+                  {l:"+ NUEVO PRODUCTOR",c:"#00FF80",fn:()=>{setShowForm(!showForm);setEditProd(null);setForm({provincia:"Santa Fe",honorario_tipo:"mensual"});}},
+                  {l:"🔗 VINCULAR POR CODIGO",c:"#60A5FA",fn:()=>{setShowVincular(!showVincular);setForm({});}},
+                  {l:"📥 IMPORTAR",c:"#C9A227",fn:()=>setShowImport(!showImport)},
+                  {l:"📤 EXPORTAR PRODUCTORES",c:"#4ADE80",fn:()=>exportXLS("productores")}
+                ].map(b=>(
                   <button key={b.l} onClick={b.fn} style={{padding:"8px 16px",borderRadius:12,background:"transparent",border:`1px solid ${b.c}40`,color:b.c,fontFamily:"monospace",fontSize:12,fontWeight:"bold",cursor:"pointer"}}>{b.l}</button>
                 ))}
               </div>
@@ -380,7 +410,6 @@ export default function IngenieroPanel() {
                     <div><label className={lCls}>TELEFONO</label><input type="text" value={form.telefono??""} onChange={e=>setForm({...form,telefono:e.target.value})} className={iCls} placeholder="3400..."/></div>
                     <div><label className={lCls}>EMAIL (si tiene app)</label><input type="email" value={form.email??""} onChange={e=>setForm({...form,email:e.target.value})} className={iCls}/></div>
                     <div><label className={lCls}>LOCALIDAD</label><input type="text" value={form.localidad??""} onChange={e=>setForm({...form,localidad:e.target.value})} className={iCls}/></div>
-                    <div><label className={lCls}>HECTAREAS</label><input type="number" value={form.hectareas_total??""} onChange={e=>setForm({...form,hectareas_total:e.target.value})} className={iCls} placeholder="0"/></div>
                     <div><label className={lCls}>HONORARIO TIPO</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className={iCls}><option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option><option value="por_servicio">Por servicio</option></select></div>
                     <div><label className={lCls}>HONORARIO $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls} placeholder="0"/></div>
                     <div><label className={lCls}>OBSERVACIONES</label><input type="text" value={form.obs??""} onChange={e=>setForm({...form,obs:e.target.value})} className={iCls}/></div>
@@ -414,6 +443,8 @@ export default function IngenieroPanel() {
                     const camps = campanasPorProd[eid] ?? [];
                     const campActiva = campSelProd[eid] ?? null;
                     const lotesP = lotes.filter(l=>l.productor_nombre===p.nombre);
+                    // HA reales desde lotes de la campaña activa
+                    const haReales = lotesP.reduce((a,l)=>a+(l.hectareas||0),0);
                     return(
                       <div key={p.id} className="ci" style={{overflow:"hidden"}}>
                         <div style={{padding:20}}>
@@ -427,55 +458,54 @@ export default function IngenieroPanel() {
                               </div>
                             </div>
                             <div style={{display:"flex",gap:4}}>
-                              <button onClick={()=>{setEditProd(p.id);setForm({nombre:p.nombre,telefono:p.telefono||"",email:p.email||"",localidad:p.localidad||"",provincia:p.provincia||"",hectareas_total:String(p.hectareas_total||0),honorario_tipo:p.honorario_tipo||"mensual",honorario_monto:String(p.honorario_monto||0),obs:p.observaciones||""});setShowForm(true);}} style={{fontSize:12,padding:"4px 8px",borderRadius:6,background:"rgba(201,162,39,0.1)",border:"none",color:"#C9A227",cursor:"pointer"}}>✏️</button>
+                              <button onClick={()=>{setEditProd(p.id);setForm({nombre:p.nombre,telefono:p.telefono||"",email:p.email||"",localidad:p.localidad||"",provincia:p.provincia||"",honorario_tipo:p.honorario_tipo||"mensual",honorario_monto:String(p.honorario_monto||0),obs:p.observaciones||""});setShowForm(true);}} style={{fontSize:12,padding:"4px 8px",borderRadius:6,background:"rgba(201,162,39,0.1)",border:"none",color:"#C9A227",cursor:"pointer"}}>✏️</button>
                               <button onClick={()=>eliminarProd(p.id)} style={{fontSize:12,padding:"4px 8px",borderRadius:6,background:"none",border:"none",color:"#4B5563",cursor:"pointer"}}>✕</button>
                             </div>
                           </div>
 
                           {/* Campaña selector */}
-                          {true && (
-                            <div style={{marginBottom:12}}>
-                              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                                <label style={{fontSize:10,color:"#4B6B5B",fontFamily:"monospace",textTransform:"uppercase",letterSpacing:2}}>CAMPAÑA</label>
-                              </div>
-                              <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-                                <select
-                                  value={campActiva??""} 
-                                  onChange={e=>cambiarCampana(eid, e.target.value, p.nombre)}
+                          <div style={{marginBottom:12}}>
+                            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                              <label style={{fontSize:10,color:"#4B6B5B",fontFamily:"monospace",textTransform:"uppercase",letterSpacing:2}}>CAMPAÑA</label>
+                            </div>
+                            <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                              {camps.length > 0 ? (
+                                <select value={campActiva??""} onChange={e=>cambiarCampana(eid, e.target.value, p.nombre)}
                                   style={{flex:1,background:"rgba(10,22,40,0.8)",border:"1px solid rgba(201,162,39,0.3)",borderRadius:8,padding:"6px 10px",color:"#C9A227",fontSize:12,fontFamily:"monospace",cursor:"pointer",outline:"none"}}>
                                   {camps.map((c:any)=><option key={c.id} value={c.id}>{c.nombre}{c.activa?" ★":""}</option>)}
                                 </select>
-                                {/* Crear nueva campaña */}
-                                <button
-                                  onClick={()=>{setNuevaCampProd(p.id);setNuevaCampNombre(new Date().getFullYear()+"/"+(new Date().getFullYear()+1));}}
-                                  style={{padding:"6px 10px",borderRadius:8,background:"rgba(201,162,39,0.1)",border:"1px solid rgba(201,162,39,0.3)",color:"#C9A227",fontSize:11,fontFamily:"monospace",cursor:"pointer",fontWeight:"bold"}}>
-                                  + NUEVA
-                                </button>
-                                {nuevaCampProd===p.id&&(
-                                  <div style={{display:"flex",gap:6,marginTop:6,width:"100%",flexWrap:"wrap"}}>
-                                    <input value={nuevaCampNombre} onChange={e=>setNuevaCampNombre(e.target.value)} placeholder="2025/2026" style={{flex:1,minWidth:80,background:"rgba(2,8,16,0.8)",border:"1px solid rgba(201,162,39,0.4)",borderRadius:6,padding:"4px 8px",color:"#E5E7EB",fontSize:11,fontFamily:"monospace",outline:"none"}}/>
-                                    <button onClick={async()=>{if(nuevaCampNombre.trim()){await crearCampana(eid,nuevaCampNombre.trim());setNuevaCampProd(null);setNuevaCampNombre("");}}} style={{padding:"4px 10px",borderRadius:6,background:"rgba(74,222,128,0.15)",border:"1px solid rgba(74,222,128,0.4)",color:"#4ADE80",fontSize:11,fontFamily:"monospace",cursor:"pointer",fontWeight:"bold"}}>✓ OK</button>
-                                    <button onClick={()=>{setNuevaCampProd(null);setNuevaCampNombre("");}} style={{padding:"4px 8px",borderRadius:6,background:"none",border:"1px solid #1C2128",color:"#4B5563",fontSize:11,fontFamily:"monospace",cursor:"pointer"}}>✕</button>
-                                  </div>
-                                )}
-                              </div>
-                              <div style={{fontSize:10,color:"#4B5563",fontFamily:"monospace",marginTop:4}}>
-                                {lotesP.length} LOTES · {lotesP.reduce((a,l)=>a+(l.hectareas||0),0).toLocaleString("es-AR")} HA EN ESTA CAMPAÑA
-                              </div>
+                              ) : (
+                                <div style={{flex:1,fontSize:11,color:"#4B5563",fontFamily:"monospace",padding:"6px 10px",background:"rgba(2,8,16,0.4)",borderRadius:8,border:"1px solid rgba(201,162,39,0.1)"}}>Sin campañas</div>
+                              )}
+                              <button onClick={()=>{setNuevaCampProd(p.id);setNuevaCampNombre(new Date().getFullYear()+"/"+(new Date().getFullYear()+1));}}
+                                style={{padding:"6px 10px",borderRadius:8,background:"rgba(201,162,39,0.1)",border:"1px solid rgba(201,162,39,0.3)",color:"#C9A227",fontSize:11,fontFamily:"monospace",cursor:"pointer",fontWeight:"bold"}}>
+                                + NUEVA
+                              </button>
+                              {nuevaCampProd===p.id&&(
+                                <div style={{display:"flex",gap:6,marginTop:6,width:"100%",flexWrap:"wrap"}}>
+                                  <input value={nuevaCampNombre} onChange={e=>setNuevaCampNombre(e.target.value)} placeholder="2025/2026" style={{flex:1,minWidth:80,background:"rgba(2,8,16,0.8)",border:"1px solid rgba(201,162,39,0.4)",borderRadius:6,padding:"4px 8px",color:"#E5E7EB",fontSize:11,fontFamily:"monospace",outline:"none"}}/>
+                                  <button onClick={async()=>{if(nuevaCampNombre.trim()){await crearCampana(eid,nuevaCampNombre.trim());setNuevaCampProd(null);setNuevaCampNombre("");}}} style={{padding:"4px 10px",borderRadius:6,background:"rgba(74,222,128,0.15)",border:"1px solid rgba(74,222,128,0.4)",color:"#4ADE80",fontSize:11,fontFamily:"monospace",cursor:"pointer",fontWeight:"bold"}}>✓ OK</button>
+                                  <button onClick={()=>{setNuevaCampProd(null);setNuevaCampNombre("");}} style={{padding:"4px 8px",borderRadius:6,background:"none",border:"1px solid #1C2128",color:"#4B5563",fontSize:11,fontFamily:"monospace",cursor:"pointer"}}>✕</button>
+                                </div>
+                              )}
                             </div>
-                          )}
-
-                          {/* Sin cuenta — mostrar info */}
-                          {!p.tiene_cuenta && camps.length === 0 && (
-                            <div style={{marginBottom:12,padding:"8px 12px",borderRadius:8,background:"rgba(96,165,250,0.05)",border:"1px solid rgba(96,165,250,0.15)"}}>
-                              <div style={{fontSize:11,color:"#60A5FA",fontFamily:"monospace"}}>Sin campañas — creá una para empezar a cargar lotes</div>
+                            <div style={{fontSize:10,color:"#4B5563",fontFamily:"monospace",marginTop:4}}>
+                              {lotesP.length} LOTES · {haReales.toLocaleString("es-AR")} HA EN ESTA CAMPAÑA
                             </div>
-                          )}
-
-                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
-                            <div style={{background:"rgba(2,8,16,0.4)",borderRadius:8,padding:10,textAlign:"center"}}><div style={{fontSize:10,color:"#4B5563",fontFamily:"monospace"}}>HA</div><div style={{fontWeight:"bold",color:"#C9A227",fontFamily:"monospace",marginTop:2}}>{(p.hectareas_total||0).toLocaleString("es-AR")}</div></div>
-                            <div style={{background:"rgba(2,8,16,0.4)",borderRadius:8,padding:10,textAlign:"center"}}><div style={{fontSize:10,color:"#4B5563",fontFamily:"monospace"}}>HONORARIO</div><div style={{fontWeight:"bold",color:"#00FF80",fontFamily:"monospace",marginTop:2}}>${(p.honorario_monto||0).toLocaleString("es-AR")}</div></div>
                           </div>
+
+                          {/* KPIs — HA desde lotes reales */}
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+                            <div style={{background:"rgba(2,8,16,0.4)",borderRadius:8,padding:10,textAlign:"center"}}>
+                              <div style={{fontSize:10,color:"#4B5563",fontFamily:"monospace"}}>HA</div>
+                              <div style={{fontWeight:"bold",color:"#C9A227",fontFamily:"monospace",marginTop:2}}>{haReales.toLocaleString("es-AR")}</div>
+                            </div>
+                            <div style={{background:"rgba(2,8,16,0.4)",borderRadius:8,padding:10,textAlign:"center"}}>
+                              <div style={{fontSize:10,color:"#4B5563",fontFamily:"monospace"}}>HONORARIO</div>
+                              <div style={{fontWeight:"bold",color:"#00FF80",fontFamily:"monospace",marginTop:2}}>${(p.honorario_monto||0).toLocaleString("es-AR")}</div>
+                            </div>
+                          </div>
+
                           <div style={{display:"flex",gap:8}}>
                             {p.telefono&&<a href={"https://wa.me/54"+p.telefono.replace(/\D/g,"")} target="_blank" rel="noreferrer" style={{flex:1,textAlign:"center",padding:"8px",borderRadius:8,background:"rgba(37,211,102,0.1)",border:"1px solid rgba(37,211,102,0.3)",color:"#25D366",fontSize:11,fontFamily:"monospace",fontWeight:"bold",textDecoration:"none"}}>💬 WA</a>}
                             <button onClick={()=>entrar(p)} style={{flex:1,padding:"8px",borderRadius:8,background:"rgba(0,255,128,0.1)",border:"1px solid rgba(0,255,128,0.3)",color:"#00FF80",fontSize:11,fontFamily:"monospace",fontWeight:"bold",cursor:"pointer"}}>{p.tiene_cuenta?"🔗 VER LOTES":"🌾 MIS LOTES"}</button>
@@ -639,12 +669,13 @@ export default function IngenieroPanel() {
           )}
         </div>
       </div>
+
       {/* BOTON FLOTANTE VOZ */}
       <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}}
-        style={{position:"fixed",bottom:24,right:24,zIndex:50,width:56,height:56,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",background:VOZ_COLOR[vozEstado]+"18",border:"2px solid "+VOZ_COLOR[vozEstado],color:VOZ_COLOR[vozEstado],animation:vozEstado==="idle"?"float 3s ease-in-out infinite":"none",boxShadow:"0 4px 20px rgba(0,255,128,0.3)"}}>
+        style={{position:"fixed",bottom:24,right:24,zIndex:50,width:56,height:56,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",background:VOZ_COLOR[vozEstado]+"18",border:"2px solid "+VOZ_COLOR[vozEstado],color:VOZ_COLOR[vozEstado],boxShadow:"0 4px 20px rgba(0,255,128,0.3)"}}>
         {VOZ_ICON[vozEstado]}
       </button>
-      {/* PANEL VOZ */}
+
       {vozPanel&&(
         <div style={{position:"fixed",bottom:96,right:24,zIndex:50,width:300,background:"rgba(10,22,40,0.97)",border:"1px solid rgba(0,255,128,0.3)",borderRadius:16,overflow:"hidden",boxShadow:"0 8px 32px rgba(0,0,0,0.5)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",borderBottom:"1px solid rgba(0,255,128,0.15)"}}>
@@ -652,7 +683,7 @@ export default function IngenieroPanel() {
             <button onClick={()=>{setVozPanel(false);recRef.current?.stop();setVozEstado("idle");}} style={{background:"none",border:"none",color:"#4B5563",cursor:"pointer",fontSize:14}}>✕</button>
           </div>
           <div style={{padding:"12px 16px",minHeight:60}}>
-            {vozEstado==="escuchando"&&<p style={{color:"#F87171",fontFamily:"monospace",fontSize:12,animation:"pulse 1s infinite"}}>🔴 Escuchando...</p>}
+            {vozEstado==="escuchando"&&<p style={{color:"#F87171",fontFamily:"monospace",fontSize:12}}>🔴 Escuchando...</p>}
             {vozRespuesta&&<p style={{color:"#E5E7EB",fontFamily:"monospace",fontSize:12,lineHeight:1.5}}>{vozRespuesta}</p>}
             {vozEstado==="idle"&&!vozRespuesta&&<div style={{display:"flex",flexDirection:"column",gap:6}}>{["Cuantos lotes tiene NN","Exportar lotes de soja","Dosis glifosato"].map(q=><button key={q} onClick={()=>{setAiInput(q);setVozPanel(false);setSeccion("ia_campo");}} style={{textAlign:"left",fontSize:11,color:"#4B6B5B",border:"1px solid rgba(0,255,128,0.1)",padding:"8px 12px",borderRadius:8,fontFamily:"monospace",cursor:"pointer",background:"none"}}>💬 {q}</button>)}</div>}
           </div>
