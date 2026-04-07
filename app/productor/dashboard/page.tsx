@@ -10,7 +10,7 @@ const modulos = [
   { href: "/productor/maquinaria", label: "Maquinarias", sub: "Equipos", img: "/mod-maquinaria.png" },
   { href: "/productor/hacienda", label: "Hacienda", sub: "Ganadería", img: "/mod-hacienda.png" },
   { href: "/productor/documentos", label: "Documentos", sub: "Archivos", img: "/mod-documentos.png" },
-  { href: "/productor/marketplace", label: "Marketplace", sub: "Compra · Venta · Servicios", img: "/mod-marketplace.png" },
+  { href: "/productor/margen", label: "Margen Bruto", sub: "Rentabilidad · MB", img: "/mod-finanzas.png" },
   { href: "/productor/otros", label: "Otros", sub: "Más opciones", img: "/mod-otros.png" },
 ];
 
@@ -34,15 +34,10 @@ export default function ProductorDashboard() {
       if (!user) { window.location.href = "/login"; return; }
       const { data: u } = await sb.from("usuarios").select("nombre").eq("auth_id", user.id).single();
 
-      // Detectar si entró como socio
       const socioNombre = localStorage.getItem("socio_nombre");
       const socioLetra = localStorage.getItem("socio_letra");
-      if (socioNombre) {
-        setNombre(socioNombre);
-        setLetraSocio(socioLetra ?? "");
-      } else if (u) {
-        setNombre(u.nombre);
-      }
+      if (socioNombre) { setNombre(socioNombre); setLetraSocio(socioLetra ?? ""); }
+      else if (u) { setNombre(u.nombre); }
 
       const campanaId = localStorage.getItem("campana_id");
       if (campanaId) {
@@ -50,7 +45,6 @@ export default function ProductorDashboard() {
         if (c) setCampana(c.nombre);
       }
 
-      // Buscar empresa — puede ser propietario o socio
       const { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", user.id).single();
       if (emp) {
         setEmpresaId(emp.id);
@@ -72,27 +66,17 @@ export default function ProductorDashboard() {
   const salir = async () => {
     const { createClient } = await import("@supabase/supabase-js");
     const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-    localStorage.removeItem("socio_nombre");
-    localStorage.removeItem("socio_letra");
-    localStorage.removeItem("socio_permisos");
-    await sb.auth.signOut();
-    window.location.href = "/login";
+    localStorage.removeItem("socio_nombre"); localStorage.removeItem("socio_letra"); localStorage.removeItem("socio_permisos");
+    await sb.auth.signOut(); window.location.href = "/login";
   };
 
-  // Saludo según hora
-  const saludo = () => {
-    const h = new Date().getHours();
-    if (h < 12) return "Buenos días";
-    if (h < 19) return "Buenas tardes";
-    return "Buenas noches";
-  };
+  const saludo = () => { const h = new Date().getHours(); if (h < 12) return "Buenos días"; if (h < 19) return "Buenas tardes"; return "Buenas noches"; };
 
   return (
     <div className="relative min-h-screen bg-[#020810] text-[#E5E7EB] overflow-hidden">
       <style>{`
         @keyframes float { 0%,100%{transform:translateY(0) scale(1);opacity:.6} 50%{transform:translateY(-15px) scale(1.5);opacity:1} }
         @keyframes slide-in { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
-        @keyframes header-glow { 0%,100%{opacity:0.6} 50%{opacity:1} }
         @keyframes gradient-flow { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
         .mod-card:hover .mod-img { transform: scale(1.08); }
         .mod-card:hover { border-color: rgba(0,255,128,0.6) !important; box-shadow: 0 0 25px rgba(0,255,128,0.2); }
@@ -103,111 +87,66 @@ export default function ProductorDashboard() {
         .bell-btn { transition: all 0.2s ease; }
       `}</style>
 
-      {/* Fondo */}
       <div className="absolute inset-0 z-0">
         <Image src="/dashboard-bg.png" alt="bg" fill style={{ objectFit: "cover" }} priority />
         <div className="absolute inset-0 bg-[#020810]/80" />
       </div>
-
-      {/* Grid overlay */}
       <div className="absolute inset-0 z-1 pointer-events-none opacity-[0.04]"
         style={{ backgroundImage: `linear-gradient(rgba(0,255,128,1) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,128,1) 1px, transparent 1px)`, backgroundSize: "50px 50px" }} />
 
-      {/* Partículas */}
       {mounted && [...Array(8)].map((_, i) => (
         <div key={i} className="absolute w-1 h-1 rounded-full bg-[#00FF80] pointer-events-none"
           style={{ left: `${(i * 19 + 7) % 100}%`, top: `${(i * 31 + 5) % 100}%`, animation: `float ${3 + i % 3}s ease-in-out infinite`, animationDelay: `${i * 0.4}s`, boxShadow: "0 0 6px #00FF80", opacity: 0.4 }} />
       ))}
 
-      {/* ===== HEADER NUEVO ===== */}
+      {/* HEADER */}
       <div className="relative z-10">
-        {/* Barra de gradiente animado en el borde inferior */}
-        <div className="absolute bottom-0 left-0 right-0 h-[1px]"
-          style={{ background: "linear-gradient(90deg, transparent, #00FF80, #00AAFF, #00FF80, transparent)", backgroundSize: "200% 100%", animation: "gradient-flow 4s ease infinite" }} />
-
-        {/* Fondo del header con gradiente */}
-        <div className="absolute inset-0"
-          style={{ background: "linear-gradient(135deg, rgba(2,8,16,0.95) 0%, rgba(0,20,10,0.90) 50%, rgba(2,8,16,0.95) 100%)" }} />
-
-        {/* Líneas decorativas */}
+        <div className="absolute bottom-0 left-0 right-0 h-[1px]" style={{ background: "linear-gradient(90deg, transparent, #00FF80, #00AAFF, #00FF80, transparent)", backgroundSize: "200% 100%", animation: "gradient-flow 4s ease infinite" }} />
+        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(2,8,16,0.95) 0%, rgba(0,20,10,0.90) 50%, rgba(2,8,16,0.95) 100%)" }} />
         <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-20">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#00FF80] to-transparent" />
           <div className="absolute bottom-0 left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-[#00FF80]/50 to-transparent" />
         </div>
-
         <div className="relative px-6 py-4 flex items-center justify-between gap-4">
-
-          {/* Logo con glow al hover */}
           <div className="logo-btn cursor-pointer flex-shrink-0" onClick={() => window.location.href = "/productor/dashboard"}>
             <Image src="/logo.png" alt="AgroGestión PRO" width={130} height={45} className="object-contain" />
           </div>
-
-          {/* Centro — Saludo + Campaña */}
           <div className="flex-1 text-center">
             <div className="flex items-center justify-center gap-3 flex-wrap">
               <span className="text-[#E5E7EB] font-mono font-bold text-base">
                 {saludo()}, <span className="text-[#00FF80]">{nombre}</span>
                 {letraSocio && <span className="text-xs text-[#4B5563] ml-1">({letraSocio})</span>}
               </span>
-              {campana && (
-                <>
-                  <span className="text-[#00FF80]/30 hidden md:block">|</span>
-                  <span className="text-[#4B5563] font-mono text-xs hidden md:flex items-center gap-1">
-                    <span className="text-[#00FF80]">◆</span> Campaña {campana}
-                  </span>
-                </>
-              )}
+              {campana && (<><span className="text-[#00FF80]/30 hidden md:block">|</span><span className="text-[#4B5563] font-mono text-xs hidden md:flex items-center gap-1"><span className="text-[#00FF80]">◆</span> Campaña {campana}</span></>)}
             </div>
           </div>
-
-          {/* Derecha — Estado + Campana + Salir */}
           <div className="flex items-center gap-3 flex-shrink-0">
-            {/* Estado activo */}
             <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#00FF80]/20 bg-[#00FF80]/5">
               <div className="w-1.5 h-1.5 rounded-full bg-[#00FF80] animate-pulse" />
               <span className="text-[#00FF80] text-xs font-mono">Activo</span>
             </div>
-
-            {/* Campana */}
-            <button onClick={() => setShowAlertas(!showAlertas)}
-              className="bell-btn relative p-2.5 rounded-xl bg-[#00FF80]/5 border border-[#00FF80]/15">
+            <button onClick={() => setShowAlertas(!showAlertas)} className="bell-btn relative p-2.5 rounded-xl bg-[#00FF80]/5 border border-[#00FF80]/15">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00FF80" strokeWidth="2">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
               </svg>
-              {stats.alertas > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center font-bold">
-                  {stats.alertas}
-                </span>
-              )}
+              {stats.alertas > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center font-bold">{stats.alertas}</span>}
             </button>
-
-            {/* Salir */}
-            <button onClick={salir}
-              className="text-xs text-[#4B5563] hover:text-red-400 transition-colors font-mono px-3 py-2 rounded-lg hover:bg-red-500/10 border border-transparent hover:border-red-500/20">
-              Salir
-            </button>
+            <button onClick={salir} className="text-xs text-[#4B5563] hover:text-red-400 transition-colors font-mono px-3 py-2 rounded-lg hover:bg-red-500/10 border border-transparent hover:border-red-500/20">Salir</button>
           </div>
         </div>
       </div>
 
       {/* Panel alertas */}
       {showAlertas && (
-        <div className="fixed right-0 top-0 h-full w-80 bg-[#020810]/95 backdrop-blur-xl border-l border-[#00FF80]/20 z-50 p-6"
-          style={{ animation: "slide-in 0.3s ease" }}>
+        <div className="fixed right-0 top-0 h-full w-80 bg-[#020810]/95 backdrop-blur-xl border-l border-[#00FF80]/20 z-50 p-6" style={{ animation: "slide-in 0.3s ease" }}>
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-[#00FF80] font-mono font-bold tracking-widest text-sm">◆ ALERTAS IA</h3>
             <button onClick={() => setShowAlertas(false)} className="text-[#4B5563] hover:text-white text-xl">✕</button>
           </div>
           <div className="flex flex-col gap-3">
             {stats.alertas === 0 ? (
-              <div className="text-center py-10">
-                <div className="text-[#00FF80] text-3xl mb-3 opacity-30">◆</div>
-                <p className="text-[#4B5563] text-sm font-mono">Sin alertas activas</p>
-              </div>
-            ) : (
-              <p className="text-[#9CA3AF] text-sm font-mono">{stats.alertas} alerta(s) pendiente(s)</p>
-            )}
+              <div className="text-center py-10"><div className="text-[#00FF80] text-3xl mb-3 opacity-30">◆</div><p className="text-[#4B5563] text-sm font-mono">Sin alertas activas</p></div>
+            ) : (<p className="text-[#9CA3AF] text-sm font-mono">{stats.alertas} alerta(s) pendiente(s)</p>)}
           </div>
           <div className="mt-6 p-3 bg-[#00FF80]/5 border border-[#00FF80]/20 rounded-lg">
             <p className="text-[#00FF80] text-xs font-mono">◆ IA MONITOR ACTIVO</p>
@@ -257,10 +196,7 @@ export default function ProductorDashboard() {
         </div>
       </div>
 
-      <p className="relative z-10 text-center text-[#0a2a1a] text-xs pb-4 tracking-[0.3em] font-mono">
-        © AGROGESTION PRO · IA SYSTEM
-      </p>
-
+      <p className="relative z-10 text-center text-[#0a2a1a] text-xs pb-4 tracking-[0.3em] font-mono">© AGROGESTION PRO · IA SYSTEM</p>
       {empresaId && <EscanerIA empresaId={empresaId} />}
     </div>
   );
