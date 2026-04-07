@@ -6,9 +6,9 @@ import EscanerIA from "@/components/EscanerIA";
 type Tab = "granos" | "insumos" | "gasoil" | "varios";
 type UbicacionItem = { id: string; cultivo: string; tipo_ubicacion: string; nombre_ubicacion: string; cantidad_tn: number; campana_id: string; };
 type VentaPactada = { id: string; cultivo: string; cantidad_tn: number; precio_tn: number; destino: string; tipo_destino: string; fecha_entrega: string; estado: string; };
-type InsumoItem = { id: string; nombre: string; categoria: string; subcategoria: string; cantidad: number; unidad: string; ubicacion: string; tipo_ubicacion: string; precio_unitario: number; };
-type GasoilItem = { id: string; cantidad_litros: number; ubicacion: string; tipo_ubicacion: string; precio_litro: number; };
-type GasoilMov = { id: string; gasoil_id: string; fecha: string; tipo: string; litros: number; descripcion: string; metodo: string; };
+type InsumoItem = { id: string; nombre: string; categoria: string; subcategoria: string; cantidad: number; unidad: string; ubicacion: string; tipo_ubicacion: string; precio_unitario: number; precio_ppp: number; costo_total_stock: number; };
+type GasoilItem = { id: string; cantidad_litros: number; ubicacion: string; tipo_ubicacion: string; precio_litro: number; precio_ppp: number; costo_total_stock: number; };
+type GasoilMov = { id: string; gasoil_id: string; fecha: string; tipo: string; litros: number; descripcion: string; metodo: string; precio_litro: number; precio_ppp: number; };
 type VariosItem = { id: string; nombre: string; categoria: string; cantidad: number; unidad: string; ubicacion: string; };
 type Proveedor = { id: string; nombre: string; telefono: string; categoria: string; };
 
@@ -34,6 +34,13 @@ const CAT_INSUMOS = [
 ];
 
 type VozEstado = "idle"|"escuchando"|"procesando"|"respondiendo"|"error";
+
+// ── Calcula PPP: (stock_actual * ppp_anterior + cantidad_nueva * precio_nuevo) / (stock_actual + cantidad_nueva)
+function calcularPPP(stockActual: number, pppAnterior: number, cantidadNueva: number, precioNuevo: number): number {
+  const totalUnidades = stockActual + cantidadNueva;
+  if (totalUnidades <= 0) return precioNuevo;
+  return (stockActual * pppAnterior + cantidadNueva * precioNuevo) / totalUnidades;
+}
 
 export default function StockPage() {
   const [tab, setTab] = useState<Tab>("granos");
@@ -82,7 +89,6 @@ export default function StockPage() {
     return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
   };
 
-  // Solo para INSERTAR — obtiene campana_id con fallback
   const getCampanaIdParaInsertar = async (eid: string): Promise<string> => {
     const cid = localStorage.getItem("campana_id") ?? "";
     if (cid) return cid;
@@ -111,11 +117,8 @@ export default function StockPage() {
   const fetchAll = async (eid: string) => {
     const sb = await getSB();
     const [ub, vt, ins, gas, gmov, var_, prov] = await Promise.all([
-      // Granos: SIN filtro campaña — acumula todas las campañas
       sb.from("stock_granos_ubicaciones").select("*").eq("empresa_id", eid),
-      // Ventas pactadas: SIN filtro campaña — todas las pendientes de entrega
       sb.from("stock_ventas_pactadas").select("*").eq("empresa_id", eid).eq("estado","pactada"),
-      // El resto nunca filtra por campaña
       sb.from("stock_insumos").select("*").eq("empresa_id", eid).order("categoria"),
       sb.from("stock_gasoil").select("*").eq("empresa_id", eid),
       sb.from("stock_gasoil_movimientos").select("*").eq("empresa_id", eid).order("fecha", { ascending: false }),
@@ -158,7 +161,7 @@ export default function StockPage() {
   const interpretarVoz = useCallback(async (texto: string) => {
     setVozEstado("procesando");
     const totalGasoil = gasoil.reduce((a,g) => a + g.cantidad_litros, 0);
-    const resumenStock = [`Gasoil total: ${totalGasoil}L`, ...cultivosConStock.map(c => { const s = stockPorCultivo(c); return `${c}: ${s.totalFisico}tn físico, ${s.balance}tn disponible`; }), ...insumos.slice(0,6).map(i => `${i.nombre}: ${i.cantidad}${i.unidad}`)].join("; ");
+    const resumenStock = [`Gasoil total: ${totalGasoil}L`, ...cultivosConStock.map(c => { const s = stockPorCultivo(c); return `${c}: ${s.totalFisico}tn físico, ${s.balance}tn disponible`; }), ...insumos.slice(0,6).map(i => `${i.nombre}: ${i.cantidad}${i.unidad} PPP:$${i.precio_ppp||i.precio_unitario}`)].join("; ");
     try {
       const res = await fetch("/api/scanner", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 500, messages: [{ role: "user", content: `Asistente de stock agropecuario AgroGestión Pro. Stock actual: ${resumenStock}. El productor dijo: "${texto}". Respondé SOLO en JSON sin markdown: {"texto":"respuesta breve en español argentino máx 2 oraciones","accion":"consulta|cargar_gasoil|consumir_gasoil|ajustar_gasoil|cargar_insumo|descontar_insumo|cargar_grano|cargar_varios","datos":{campos relevantes o null}}` }] }) });
       const data = await res.json();
@@ -167,10 +170,24 @@ export default function StockPage() {
       setVozRespuesta(parsed.texto ?? ""); hablar(parsed.texto ?? "");
       if (parsed.accion === "consumir_gasoil" && parsed.datos?.litros && empresaId) {
         const tanque = gasoil[0];
-        if (tanque) { const sb = await getSB(); const nuevaCant = Math.max(0, tanque.cantidad_litros - Number(parsed.datos.litros)); await sb.from("stock_gasoil").update({ cantidad_litros: nuevaCant }).eq("id", tanque.id); await sb.from("stock_gasoil_movimientos").insert({ empresa_id: empresaId, gasoil_id: tanque.id, fecha: new Date().toISOString().split("T")[0], tipo: "consumo", litros: Number(parsed.datos.litros), descripcion: parsed.datos.descripcion ?? texto, metodo: "voz" }); await fetchAll(empresaId); }
+        if (tanque) {
+          const sb = await getSB();
+          const nuevaCant = Math.max(0, tanque.cantidad_litros - Number(parsed.datos.litros));
+          const pppActual = tanque.precio_ppp || tanque.precio_litro || 0;
+          await sb.from("stock_gasoil").update({ cantidad_litros: nuevaCant, costo_total_stock: nuevaCant * pppActual }).eq("id", tanque.id);
+          await sb.from("stock_gasoil_movimientos").insert({ empresa_id: empresaId, gasoil_id: tanque.id, fecha: new Date().toISOString().split("T")[0], tipo: "consumo", litros: Number(parsed.datos.litros), descripcion: parsed.datos.descripcion ?? texto, metodo: "voz", precio_litro: 0, precio_ppp: pppActual });
+          await fetchAll(empresaId);
+        }
       } else if (parsed.accion === "descontar_insumo" && parsed.datos?.nombre && empresaId) {
         const insumo = insumos.find(i => i.nombre.toLowerCase().includes(parsed.datos.nombre.toLowerCase()));
-        if (insumo) { const sb = await getSB(); await sb.from("stock_insumos").update({ cantidad: Math.max(0, insumo.cantidad - Number(parsed.datos.cantidad ?? 0)) }).eq("id", insumo.id); await fetchAll(empresaId); }
+        if (insumo) {
+          const sb = await getSB();
+          const nuevaCant = Math.max(0, insumo.cantidad - Number(parsed.datos.cantidad ?? 0));
+          const pppActual = insumo.precio_ppp || insumo.precio_unitario || 0;
+          await sb.from("stock_insumos").update({ cantidad: nuevaCant, costo_total_stock: nuevaCant * pppActual }).eq("id", insumo.id);
+          await sb.from("stock_insumos_movimientos").insert({ empresa_id: empresaId, insumo_id: insumo.id, fecha: new Date().toISOString().split("T")[0], tipo: "uso", cantidad: Number(parsed.datos.cantidad ?? 0), precio_unitario: 0, precio_ppp: pppActual, descripcion: texto, metodo: "voz" });
+          await fetchAll(empresaId);
+        }
       } else if (parsed.accion === "cargar_gasoil" && parsed.datos) { setTab("gasoil"); setForm({ cantidad_litros: String(parsed.datos.litros ?? ""), tipo_ubicacion: "tanque_propio", ubicacion: parsed.datos.ubicacion ?? "" }); setShowFormGasoil(true);
       } else if (parsed.accion === "cargar_insumo" && parsed.datos) { setTab("insumos"); setForm({ nombre: parsed.datos.nombre ?? "", categoria: parsed.datos.categoria ?? "agroquimico", cantidad: String(parsed.datos.cantidad ?? ""), unidad: parsed.datos.unidad ?? "litros" }); setShowFormInsumo(true);
       } else if (parsed.accion === "cargar_grano" && parsed.datos) { setTab("granos"); setForm({ cultivo: parsed.datos.cultivo ?? "", cantidad_tn: String(parsed.datos.cantidad_tn ?? ""), tipo_ubicacion: parsed.datos.tipo_ubicacion ?? "silo" }); setShowFormCultivo(true); }
@@ -191,6 +208,8 @@ export default function StockPage() {
   const VOZ_COLOR: Record<VozEstado,string> = { idle:"#00FF80", escuchando:"#F87171", procesando:"#C9A227", respondiendo:"#60A5FA", error:"#F87171" };
   const VOZ_ICON: Record<VozEstado,string> = { idle:"🎤", escuchando:"🔴", procesando:"⚙️", respondiendo:"🔊", error:"❌" };
   const VOZ_LABEL: Record<VozEstado,string> = { idle:"Hablar", escuchando:"Escuchando...", procesando:"Procesando...", respondiendo:"Respondiendo...", error:"Error" };
+
+  // ===== CRUD =====
 
   const guardarUbicacion = async () => {
     if (!empresaId || !form.cultivo) return;
@@ -213,38 +232,189 @@ export default function StockPage() {
     mostrarMsg("✅ Venta pactada"); await fetchAll(empresaId); setShowFormVenta(false); setForm({});
   };
 
+  // ── INSUMOS con PPP ──
   const guardarInsumo = async () => {
     if (!empresaId) return;
     const sb = await getSB();
+    const cantNueva = Number(form.cantidad ?? 0);
+    const precioNuevo = Number(form.precio_unitario ?? 0);
+
     if (editandoInsumo) {
-      await sb.from("stock_insumos").update({ nombre: form.nombre, categoria: form.categoria ?? "agroquimico", subcategoria: form.subcategoria ?? "", cantidad: Number(form.cantidad ?? 0), unidad: form.unidad ?? "litros", ubicacion: form.ubicacion ?? "", tipo_ubicacion: form.tipo_ubicacion ?? "deposito_propio", precio_unitario: Number(form.precio_unitario ?? 0) }).eq("id", editandoInsumo);
+      // Edición simple — no recalcula PPP, solo actualiza datos
+      await sb.from("stock_insumos").update({
+        nombre: form.nombre, categoria: form.categoria ?? "agroquimico",
+        subcategoria: form.subcategoria ?? "", cantidad: cantNueva,
+        unidad: form.unidad ?? "litros", ubicacion: form.ubicacion ?? "",
+        tipo_ubicacion: form.tipo_ubicacion ?? "deposito_propio",
+        precio_unitario: precioNuevo,
+      }).eq("id", editandoInsumo);
       setEditandoInsumo(null);
     } else {
-      await sb.from("stock_insumos").insert({ empresa_id: empresaId, nombre: form.nombre, categoria: form.categoria ?? "agroquimico", subcategoria: form.subcategoria ?? "", cantidad: Number(form.cantidad ?? 0), unidad: form.unidad ?? "litros", ubicacion: form.ubicacion ?? "", tipo_ubicacion: form.tipo_ubicacion ?? "deposito_propio", precio_unitario: Number(form.precio_unitario ?? 0) });
+      // Nueva compra — calcula PPP con stock existente del mismo insumo
+      const existente = insumos.find(i =>
+        i.nombre.toLowerCase().trim() === (form.nombre ?? "").toLowerCase().trim() &&
+        i.categoria === (form.categoria ?? "agroquimico")
+      );
+
+      if (existente) {
+        // Ya existe → actualiza stock y recalcula PPP
+        const pppNuevo = calcularPPP(existente.cantidad, existente.precio_ppp || existente.precio_unitario, cantNueva, precioNuevo);
+        const cantTotal = existente.cantidad + cantNueva;
+        const costoTotal = cantTotal * pppNuevo;
+
+        await sb.from("stock_insumos").update({
+          cantidad: cantTotal,
+          precio_ppp: pppNuevo,
+          precio_unitario: precioNuevo, // último precio de compra
+          costo_total_stock: costoTotal,
+        }).eq("id", existente.id);
+
+        // Registra movimiento de compra
+        await sb.from("stock_insumos_movimientos").insert({
+          empresa_id: empresaId, insumo_id: existente.id,
+          fecha: new Date().toISOString().split("T")[0],
+          tipo: "compra", cantidad: cantNueva,
+          precio_unitario: precioNuevo, precio_ppp: pppNuevo,
+          descripcion: `Compra: ${cantNueva} ${existente.unidad} a $${precioNuevo}`, metodo: "manual",
+        });
+
+        mostrarMsg(`✅ Stock actualizado — PPP: $${pppNuevo.toFixed(2)}/${existente.unidad}`);
+      } else {
+        // Nuevo insumo — PPP = precio de compra inicial
+        const { data: nuevo } = await sb.from("stock_insumos").insert({
+          empresa_id: empresaId, nombre: form.nombre,
+          categoria: form.categoria ?? "agroquimico", subcategoria: form.subcategoria ?? "",
+          cantidad: cantNueva, unidad: form.unidad ?? "litros",
+          ubicacion: form.ubicacion ?? "", tipo_ubicacion: form.tipo_ubicacion ?? "deposito_propio",
+          precio_unitario: precioNuevo,
+          precio_ppp: precioNuevo, // PPP inicial = precio de compra
+          costo_total_stock: cantNueva * precioNuevo,
+        }).select().single();
+
+        if (nuevo) {
+          await sb.from("stock_insumos_movimientos").insert({
+            empresa_id: empresaId, insumo_id: nuevo.id,
+            fecha: new Date().toISOString().split("T")[0],
+            tipo: "compra", cantidad: cantNueva,
+            precio_unitario: precioNuevo, precio_ppp: precioNuevo,
+            descripcion: `Compra inicial: ${cantNueva} ${form.unidad ?? "litros"} a $${precioNuevo}`, metodo: "manual",
+          });
+        }
+
+        mostrarMsg("✅ Insumo cargado");
+      }
     }
-    mostrarMsg("✅ Insumo guardado"); await fetchAll(empresaId); setShowFormInsumo(false); setForm({});
+
+    await fetchAll(empresaId); setShowFormInsumo(false); setForm({});
   };
 
-  const descontarInsumo = async (id: string, cantDescontar: number) => {
-    const sb = await getSB(); const ins = insumos.find(i => i.id === id); if (!ins) return;
-    await sb.from("stock_insumos").update({ cantidad: Math.max(0, ins.cantidad - cantDescontar) }).eq("id", id);
-    mostrarMsg(`✅ Descontado ${cantDescontar} ${ins.unidad} de ${ins.nombre}`); if (empresaId) await fetchAll(empresaId);
+  // ── DESCONTAR INSUMO con PPP ──
+  const descontarInsumo = async (id: string, cantDescontar: number, loteId?: string) => {
+    const sb = await getSB();
+    const ins = insumos.find(i => i.id === id);
+    if (!ins || !empresaId) return;
+
+    const nuevaCant = Math.max(0, ins.cantidad - cantDescontar);
+    const pppActual = ins.precio_ppp || ins.precio_unitario || 0;
+    const costoImputado = cantDescontar * pppActual; // costo al MB del lote
+    const nuevoCostoTotal = nuevaCant * pppActual;
+
+    await sb.from("stock_insumos").update({
+      cantidad: nuevaCant,
+      costo_total_stock: nuevoCostoTotal,
+      // PPP no cambia al sacar, solo al comprar
+    }).eq("id", id);
+
+    await sb.from("stock_insumos_movimientos").insert({
+      empresa_id: empresaId, insumo_id: id,
+      fecha: new Date().toISOString().split("T")[0],
+      tipo: "uso", cantidad: cantDescontar,
+      precio_unitario: 0, precio_ppp: pppActual,
+      lote_id: loteId ?? null,
+      descripcion: `Uso: ${cantDescontar} ${ins.unidad} — costo imputado $${costoImputado.toFixed(0)}`,
+      metodo: "manual",
+    });
+
+    mostrarMsg(`✅ ${cantDescontar} ${ins.unidad} descontados — PPP: $${pppActual.toFixed(2)} — Costo: $${costoImputado.toFixed(0)}`);
+    await fetchAll(empresaId);
   };
 
+  // ── GASOIL con PPP ──
   const guardarGasoil = async () => {
-    if (!empresaId) return; const sb = await getSB(); const litros = Number(form.cantidad_litros ?? 0);
-    const { data: nuevo } = await sb.from("stock_gasoil").insert({ empresa_id: empresaId, cantidad_litros: litros, ubicacion: form.ubicacion ?? "", tipo_ubicacion: form.tipo_ubicacion ?? "tanque_propio", precio_litro: Number(form.precio_litro ?? 0) }).select().single();
-    if (nuevo) await sb.from("stock_gasoil_movimientos").insert({ empresa_id: empresaId, gasoil_id: nuevo.id, fecha: new Date().toISOString().split("T")[0], tipo: "carga", litros, descripcion: "Carga inicial", metodo: "manual" });
+    if (!empresaId) return;
+    const sb = await getSB();
+    const litros = Number(form.cantidad_litros ?? 0);
+    const precioLitro = Number(form.precio_litro ?? 0);
+
+    // PPP inicial = precio de carga
+    const { data: nuevo } = await sb.from("stock_gasoil").insert({
+      empresa_id: empresaId, cantidad_litros: litros,
+      ubicacion: form.ubicacion ?? "", tipo_ubicacion: form.tipo_ubicacion ?? "tanque_propio",
+      precio_litro: precioLitro,
+      precio_ppp: precioLitro, // PPP inicial
+      costo_total_stock: litros * precioLitro,
+    }).select().single();
+
+    if (nuevo) {
+      await sb.from("stock_gasoil_movimientos").insert({
+        empresa_id: empresaId, gasoil_id: nuevo.id,
+        fecha: new Date().toISOString().split("T")[0],
+        tipo: "carga", litros, descripcion: "Carga inicial", metodo: "manual",
+        precio_litro: precioLitro, precio_ppp: precioLitro,
+      });
+    }
     mostrarMsg("✅ Gasoil cargado"); await fetchAll(empresaId); setShowFormGasoil(false); setForm({});
   };
 
   const registrarMovGasoil = async (gasoilId: string, tipo: "carga"|"consumo"|"ajuste") => {
-    if (!empresaId) return; const sb = await getSB(); const litros = Number(form.litros_mov ?? 0);
-    const tanque = gasoil.find(g => g.id === gasoilId); if (!tanque) return;
-    const nueva = tipo === "carga" ? tanque.cantidad_litros + litros : Math.max(0, tanque.cantidad_litros - litros);
-    await sb.from("stock_gasoil").update({ cantidad_litros: nueva }).eq("id", gasoilId);
-    await sb.from("stock_gasoil_movimientos").insert({ empresa_id: empresaId, gasoil_id: gasoilId, fecha: form.fecha_mov ?? new Date().toISOString().split("T")[0], tipo, litros, descripcion: form.descripcion_mov ?? "", metodo: "manual" });
-    mostrarMsg(`✅ ${tipo === "carga" ? "Carga" : "Consumo"} registrado`); await fetchAll(empresaId); setShowFormGasoilMov(""); setForm({});
+    if (!empresaId) return;
+    const sb = await getSB();
+    const litros = Number(form.litros_mov ?? 0);
+    const precioLitroNuevo = Number(form.precio_litro_mov ?? 0);
+    const tanque = gasoil.find(g => g.id === gasoilId);
+    if (!tanque) return;
+
+    let nuevaCant: number;
+    let pppNuevo: number;
+
+    if (tipo === "carga") {
+      // Nueva carga → recalcula PPP
+      nuevaCant = tanque.cantidad_litros + litros;
+      pppNuevo = precioLitroNuevo > 0
+        ? calcularPPP(tanque.cantidad_litros, tanque.precio_ppp || tanque.precio_litro, litros, precioLitroNuevo)
+        : tanque.precio_ppp || tanque.precio_litro;
+    } else {
+      // Consumo → no cambia PPP, solo cantidad
+      nuevaCant = Math.max(0, tanque.cantidad_litros - litros);
+      pppNuevo = tanque.precio_ppp || tanque.precio_litro;
+    }
+
+    const nuevoCostoTotal = nuevaCant * pppNuevo;
+
+    await sb.from("stock_gasoil").update({
+      cantidad_litros: nuevaCant,
+      precio_ppp: pppNuevo,
+      costo_total_stock: nuevoCostoTotal,
+      ...(tipo === "carga" && precioLitroNuevo > 0 ? { precio_litro: precioLitroNuevo } : {}),
+    }).eq("id", gasoilId);
+
+    await sb.from("stock_gasoil_movimientos").insert({
+      empresa_id: empresaId, gasoil_id: gasoilId,
+      fecha: form.fecha_mov ?? new Date().toISOString().split("T")[0],
+      tipo, litros,
+      descripcion: form.descripcion_mov ?? "",
+      metodo: "manual",
+      precio_litro: precioLitroNuevo,
+      precio_ppp: pppNuevo,
+      ...(form.lote_mov ? { lote_id: form.lote_mov } : {}),
+    });
+
+    const msg = tipo === "carga"
+      ? `✅ Carga registrada — PPP actualizado: $${pppNuevo.toFixed(2)}/L`
+      : `✅ Consumo registrado — PPP: $${pppNuevo.toFixed(2)}/L — Costo: $${(litros * pppNuevo).toFixed(0)}`;
+
+    mostrarMsg(msg);
+    await fetchAll(empresaId); setShowFormGasoilMov(""); setForm({});
   };
 
   const guardarVarios = async () => {
@@ -304,10 +474,10 @@ export default function StockPage() {
       const data = cultivosConStock.map(c => { const { totalFisico, totalPactado, balance, ubs } = stockPorCultivo(c); return { CULTIVO: c.toUpperCase(), "STOCK FISICO (tn)": totalFisico, "VENTAS PACTADAS (tn)": totalPactado, "BALANCE (tn)": balance, UBICACIONES: ubs.map(u=>`${u.tipo_ubicacion}: ${u.cantidad_tn}tn`).join(" | ") }; });
       const ws = XLSX.utils.json_to_sheet(data); ws["!cols"] = [{wch:14},{wch:16},{wch:18},{wch:12},{wch:40}]; XLSX.utils.book_append_sheet(wb, ws, "Granos"); XLSX.writeFile(wb, `stock_granos_${new Date().toISOString().slice(0,10)}.xlsx`);
     } else if (tab === "insumos") {
-      const data = insumos.map(i => ({ NOMBRE: i.nombre, CATEGORIA: i.categoria, SUBCATEGORIA: i.subcategoria, CANTIDAD: i.cantidad, UNIDAD: i.unidad, "PRECIO UNIT.": i.precio_unitario, UBICACION: `${i.tipo_ubicacion} ${i.ubicacion}`.trim() }));
-      const ws = XLSX.utils.json_to_sheet(data); ws["!cols"] = [{wch:22},{wch:14},{wch:14},{wch:10},{wch:8},{wch:12},{wch:20}]; XLSX.utils.book_append_sheet(wb, ws, "Insumos"); XLSX.writeFile(wb, `stock_insumos_${new Date().toISOString().slice(0,10)}.xlsx`);
+      const data = insumos.map(i => ({ NOMBRE: i.nombre, CATEGORIA: i.categoria, SUBCATEGORIA: i.subcategoria, CANTIDAD: i.cantidad, UNIDAD: i.unidad, "PRECIO COMPRA": i.precio_unitario, "PPP": i.precio_ppp || i.precio_unitario, "COSTO TOTAL STOCK": i.costo_total_stock || (i.cantidad * (i.precio_ppp || i.precio_unitario)), UBICACION: `${i.tipo_ubicacion} ${i.ubicacion}`.trim() }));
+      const ws = XLSX.utils.json_to_sheet(data); ws["!cols"] = [{wch:22},{wch:14},{wch:14},{wch:10},{wch:8},{wch:14},{wch:12},{wch:18},{wch:20}]; XLSX.utils.book_append_sheet(wb, ws, "Insumos"); XLSX.writeFile(wb, `stock_insumos_${new Date().toISOString().slice(0,10)}.xlsx`);
     } else if (tab === "gasoil") {
-      const data = gasoilMovs.map(m => ({ FECHA: m.fecha, TIPO: m.tipo, LITROS: m.litros, DESCRIPCION: m.descripcion, METODO: m.metodo }));
+      const data = gasoilMovs.map(m => ({ FECHA: m.fecha, TIPO: m.tipo, LITROS: m.litros, "PRECIO LITRO": m.precio_litro, "PPP AL MOMENTO": m.precio_ppp, DESCRIPCION: m.descripcion, METODO: m.metodo }));
       const ws = XLSX.utils.json_to_sheet(data); XLSX.utils.book_append_sheet(wb, ws, "Gasoil"); XLSX.writeFile(wb, `stock_gasoil_${new Date().toISOString().slice(0,10)}.xlsx`);
     }
   };
@@ -564,13 +734,14 @@ export default function StockPage() {
             {showFormInsumo && (
               <div className="bg-[#0a1628]/80 border border-[#4ADE80]/30 rounded-xl p-5 mb-5">
                 <h3 className="text-[#4ADE80] font-mono text-sm font-bold mb-4">{editandoInsumo?"✏️ EDITAR":"+"} INSUMO</h3>
+                {!editandoInsumo && <p className="text-xs text-[#4B5563] font-mono mb-3">💡 Si el insumo ya existe, se suma al stock y se recalcula el PPP automáticamente</p>}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div><label className={lCls}>Nombre</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls} placeholder="Ej: Glifosato 48%"/></div>
                   <div><label className={lCls}>Categoría</label><select value={form.categoria??"agroquimico"} onChange={e=>setForm({...form,categoria:e.target.value,subcategoria:""})} className={iCls}>{CAT_INSUMOS.map(c=><option key={c.key} value={c.key}>{c.icon} {c.label}</option>)}</select></div>
                   {form.categoria==="agroquimico"&&<div><label className={lCls}>Subcategoría</label><select value={form.subcategoria??""} onChange={e=>setForm({...form,subcategoria:e.target.value})} className={iCls}><option value="">Seleccionar</option>{SUBCATS_AGRO.map(s=><option key={s} value={s}>{s}</option>)}</select></div>}
                   <div><label className={lCls}>Cantidad</label><input type="number" value={form.cantidad??""} onChange={e=>setForm({...form,cantidad:e.target.value})} className={iCls}/></div>
                   <div><label className={lCls}>Unidad</label><select value={form.unidad??"litros"} onChange={e=>setForm({...form,unidad:e.target.value})} className={iCls}><option value="litros">Litros</option><option value="kg">kg</option><option value="bolsas">Bolsas</option><option value="unidad">Unidad</option></select></div>
-                  <div><label className={lCls}>Precio unitario</label><input type="number" value={form.precio_unitario??""} onChange={e=>setForm({...form,precio_unitario:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>Precio de compra</label><input type="number" value={form.precio_unitario??""} onChange={e=>setForm({...form,precio_unitario:e.target.value})} className={iCls} placeholder="Precio esta compra"/></div>
                   <div><label className={lCls}>Dónde está</label><select value={form.tipo_ubicacion??"deposito_propio"} onChange={e=>setForm({...form,tipo_ubicacion:e.target.value})} className={iCls}><option value="deposito_propio">Depósito Propio</option><option value="comercio">Comercio</option><option value="cooperativa">Cooperativa</option></select></div>
                   <div><label className={lCls}>Nombre lugar</label><input type="text" value={form.ubicacion??""} onChange={e=>setForm({...form,ubicacion:e.target.value})} className={iCls}/></div>
                 </div>
@@ -586,16 +757,24 @@ export default function StockPage() {
                 <div key={titulo||cat.key} className={titulo?"mb-3":""}>
                   {titulo&&<div className="text-xs text-[#4B5563] uppercase tracking-widest font-mono mb-1.5 px-1">— {titulo}</div>}
                   <div className="bg-[#0a1628]/80 border rounded-xl overflow-hidden" style={{borderColor:cat.color+"25"}}>
-                    <table className="w-full"><thead><tr className="border-b" style={{borderColor:cat.color+"15"}}>{["Producto","Cantidad","Precio","Ubicación",""].map(h=><th key={h} className="text-left px-4 py-2 text-xs text-[#4B5563] font-mono">{h}</th>)}</tr></thead>
+                    <table className="w-full"><thead><tr className="border-b" style={{borderColor:cat.color+"15"}}>
+                      {["Producto","Cantidad","Último Precio","PPP","Costo Stock","Ubicación",""].map(h=><th key={h} className="text-left px-4 py-2 text-xs text-[#4B5563] font-mono">{h}</th>)}
+                    </tr></thead>
                       <tbody>{its.map(i=>(
                         <tr key={i.id} className="border-b hover:bg-white/5" style={{borderColor:cat.color+"10"}}>
                           <td className="px-4 py-3 text-sm text-[#E5E7EB] font-mono font-bold">{i.nombre}</td>
                           <td className="px-4 py-3 text-sm font-mono font-bold" style={{color:cat.color}}>{i.cantidad} {i.unidad}</td>
-                          <td className="px-4 py-3 text-xs text-[#C9A227] font-mono">{i.precio_unitario>0?`$${i.precio_unitario}/${i.unidad}`:"-"}</td>
+                          <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{i.precio_unitario>0?`$${i.precio_unitario}/${i.unidad}`:"-"}</td>
+                          <td className="px-4 py-3 text-xs font-mono font-bold text-[#C9A227]">
+                            {(i.precio_ppp||i.precio_unitario)>0?`$${Number(i.precio_ppp||i.precio_unitario).toFixed(2)}/${i.unidad}`:"—"}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-[#4ADE80] font-mono">
+                            {(i.costo_total_stock||(i.cantidad*(i.precio_ppp||i.precio_unitario)))>0?`$${Math.round(i.costo_total_stock||(i.cantidad*(i.precio_ppp||i.precio_unitario))).toLocaleString("es-AR")}`:"—"}
+                          </td>
                           <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{i.tipo_ubicacion?.replace("_"," ")}{i.ubicacion?` · ${i.ubicacion}`:""}</td>
                           <td className="px-4 py-3"><div className="flex items-center gap-2">
                             <button onClick={()=>{setEditandoInsumo(i.id);setForm({nombre:i.nombre,categoria:i.categoria,subcategoria:i.subcategoria??"",cantidad:String(i.cantidad),unidad:i.unidad,ubicacion:i.ubicacion,tipo_ubicacion:i.tipo_ubicacion,precio_unitario:String(i.precio_unitario)});setShowFormInsumo(true);}} className="text-xs text-[#C9A227] font-mono hover:underline">✏️</button>
-                            <button onClick={()=>{const cant=prompt(`Descontar cantidad (${i.unidad}):`);if(cant&&Number(cant)>0)descontarInsumo(i.id,Number(cant));}} className="text-xs text-[#60A5FA] font-mono hover:underline">➖</button>
+                            <button onClick={()=>{const cant=prompt(`Descontar cantidad (${i.unidad}):\nPPP actual: $${(i.precio_ppp||i.precio_unitario).toFixed(2)}`);if(cant&&Number(cant)>0)descontarInsumo(i.id,Number(cant));}} className="text-xs text-[#60A5FA] font-mono hover:underline" title="Descontar uso (usa PPP)">➖</button>
                             <button onClick={()=>eliminarItem("stock_insumos",i.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button>
                           </div></td>
                         </tr>
@@ -637,6 +816,7 @@ export default function StockPage() {
               <div className="space-y-4">
                 {gasoil.map(g=>{
                   const movsDeTanque=gasoilMovs.filter(m=>m.gasoil_id===g.id); const isActivo=gasoilActivo===g.id;
+                  const pppActual = g.precio_ppp || g.precio_litro;
                   return (
                     <div key={g.id} className="card-s bg-[#0a1628]/80 border border-[#60A5FA]/20 rounded-xl overflow-hidden">
                       <div className="relative h-28">
@@ -646,7 +826,13 @@ export default function StockPage() {
                         <div className="absolute top-2 right-2"><button onClick={()=>setGasoilActivo(isActivo?null:g.id)} className="px-2 py-1 rounded-lg bg-[#60A5FA]/20 border border-[#60A5FA]/40 text-[#60A5FA] text-xs font-mono">{isActivo?"▲":"▼ Historial"}</button></div>
                       </div>
                       <div className="p-4">
-                        <div className="flex items-center justify-between mb-3"><span className="text-[#C9A227] font-mono font-bold">${g.precio_litro}/L · Total: ${(g.cantidad_litros*g.precio_litro).toLocaleString("es-AR")}</span><button onClick={()=>eliminarItem("stock_gasoil",g.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button></div>
+                        {/* PPP info */}
+                        <div className="flex items-center gap-4 mb-3 flex-wrap">
+                          <span className="text-xs font-mono text-[#9CA3AF]">Último precio: <span className="text-[#E5E7EB]">${g.precio_litro}/L</span></span>
+                          <span className="text-xs font-mono font-bold text-[#C9A227]">PPP: ${pppActual.toFixed(2)}/L</span>
+                          <span className="text-xs font-mono text-[#4ADE80]">Costo stock: ${Math.round(g.cantidad_litros * pppActual).toLocaleString("es-AR")}</span>
+                          <button onClick={()=>eliminarItem("stock_gasoil",g.id)} className="text-[#4B5563] hover:text-red-400 text-xs ml-auto">✕</button>
+                        </div>
                         <div className="flex gap-2 mb-3">
                           <button onClick={()=>{setShowFormGasoilMov(g.id+"_carga");setForm({fecha_mov:new Date().toISOString().split("T")[0]});}} className="flex-1 py-2 rounded-lg bg-[#4ADE80]/10 border border-[#4ADE80]/30 text-[#4ADE80] text-xs font-mono hover:bg-[#4ADE80]/20">⬆️ Registrar carga</button>
                           <button onClick={()=>{setShowFormGasoilMov(g.id+"_consumo");setForm({fecha_mov:new Date().toISOString().split("T")[0]});}} className="flex-1 py-2 rounded-lg bg-[#F87171]/10 border border-[#F87171]/30 text-[#F87171] text-xs font-mono hover:bg-[#F87171]/20">⬇️ Registrar consumo</button>
@@ -655,11 +841,24 @@ export default function StockPage() {
                         {(showFormGasoilMov===g.id+"_carga"||showFormGasoilMov===g.id+"_consumo")&&(
                           <div className="bg-[#020810]/60 rounded-xl p-3 mb-3 border border-[#60A5FA]/20">
                             <h4 className="text-[#60A5FA] font-mono text-xs font-bold mb-3">{showFormGasoilMov.endsWith("_carga")?"⬆️ CARGAR GASOIL":"⬇️ REGISTRAR CONSUMO"}</h4>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                               <div><label className={lCls}>Litros</label><input type="number" value={form.litros_mov??""} onChange={e=>setForm({...form,litros_mov:e.target.value})} className={iCls}/></div>
+                              {showFormGasoilMov.endsWith("_carga") && (
+                                <div><label className={lCls}>Precio/litro compra</label><input type="number" value={form.precio_litro_mov??""} onChange={e=>setForm({...form,precio_litro_mov:e.target.value})} className={iCls} placeholder={`PPP actual: $${pppActual.toFixed(2)}`}/></div>
+                              )}
                               <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_mov??""} onChange={e=>setForm({...form,fecha_mov:e.target.value})} className={iCls}/></div>
                               <div><label className={lCls}>Descripción</label><input type="text" value={form.descripcion_mov??""} onChange={e=>setForm({...form,descripcion_mov:e.target.value})} className={iCls} placeholder="Ej: Cosecha, tractor..."/></div>
                             </div>
+                            {showFormGasoilMov.endsWith("_carga") && form.litros_mov && form.precio_litro_mov && (
+                              <div className="mt-2 text-xs text-[#C9A227] font-mono bg-[#C9A227]/5 px-3 py-2 rounded-lg">
+                                PPP nuevo estimado: ${calcularPPP(g.cantidad_litros, pppActual, Number(form.litros_mov), Number(form.precio_litro_mov)).toFixed(2)}/L
+                              </div>
+                            )}
+                            {showFormGasoilMov.endsWith("_consumo") && form.litros_mov && (
+                              <div className="mt-2 text-xs text-[#F87171] font-mono bg-[#F87171]/5 px-3 py-2 rounded-lg">
+                                Costo imputado: ${Math.round(Number(form.litros_mov) * pppActual).toLocaleString("es-AR")} (PPP: ${pppActual.toFixed(2)}/L)
+                              </div>
+                            )}
                             <div className="flex gap-2 mt-3">
                               <button onClick={()=>registrarMovGasoil(g.id,showFormGasoilMov.endsWith("_carga")?"carga":"consumo")} className="bg-[#60A5FA]/10 border border-[#60A5FA]/30 text-[#60A5FA] font-bold px-4 py-2 rounded-lg text-xs font-mono">▶ Guardar</button>
                               <button onClick={()=>{setShowFormGasoilMov("");setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-4 py-2 rounded-lg text-xs font-mono">Cancelar</button>
@@ -670,7 +869,21 @@ export default function StockPage() {
                           <div className="border-t border-[#60A5FA]/15 pt-3">
                             <div className="text-xs text-[#60A5FA] font-mono font-bold mb-2">HISTORIAL DE MOVIMIENTOS</div>
                             <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                              {movsDeTanque.map(m=><div key={m.id} className="flex items-center justify-between bg-[#020810]/40 rounded-lg px-3 py-2"><div className="flex items-center gap-3"><span className="text-xs" style={{color:m.tipo==="carga"?"#4ADE80":"#F87171"}}>{m.tipo==="carga"?"⬆️":"⬇️"}</span><span className="text-xs text-[#9CA3AF] font-mono">{m.fecha}</span>{m.descripcion&&<span className="text-xs text-[#4B5563] font-mono">{m.descripcion}</span>}{m.metodo==="voz"&&<span className="text-xs text-[#A78BFA] font-mono">🎤</span>}</div><span className="text-sm font-bold font-mono" style={{color:m.tipo==="carga"?"#4ADE80":"#F87171"}}>{m.tipo==="carga"?"+":"-"}{m.litros}L</span></div>)}
+                              {movsDeTanque.map(m=>(
+                                <div key={m.id} className="flex items-center justify-between bg-[#020810]/40 rounded-lg px-3 py-2">
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-xs" style={{color:m.tipo==="carga"?"#4ADE80":"#F87171"}}>{m.tipo==="carga"?"⬆️":"⬇️"}</span>
+                                    <span className="text-xs text-[#9CA3AF] font-mono">{m.fecha}</span>
+                                    {m.descripcion&&<span className="text-xs text-[#4B5563] font-mono">{m.descripcion}</span>}
+                                    {m.precio_ppp>0&&<span className="text-xs text-[#C9A227] font-mono">PPP:${m.precio_ppp.toFixed(2)}</span>}
+                                    {m.metodo==="voz"&&<span className="text-xs text-[#A78BFA] font-mono">🎤</span>}
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="text-sm font-bold font-mono" style={{color:m.tipo==="carga"?"#4ADE80":"#F87171"}}>{m.tipo==="carga"?"+":"-"}{m.litros}L</span>
+                                    {m.tipo==="consumo"&&m.precio_ppp>0&&<div className="text-xs text-[#F87171] font-mono">${Math.round(m.litros*m.precio_ppp).toLocaleString("es-AR")}</div>}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           </div>
                         )}
