@@ -479,141 +479,164 @@ export default function IngenieroLotesPage() {
       const rows: any[] = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:"" });
       if (rows.length < 2) { setCuadernoMsg("Sin datos"); return; }
 
-      // Normalizar header: quitar tildes, minúsculas, caracteres especiales → guión bajo
-      const norm = (s: string) => String(s).toLowerCase().trim()
-        .replace(/á/g,"a").replace(/é/g,"e").replace(/í/g,"i").replace(/ó/g,"o").replace(/ú/g,"u").replace(/º/g,"").replace(/°/g,"")
-        .replace(/[^a-z0-9]/g,"_").replace(/_+/g,"_").replace(/^_|_$/g,"");
+      // Normalizar: minúsculas, sin tildes, sin caracteres raros
+      const norm = (s: any) => String(s ?? "").toLowerCase().trim()
+        .replace(/[áà]/g,"a").replace(/[éè]/g,"e").replace(/[íì]/g,"i")
+        .replace(/[óò]/g,"o").replace(/[úù]/g,"u").replace(/[ñ]/g,"n")
+        .replace(/º|°/g,"").replace(/[^a-z0-9]/g,"_")
+        .replace(/_+/g,"_").replace(/^_|_$/g,"");
 
-      const rawH = rows[0].map((h: any) => norm(h));
+      const hdrs = rows[0].map((h: any) => norm(h));
 
-      // Buscar columna: primero coincidencia EXACTA, luego contiene
-      // IMPORTANTE: el orden de búsqueda evita que "ha" matchee "fecha"
-      const findCol = (exactos: string[], parciales: string[]): number => {
-        // 1. Exacto
-        for (const e of exactos) {
-          const i = rawH.findIndex(h => h === e);
-          if (i >= 0) return i;
-        }
-        // 2. Parcial: el header ES EXACTAMENTE uno de los parciales (no solo contiene)
-        for (const p of parciales) {
-          const i = rawH.findIndex(h => h === p || (h.startsWith(p) && h.length <= p.length + 3));
+      // Buscar columna — solo coincidencia EXACTA con la lista de nombres posibles
+      const col = (nombres: string[]): number => {
+        for (const n of nombres) {
+          const i = hdrs.indexOf(n);
           if (i >= 0) return i;
         }
         return -1;
       };
 
-      // Detección ESTRICTA — el orden importa para evitar falsos positivos
-      const cFecha   = findCol(["fecha","date"],                          ["fec","dia"]);
-      const cLote    = findCol(["lote","campo","parcela"],                 ["lot","n_lote","nro_lote","numero_lote"]);
-      const cHas     = findCol(["has","hectareas","superficie","ha_lote"], ["sup_ha","ha"]);
-      const cCultivo = findCol(["cultivo","especie","crop","cult"],        ["ctv"]);
-      const cDosis   = findCol(["dosis","producto_dosis","descripcion"],   ["prod","desc","detalle","tarea"]);
-      const cAplic   = findCol(["aplicador","equipo","maquina"],           ["aplic","maq"]);
-      const cCostoHa = findCol(["costo_ha","precio_ha","valor_ha"],        ["cost_ha","costo_por_ha"]);
-      const cCostoT  = findCol(["costo_total","importe","monto_total"],    ["total","costo"]);
-      const cTipo    = findCol(["tipo","tipo_labor","labor","tipo_tarea"],  ["accion"]);
-      const cComent  = findCol(["comentario","observacion","nota"],        ["coment","obs"]);
+      // Columnas con sus posibles nombres normalizados
+      const cFecha   = col(["fecha","date","dia","fec"]);
+      const cLote    = col(["lote","campo","parcela","lot","n_lote","nro","numero","num"]);
+      const cHas     = col(["has","hectareas","superficie","ha_lote","hect"]);
+      const cCultivo = col(["cultivo","especie","crop","cult"]);
+      const cDosis   = col(["dosis","producto","producto_dosis","descripcion","desc","detalle"]);
+      const cAplic   = col(["aplicador","equipo","maquina","aplic","mosquito","drone"]);
+      const cCostoHa = col(["costo_ha","precio_ha","valor_ha","costo_por_ha","cosha"]);
+      const cCostoT  = col(["costo_total","total","importe","monto","costo_tot"]);
+      const cTipo    = col(["tipo","tipo_labor","labor","accion","tarea"]);
+      const cComent  = col(["comentario","observacion","obs","nota","coment"]);
 
-      if (cFecha === -1) { setCuadernoMsg("❌ No encontré columna FECHA"); return; }
-      if (cLote  === -1) { setCuadernoMsg("❌ No encontré columna LOTE"); return; }
+      if (cFecha === -1) {
+        setCuadernoMsg("❌ No encontré columna FECHA. Headers detectados: " + hdrs.join(", "));
+        return;
+      }
+      if (cLote === -1) {
+        setCuadernoMsg("❌ No encontré columna LOTE. Headers detectados: " + hdrs.join(", "));
+        return;
+      }
 
-      // Buscar lote por número: "7" matchea "7- GRANDE N"
-      const buscarLote = (val: string) => {
-        if (!val || val === "0") return undefined;
-        const v = val.toLowerCase().trim();
-        // Exacto
-        let f = lotes.find(l => l.nombre.toLowerCase().trim() === v);
+      // Buscar lote: "7" → "7- GRANDE N"
+      const buscarLote = (val: any) => {
+        const v = String(val ?? "").trim();
+        if (!v || v === "0") return undefined;
+        const vl = v.toLowerCase();
+        // 1. Exacto
+        let f = lotes.find(l => l.nombre.toLowerCase().trim() === vl);
         if (f) return f;
-        // Número solo: matchea "7-...", "7 -...", "7 ..."
+        // 2. Número solo → lote que empieza con ese número
         if (/^\d+$/.test(v)) {
           f = lotes.find(l => {
             const n = l.nombre.trim();
-            return n === v || n.startsWith(v+"-") || n.startsWith(v+" -") || n.startsWith(v+" ") || new RegExp("^"+v+"\\b").test(n);
+            return n === v
+              || n.startsWith(v + "-")
+              || n.startsWith(v + " -")
+              || n.startsWith(v + " ")
+              || new RegExp("^" + v + "\\b").test(n);
           });
           if (f) return f;
         }
-        // Parcial (mínimo 3 chars)
-        if (v.length >= 3) {
-          f = lotes.find(l => l.nombre.toLowerCase().includes(v));
+        // 3. Contiene (mínimo 3 chars)
+        if (vl.length >= 3) {
+          f = lotes.find(l => l.nombre.toLowerCase().includes(vl));
           if (f) return f;
         }
         return undefined;
       };
 
-      const preview = rows.slice(1).filter((r: any) => {
-        return r[cFecha] && String(r[cFecha]).trim() && r[cLote] && String(r[cLote]).trim();
-      }).map((r: any) => {
-        const loteVal    = String(r[cLote]).trim();
-        const loteObj    = buscarLote(loteVal);
-        const fechaPars  = parseFecha(r[cFecha]);
-        const haExcel    = cHas >= 0 ? Number(r[cHas]) || 0 : 0;
-        const ha         = haExcel > 0 ? haExcel : (loteObj?.hectareas ?? 0);
-        const cultivoVal = cCultivo >= 0 ? String(r[cCultivo]).trim() : "";
-        const dosisVal   = cDosis >= 0 ? String(r[cDosis]).trim() : "";
-        const tipoRaw    = cTipo >= 0 ? String(r[cTipo]).trim() : "";
-        const textoInf   = (tipoRaw + dosisVal + cultivoVal).toLowerCase();
-        const tipo = tipoRaw || (
-          textoInf.includes("siem") ? "Siembra" :
-          textoInf.includes("cosech") ? "Cosecha" :
-          textoInf.includes("fertil") ? "Fertilización" :
-          (textoInf.includes("glifo")||textoInf.includes("2,4")||textoInf.includes("herbic")||textoInf.includes("insec")||textoInf.includes("fungic")) ? "Aplicación" :
-          "Aplicación"
-        );
-        const costoHaRaw = cCostoHa >= 0 ? r[cCostoHa] : "";
-        const costoHa    = costoHaRaw !== "" && costoHaRaw !== null ? Number(costoHaRaw) || 0 : 0;
-        const costoTRaw  = cCostoT >= 0 ? r[cCostoT] : "";
-        const costoT     = costoTRaw !== "" && costoTRaw !== null ? Number(costoTRaw) || 0 : 0;
-        const costoFinal = costoT > 0 ? costoT : costoHa > 0 && ha > 0 ? costoHa * ha : 0;
-        return {
-          lote_nombre:         loteVal,
-          lote_id:             loteObj?.id ?? null,
-          lote_match:          loteObj?.nombre ?? null,
-          hectareas:           ha,
-          fecha:               fechaPars,
-          tipo,
-          cultivo_excel:       cultivoVal,
-          producto_dosis:      dosisVal || cultivoVal,
-          descripcion:         dosisVal || cultivoVal,
-          aplicador:           cAplic >= 0 ? String(r[cAplic]).trim() : "",
-          costo_aplicacion_ha: costoHa,
-          costo_total:         costoFinal,
-          comentario:          cComent >= 0 ? String(r[cComent]).trim() : "",
-        };
-      });
+      const preview = rows.slice(1)
+        .filter((r: any) => String(r[cFecha] ?? "").trim() && String(r[cLote] ?? "").trim())
+        .map((r: any) => {
+          const loteVal  = String(r[cLote]).trim();
+          const loteObj  = buscarLote(loteVal);
+          const fechaStr = parseFecha(r[cFecha]);
+          const haExcel  = cHas >= 0 && r[cHas] !== "" ? Number(r[cHas]) || 0 : 0;
+          const ha       = haExcel > 0 ? haExcel : (loteObj?.hectareas ?? 0);
+          const cultivo  = cCultivo >= 0 ? String(r[cCultivo] ?? "").trim() : "";
+          const dosis    = cDosis   >= 0 ? String(r[cDosis]   ?? "").trim() : "";
+          const tipoRaw  = cTipo    >= 0 ? String(r[cTipo]    ?? "").trim() : "";
+          const txt      = (tipoRaw + dosis + cultivo).toLowerCase();
+          const tipo     = tipoRaw || (
+            txt.includes("siem")                    ? "Siembra"       :
+            txt.includes("cosech")                  ? "Cosecha"       :
+            txt.includes("fertil")                  ? "Fertilización" :
+            txt.includes("labr")                    ? "Labranza"      :
+            txt.includes("recorr")                  ? "Recorrida"     :
+                                                      "Aplicación"
+          );
+          // Costos — solo si la celda tiene valor real (no vacío)
+          const costoHaRaw = cCostoHa >= 0 ? r[cCostoHa] : "";
+          const costoHa    = costoHaRaw !== "" && costoHaRaw !== null ? Number(costoHaRaw) || 0 : 0;
+          const costoTRaw  = cCostoT  >= 0 ? r[cCostoT]  : "";
+          const costoT     = costoTRaw  !== "" && costoTRaw  !== null ? Number(costoTRaw)  || 0 : 0;
+          const costoFinal = costoT > 0 ? costoT : (costoHa > 0 && ha > 0 ? costoHa * ha : 0);
+          return {
+            lote_nombre:         loteVal,
+            lote_id:             loteObj?.id    ?? null,
+            lote_match:          loteObj?.nombre ?? null,
+            hectareas:           ha,
+            fecha:               fechaStr,
+            tipo,
+            cultivo_excel:       cultivo,
+            producto_dosis:      dosis || cultivo,
+            descripcion:         dosis || cultivo,
+            aplicador:           cAplic  >= 0 ? String(r[cAplic]  ?? "").trim() : "",
+            costo_aplicacion_ha: costoHa,
+            costo_total:         costoFinal,
+            comentario:          cComent >= 0 ? String(r[cComent] ?? "").trim() : "",
+          };
+        });
 
       setCuadernoPreview(preview);
-      const conMatch = preview.filter(p => p.lote_id).length;
-      const sinMatch = preview.filter(p => !p.lote_id).length;
-      setCuadernoMsg(`✅ ${preview.length} labores · ${conMatch} lotes encontrados${sinMatch > 0 ? ` · ⚠ ${sinMatch} sin match` : ""}`);
-    } catch(e: any) { setCuadernoMsg("❌ "+e.message); }
+      const con = preview.filter(p => p.lote_id).length;
+      const sin = preview.filter(p => !p.lote_id).length;
+      setCuadernoMsg(`✅ ${preview.length} labores · ${con} lotes encontrados${sin > 0 ? ` · ⚠ ${sin} sin match` : ""}`);
+    } catch(e: any) { setCuadernoMsg("❌ " + e.message); }
   };
 
   const confirmarImportCuaderno = async () => {
-    if (!empresaId||!cuadernoPreview.length) return;
+    if (!empresaId || !cuadernoPreview.length) return;
     const sb = await getSB();
-    let ok=0; let err=0;
+    const cid = await getCampanaId(sb);
+    if (!cid) { msg("❌ Sin campaña — creá una primero"); return; }
+
+    let ok = 0; let err = 0;
     for (const l of cuadernoPreview) {
       if (!l.lote_id) { err++; continue; }
-      try {
-        await sb.from("lote_labores").insert({
-          empresa_id: empresaId, lote_id: l.lote_id, campana_id: campanaActiva,
-          fecha: l.fecha, tipo: l.tipo,
-          descripcion: l.producto_dosis,
-          producto_dosis: l.producto_dosis,
-          aplicador: l.aplicador,
-          superficie_ha: l.hectareas,
-          costo_total: l.costo_total,
-          costo_aplicacion_ha: l.costo_aplicacion_ha,
-          comentario: l.comentario,
-          metodo_carga: "excel_multi",
-        });
-        // Actualizar MB si hay costo
-        if (l.costo_total > 0) await actualizarCostoLaboresEnMB(l.lote_id, l.costo_total);
-        ok++;
-      } catch { err++; }
+      // Payload base — solo columnas que SIEMPRE existen en lote_labores
+      const payload: Record<string,any> = {
+        empresa_id:   empresaId,
+        lote_id:      l.lote_id,
+        campana_id:   cid,
+        fecha:        l.fecha || new Date().toISOString().split("T")[0],
+        tipo:         l.tipo  || "Aplicación",
+        descripcion:  l.producto_dosis || l.descripcion || "",
+        superficie_ha:l.hectareas || 0,
+        operario:     ingenieroNombre,
+        costo_total:  l.costo_total || 0,
+        metodo_carga: "excel_multi",
+      };
+      // Columnas nuevas — solo si tienen valor
+      if (l.producto_dosis)      payload.producto_dosis       = l.producto_dosis;
+      if (l.aplicador)           payload.aplicador            = l.aplicador;
+      if (l.costo_aplicacion_ha) payload.costo_aplicacion_ha  = l.costo_aplicacion_ha;
+      if (l.comentario)          payload.comentario           = l.comentario;
+
+      const { error } = await sb.from("lote_labores").insert(payload);
+      if (error) {
+        // Si falla por columna inexistente, reintentar sin columnas opcionales
+        const { empresa_id, lote_id, campana_id, fecha, tipo, descripcion, superficie_ha, operario, costo_total, metodo_carga } = payload;
+        const { error: err2 } = await sb.from("lote_labores").insert({ empresa_id, lote_id, campana_id, fecha, tipo, descripcion, superficie_ha, operario, costo_total, metodo_carga });
+        if (err2) { err++; continue; }
+      }
+      if ((l.costo_total || 0) > 0) await actualizarCostoLaboresEnMB(l.lote_id, l.costo_total);
+      ok++;
     }
-    msg(`✅ ${ok} labores importadas${err>0?` · ${err} errores`:""}`);
-    await fetchLotes(empresaId, campanaActiva);
+    if (ok > 0) msg(`✅ ${ok} labores importadas${err > 0 ? ` · ${err} sin match` : ""}`);
+    else msg("❌ No se importó ninguna labor — verificá que los nombres de lote coincidan");
+    await fetchLotes(empresaId, cid);
     setCuadernoPreview([]); setCuadernoMsg(""); setShowImportCuaderno(false);
   };
 
