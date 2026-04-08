@@ -10,7 +10,7 @@ const getSB = async () => {
 
 type Seccion = "general"|"productores"|"cobranza"|"vehiculo"|"ia_campo";
 type ProductorIng = { id:string; nombre:string; telefono:string; email:string; localidad:string; provincia:string; hectareas_total:number; observaciones:string; empresa_id:string|null; tiene_cuenta:boolean; honorario_tipo:string; honorario_monto:number; };
-type Campana = { id:string; nombre:string; activa:boolean; };
+type Campana = { id:string; nombre:string; activa:boolean; año_inicio?:number; año_fin?:number; };
 type Cobranza = { id:string; productor_id:string; concepto:string; monto:number; fecha:string; estado:string; metodo_pago:string; };
 type Vehiculo = { id:string; nombre:string; marca:string; modelo:string; anio:number; patente:string; seguro_vencimiento:string; vtv_vencimiento:string; km_actuales:number; proximo_service_km:number; seguro_compania:string; };
 type ServiceVeh = { id:string; tipo:string; descripcion:string; costo:number; km:number; fecha:string; taller:string; };
