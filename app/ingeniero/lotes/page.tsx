@@ -25,10 +25,11 @@ type Labor = {
   precio_aplicacion_ha?: number; costo_total_usd?: number;
   metodo_carga?: string; metodo_entrada?: string;
   estado_carga?: string; cargado_por_rol?: string;
-  // Aliases para compatibilidad con el UI
+  // Aliases normalizados en fetchLotes
   producto_dosis?: string; aplicador?: string;
   costo_aplicacion_ha?: number; costo_total?: number;
   superficie_ha?: number; comentario?: string; observaciones?: string;
+  operario?: string; maquinaria?: string;
 };
 
 const CULTIVOS_LISTA = [
@@ -1077,7 +1078,7 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
                             {/* Comentario */}
                             {coment&&<div className="text-xs text-amber-300/80 mt-1 flex items-start gap-1.5"><span className="flex-shrink-0 mt-0.5">💬</span><span>{coment}</span></div>}
                             {/* Operario */}
-                            {l.operario&&l.operario!==ingenieroNombre&&<div className="text-xs text-gray-600 mt-0.5">👤 {l.operario}</div>}
+                            {(l as any).operario&&(l as any).operario!==ingenieroNombre&&<div className="text-xs text-gray-600 mt-0.5">👤 {(l as any).operario}</div>}
                           </div>
                           {/* Costos */}
                           <div className="text-right flex-shrink-0">
