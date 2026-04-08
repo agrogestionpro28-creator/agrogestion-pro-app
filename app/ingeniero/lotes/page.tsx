@@ -141,7 +141,8 @@ export default function IngenieroLotesPage() {
   const [cuadernoPreview, setCuadernoPreview] = useState<any[]>([]);
   const [cuadernoMsg, setCuadernoMsg] = useState("");
   const importRef = useRef<HTMLInputElement>(null);
-  const importCuadernoRef = useRef<HTMLInputElement>(null);
+  const importCuadernoRef = useRef<HTMLInputElement>(null);       // dentro del lote
+  const importCuadernoMultiRef = useRef<HTMLInputElement>(null);  // vista principal multi-lote
   const adjuntoRef = useRef<HTMLInputElement>(null);
   const [usdUsado, setUsdUsado] = useState(1);
   // Voz
@@ -495,8 +496,11 @@ export default function IngenieroLotesPage() {
         const prod = cProd>=0 ? String(r[cProd]).trim() : "";
         const dl = (tipoRaw+prod).toLowerCase();
         const tipo = tipoRaw || (dl.includes("siem")?"Siembra":dl.includes("cosech")?"Cosecha":dl.includes("fertil")?"Fertilización":"Aplicación");
-        const costoHa = cCostoHa>=0 ? Number(r[cCostoHa])||0 : 0;
-        const costoTotal = cCostoT>=0 ? Number(r[cCostoT])||0 : 0;
+        const costoHa = cCostoHa>=0 ? (Number(r[cCostoHa])||0) : 0;
+        const costoTotalRaw = cCostoT>=0 ? r[cCostoT] : "";
+        const costoTotal = costoTotalRaw !== "" && costoTotalRaw !== null && costoTotalRaw !== undefined ? (Number(costoTotalRaw)||0) : 0;
+        // Calcular costo total solo si hay costo/ha y hectáreas conocidas — nunca inventar un 0 visible
+        const costoTotalFinal = costoTotal > 0 ? costoTotal : (costoHa > 0 && loteEncontrado?.hectareas ? costoHa * loteEncontrado.hectareas : 0);
         // Buscar lote en la lista
         const loteEncontrado = lotes.find(l => l.nombre.toLowerCase().includes(loteNombre.toLowerCase()) || loteNombre.toLowerCase().includes(l.nombre.toLowerCase()));
         return {
@@ -509,7 +513,7 @@ export default function IngenieroLotesPage() {
           producto_dosis: prod,
           aplicador: cAplic>=0 ? String(r[cAplic]).trim() : "",
           costo_aplicacion_ha: costoHa,
-          costo_total: costoTotal || (costoHa * (loteEncontrado?.hectareas||0)),
+          costo_total: costoTotalFinal,
           comentario: cComent>=0 ? String(r[cComent]).trim() : "",
         };
       });
@@ -1033,23 +1037,24 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
                   <div className="mt-1 text-gray-600">Tipos: Siembra / Aplicación / Fertilización / Cosecha / Labranza / Control malezas / Recorrida</div>
                   <div className="text-gray-600">Aplicadores: Mosquito / Drone / Avión / Tractor / Manual</div>
                 </div>
-                <input ref={importCuadernoRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)leerExcelCuaderno(f);}}/>
+                {/* Ref SEPARADO para vista principal — no comparte con el del detalle de lote */}
+                <input ref={importCuadernoMultiRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f){setCuadernoPreview([]);setCuadernoMsg("");leerExcelCuaderno(f);}}}/>
                 {cuadernoPreview.length===0
-                  ?<button onClick={()=>importCuadernoRef.current?.click()} className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-[#1e2d3d] rounded-xl text-gray-500 text-sm w-full justify-center hover:border-amber-600/50 hover:text-amber-400 transition-colors">📁 Seleccionar archivo Excel</button>
+                  ?<button onClick={()=>importCuadernoMultiRef.current?.click()} className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-[#1e2d3d] rounded-xl text-gray-500 text-sm w-full justify-center hover:border-amber-600/50 hover:text-amber-400 transition-colors">📁 Seleccionar archivo Excel</button>
                   :<div>
                     <div className="max-h-48 overflow-y-auto mb-3 rounded-xl border border-[#1e2d3d]">
                       <table className="w-full text-xs">
                         <thead className="bg-[#1a2535]"><tr>{["Lote","Match","Fecha","Tipo","Producto","Aplic.","$/ha","Total","Coment."].map(h=><th key={h} className="text-left px-3 py-2 text-gray-400 font-medium">{h}</th>)}</tr></thead>
                         <tbody>{cuadernoPreview.map((r,i)=>(
-                          <tr key={i} className={`border-t border-[#1a2535] ${!r.lote_id?"opacity-50":""}`}>
+                          <tr key={i} className={`border-t border-[#1a2535] ${!r.lote_id?"opacity-40":""}`}>
                             <td className="px-3 py-2 text-gray-300 font-medium">{r.lote_nombre}</td>
-                            <td className="px-3 py-2">{r.lote_match?<span className="text-green-400 font-medium">✓ {r.lote_match}</span>:<span className="text-red-400">✗</span>}</td>
+                            <td className="px-3 py-2">{r.lote_match?<span className="text-green-400 font-medium">✓ {r.lote_match}</span>:<span className="text-red-400">✗ No encontrado</span>}</td>
                             <td className="px-3 py-2 text-gray-400">{r.fecha}</td>
                             <td className="px-3 py-2"><span className="px-1.5 py-0.5 rounded text-xs font-bold" style={{background:laborColor(r.tipo)+"20",color:laborColor(r.tipo)}}>{r.tipo}</span></td>
                             <td className="px-3 py-2 text-gray-300 max-w-[100px] truncate">{r.producto_dosis||"—"}</td>
                             <td className="px-3 py-2 text-gray-400">{r.aplicador||"—"}</td>
-                            <td className="px-3 py-2 text-amber-400">{r.costo_aplicacion_ha?`$${r.costo_aplicacion_ha}`:"—"}</td>
-                            <td className="px-3 py-2 text-amber-300 font-bold">{r.costo_total?`$${Number(r.costo_total).toLocaleString("es-AR")}`:"—"}</td>
+                            <td className="px-3 py-2 text-amber-400">{r.costo_aplicacion_ha>0?`$${r.costo_aplicacion_ha}`:"—"}</td>
+                            <td className="px-3 py-2 text-amber-300 font-bold">{r.costo_total>0?`$${Number(r.costo_total).toLocaleString("es-AR")}`:"—"}</td>
                             <td className="px-3 py-2 text-gray-500 max-w-[80px] truncate">{r.comentario||"—"}</td>
                           </tr>
                         ))}</tbody>
@@ -1057,12 +1062,12 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
                     </div>
                     <div className="flex items-center gap-3">
                       <button onClick={confirmarImportCuaderno} className="btn-solid-green px-5 py-2.5 rounded-xl text-sm font-bold">▶ Importar {cuadernoPreview.filter(r=>r.lote_id).length} labores</button>
-                      <button onClick={()=>setCuadernoPreview([])} className="bg-[#1e2a3a] text-gray-400 px-4 py-2.5 rounded-xl text-sm transition-colors">Cambiar archivo</button>
-                      <span className="text-xs text-gray-500">{cuadernoPreview.filter(r=>!r.lote_id).length>0&&`⚠ ${cuadernoPreview.filter(r=>!r.lote_id).length} sin match`}</span>
+                      <button onClick={()=>{setCuadernoPreview([]);setCuadernoMsg("");importCuadernoMultiRef.current?.click();}} className="bg-[#1e2a3a] text-gray-400 px-4 py-2.5 rounded-xl text-sm transition-colors">Cambiar archivo</button>
+                      {cuadernoPreview.filter(r=>!r.lote_id).length>0&&<span className="text-xs text-amber-500">⚠ {cuadernoPreview.filter(r=>!r.lote_id).length} sin match</span>}
                     </div>
                   </div>
                 }
-                {cuadernoMsg&&<p className={`mt-2 text-xs font-medium ${cuadernoMsg.startsWith("✅")?"text-green-400":"text-amber-400"}`}>{cuadernoMsg}</p>}
+                {cuadernoMsg&&<p className={`mt-2 text-xs font-medium ${cuadernoMsg.startsWith("✅")?"text-green-400":cuadernoMsg.startsWith("❌")?"text-red-400":"text-amber-400"}`}>{cuadernoMsg}</p>}
               </div>
             )}
 
