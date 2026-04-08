@@ -121,6 +121,12 @@ export default function IngenieroPanel() {
 
   const fetchProds = async (iid: string) => {
     const sb = await getSB();
+    // Reparar productores sin empresa_id antes de cargar
+    const { data: sinEmp } = await sb.from("ing_productores").select("id,nombre").eq("ingeniero_id", iid).eq("activo", true).is("empresa_id", null);
+    for (const p of (sinEmp ?? [])) {
+      const { data: emp } = await sb.from("empresas").insert({ nombre: p.nombre + " (Ing)", propietario_id: iid }).select("id").single();
+      if (emp?.id) await sb.from("ing_productores").update({ empresa_id: emp.id }).eq("id", p.id);
+    }
     const { data: prods } = await sb.from("ing_productores").select("*").eq("ingeniero_id", iid).eq("activo", true).order("nombre");
     setProductores(prods ?? []);
     const cpMap: Record<string,any[]> = {};
@@ -139,30 +145,60 @@ export default function IngenieroPanel() {
       const campList: any[] = (camps ?? []) as any[];
       cpMap[eid] = campList;
 
-      // Elegir campaña: activa > más reciente
+      // Elegir campaña: activa > más reciente por año_inicio
       const campSel = campList.find((c:any) => c.activa) ?? campList[0] ?? null;
 
       if (campSel) {
         csMap[eid] = campSel.id;
-        // Traer todos los lotes principales de esa campaña
+        // Traer lotes de esa campaña
         const { data: ls } = await sb.from("lotes")
           .select("id,nombre,hectareas,cultivo,cultivo_completo,estado")
           .eq("empresa_id", eid)
           .eq("campana_id", campSel.id)
           .eq("es_segundo_cultivo", false);
-        (ls ?? []).forEach((l:any) => lotesAll.push({
-          ...l, productor_nombre: p.nombre, empresa_id: eid
-        }));
+        const lotesEmp = ls ?? [];
+        if (lotesEmp.length > 0) {
+          lotesEmp.forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre, empresa_id: eid}));
+        } else {
+          // La campaña existe pero no tiene lotes — buscar en todas las campañas
+          const { data: lsAll } = await sb.from("lotes")
+            .select("id,nombre,hectareas,cultivo,cultivo_completo,estado")
+            .eq("empresa_id", eid)
+            .eq("es_segundo_cultivo", false)
+            .order("created_at", { ascending: false })
+            .limit(500);
+          (lsAll ?? []).forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre, empresa_id: eid}));
+        }
       } else {
-        // Empresa sin campañas: buscar lotes de cualquier campaña
-        const { data: ls } = await sb.from("lotes")
+        // Sin campañas — buscar lotes por empresa_id directamente
+        const { data: lsAll } = await sb.from("lotes")
           .select("id,nombre,hectareas,cultivo,cultivo_completo,estado")
           .eq("empresa_id", eid)
           .eq("es_segundo_cultivo", false)
           .limit(500);
-        (ls ?? []).forEach((l:any) => lotesAll.push({
-          ...l, productor_nombre: p.nombre, empresa_id: eid
-        }));
+        if ((lsAll ?? []).length > 0) {
+          lsAll!.forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre, empresa_id: eid}));
+        } else {
+          // Último recurso: buscar empresa por nombre del productor
+          const { data: empAlt } = await sb.from("empresas")
+            .select("id")
+            .ilike("nombre", "%" + p.nombre.split(" ")[0] + "%")
+            .limit(3);
+          for (const ea of (empAlt ?? [])) {
+            if (ea.id === eid) continue;
+            const { data: lsAlt } = await sb.from("lotes")
+              .select("id,nombre,hectareas,cultivo,cultivo_completo,estado")
+              .eq("empresa_id", ea.id)
+              .eq("es_segundo_cultivo", false)
+              .limit(200);
+            if ((lsAlt ?? []).length > 0) {
+              // Actualizar empresa_id del productor con el correcto
+              await sb.from("ing_productores").update({ empresa_id: ea.id }).eq("id", p.id);
+              lsAlt!.forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre, empresa_id: ea.id}));
+              break;
+            }
+          }
+        }
       }
     }
     setCampanasPorProd(cpMap);
@@ -212,17 +248,82 @@ export default function IngenieroPanel() {
 
   const m = (t:string) => { setMsj(t); setTimeout(()=>setMsj(""),4000); };
 
-  const guardarProductor = async () => {
-    if(!ingId||!form.nombre?.trim()){m("❌ Ingresá el nombre");return;}
-    const sb=await getSB();
-    let empresa_id=null; let tiene_cuenta=false;
-    if(form.email?.trim()){const{data:ue}=await sb.from("usuarios").select("id").eq("email",form.email.trim()).single();if(ue){const{data:emp}=await sb.from("empresas").select("id").eq("propietario_id",ue.id).single();if(emp){empresa_id=emp.id;tiene_cuenta=true;}}}
-    const pay={ingeniero_id:ingId,nombre:form.nombre.trim(),telefono:form.telefono??"",email:form.email??"",localidad:form.localidad??"",provincia:form.provincia??"Santa Fe",hectareas_total:Number(form.hectareas_total??0),observaciones:form.obs??"",honorario_tipo:form.honorario_tipo??"mensual",honorario_monto:Number(form.honorario_monto??0),empresa_id,tiene_cuenta,activo:true};
-    if(editProd){await sb.from("ing_productores").update(pay).eq("id",editProd);setEditProd(null);}else{
-      const{data:nuevo}=await sb.from("ing_productores").insert(pay).select().single();
-      if(nuevo&&!empresa_id){const{data:emp}=await sb.from("empresas").insert({nombre:form.nombre.trim()+" (Ing)",propietario_id:ingId}).select().single();if(emp)await sb.from("ing_productores").update({empresa_id:emp.id}).eq("id",nuevo.id);}
+  // ── Crear empresa virtual garantizada para un productor ──
+  const crearEmpresaVirtual = async (sb: any, nombre: string): Promise<string|null> => {
+    const { data: emp } = await sb.from("empresas")
+      .insert({ nombre: nombre + " (Ing)", propietario_id: ingId })
+      .select("id").single();
+    return emp?.id ?? null;
+  };
+
+  // ── Reparar productores sin empresa_id (se llama al cargar) ──
+  const repararEmpresasSinId = async () => {
+    const sb = await getSB();
+    const { data: sinEmpresa } = await sb.from("ing_productores")
+      .select("id,nombre")
+      .eq("ingeniero_id", ingId)
+      .eq("activo", true)
+      .is("empresa_id", null);
+    if (!sinEmpresa?.length) return;
+    for (const p of sinEmpresa) {
+      const eid = await crearEmpresaVirtual(sb, p.nombre);
+      if (eid) {
+        await sb.from("ing_productores").update({ empresa_id: eid }).eq("id", p.id);
+      }
     }
-    m(tiene_cuenta?"✅ Guardado — con cuenta APP":"✅ Guardado"); await fetchProds(ingId); setShowForm(false); setForm({});
+  };
+
+  const guardarProductor = async () => {
+    if (!ingId || !form.nombre?.trim()) { m("❌ Ingresá el nombre"); return; }
+    const sb = await getSB();
+    let empresa_id: string|null = null;
+    let tiene_cuenta = false;
+
+    // Si tiene email, buscar si ya tiene cuenta en la app
+    if (form.email?.trim()) {
+      const { data: ue } = await sb.from("usuarios").select("id").eq("email", form.email.trim()).single();
+      if (ue) {
+        const { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", ue.id).single();
+        if (emp) { empresa_id = emp.id; tiene_cuenta = true; }
+      }
+    }
+
+    const pay = {
+      ingeniero_id: ingId, nombre: form.nombre.trim(),
+      telefono: form.telefono ?? "", email: form.email ?? "",
+      localidad: form.localidad ?? "", provincia: form.provincia ?? "Santa Fe",
+      hectareas_total: Number(form.hectareas_total ?? 0),
+      observaciones: form.obs ?? "",
+      honorario_tipo: form.honorario_tipo ?? "mensual",
+      honorario_monto: Number(form.honorario_monto ?? 0),
+      empresa_id, tiene_cuenta, activo: true
+    };
+
+    if (editProd) {
+      // Al editar: si no tiene empresa_id, crearla ahora
+      if (!empresa_id) {
+        const { data: prodActual } = await sb.from("ing_productores").select("empresa_id").eq("id", editProd).single();
+        if (!prodActual?.empresa_id) {
+          empresa_id = await crearEmpresaVirtual(sb, form.nombre.trim());
+          pay.empresa_id = empresa_id;
+        } else {
+          pay.empresa_id = prodActual.empresa_id; // Mantener la existente
+        }
+      }
+      await sb.from("ing_productores").update(pay).eq("id", editProd);
+      setEditProd(null);
+    } else {
+      // Nuevo productor: siempre crear empresa virtual si no tiene cuenta
+      if (!empresa_id) {
+        empresa_id = await crearEmpresaVirtual(sb, form.nombre.trim());
+        pay.empresa_id = empresa_id;
+      }
+      await sb.from("ing_productores").insert(pay);
+    }
+
+    m(tiene_cuenta ? "✅ Guardado — con cuenta APP" : "✅ Guardado");
+    await fetchProds(ingId);
+    setShowForm(false); setForm({});
   };
 
   const vincularCodigo = async () => {
