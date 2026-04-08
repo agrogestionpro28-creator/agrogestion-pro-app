@@ -617,7 +617,7 @@ export default function IngenieroLotesPage() {
   const confirmarImportCuaderno = async () => {
     if (!empresaId || !cuadernoPreview.length) return;
     const sb = await getSB();
-    let ok = 0; let err = 0;
+    let ok = 0; let err = 0; let errMsg = "";
     for (const l of cuadernoPreview) {
       if (!l.lote_id) { err++; continue; }
       // Columnas EXACTAS de lote_labores según la BD
@@ -639,11 +639,11 @@ export default function IngenieroLotesPage() {
         cargado_por_rol:      "ingeniero",
       };
       const { error } = await sb.from("lote_labores").insert(payload);
-      if (error) { err++; continue; }
+      if (error) { errMsg = error.message; err++; continue; }
       ok++;
     }
     if (ok > 0) msg(`✅ ${ok} labores importadas${err > 0 ? ` · ${err} errores` : ""}`);
-    else msg("❌ No se importó ninguna — verificá que los lotes coincidan");
+    else msg(`❌ Error: ${errMsg || "sin lotes encontrados"}`);
     await fetchLotes(empresaId, campanaActiva);
     setCuadernoPreview([]); setCuadernoMsg(""); setShowImportCuaderno(false);
   };
