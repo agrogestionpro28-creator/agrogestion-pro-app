@@ -121,12 +121,6 @@ export default function IngenieroPanel() {
 
   const fetchProds = async (iid: string) => {
     const sb = await getSB();
-    // Reparar productores sin empresa_id antes de cargar
-    const { data: sinEmp } = await sb.from("ing_productores").select("id,nombre").eq("ingeniero_id", iid).eq("activo", true).is("empresa_id", null);
-    for (const p of (sinEmp ?? [])) {
-      const { data: emp } = await sb.from("empresas").insert({ nombre: p.nombre + " (Ing)", propietario_id: iid }).select("id").single();
-      if (emp?.id) await sb.from("ing_productores").update({ empresa_id: emp.id }).eq("id", p.id);
-    }
     const { data: prods } = await sb.from("ing_productores").select("*").eq("ingeniero_id", iid).eq("activo", true).order("nombre");
     setProductores(prods ?? []);
     const cpMap: Record<string,any[]> = {};
@@ -137,7 +131,7 @@ export default function IngenieroPanel() {
       if (!p.empresa_id) continue;
       const eid = p.empresa_id;
 
-      // Traer campañas ordenadas por año DESC
+      // 1. Traer campañas ordenadas por año DESC
       const { data: camps } = await sb.from("campanas")
         .select("id,nombre,activa,año_inicio,año_fin")
         .eq("empresa_id", eid)
@@ -145,60 +139,32 @@ export default function IngenieroPanel() {
       const campList: any[] = (camps ?? []) as any[];
       cpMap[eid] = campList;
 
-      // Elegir campaña: activa > más reciente por año_inicio
+      // 2. Elegir campaña: marcada activa > más reciente
       const campSel = campList.find((c:any) => c.activa) ?? campList[0] ?? null;
 
       if (campSel) {
+        // Tiene campaña — traer SOLO lotes de esa campaña
         csMap[eid] = campSel.id;
-        // Traer lotes de esa campaña
         const { data: ls } = await sb.from("lotes")
           .select("id,nombre,hectareas,cultivo,cultivo_completo,estado")
           .eq("empresa_id", eid)
           .eq("campana_id", campSel.id)
           .eq("es_segundo_cultivo", false);
-        const lotesEmp = ls ?? [];
-        if (lotesEmp.length > 0) {
-          lotesEmp.forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre, empresa_id: eid}));
-        } else {
-          // La campaña existe pero no tiene lotes — buscar en todas las campañas
-          const { data: lsAll } = await sb.from("lotes")
-            .select("id,nombre,hectareas,cultivo,cultivo_completo,estado")
-            .eq("empresa_id", eid)
-            .eq("es_segundo_cultivo", false)
-            .order("created_at", { ascending: false })
-            .limit(500);
-          (lsAll ?? []).forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre, empresa_id: eid}));
-        }
+        (ls ?? []).forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre, empresa_id: eid}));
       } else {
-        // Sin campañas — buscar lotes por empresa_id directamente
-        const { data: lsAll } = await sb.from("lotes")
-          .select("id,nombre,hectareas,cultivo,cultivo_completo,estado")
+        // Sin campañas — traer lotes más recientes (una sola query, sin duplicar)
+        const { data: ls } = await sb.from("lotes")
+          .select("id,nombre,hectareas,cultivo,cultivo_completo,estado,campana_id")
           .eq("empresa_id", eid)
           .eq("es_segundo_cultivo", false)
-          .limit(500);
-        if ((lsAll ?? []).length > 0) {
-          lsAll!.forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre, empresa_id: eid}));
-        } else {
-          // Último recurso: buscar empresa por nombre del productor
-          const { data: empAlt } = await sb.from("empresas")
-            .select("id")
-            .ilike("nombre", "%" + p.nombre.split(" ")[0] + "%")
-            .limit(3);
-          for (const ea of (empAlt ?? [])) {
-            if (ea.id === eid) continue;
-            const { data: lsAlt } = await sb.from("lotes")
-              .select("id,nombre,hectareas,cultivo,cultivo_completo,estado")
-              .eq("empresa_id", ea.id)
-              .eq("es_segundo_cultivo", false)
-              .limit(200);
-            if ((lsAlt ?? []).length > 0) {
-              // Actualizar empresa_id del productor con el correcto
-              await sb.from("ing_productores").update({ empresa_id: ea.id }).eq("id", p.id);
-              lsAlt!.forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre, empresa_id: ea.id}));
-              break;
-            }
-          }
-        }
+          .order("created_at", { ascending: false })
+          .limit(200);
+        // Agrupar por campana_id y tomar solo la más reciente
+        const campIdMasReciente = (ls ?? [])[0]?.campana_id ?? null;
+        const lotesFiltrados = campIdMasReciente
+          ? (ls ?? []).filter((l:any) => l.campana_id === campIdMasReciente)
+          : (ls ?? []);
+        lotesFiltrados.forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre, empresa_id: eid}));
       }
     }
     setCampanasPorProd(cpMap);
