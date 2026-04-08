@@ -18,11 +18,16 @@ type Lote = {
 type Campana = { id: string; nombre: string; año_inicio: number; año_fin: number; activa: boolean; };
 type Labor = {
   id: string; lote_id: string; fecha: string; tipo: string; descripcion: string;
-  superficie_ha: number; maquinaria: string; operario: string;
-  costo_total: number; observaciones: string; metodo_carga: string;
-  // Campos nuevos cuaderno
-  producto_dosis?: string; aplicador?: string; costo_aplicacion_ha?: number;
-  comentario?: string; tipo_aplicacion?: string;
+  // Columnas reales de lote_labores
+  productos?: string; dosis?: string;
+  hectareas_trabajadas?: number; tipo_aplicacion?: string;
+  precio_aplicacion_ha?: number; costo_total_usd?: number;
+  metodo_carga?: string; metodo_entrada?: string;
+  estado_carga?: string; cargado_por_rol?: string;
+  // Aliases para compatibilidad con el UI
+  producto_dosis?: string; aplicador?: string;
+  costo_aplicacion_ha?: number; costo_total?: number;
+  superficie_ha?: number; comentario?: string; observaciones?: string;
 };
 
 const CULTIVOS_LISTA = [
@@ -207,7 +212,17 @@ export default function IngenieroLotesPage() {
       sb.from("margen_bruto_detalle").select("*").eq("empresa_id", eid),
     ]);
     const sorted = (ls.data ?? []).sort((a: any, b: any) => naturalSort(a.nombre ?? "", b.nombre ?? ""));
-    setLotes(sorted); setLabores(lbs.data ?? []); setMargenes(mgs.data ?? []);
+    // Normalizar campos de lote_labores al formato que usa el UI
+    const laboresNorm = (lbs.data ?? []).map((l: any) => ({
+      ...l,
+      producto_dosis:      l.productos || l.dosis || l.descripcion || "",
+      aplicador:           l.tipo_aplicacion || "",
+      costo_aplicacion_ha: l.precio_aplicacion_ha || 0,
+      costo_total:         l.costo_total_usd || 0,
+      superficie_ha:       l.hectareas_trabajadas || 0,
+      comentario:          l.observaciones || "",
+    }));
+    setLotes(sorted); setLabores(laboresNorm); setMargenes(mgs.data ?? []);
   };
 
   const msg = (t: string) => { setMsgExito(t); setTimeout(() => setMsgExito(""), 4000); };
@@ -274,23 +289,24 @@ export default function IngenieroLotesPage() {
         ? Number(form.costo_aplicacion_ha) * ha
         : 0;
     const payload: Record<string,any> = {
-      empresa_id: empresaId, lote_id: loteActivo.id, campana_id: campanaActiva,
-      fecha: form.fecha_lab ?? new Date().toISOString().split("T")[0],
-      tipo: form.tipo_lab ?? "Aplicación",
-      descripcion: form.descripcion_lab ?? "",
-      superficie_ha: ha,
-      operario: form.operario ?? ingenieroNombre,
-      costo_total: costoTotal,
-      metodo_carga: "ingeniero",
-      // Campos cuaderno
-      producto_dosis: form.producto_dosis ?? "",
-      aplicador: form.aplicador ?? "",
-      costo_aplicacion_ha: Number(form.costo_aplicacion_ha ?? 0),
-      comentario: form.comentario ?? "",
+      empresa_id:           empresaId,
+      lote_id:              loteActivo.id,
+      tipo:                 form.tipo_lab ?? "Aplicación",
+      descripcion:          form.producto_dosis || form.descripcion_lab || "",
+      productos:            form.producto_dosis || "",
+      dosis:                form.producto_dosis || "",
+      fecha:                form.fecha_lab ?? new Date().toISOString().split("T")[0],
+      metodo_carga:         "ingeniero",
+      metodo_entrada:       "manual",
+      hectareas_trabajadas: ha,
+      tipo_aplicacion:      form.aplicador ?? "",
+      precio_aplicacion_ha: Number(form.costo_aplicacion_ha ?? 0),
+      costo_total_usd:      costoTotal,
+      estado_carga:         "confirmado",
+      cargado_por_rol:      "ingeniero",
     };
     if (editandoLabor) { await sb.from("lote_labores").update(payload).eq("id", editandoLabor); setEditandoLabor(null); }
     else { await sb.from("lote_labores").insert(payload); }
-    // Actualizar costo labores en margen si hay MB cargado
     if (costoTotal > 0) { await actualizarCostoLaboresEnMB(loteActivo.id, costoTotal); }
     msg("✅ Labor guardada");
     await fetchLotes(empresaId, campanaActiva);
@@ -599,44 +615,34 @@ export default function IngenieroLotesPage() {
   const confirmarImportCuaderno = async () => {
     if (!empresaId || !cuadernoPreview.length) return;
     const sb = await getSB();
-    const cid = await getCampanaId(sb);
-    if (!cid) { msg("❌ Sin campaña — creá una primero"); return; }
-
     let ok = 0; let err = 0;
     for (const l of cuadernoPreview) {
       if (!l.lote_id) { err++; continue; }
-      // Payload base — solo columnas que SIEMPRE existen en lote_labores
+      // Columnas EXACTAS de lote_labores según la BD
       const payload: Record<string,any> = {
-        empresa_id:   empresaId,
-        lote_id:      l.lote_id,
-        campana_id:   cid,
-        fecha:        l.fecha || new Date().toISOString().split("T")[0],
-        tipo:         l.tipo  || "Aplicación",
-        descripcion:  l.producto_dosis || l.descripcion || "",
-        superficie_ha:l.hectareas || 0,
-        operario:     ingenieroNombre,
-        costo_total:  l.costo_total || 0,
-        metodo_carga: "excel_multi",
+        empresa_id:           empresaId,
+        lote_id:              l.lote_id,
+        tipo:                 l.tipo || "Aplicación",
+        descripcion:          l.producto_dosis || l.descripcion || "",
+        productos:            l.producto_dosis || "",
+        dosis:                l.producto_dosis || "",
+        fecha:                l.fecha || new Date().toISOString().split("T")[0],
+        metodo_carga:         "excel_multi",
+        metodo_entrada:       "excel",
+        hectareas_trabajadas: l.hectareas || 0,
+        tipo_aplicacion:      l.aplicador || "",
+        precio_aplicacion_ha: l.costo_aplicacion_ha || 0,
+        costo_total_usd:      l.costo_total || 0,
+        estado_carga:         "confirmado",
+        cargado_por_rol:      "ingeniero",
       };
-      // Columnas nuevas — solo si tienen valor
-      if (l.producto_dosis)      payload.producto_dosis       = l.producto_dosis;
-      if (l.aplicador)           payload.aplicador            = l.aplicador;
-      if (l.costo_aplicacion_ha) payload.costo_aplicacion_ha  = l.costo_aplicacion_ha;
-      if (l.comentario)          payload.comentario           = l.comentario;
-
       const { error } = await sb.from("lote_labores").insert(payload);
-      if (error) {
-        // Si falla por columna inexistente, reintentar sin columnas opcionales
-        const { empresa_id, lote_id, campana_id, fecha, tipo, descripcion, superficie_ha, operario, costo_total, metodo_carga } = payload;
-        const { error: err2 } = await sb.from("lote_labores").insert({ empresa_id, lote_id, campana_id, fecha, tipo, descripcion, superficie_ha, operario, costo_total, metodo_carga });
-        if (err2) { err++; continue; }
-      }
-      if ((l.costo_total || 0) > 0) await actualizarCostoLaboresEnMB(l.lote_id, l.costo_total);
+      if (error) { err++; continue; }
       ok++;
     }
-    if (ok > 0) msg(`✅ ${ok} labores importadas${err > 0 ? ` · ${err} sin match` : ""}`);
-    else msg("❌ No se importó ninguna labor — verificá que los nombres de lote coincidan");
-    await fetchLotes(empresaId, cid);
+    if (ok > 0) msg(`✅ ${ok} labores importadas${err > 0 ? ` · ${err} errores` : ""}`);
+    else msg("❌ No se importó ninguna — verificá que los lotes coincidan");
+    await fetchLotes(empresaId, campanaActiva);
     setCuadernoPreview([]); setCuadernoMsg(""); setShowImportCuaderno(false);
   };
 
