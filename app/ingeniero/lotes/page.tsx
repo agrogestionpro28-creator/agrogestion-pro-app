@@ -479,35 +479,73 @@ export default function IngenieroLotesPage() {
       const rows: any[] = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:"" });
       if (rows.length<2) { setCuadernoMsg("Sin datos"); return; }
       const headers = rows[0].map((h: any) => String(h).toLowerCase().trim().replace(/ /g,"_").replace(/\//g,"_"));
-      // Detectar columnas flexiblemente
-      const cLote  = headers.findIndex((h: string) => h.includes("lote")||h.includes("campo")||h.includes("nombre"));
-      const cFecha = headers.findIndex((h: string) => h.includes("fecha"));
-      const cTipo  = headers.findIndex((h: string) => h.includes("tipo")||h.includes("accion")||h.includes("acción"));
-      const cProd  = headers.findIndex((h: string) => h.includes("prod")||h.includes("dosis")||h.includes("desc"));
-      const cAplic = headers.findIndex((h: string) => h.includes("aplic"));
-      const cCostoHa = headers.findIndex((h: string) => h.includes("costo_ha")||h.includes("precio_ha")||h.includes("ha"));
-      const cCostoT  = headers.findIndex((h: string) => (h.includes("costo_t")||h.includes("total"))&&!h.includes("ha"));
-      const cComent  = headers.findIndex((h: string) => h.includes("coment")||h.includes("obs")||h.includes("nota"));
-      if (cFecha===-1) { setCuadernoMsg("❌ Falta columna FECHA"); return; }
 
-      const preview = rows.slice(1).filter((r: any) => r[cFecha]).map((r: any) => {
-        const loteNombre = cLote>=0 ? String(r[cLote]).trim() : "";
+      // ── Detección de columnas ESTRICTA para evitar falsos positivos ──
+      // cCostoHa: debe ser exactamente "costo_ha", "$/ha", "precio_ha", "costo_por_ha" — NO "lote" ni "ha" suelto
+      const cLote    = headers.findIndex((h: string) => h==="lote"||h==="campo"||h==="nombre_lote"||h.startsWith("lote"));
+      const cFecha   = headers.findIndex((h: string) => h.includes("fecha"));
+      const cTipo    = headers.findIndex((h: string) => h==="tipo"||h==="accion"||h==="acción"||h.includes("tipo_labor"));
+      const cProd    = headers.findIndex((h: string) => h.includes("prod")||h.includes("dosis")||h==="desc"||h.includes("descripcion"));
+      const cAplic   = headers.findIndex((h: string) => h.includes("aplic"));
+      // CRÍTICO: costo_ha debe tener "costo" Y "ha" — no solo "ha"
+      const cCostoHa = headers.findIndex((h: string) => (h.includes("costo")&&h.includes("ha"))||(h.includes("precio")&&h.includes("ha"))||h==="$_ha"||h==="$/ha");
+      // costo_total: debe tener "total" o "costo_t" pero NO ser costo_ha
+      const cCostoT  = headers.findIndex((h: string) => (h.includes("total")||h==="costo"||h==="importe")&&!h.includes("ha"));
+      const cComent  = headers.findIndex((h: string) => h.includes("coment")||h.includes("obs")||h==="nota");
+
+      if (cFecha===-1) { setCuadernoMsg("❌ Falta columna FECHA"); return; }
+      if (cLote===-1)  { setCuadernoMsg("❌ Falta columna LOTE"); return; }
+
+      // Función de búsqueda de lote: exacta primero, luego parcial
+      const buscarLote = (nombreExcel: string) => {
+        if (!nombreExcel) return undefined;
+        const ne = nombreExcel.toLowerCase().trim();
+        // 1. Coincidencia exacta
+        let found = lotes.find(l => l.nombre.toLowerCase().trim() === ne);
+        if (found) return found;
+        // 2. El nombre del Excel está contenido al inicio del nombre del lote (ej: "7" matchea "7- GRANDE N")
+        found = lotes.find(l => {
+          const ln = l.nombre.toLowerCase().trim();
+          return ln.startsWith(ne+"-") || ln.startsWith(ne+" ") || ln === ne;
+        });
+        if (found) return found;
+        // 3. El lote empieza con el número seguido de guión (ej: Excel "7", lote "7- GRANDE N")
+        if (/^\d+$/.test(ne)) {
+          found = lotes.find(l => {
+            const ln = l.nombre.toLowerCase().trim();
+            return ln.startsWith(ne+"-") || ln.startsWith(ne+" -") || ln.startsWith(ne + " ");
+          });
+          if (found) return found;
+        }
+        // 4. Parcial: el nombre del Excel está contenido en el nombre del lote
+        found = lotes.find(l => l.nombre.toLowerCase().includes(ne) && ne.length > 2);
+        if (found) return found;
+        // 5. Parcial inversa: el nombre del lote está contenido en el Excel
+        found = lotes.find(l => ne.includes(l.nombre.toLowerCase().trim()) && l.nombre.length > 2);
+        return found;
+      };
+
+      const preview = rows.slice(1).filter((r: any) => r[cFecha] && String(r[cFecha]).trim()).map((r: any) => {
+        const loteNombreRaw = cLote>=0 ? String(r[cLote]).trim() : "";
         const tipoRaw = cTipo>=0 ? String(r[cTipo]).trim() : "";
         const prod = cProd>=0 ? String(r[cProd]).trim() : "";
         const dl = (tipoRaw+prod).toLowerCase();
         const tipo = tipoRaw || (dl.includes("siem")?"Siembra":dl.includes("cosech")?"Cosecha":dl.includes("fertil")?"Fertilización":"Aplicación");
-        const costoHa = cCostoHa>=0 ? (Number(r[cCostoHa])||0) : 0;
+        // Buscar lote con algoritmo mejorado
+        const loteEncontrado = buscarLote(loteNombreRaw);
+        // Costos: solo leer si la columna fue detectada correctamente
+        const costoHaRaw = cCostoHa>=0 ? r[cCostoHa] : "";
+        const costoHa = (costoHaRaw !== "" && costoHaRaw !== null) ? (Number(costoHaRaw)||0) : 0;
         const costoTotalRaw = cCostoT>=0 ? r[cCostoT] : "";
-        const costoTotal = costoTotalRaw !== "" && costoTotalRaw !== null && costoTotalRaw !== undefined ? (Number(costoTotalRaw)||0) : 0;
-        // Calcular costo total solo si hay costo/ha y hectáreas conocidas — nunca inventar un 0 visible
-        const costoTotalFinal = costoTotal > 0 ? costoTotal : (costoHa > 0 && loteEncontrado?.hectareas ? costoHa * loteEncontrado.hectareas : 0);
-        // Buscar lote en la lista
-        const loteEncontrado = lotes.find(l => l.nombre.toLowerCase().includes(loteNombre.toLowerCase()) || loteNombre.toLowerCase().includes(l.nombre.toLowerCase()));
+        const costoTotal = (costoTotalRaw !== "" && costoTotalRaw !== null) ? (Number(costoTotalRaw)||0) : 0;
+        // Calcular costo total final — nunca inventar valores
+        const ha = loteEncontrado?.hectareas ?? 0;
+        const costoTotalFinal = costoTotal > 0 ? costoTotal : (costoHa > 0 && ha > 0 ? costoHa * ha : 0);
         return {
-          lote_nombre: loteNombre,
+          lote_nombre: loteNombreRaw,
           lote_id: loteEncontrado?.id ?? null,
           lote_match: loteEncontrado?.nombre ?? null,
-          hectareas: loteEncontrado?.hectareas ?? 0,
+          hectareas: ha,
           fecha: parseFecha(r[cFecha]),
           tipo,
           producto_dosis: prod,
@@ -519,7 +557,8 @@ export default function IngenieroLotesPage() {
       });
       setCuadernoPreview(preview);
       const sinMatch = preview.filter(p=>!p.lote_id).length;
-      setCuadernoMsg(`✅ ${preview.length} labores detectadas${sinMatch>0?` · ⚠ ${sinMatch} sin lote`:""}`);
+      const conMatch = preview.filter(p=>p.lote_id).length;
+      setCuadernoMsg(`✅ ${preview.length} labores · ${conMatch} con lote${sinMatch>0?` · ⚠ ${sinMatch} sin match`:""}`);
     } catch(e: any) { setCuadernoMsg("❌ "+e.message); }
   };
 
@@ -924,7 +963,7 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
                     :<div>
                       <div className="max-h-40 overflow-y-auto mb-3 rounded-xl border border-[#1e2d3d]">
                         <table className="w-full text-xs">
-                          <thead className="bg-[#1a2535]"><tr>{["Lote","Match","Fecha","Tipo","Producto/Dosis","Aplicador","$/ha","Total","Comentario"].map(h=><th key={h} className="text-left px-3 py-2 text-gray-400 font-medium">{h}</th>)}</tr></thead>
+                          <thead className="bg-[#1a2535]"><tr>{["En Excel","Lote encontrado","Fecha","Tipo","Producto/Dosis","Aplicador","$/ha","Total","Comentario"].map(h=><th key={h} className="text-left px-3 py-2 text-gray-400 font-medium">{h}</th>)}</tr></thead>
                           <tbody>{cuadernoPreview.map((r,i)=>(
                             <tr key={i} className="border-t border-[#1a2535]">
                               <td className="px-3 py-2 text-gray-300 font-medium">{r.lote_nombre}</td>
@@ -1044,7 +1083,7 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
                   :<div>
                     <div className="max-h-48 overflow-y-auto mb-3 rounded-xl border border-[#1e2d3d]">
                       <table className="w-full text-xs">
-                        <thead className="bg-[#1a2535]"><tr>{["Lote","Match","Fecha","Tipo","Producto","Aplic.","$/ha","Total","Coment."].map(h=><th key={h} className="text-left px-3 py-2 text-gray-400 font-medium">{h}</th>)}</tr></thead>
+                        <thead className="bg-[#1a2535]"><tr>{["En Excel","Lote encontrado","Fecha","Tipo","Producto","Aplic.","$/ha","Total","Coment."].map(h=><th key={h} className="text-left px-3 py-2 text-gray-400 font-medium">{h}</th>)}</tr></thead>
                         <tbody>{cuadernoPreview.map((r,i)=>(
                           <tr key={i} className={`border-t border-[#1a2535] ${!r.lote_id?"opacity-40":""}`}>
                             <td className="px-3 py-2 text-gray-300 font-medium">{r.lote_nombre}</td>
