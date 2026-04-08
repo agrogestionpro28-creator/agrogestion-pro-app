@@ -132,11 +132,19 @@ export default function IngenieroPanel() {
       const { data: camps } = await sb.from("campanas").select("id,nombre,activa").eq("empresa_id", eid).order("año_inicio", { ascending: false });
       const campList = camps ?? [];
       cpMap[eid] = campList;
+      // Priorizar campaña activa, sino la más reciente
       const activa = campList.find((c:any) => c.activa) ?? campList[0];
       if (activa) {
         csMap[eid] = activa.id;
         const { data: ls } = await sb.from("lotes").select("nombre,hectareas,cultivo,cultivo_completo,estado").eq("empresa_id", eid).eq("campana_id", activa.id).eq("es_segundo_cultivo", false);
-        (ls ?? []).forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre}));
+        // Guardar con empresa_id además de nombre para matching más robusto
+        (ls ?? []).forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre, empresa_id: eid}));
+      } else {
+        // Sin campaña: igual buscar lotes de cualquier campaña para mostrar has
+        const { data: ls } = await sb.from("lotes").select("nombre,hectareas,cultivo,cultivo_completo,estado").eq("empresa_id", eid).eq("es_segundo_cultivo", false).limit(200);
+        if (ls && ls.length > 0) {
+          (ls ?? []).forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre, empresa_id: eid}));
+        }
       }
     }
     setCampanasPorProd(cpMap); setCampSelProd(csMap); setLotes(lotesAll);
@@ -146,7 +154,10 @@ export default function IngenieroPanel() {
     setCampSelProd(prev => ({...prev, [eid]: campana_id}));
     const sb = await getSB();
     const { data: ls } = await sb.from("lotes").select("nombre,hectareas,cultivo,cultivo_completo,estado").eq("empresa_id", eid).eq("campana_id", campana_id).eq("es_segundo_cultivo", false);
-    setLotes(prev => [...prev.filter(l => l.productor_nombre !== prod_nombre), ...(ls ?? []).map((l:any) => ({...l, productor_nombre: prod_nombre}))]);
+    setLotes(prev => [
+      ...prev.filter(l => (l as any).empresa_id !== eid && l.productor_nombre !== prod_nombre),
+      ...(ls ?? []).map((l:any) => ({...l, productor_nombre: prod_nombre, empresa_id: eid}))
+    ]);
   };
 
   const crearCampana = async (eid: string, nombre: string) => {
@@ -620,8 +631,9 @@ export default function IngenieroPanel() {
                   const eid=p.empresa_id??p.id;
                   const camps=campanasPorProd[eid]??[];
                   const campActiva=campSelProd[eid]??null;
-                  const lotesP=lotes.filter(l=>l.productor_nombre===p.nombre);
-                  const haReales=lotesP.reduce((a,l)=>a+(l.hectareas||0),0);
+                  // Filtrar por empresa_id es más robusto que por nombre
+                  const lotesP=lotes.filter(l=>(l as any).empresa_id===eid || l.productor_nombre===p.nombre);
+                  const haReales=lotesP.reduce((a,l)=>a+(Number(l.hectareas)||0),0);
                   const cultivosProd=[...new Set(lotesP.map(l=>l.cultivo_completo||l.cultivo).filter(Boolean))];
                   return(
                     <div key={p.id} className={`prod-card ${cardCls}`}>
