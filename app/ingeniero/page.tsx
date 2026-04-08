@@ -17,41 +17,53 @@ type ServiceVeh = { id:string; tipo:string; descripcion:string; costo:number; km
 type MsgIA = { rol:"user"|"assistant"; texto:string };
 type LoteResumen = { nombre:string; hectareas:number; cultivo:string; cultivo_completo:string; estado:string; productor_nombre:string; };
 
-// ── Cultivos completos ──
 const CULTIVOS = [
-  { key:"soja_1", label:"Soja 1º",    color:"#22c55e", grupo:"Verano" },
-  { key:"soja_2", label:"Soja 2º",    color:"#86efac", grupo:"Verano" },
-  { key:"maiz_1", label:"Maíz 1º",   color:"#eab308", grupo:"Verano" },
-  { key:"maiz_2", label:"Maíz 2º",   color:"#fde047", grupo:"Verano" },
-  { key:"girasol",label:"Girasol",   color:"#f97316", grupo:"Verano" },
-  { key:"sorgo_1",label:"Sorgo 1º",  color:"#ef4444", grupo:"Verano" },
-  { key:"sorgo_2",label:"Sorgo 2º",  color:"#fca5a5", grupo:"Verano" },
-  { key:"trigo",  label:"Trigo",     color:"#f59e0b", grupo:"Invierno" },
-  { key:"cebada", label:"Cebada",    color:"#8b5cf6", grupo:"Invierno" },
-  { key:"arveja", label:"Arveja",    color:"#06b6d4", grupo:"Invierno" },
-  { key:"carinata",label:"Carinata", color:"#0ea5e9", grupo:"Invierno" },
-  { key:"camelina",label:"Camelina", color:"#38bdf8", grupo:"Invierno" },
-  { key:"pastura",label:"Pastura",   color:"#10b981", grupo:"Especial", libre:true },
-  { key:"otros",  label:"Otros",     color:"#6b7280", grupo:"Especial", libre:true },
+  { key:"soja_1",   label:"Soja 1º",    color:"#22c55e", grupo:"Verano" },
+  { key:"soja_2",   label:"Soja 2º",    color:"#86efac", grupo:"Verano" },
+  { key:"maiz_1",   label:"Maíz 1º",    color:"#eab308", grupo:"Verano" },
+  { key:"maiz_2",   label:"Maíz 2º",    color:"#fde047", grupo:"Verano" },
+  { key:"girasol",  label:"Girasol",    color:"#f97316", grupo:"Verano" },
+  { key:"sorgo_1",  label:"Sorgo 1º",   color:"#ef4444", grupo:"Verano" },
+  { key:"sorgo_2",  label:"Sorgo 2º",   color:"#fca5a5", grupo:"Verano" },
+  { key:"trigo",    label:"Trigo",      color:"#f59e0b", grupo:"Invierno" },
+  { key:"cebada",   label:"Cebada",     color:"#8b5cf6", grupo:"Invierno" },
+  { key:"arveja",   label:"Arveja",     color:"#06b6d4", grupo:"Invierno" },
+  { key:"carinata", label:"Carinata",   color:"#0ea5e9", grupo:"Invierno" },
+  { key:"camelina", label:"Camelina",   color:"#38bdf8", grupo:"Invierno" },
+  { key:"pastura",  label:"Pastura",    color:"#10b981", grupo:"Especial", libre:true },
+  { key:"otros",    label:"Otros",      color:"#6b7280", grupo:"Especial", libre:true },
 ];
 
-const CULTIVO_MAP: Record<string,{label:string;color:string}> = {};
-CULTIVOS.forEach(c => { CULTIVO_MAP[c.key] = {label:c.label, color:c.color}; });
-
-function getCultivoColor(cultivo: string): string {
-  const c = CULTIVOS.find(x => x.label.toLowerCase() === cultivo?.toLowerCase() || x.key === cultivo?.toLowerCase());
-  return c?.color ?? "#6b7280";
-}
-
-function getCultivoLabel(cultivo: string): string {
-  if (!cultivo) return "—";
-  const c = CULTIVOS.find(x => x.key === cultivo.toLowerCase() || x.label.toLowerCase() === cultivo.toLowerCase());
-  return c?.label ?? cultivo.charAt(0).toUpperCase() + cultivo.slice(1);
+function getCultivoInfo(raw: string): { label:string; color:string } {
+  if (!raw) return { label:"Sin cultivo", color:"#6b7280" };
+  const r = raw.toLowerCase().trim();
+  const c = CULTIVOS.find(x => x.key === r || x.label.toLowerCase() === r || r.includes(x.key.replace("_"," ")));
+  if (c) return { label: c.label, color: c.color };
+  // Intentar por nombre parcial
+  if (r.includes("soja")) return { label: r.includes("2")?"Soja 2º":"Soja 1º", color: r.includes("2")?"#86efac":"#22c55e" };
+  if (r.includes("maiz")||r.includes("maíz")) return { label: r.includes("2")?"Maíz 2º":"Maíz 1º", color: r.includes("2")?"#fde047":"#eab308" };
+  if (r.includes("trigo")) return { label:"Trigo", color:"#f59e0b" };
+  if (r.includes("girasol")) return { label:"Girasol", color:"#f97316" };
+  if (r.includes("sorgo")) return { label: r.includes("2")?"Sorgo 2º":"Sorgo 1º", color: r.includes("2")?"#fca5a5":"#ef4444" };
+  if (r.includes("cebada")) return { label:"Cebada", color:"#8b5cf6" };
+  if (r.includes("arveja")) return { label:"Arveja", color:"#06b6d4" };
+  if (r.includes("carinata")) return { label:"Carinata", color:"#0ea5e9" };
+  if (r.includes("camelina")) return { label:"Camelina", color:"#38bdf8" };
+  if (r.includes("pastura")||r.includes("alfalfa")||r.includes("festuca")) return { label: raw.charAt(0).toUpperCase()+raw.slice(1), color:"#10b981" };
+  return { label: raw.charAt(0).toUpperCase()+raw.slice(1), color:"#6b7280" };
 }
 
 type VozEstado = "idle"|"escuchando"|"procesando"|"respondiendo"|"error";
 const VOZ_COLOR: Record<VozEstado,string> = {idle:"#22c55e",escuchando:"#ef4444",procesando:"#eab308",respondiendo:"#60a5fa",error:"#ef4444"};
 const VOZ_ICON: Record<VozEstado,string> = {idle:"🎤",escuchando:"🔴",procesando:"⚙️",respondiendo:"🔊",error:"❌"};
+
+const NAV = [
+  { k:"general",    icon:"📊", label:"General" },
+  { k:"productores",icon:"👨‍🌾", label:"Productores" },
+  { k:"cobranza",   icon:"💰", label:"Cobranza" },
+  { k:"vehiculo",   icon:"🚗", label:"Vehículo" },
+  { k:"ia_campo",   icon:"🤖", label:"IA Campo" },
+];
 
 export default function IngenieroPanel() {
   const [seccion, setSeccion] = useState<Seccion>("general");
@@ -86,11 +98,8 @@ export default function IngenieroPanel() {
   const [nuevaCampProd, setNuevaCampProd] = useState<string|null>(null);
   const [nuevaCampNombre, setNuevaCampNombre] = useState("");
   const recRef = useRef<any>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  // Voz
   const [vozEstado, setVozEstado] = useState<VozEstado>("idle");
   const [vozPanel, setVozPanel] = useState(false);
-  const [vozRespuesta, setVozRespuesta] = useState("");
   const [vozInput, setVozInput] = useState("");
 
   useEffect(() => { init(); }, []);
@@ -130,9 +139,7 @@ export default function IngenieroPanel() {
         (ls ?? []).forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre}));
       }
     }
-    setCampanasPorProd(cpMap);
-    setCampSelProd(csMap);
-    setLotes(lotesAll);
+    setCampanasPorProd(cpMap); setCampSelProd(csMap); setLotes(lotesAll);
   };
 
   const cambiarCampana = async (eid: string, campana_id: string, prod_nombre: string) => {
@@ -231,7 +238,7 @@ export default function IngenieroPanel() {
 
   const exportXLS = async (tipo:"productores"|"lotes") => {
     const XLSX=await import("xlsx"); let data:any[]=[];
-    if(tipo==="productores")data=productores.map(p=>({NOMBRE:p.nombre,TEL:p.telefono,EMAIL:p.email,LOCALIDAD:p.localidad,HA:lotes.filter(l=>l.productor_nombre===p.nombre).reduce((a,l)=>a+(l.hectareas||0),0),HONORARIO:p.honorario_monto,APP:p.tiene_cuenta?"SI":"NO"}));
+    if(tipo==="productores")data=productores.map(p=>({NOMBRE:p.nombre,TEL:p.telefono,HA:lotes.filter(l=>l.productor_nombre===p.nombre).reduce((a,l)=>a+(l.hectareas||0),0),HONORARIO:p.honorario_monto,APP:p.tiene_cuenta?"SI":"NO"}));
     else{let lf=lotes;if(fCultivo!=="todos")lf=lf.filter(l=>(l.cultivo_completo||l.cultivo)===fCultivo);if(fProductor!=="todos")lf=lf.filter(l=>l.productor_nombre===fProductor);if(fEstado!=="todos")lf=lf.filter(l=>l.estado===fEstado);data=lf.map(l=>({PRODUCTOR:l.productor_nombre,LOTE:l.nombre,HA:l.hectareas,CULTIVO:l.cultivo_completo||l.cultivo,ESTADO:l.estado}));}
     const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,tipo);XLSX.writeFile(wb,tipo+"_"+new Date().toISOString().slice(0,10)+".xlsx");
   };
@@ -267,630 +274,650 @@ export default function IngenieroPanel() {
     if(!userMsg)return;
     setAiInput(""); setAiLoad(true);
     setAiChat(prev=>[...prev,{rol:"user",texto:userMsg}]);
-    setSeccion("ia_campo");
+    if(texto) setSeccion("ia_campo");
     try {
-      const hist=aiChat.slice(-8).map(m=>({role:m.rol==="user"?"user":"assistant",content:m.texto}));
-      const res=await fetch("/api/scanner",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1500,system:`Asistente agronómico experto Argentina. Respondé técnico y preciso. Ingeniero: ${ingNombre}. Total productores: ${productores.length}. Total ha: ${totalHa}.`,messages:[...hist,{role:"user",content:userMsg}]})});
+      const hist=aiChat.slice(-6).map(x=>({role:x.rol==="user"?"user":"assistant",content:x.texto}));
+      const res=await fetch("/api/scanner",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1500,system:`Asistente agronómico experto Argentina. Ingeniero: ${ingNombre}. Productores: ${productores.length}. Ha totales: ${totalHa}.`,messages:[...hist,{role:"user",content:userMsg}]})});
       const d=await res.json();setAiChat(prev=>[...prev,{rol:"assistant",texto:d.content?.[0]?.text??"Sin respuesta"}]);
     } catch{setAiChat(prev=>[...prev,{rol:"assistant",texto:"Error de conexión"}]);}
     setAiLoad(false);
   };
 
-  // ── Voz ──
   const escucharVoz = () => {
-    const hasSR="webkitSpeechRecognition" in window||"SpeechRecognition" in window;
-    if(!hasSR){alert("Usá Chrome para reconocimiento de voz");return;}
+    if(!("webkitSpeechRecognition" in window)&&!("SpeechRecognition" in window)){alert("Usá Chrome");return;}
     const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition;
     const rec=new SR();rec.lang="es-AR";rec.continuous=false;
-    recRef.current=rec;setVozEstado("escuchando");setVozRespuesta("");setVozPanel(true);
+    recRef.current=rec;setVozEstado("escuchando");setVozPanel(true);
     rec.onresult=(e:any)=>{const t=e.results[0][0].transcript;setVozEstado("procesando");askAI(t);setVozEstado("idle");};
     rec.onerror=()=>{setVozEstado("error");setTimeout(()=>setVozEstado("idle"),2000);};
     rec.start();
   };
 
-  // ── KPIs ──
-  const totalHa = lotes.reduce((a,l) => a + (l.hectareas||0), 0);
+  // KPIs
+  const totalHa = lotes.reduce((a,l)=>a+(l.hectareas||0),0);
   const totPend = cobranzas.filter(c=>c.estado==="pendiente").reduce((a,c)=>a+c.monto,0);
   const totCob = cobranzas.filter(c=>c.estado==="cobrado").reduce((a,c)=>a+c.monto,0);
   const cultivosU = [...new Set(lotes.map(l=>l.cultivo_completo||l.cultivo).filter(Boolean))];
 
-  // ── Gráficos ──
+  // Gráfico — agrupar por cultivo
   const haPorCultivo = (() => {
     const mapa: Record<string,{ha:number;color:string}> = {};
     lotes.forEach(l => {
-      const label = getCultivoLabel(l.cultivo_completo||l.cultivo||"");
-      const color = getCultivoColor(l.cultivo_completo||l.cultivo||"");
-      if(!mapa[label]) mapa[label]={ha:0,color};
-      mapa[label].ha += l.hectareas||0;
+      const raw = l.cultivo_completo || l.cultivo || "";
+      const info = getCultivoInfo(raw);
+      if(!mapa[info.label]) mapa[info.label]={ha:0,color:info.color};
+      mapa[info.label].ha += l.hectareas||0;
     });
     return Object.entries(mapa).map(([name,v])=>({name,ha:Math.round(v.ha),color:v.color})).sort((a,b)=>b.ha-a.ha);
   })();
 
-  const iCls = "w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-100 text-sm focus:outline-none focus:border-green-500 transition-all";
-  const lCls = "block text-xs text-gray-400 font-medium mb-1";
+  // Inputs
+  const iCls = "w-full bg-[#1e2a3a] border border-[#2d3f55] rounded-xl px-3 py-2.5 text-gray-100 text-sm focus:outline-none focus:border-green-500 transition-all placeholder:text-gray-600";
+  const lCls = "block text-xs text-gray-400 font-medium mb-1.5";
+  const cardCls = "bg-[#0f1923] border border-[#1e2d3d] rounded-2xl";
 
-  const NAV = [
-    { k:"general",    icon:"📊", label:"General" },
-    { k:"productores",icon:"👨‍🌾", label:"Mis Productores" },
-    { k:"cobranza",   icon:"💰", label:"Cobranza" },
-    { k:"vehiculo",   icon:"🚗", label:"Mi Vehículo" },
-    { k:"ia_campo",   icon:"🤖", label:"IA Campo" },
-  ];
-
-  // Selector de cultivo con opción libre
-  const SelectorCultivo = ({value, onChange}: {value:string, onChange:(v:string)=>void}) => {
-    const esCultivoLibre = value?.startsWith("libre:");
-    const cultivoLibre = esCultivoLibre ? value.replace("libre:","") : "";
-    const [showLibre, setShowLibre] = useState(esCultivoLibre);
-    const [libreTexto, setLibreTexto] = useState(cultivoLibre);
+  // Selector cultivo con libre
+  const SelectorCultivo = ({value, onChange}:{value:string,onChange:(v:string)=>void}) => {
+    const isLibre = value?.startsWith("__libre__:");
+    const libreVal = isLibre ? value.replace("__libre__:","") : "";
+    const [showLibre, setShowLibre] = useState(isLibre);
+    const [libreTexto, setLibreTexto] = useState(libreVal);
     const grupos = ["Verano","Invierno","Especial"];
     return (
-      <div>
-        <select value={showLibre?"libre":value??""} onChange={e=>{
-          if(e.target.value==="libre"){setShowLibre(true);onChange("libre:");}
+      <div className="space-y-2">
+        <select value={showLibre?"__libre__":value??""} onChange={e=>{
+          if(e.target.value==="__libre__"){setShowLibre(true);onChange("__libre__:");}
           else{setShowLibre(false);onChange(e.target.value);}
         }} className={iCls}>
           <option value="">Sin cultivo</option>
           {grupos.map(g=>(
             <optgroup key={g} label={g}>
               {CULTIVOS.filter(c=>c.grupo===g).map(c=>(
-                <option key={c.key} value={c.libre?"libre":c.key}>{c.label}</option>
+                <option key={c.key} value={c.libre?"__libre__":c.key}>{c.label}</option>
               ))}
             </optgroup>
           ))}
         </select>
-        {showLibre && (
-          <input type="text" value={libreTexto} onChange={e=>{setLibreTexto(e.target.value);onChange("libre:"+e.target.value);}}
-            className={iCls+" mt-2"} placeholder="Escribí el cultivo (ej: Alfalfa, Festuca...)"/>
-        )}
+        {showLibre&&<input type="text" value={libreTexto} onChange={e=>{setLibreTexto(e.target.value);onChange("__libre__:"+e.target.value);}} className={iCls} placeholder="Escribí el cultivo (ej: Alfalfa, Rye grass...)"/>}
       </div>
     );
   };
 
   if(loading) return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+    <div className="min-h-screen bg-[#080f17] flex items-center justify-center">
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin"/>
-        <span className="text-white font-medium">Cargando panel...</span>
+        <span className="text-gray-300 font-medium">Cargando...</span>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-950 flex" style={{fontFamily:"'Inter','Segoe UI',sans-serif"}}>
+    <div className="min-h-screen bg-[#080f17] text-gray-100" style={{fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
       <style>{`
         @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-        @keyframes pulse-ring{0%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)}100%{box-shadow:0 0 0 10px rgba(239,68,68,0)}}
         @keyframes spin{to{transform:rotate(360deg)}}
-        .nav-item{transition:all 0.15s ease;cursor:pointer}
-        .nav-item:hover{background:rgba(34,197,94,0.08)!important}
-        .nav-active{background:rgba(34,197,94,0.12)!important}
-        .card{background:white;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,0.3)}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        .nav-btn{transition:all 0.15s ease;white-space:nowrap}
+        .nav-btn.active{background:rgba(34,197,94,0.15);color:#22c55e;border-color:rgba(34,197,94,0.4)}
+        .card-hover{transition:all 0.15s ease}
+        .card-hover:hover{border-color:#2d5a3d;transform:translateY(-1px)}
         .prod-card{transition:all 0.15s ease}
-        .prod-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.4)!important}
-        .btn-p{background:#16a34a;color:white;border:none;cursor:pointer;transition:all 0.15s}
-        .btn-p:hover{background:#15803d}
-        .btn-o{background:white;border:1px solid #374151;color:#d1d5db;cursor:pointer;transition:all 0.15s}
-        .btn-o:hover{border-color:#22c55e;color:#22c55e}
-        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:#111827}::-webkit-scrollbar-thumb{background:#374151;border-radius:4px}
+        .prod-card:hover{border-color:#1e4a30}
+        .fade-in{animation:fadeIn 0.2s ease}
+        ::-webkit-scrollbar{width:4px;height:4px}
+        ::-webkit-scrollbar-track{background:#080f17}
+        ::-webkit-scrollbar-thumb{background:#1e2d3d;border-radius:4px}
+        input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.5)}
       `}</style>
 
-      {/* ── SIDEBAR ── */}
-      <aside className={`${sidebarOpen?"w-56":"w-16"} bg-gray-900 border-r border-gray-800 flex flex-col transition-all duration-200 flex-shrink-0`} style={{minHeight:"100vh"}}>
-        <div className="px-3 py-4 border-b border-gray-800 flex items-center gap-2">
-          {sidebarOpen
-            ? <Image src="/logo.png" alt="AgroGestión PRO" width={120} height={40} className="object-contain"/>
-            : <div className="w-9 h-9 rounded-lg bg-green-600 flex items-center justify-center"><span className="text-white text-sm font-bold">A</span></div>
-          }
+      {/* ══════════════════════════════════
+          TOPBAR — logo + nav horizontal
+      ══════════════════════════════════ */}
+      <div className="bg-[#0c1520] border-b border-[#1e2d3d] sticky top-0 z-20">
+        {/* Fila 1: Logo + usuario */}
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1a2535]">
+          <Image src="/logo.png" alt="AgroGestión PRO" width={130} height={42} className="object-contain"/>
+          <div className="flex items-center gap-2.5">
+            {alertas.length>0&&(
+              <div className="w-6 h-6 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center">
+                <span className="text-red-400 text-xs font-bold">{alertas.length}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center">
+                <span className="text-green-400 text-sm font-bold">{ingNombre.charAt(0)}</span>
+              </div>
+              <div className="hidden sm:block">
+                <div className="text-sm font-semibold text-gray-200 leading-none">{ingNombre}</div>
+                <div className="text-xs text-gray-500 mt-0.5">Cód. {ingData.codigo}</div>
+              </div>
+              <button onClick={async()=>{const sb=await getSB();await sb.auth.signOut();window.location.href="/login";}} className="ml-1 text-xs text-gray-600 hover:text-red-400 transition-colors px-2 py-1 rounded-lg hover:bg-red-500/10">Salir</button>
+            </div>
+          </div>
         </div>
-        <nav className="flex-1 px-2 py-3 space-y-0.5">
+        {/* Fila 2: nav horizontal scrollable */}
+        <div className="flex overflow-x-auto px-3 py-2 gap-1.5 scrollbar-none" style={{scrollbarWidth:"none"}}>
           {NAV.map(item=>(
             <button key={item.k} onClick={()=>{setSeccion(item.k as Seccion);setShowForm(false);setForm({});setVehiculoSel(null);}}
-              className={`nav-item w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left ${seccion===item.k?"nav-active text-green-400":"text-gray-400"}`}>
-              <span className="text-base flex-shrink-0">{item.icon}</span>
-              {sidebarOpen&&<span className="text-sm font-medium truncate">{item.label}</span>}
-              {seccion===item.k&&sidebarOpen&&<div className="ml-auto w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0"/>}
+              className={`nav-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium border flex-shrink-0 ${seccion===item.k?"active border-green-500/40 text-green-400 bg-green-500/10":"border-[#1e2d3d] text-gray-400 hover:text-gray-200 hover:bg-[#1a2535]"}`}>
+              <span className="text-base">{item.icon}</span>
+              <span>{item.label}</span>
+              {seccion===item.k&&<div className="w-1.5 h-1.5 rounded-full bg-green-400 ml-0.5"/>}
             </button>
           ))}
-        </nav>
-        <div className="px-2 py-3 border-t border-gray-800 space-y-0.5">
-          <button onClick={async()=>{const sb=await getSB();await sb.auth.signOut();window.location.href="/login";}}
-            className="nav-item w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-gray-500 text-left">
-            <span className="text-base">🚪</span>
-            {sidebarOpen&&<span className="text-sm font-medium">Cerrar Sesión</span>}
-          </button>
         </div>
-      </aside>
+      </div>
 
-      {/* ── MAIN ── */}
-      <main className="flex-1 overflow-auto bg-gray-950">
-        {/* Topbar */}
-        <div className="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center justify-between sticky top-0 z-10">
-          <div className="flex items-center gap-3">
-            <button onClick={()=>setSidebarOpen(!sidebarOpen)} className="text-gray-500 hover:text-gray-300 transition-colors p-1">
-              <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-            </button>
-            <div>
-              <h1 className="text-sm font-bold text-white">{NAV.find(n=>n.k===seccion)?.label}</h1>
-              <p className="text-xs text-gray-500">{new Date().toLocaleDateString("es-AR",{day:"numeric",month:"long",year:"numeric"})}</p>
-            </div>
+      {/* CONTENIDO */}
+      <div className="max-w-5xl mx-auto px-4 py-5">
+
+        {/* Toast */}
+        {msj&&(
+          <div className={`mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between fade-in ${msj.startsWith("✅")?"bg-green-500/10 text-green-400 border border-green-500/20":"bg-red-500/10 text-red-400 border border-red-500/20"}`}>
+            {msj}<button onClick={()=>setMsj("")} className="opacity-60 hover:opacity-100 ml-3 text-base">✕</button>
           </div>
-          <div className="flex items-center gap-3">
-            {alertas.length>0&&<div className="w-7 h-7 rounded-full bg-red-900/50 border border-red-700/50 flex items-center justify-center text-red-400 text-xs font-bold">{alertas.length}</div>}
-            <div className="w-8 h-8 rounded-full bg-green-900 border border-green-700 flex items-center justify-center">
-              <span className="text-green-400 text-xs font-bold">{ingNombre.charAt(0)}</span>
-            </div>
-            {sidebarOpen&&<div className="hidden md:block"><div className="text-sm font-semibold text-gray-200">{ingNombre}</div><div className="text-xs text-gray-500">Cód. {ingData.codigo}</div></div>}
+        )}
+
+        {/* Alertas */}
+        {alertas.length>0&&(
+          <div className="mb-4 bg-red-500/8 border border-red-500/20 rounded-xl p-3 fade-in">
+            <div className="flex items-center gap-2 mb-2"><span className="text-red-400 font-semibold text-xs uppercase tracking-wide">⚠ {alertas.length} alerta{alertas.length>1?"s":""}</span></div>
+            <div className="flex flex-wrap gap-2">{alertas.map((a,i)=><span key={i} className={`text-xs px-2.5 py-1 rounded-lg font-medium ${a.urgencia==="alta"?"bg-red-500/15 text-red-300":"bg-amber-500/15 text-amber-300"}`}>{a.msg}</span>)}</div>
           </div>
-        </div>
+        )}
 
-        <div className="p-5">
-          {/* Toast */}
-          {msj&&<div className={`mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between ${msj.startsWith("✅")?"bg-green-950 text-green-400 border border-green-800":"bg-red-950 text-red-400 border border-red-800"}`}>{msj}<button onClick={()=>setMsj("")} className="opacity-60 hover:opacity-100 ml-3">✕</button></div>}
-
-          {/* Alertas */}
-          {alertas.length>0&&<div className="mb-4 bg-red-950 border border-red-800 rounded-xl p-4"><div className="flex items-center gap-2 mb-2"><span className="text-red-400 font-semibold text-sm">⚠ {alertas.length} alerta{alertas.length>1?"s":""}</span></div><div className="flex flex-wrap gap-2">{alertas.map((a,i)=><span key={i} className={`text-xs px-3 py-1.5 rounded-full font-medium ${a.urgencia==="alta"?"bg-red-900 text-red-300":"bg-amber-900 text-amber-300"}`}>{a.msg}</span>)}</div></div>}
-
-          {/* ===== GENERAL ===== */}
-          {seccion==="general"&&(
-            <div>
-              {/* KPIs */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-                {[
-                  {l:"Productores",v:productores.length,sub:"Activos",icon:"👨‍🌾",bg:"from-green-900 to-green-800",border:"border-green-700"},
-                  {l:"Hectáreas Totales",v:totalHa.toLocaleString("es-AR")+" ha",sub:"Superficie activa",icon:"🌿",bg:"from-emerald-900 to-teal-900",border:"border-emerald-700"},
-                  {l:"Lotes Totales",v:lotes.length,sub:"Activos",icon:"🗺️",bg:"from-teal-900 to-cyan-900",border:"border-teal-700"},
-                  {l:"Con Cuenta App",v:productores.filter(p=>p.tiene_cuenta).length,sub:"Usuarios",icon:"📱",bg:"from-blue-900 to-indigo-900",border:"border-blue-700"},
-                ].map(s=>(
-                  <div key={s.l} className={`card bg-gradient-to-br ${s.bg} border ${s.border} rounded-2xl p-5`}>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-xs text-gray-400 font-medium">{s.l}</p>
-                        <p className="text-3xl font-bold text-white mt-1">{s.v}</p>
-                        <p className="text-xs text-gray-500 mt-1">{s.sub}</p>
-                      </div>
-                      <span className="text-2xl">{s.icon}</span>
-                    </div>
+        {/* ══ GENERAL ══ */}
+        {seccion==="general"&&(
+          <div className="fade-in space-y-4">
+            {/* KPIs — 2x2 grid en mobile */}
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                {l:"Productores",v:productores.length,sub:"activos",icon:"👨‍🌾",accent:"#22c55e",bg:"rgba(34,197,94,0.08)",border:"rgba(34,197,94,0.2)"},
+                {l:"Hectáreas",v:totalHa.toLocaleString("es-AR"),sub:"ha totales",icon:"🌿",accent:"#10b981",bg:"rgba(16,185,129,0.08)",border:"rgba(16,185,129,0.2)"},
+                {l:"Lotes",v:lotes.length,sub:"activos",icon:"🗺️",accent:"#0ea5e9",bg:"rgba(14,165,233,0.08)",border:"rgba(14,165,233,0.2)"},
+                {l:"Con App",v:productores.filter(p=>p.tiene_cuenta).length,sub:"usuarios",icon:"📱",accent:"#a855f7",bg:"rgba(168,85,247,0.08)",border:"rgba(168,85,247,0.2)"},
+              ].map(s=>(
+                <div key={s.l} className="rounded-2xl p-4" style={{background:s.bg,border:`1px solid ${s.border}`}}>
+                  <div className="flex items-start justify-between mb-2">
+                    <span className="text-xs font-medium uppercase tracking-wide" style={{color:s.accent}}>{s.l}</span>
+                    <span className="text-xl">{s.icon}</span>
                   </div>
-                ))}
+                  <div className="text-3xl font-bold text-white">{s.v}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{s.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Gráfico barras */}
+            {haPorCultivo.length>0&&(
+              <div className={`${cardCls} p-4`}>
+                <div className="mb-3">
+                  <h3 className="font-semibold text-gray-100">Hectáreas por Cultivo</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Campaña activa — superficie total {totalHa.toLocaleString("es-AR")} ha</p>
+                </div>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={haPorCultivo} margin={{top:4,right:4,bottom:20,left:-15}}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1a2535" vertical={false}/>
+                    <XAxis dataKey="name" tick={{fontSize:10,fill:"#6b7280",fontFamily:"Inter,sans-serif"}} axisLine={false} tickLine={false} interval={0} angle={-25} textAnchor="end"/>
+                    <YAxis tick={{fontSize:10,fill:"#6b7280"}} axisLine={false} tickLine={false}/>
+                    <Tooltip formatter={(v:any)=>[v+" ha","Hectáreas"]} contentStyle={{background:"#0f1923",border:"1px solid #1e2d3d",borderRadius:"10px",fontSize:"12px",color:"#e5e7eb"}} cursor={{fill:"rgba(34,197,94,0.05)"}}/>
+                    <Bar dataKey="ha" radius={[6,6,0,0]} maxBarSize={56}>
+                      {haPorCultivo.map((e,i)=><Cell key={i} fill={e.color}/>)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
+            )}
 
-              {/* Gráficos */}
+            {/* Distribución + cobranza */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Torta */}
               {haPorCultivo.length>0&&(
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-                  <div className="md:col-span-2 card bg-gray-900 border border-gray-800 rounded-2xl p-5">
-                    <div className="flex items-center justify-between mb-4">
-                      <div><h3 className="font-semibold text-white">Hectáreas por Cultivo</h3><p className="text-xs text-gray-500 mt-0.5">Distribución de superficie cultivada</p></div>
-                    </div>
-                    <ResponsiveContainer width="100%" height={200}>
-                      <BarChart data={haPorCultivo} margin={{top:0,right:0,bottom:0,left:-20}}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false}/>
-                        <XAxis dataKey="name" tick={{fontSize:11,fill:"#6b7280"}} axisLine={false} tickLine={false}/>
-                        <YAxis tick={{fontSize:11,fill:"#6b7280"}} axisLine={false} tickLine={false}/>
-                        <Tooltip formatter={(v:any)=>[v+" ha","Hectáreas"]} contentStyle={{background:"#111827",border:"1px solid #374151",borderRadius:"10px",fontSize:"12px",color:"white"}}/>
-                        <Bar dataKey="ha" radius={[6,6,0,0]}>{haPorCultivo.map((e,i)=><Cell key={i} fill={e.color}/>)}</Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="card bg-gray-900 border border-gray-800 rounded-2xl p-5">
-                    <h3 className="font-semibold text-white mb-1">Distribución</h3>
-                    <p className="text-xs text-gray-500 mb-3">% por cultivo</p>
-                    <div style={{width:"100%",height:130}}>
+                <div className={`${cardCls} p-4`}>
+                  <h3 className="font-semibold text-gray-100 mb-3">Distribución %</h3>
+                  <div className="flex items-center gap-3">
+                    <div style={{width:110,height:110,flexShrink:0}}>
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={haPorCultivo.map(d=>({...d,value:d.ha}))} cx="50%" cy="50%" outerRadius={55} innerRadius={28} dataKey="value" paddingAngle={3}>
+                          <Pie data={haPorCultivo.map(d=>({...d,value:d.ha}))} cx="50%" cy="50%" outerRadius={50} innerRadius={24} dataKey="value" paddingAngle={3}>
                             {haPorCultivo.map((e,i)=><Cell key={i} fill={e.color}/>)}
                           </Pie>
-                          <Tooltip formatter={(v:any,n:string)=>[v+" ha",n]} contentStyle={{background:"#111827",border:"1px solid #374151",borderRadius:"10px",fontSize:"12px",color:"white"}}/>
+                          <Tooltip formatter={(v:any,n:string)=>[v+" ha",n]} contentStyle={{background:"#0f1923",border:"1px solid #1e2d3d",borderRadius:"10px",fontSize:"11px",color:"#e5e7eb"}}/>
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
-                    <div className="space-y-1.5 mt-2">
-                      {haPorCultivo.map((d,i)=>(
-                        <div key={i} className="flex items-center gap-2">
+                    <div className="flex-1 space-y-1.5 min-w-0">
+                      {haPorCultivo.slice(0,6).map((d,i)=>(
+                        <div key={i} className="flex items-center gap-2 min-w-0">
                           <div className="w-2 h-2 rounded-full flex-shrink-0" style={{background:d.color}}/>
-                          <span className="text-xs text-gray-400 flex-1 truncate">{d.name}</span>
-                          <span className="text-xs font-semibold text-gray-300">{Math.round(d.ha/totalHa*100)}%</span>
+                          <span className="text-xs text-gray-300 flex-1 truncate">{d.name}</span>
+                          <span className="text-xs font-semibold flex-shrink-0" style={{color:d.color}}>{Math.round(d.ha/totalHa*100)}%</span>
                         </div>
                       ))}
                     </div>
                   </div>
                 </div>
               )}
-
-              {/* Resumen cobranza */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-                <div className="card bg-gray-900 border border-gray-800 rounded-2xl p-5">
-                  <h3 className="font-semibold text-white mb-3">💰 Cobranza</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-red-950 border border-red-900 rounded-xl p-3 text-center"><div className="text-xs text-red-400">Pendiente</div><div className="text-xl font-bold text-red-300 mt-1">${totPend.toLocaleString("es-AR")}</div></div>
-                    <div className="bg-green-950 border border-green-900 rounded-xl p-3 text-center"><div className="text-xs text-green-400">Cobrado</div><div className="text-xl font-bold text-green-300 mt-1">${totCob.toLocaleString("es-AR")}</div></div>
+              {/* Cobranza resumen */}
+              <div className={`${cardCls} p-4`}>
+                <h3 className="font-semibold text-gray-100 mb-3">💰 Cobranza</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-3 rounded-xl" style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.15)"}}>
+                    <span className="text-sm text-red-400 font-medium">Pendiente</span>
+                    <span className="text-lg font-bold text-red-300">${totPend.toLocaleString("es-AR")}</span>
                   </div>
-                </div>
-                <div className="card bg-gray-900 border border-gray-800 rounded-2xl p-5">
-                  <h3 className="font-semibold text-white mb-3">🚗 Alertas Vehículo</h3>
-                  {alertas.length===0
-                    ?<p className="text-sm text-gray-500">Sin alertas activas</p>
-                    :<div className="space-y-2">{alertas.slice(0,3).map((a,i)=><div key={i} className={`text-xs px-3 py-2 rounded-lg ${a.urgencia==="alta"?"bg-red-950 text-red-400 border border-red-900":"bg-amber-950 text-amber-400 border border-amber-900"}`}>{a.msg}</div>)}</div>
-                  }
+                  <div className="flex items-center justify-between p-3 rounded-xl" style={{background:"rgba(34,197,94,0.08)",border:"1px solid rgba(34,197,94,0.15)"}}>
+                    <span className="text-sm text-green-400 font-medium">Cobrado</span>
+                    <span className="text-lg font-bold text-green-300">${totCob.toLocaleString("es-AR")}</span>
+                  </div>
                 </div>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* ===== PRODUCTORES ===== */}
-          {seccion==="productores"&&(
-            <div>
-              {/* Acciones */}
-              <div className="card bg-gray-900 border border-gray-800 rounded-2xl mb-5 overflow-hidden">
-                <div className="grid grid-cols-3 divide-x divide-gray-800">
-                  {[
-                    {icon:"➕",l:"Nuevo Productor",sub:"Registrar nuevo",c:"text-green-400",fn:()=>{setShowForm(!showForm);setEditProd(null);setForm({provincia:"Santa Fe",honorario_tipo:"mensual"});}},
-                    {icon:"📥",l:"Importar",sub:"Desde archivo Excel",c:"text-blue-400",fn:()=>setShowImport(!showImport)},
-                    {icon:"📤",l:"Exportar",sub:"Descargar lista",c:"text-purple-400",fn:()=>exportXLS("productores")},
-                  ].map(b=>(
-                    <button key={b.l} onClick={b.fn} className="flex items-center gap-3 px-5 py-4 hover:bg-gray-800 transition-colors text-left">
-                      <div className="w-9 h-9 rounded-lg bg-gray-800 flex items-center justify-center text-lg flex-shrink-0">{b.icon}</div>
-                      <div><div className={`text-sm font-semibold ${b.c}`}>{b.l}</div><div className="text-xs text-gray-500 mt-0.5">{b.sub}</div></div>
-                    </button>
-                  ))}
+        {/* ══ PRODUCTORES ══ */}
+        {seccion==="productores"&&(
+          <div className="fade-in">
+            {/* Acciones rápidas */}
+            <div className={`${cardCls} rounded-2xl overflow-hidden mb-4`}>
+              <div className="grid grid-cols-3 divide-x divide-[#1e2d3d]">
+                {[
+                  {icon:"➕",l:"Nuevo",c:"text-green-400",fn:()=>{setShowForm(!showForm);setEditProd(null);setForm({provincia:"Santa Fe",honorario_tipo:"mensual"});}},
+                  {icon:"📥",l:"Importar",c:"text-blue-400",fn:()=>setShowImport(!showImport)},
+                  {icon:"📤",l:"Exportar",c:"text-purple-400",fn:()=>exportXLS("productores")},
+                ].map(b=>(
+                  <button key={b.l} onClick={b.fn} className="flex flex-col items-center gap-1 py-4 hover:bg-[#1a2535] transition-colors">
+                    <span className="text-xl">{b.icon}</span>
+                    <span className={`text-xs font-semibold ${b.c}`}>{b.l}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Vincular */}
+            <button onClick={()=>{setShowVincular(!showVincular);setForm({});}} className="mb-3 flex items-center gap-2 text-sm text-blue-400 font-medium hover:text-blue-300 transition-colors">
+              🔗 Vincular productor por código
+            </button>
+
+            {showVincular&&(
+              <div className={`${cardCls} p-4 mb-4 fade-in`}>
+                <h3 className="font-semibold text-gray-200 mb-3 text-sm">🔗 Vincular por código</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                  <div><label className={lCls}>Código *</label><input type="text" value={form.codigo??""} onChange={e=>setForm({...form,codigo:e.target.value})} className={iCls} placeholder="10001"/></div>
+                  <div><label className={lCls}>Honorario</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className={iCls}><option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option></select></div>
+                  <div><label className={lCls}>Monto $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls}/></div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={vincularCodigo} className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-colors">Vincular</button>
+                  <button onClick={()=>{setShowVincular(false);setForm({});}} className="bg-[#1e2a3a] hover:bg-[#253447] text-gray-300 px-4 py-2 rounded-xl text-sm transition-colors">Cancelar</button>
                 </div>
               </div>
+            )}
 
-              <button onClick={()=>{setShowVincular(!showVincular);setForm({});}} className="mb-4 flex items-center gap-2 text-sm text-blue-400 font-medium hover:underline">
-                🔗 Vincular productor por código
-              </button>
-
-              {showVincular&&(
-                <div className="card bg-gray-900 border border-gray-700 rounded-2xl p-5 mb-5">
-                  <h3 className="font-semibold text-white mb-3">🔗 Vincular por código</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
-                    <div><label className={lCls}>Código *</label><input type="text" value={form.codigo??""} onChange={e=>setForm({...form,codigo:e.target.value})} className={iCls} placeholder="10001"/></div>
-                    <div><label className={lCls}>Honorario</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className={iCls}><option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option></select></div>
-                    <div><label className={lCls}>Monto $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls}/></div>
-                    <button onClick={vincularCodigo} className="btn-p px-4 py-2 rounded-lg text-sm font-semibold">Vincular</button>
-                  </div>
-                </div>
-              )}
-
-              {showImport&&(
-                <div className="card bg-gray-900 border border-gray-700 rounded-2xl p-5 mb-5">
-                  <div className="flex justify-between mb-3"><h3 className="font-semibold text-white">📥 Importar productores</h3><button onClick={()=>{setShowImport(false);setImportPrev([]);setImportMsg("");}} className="text-gray-500 hover:text-gray-300">✕</button></div>
-                  <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)leerExcel(f);}}/>
-                  {importPrev.length===0
-                    ?<button onClick={()=>importRef.current?.click()} className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-gray-700 rounded-xl text-gray-400 text-sm w-full justify-center hover:border-green-600 hover:text-green-400 transition-colors">📁 Seleccionar archivo Excel</button>
-                    :<div>
-                      <div className="max-h-40 overflow-y-auto mb-3 rounded-xl border border-gray-700 text-sm">
-                        <table className="w-full"><thead className="bg-gray-800"><tr>{["Nombre","Tel","Localidad","Ha","Estado"].map(h=><th key={h} className="text-left px-3 py-2 text-xs text-gray-400 font-medium">{h}</th>)}</tr></thead>
-                          <tbody>{importPrev.map((r,i)=><tr key={i} className="border-t border-gray-800"><td className="px-3 py-2 font-medium text-gray-200">{r.nombre}</td><td className="px-3 py-2 text-gray-400">{r.telefono||"—"}</td><td className="px-3 py-2 text-gray-400">{r.localidad||"—"}</td><td className="px-3 py-2 text-gray-300">{r.hectareas_total||"—"}</td><td className="px-3 py-2"><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.existe?"bg-blue-900 text-blue-300":"bg-green-900 text-green-300"}`}>{r.existe?"Existente":"Nuevo"}</span></td></tr>)}</tbody>
-                        </table>
-                      </div>
-                      <div className="flex gap-3">
-                        <button onClick={confirmarImport} className="btn-p px-4 py-2 rounded-lg text-sm font-semibold">Importar {importPrev.filter(p=>!p.existe).length} nuevos</button>
-                        <button onClick={()=>setImportPrev([])} className="btn-o px-4 py-2 rounded-lg text-sm">Cancelar</button>
-                      </div>
+            {showImport&&(
+              <div className={`${cardCls} p-4 mb-4 fade-in`}>
+                <div className="flex justify-between mb-3"><h3 className="font-semibold text-gray-200 text-sm">📥 Importar productores</h3><button onClick={()=>{setShowImport(false);setImportPrev([]);setImportMsg("");}} className="text-gray-500 hover:text-gray-300 text-lg">✕</button></div>
+                <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)leerExcel(f);}}/>
+                {importPrev.length===0
+                  ?<button onClick={()=>importRef.current?.click()} className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-[#1e2d3d] rounded-xl text-gray-500 text-sm w-full justify-center hover:border-green-600 hover:text-green-400 transition-colors">📁 Seleccionar archivo Excel</button>
+                  :<div>
+                    <div className="max-h-36 overflow-y-auto mb-3 rounded-xl border border-[#1e2d3d]">
+                      <table className="w-full text-xs"><thead className="bg-[#1a2535]"><tr>{["Nombre","Tel","Localidad","Ha",""].map(h=><th key={h} className="text-left px-3 py-2 text-gray-400 font-medium">{h}</th>)}</tr></thead>
+                        <tbody>{importPrev.map((r,i)=><tr key={i} className="border-t border-[#1a2535]"><td className="px-3 py-2 font-medium text-gray-200">{r.nombre}</td><td className="px-3 py-2 text-gray-500">{r.telefono||"—"}</td><td className="px-3 py-2 text-gray-500">{r.localidad||"—"}</td><td className="px-3 py-2 text-gray-400">{r.hectareas_total||"—"}</td><td className="px-3 py-2"><span className={`px-2 py-0.5 rounded-full font-medium ${r.existe?"bg-blue-500/15 text-blue-400":"bg-green-500/15 text-green-400"}`}>{r.existe?"Existente":"Nuevo"}</span></td></tr>)}</tbody>
+                      </table>
                     </div>
-                  }
-                  {importMsg&&<p className={`mt-2 text-xs font-medium ${importMsg.startsWith("✅")?"text-green-400":"text-red-400"}`}>{importMsg}</p>}
-                </div>
-              )}
-
-              {showForm&&(
-                <div className="card bg-gray-900 border border-gray-700 rounded-2xl p-5 mb-5">
-                  <h3 className="font-semibold text-white mb-4">{editProd?"✏️ Editar":"➕"} Productor</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div><label className={lCls}>Nombre *</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls} placeholder="Nombre y apellido"/></div>
-                    <div><label className={lCls}>Teléfono</label><input type="text" value={form.telefono??""} onChange={e=>setForm({...form,telefono:e.target.value})} className={iCls}/></div>
-                    <div><label className={lCls}>Email (si tiene app)</label><input type="email" value={form.email??""} onChange={e=>setForm({...form,email:e.target.value})} className={iCls}/></div>
-                    <div><label className={lCls}>Localidad</label><input type="text" value={form.localidad??""} onChange={e=>setForm({...form,localidad:e.target.value})} className={iCls}/></div>
-                    <div><label className={lCls}>Honorario tipo</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className={iCls}><option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option><option value="por_servicio">Por servicio</option></select></div>
-                    <div><label className={lCls}>Honorario $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls}/></div>
-                    <div className="md:col-span-2"><label className={lCls}>Observaciones</label><input type="text" value={form.obs??""} onChange={e=>setForm({...form,obs:e.target.value})} className={iCls}/></div>
+                    <div className="flex gap-2">
+                      <button onClick={confirmarImport} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors">Importar {importPrev.filter(p=>!p.existe).length} nuevos</button>
+                      <button onClick={()=>setImportPrev([])} className="bg-[#1e2a3a] text-gray-400 px-4 py-2 rounded-xl text-sm transition-colors">Cancelar</button>
+                    </div>
                   </div>
-                  <div className="flex gap-3 mt-4">
-                    <button onClick={guardarProductor} className="btn-p px-5 py-2 rounded-lg text-sm font-semibold">Guardar</button>
-                    <button onClick={()=>{setShowForm(false);setEditProd(null);setForm({});}} className="btn-o px-5 py-2 rounded-lg text-sm">Cancelar</button>
-                  </div>
-                </div>
-              )}
+                }
+                {importMsg&&<p className={`mt-2 text-xs font-medium ${importMsg.startsWith("✅")?"text-green-400":"text-red-400"}`}>{importMsg}</p>}
+              </div>
+            )}
 
-              {/* Filtros lotes */}
-              {lotes.length>0&&(
-                <div className="card bg-gray-900 border border-gray-800 rounded-2xl p-4 mb-5">
-                  <div className="flex flex-wrap gap-3 items-end">
-                    <p className="font-semibold text-gray-300 text-sm self-center mr-1">Exportar lotes:</p>
-                    {[["Cultivo",fCultivo,setFCultivo,["todos",...cultivosU]],["Productor",fProductor,setFProductor,["todos",...productores.map(p=>p.nombre)]],["Estado",fEstado,setFEstado,["todos","planificado","sembrado","en_desarrollo","cosechado"]]].map(([l,v,fn,opts])=>(
-                      <div key={l as string}><label className="block text-xs text-gray-500 mb-1">{l as string}</label>
-                        <select value={v as string} onChange={e=>(fn as any)(e.target.value)} className={iCls+" min-w-[130px]"}>
-                          {(opts as string[]).map(o=><option key={o} value={o}>{o==="todos"?"Todos":o}</option>)}
-                        </select>
-                      </div>
-                    ))}
-                    <button onClick={()=>exportXLS("lotes")} className="btn-p flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold">📤 Exportar lotes</button>
-                  </div>
+            {showForm&&(
+              <div className={`${cardCls} p-4 mb-4 fade-in`}>
+                <h3 className="font-semibold text-gray-200 mb-4 text-sm">{editProd?"✏️ Editar":"➕"} Productor</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div><label className={lCls}>Nombre *</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls} placeholder="Nombre y apellido"/></div>
+                  <div><label className={lCls}>Teléfono</label><input type="text" value={form.telefono??""} onChange={e=>setForm({...form,telefono:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>Email (si tiene app)</label><input type="email" value={form.email??""} onChange={e=>setForm({...form,email:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>Localidad</label><input type="text" value={form.localidad??""} onChange={e=>setForm({...form,localidad:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>Honorario tipo</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className={iCls}><option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option><option value="por_servicio">Por servicio</option></select></div>
+                  <div><label className={lCls}>Honorario $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls}/></div>
+                  <div className="sm:col-span-2"><label className={lCls}>Observaciones</label><input type="text" value={form.obs??""} onChange={e=>setForm({...form,obs:e.target.value})} className={iCls}/></div>
                 </div>
-              )}
+                <div className="flex gap-2 mt-4">
+                  <button onClick={guardarProductor} className="bg-green-600 hover:bg-green-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors">Guardar</button>
+                  <button onClick={()=>{setShowForm(false);setEditProd(null);setForm({});}} className="bg-[#1e2a3a] hover:bg-[#253447] text-gray-400 px-4 py-2.5 rounded-xl text-sm transition-colors">Cancelar</button>
+                </div>
+              </div>
+            )}
 
-              {/* Lista productores */}
-              {productores.length===0
-                ?<div className="card bg-gray-900 border border-gray-800 rounded-2xl p-20 text-center"><div className="text-5xl mb-4 opacity-20">👨‍🌾</div><p className="text-gray-500 font-medium">Sin productores — agregá el primero</p></div>
-                :<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {productores.map(p=>{
-                    const eid=p.empresa_id??p.id;
-                    const camps=campanasPorProd[eid]??[];
-                    const campActiva=campSelProd[eid]??null;
-                    const lotesP=lotes.filter(l=>l.productor_nombre===p.nombre);
-                    const haReales=lotesP.reduce((a,l)=>a+(l.hectareas||0),0);
-                    const cultivosProd=[...new Set(lotesP.map(l=>l.cultivo_completo||l.cultivo).filter(Boolean))];
-                    return(
-                      <div key={p.id} className="prod-card card bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden" style={{boxShadow:"0 1px 3px rgba(0,0,0,0.4)"}}>
-                        <div className="px-5 pt-5 pb-4 border-b border-gray-800">
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-900 to-emerald-800 border border-green-700 flex items-center justify-center flex-shrink-0">
-                              <span className="text-green-400 font-bold text-sm">{p.nombre.charAt(0)}</span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-bold text-white truncate">{p.nombre}</div>
-                              <div className="text-xs text-gray-500 mt-0.5">{p.localidad}{p.provincia&&p.provincia!==p.localidad?", "+p.provincia:""}</div>
-                              {p.tiene_cuenta&&<span className="inline-flex items-center gap-1 text-xs text-green-400 font-medium mt-1">✓ Usa la app</span>}
-                            </div>
-                            <div className="flex gap-1">
-                              <button onClick={()=>{setEditProd(p.id);setForm({nombre:p.nombre,telefono:p.telefono||"",email:p.email||"",localidad:p.localidad||"",provincia:p.provincia||"",honorario_tipo:p.honorario_tipo||"mensual",honorario_monto:String(p.honorario_monto||0),obs:p.observaciones||""});setShowForm(true);}} className="p-1.5 rounded-lg hover:bg-gray-700 text-gray-500 hover:text-gray-300 transition-colors text-sm">✏️</button>
-                              <button onClick={()=>eliminarProd(p.id)} className="p-1.5 rounded-lg hover:bg-red-900/40 text-gray-600 hover:text-red-400 transition-colors text-sm">✕</button>
-                            </div>
+            {/* Filtros exportar lotes */}
+            {lotes.length>0&&(
+              <div className={`${cardCls} p-3 mb-4`}>
+                <div className="flex flex-wrap gap-2 items-end">
+                  <span className="text-xs text-gray-400 font-medium self-center">Exportar lotes:</span>
+                  {[["Cultivo",fCultivo,setFCultivo,["todos",...cultivosU]],["Productor",fProductor,setFProductor,["todos",...productores.map(p=>p.nombre)]],["Estado",fEstado,setFEstado,["todos","planificado","sembrado","en_desarrollo","cosechado"]]].map(([l,v,fn,opts])=>(
+                    <select key={l as string} value={v as string} onChange={e=>(fn as any)(e.target.value)} className="bg-[#1e2a3a] border border-[#2d3f55] rounded-lg px-2.5 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-green-500">
+                      {(opts as string[]).map(o=><option key={o} value={o}>{o==="todos"?"Todos":o}</option>)}
+                    </select>
+                  ))}
+                  <button onClick={()=>exportXLS("lotes")} className="bg-green-600/20 border border-green-600/30 text-green-400 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-green-600/30 transition-colors">📤 Exportar</button>
+                </div>
+              </div>
+            )}
+
+            {/* Lista productores */}
+            {productores.length===0
+              ?<div className={`${cardCls} p-16 text-center`}><div className="text-5xl mb-4 opacity-20">👨‍🌾</div><p className="text-gray-500">Sin productores — agregá el primero</p></div>
+              :<div className="space-y-3">
+                {productores.map(p=>{
+                  const eid=p.empresa_id??p.id;
+                  const camps=campanasPorProd[eid]??[];
+                  const campActiva=campSelProd[eid]??null;
+                  const lotesP=lotes.filter(l=>l.productor_nombre===p.nombre);
+                  const haReales=lotesP.reduce((a,l)=>a+(l.hectareas||0),0);
+                  const cultivosProd=[...new Set(lotesP.map(l=>l.cultivo_completo||l.cultivo).filter(Boolean))];
+                  return(
+                    <div key={p.id} className={`prod-card ${cardCls}`}>
+                      {/* Header */}
+                      <div className="px-4 pt-4 pb-3 border-b border-[#1a2535]">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-lg font-bold" style={{background:"rgba(34,197,94,0.12)",color:"#22c55e",border:"1px solid rgba(34,197,94,0.2)"}}>
+                            {p.nombre.charAt(0)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-gray-100 truncate">{p.nombre}</div>
+                            <div className="text-xs text-gray-500 mt-0.5">{p.localidad}{p.provincia&&p.provincia!==p.localidad?", "+p.provincia:""}</div>
+                            {p.tiene_cuenta&&<div className="text-xs text-green-400 font-medium mt-0.5">✓ Usa la app</div>}
+                          </div>
+                          <div className="flex gap-1 flex-shrink-0">
+                            <button onClick={()=>{setEditProd(p.id);setForm({nombre:p.nombre,telefono:p.telefono||"",email:p.email||"",localidad:p.localidad||"",provincia:p.provincia||"",honorario_tipo:p.honorario_tipo||"mensual",honorario_monto:String(p.honorario_monto||0),obs:p.observaciones||""});setShowForm(true);}} className="p-1.5 rounded-lg hover:bg-[#1e2a3a] text-gray-500 hover:text-amber-400 transition-colors text-sm">✏️</button>
+                            <button onClick={()=>eliminarProd(p.id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-600 hover:text-red-400 transition-colors text-sm">✕</button>
                           </div>
                         </div>
-                        <div className="px-5 py-4">
-                          {/* Campaña */}
-                          <div className="mb-4">
-                            <label className="block text-xs text-gray-500 font-medium mb-1.5">CAMPAÑA</label>
-                            <div className="flex gap-2 items-center">
-                              {camps.length>0
-                                ?<select value={campActiva??""} onChange={e=>cambiarCampana(eid,e.target.value,p.nombre)} className={iCls+" flex-1"}>
-                                  {camps.map((c:any)=><option key={c.id} value={c.id}>{c.nombre}{c.activa?" ★":""}</option>)}
-                                </select>
-                                :<div className="flex-1 bg-gray-800 rounded-lg px-3 py-2 text-xs text-gray-500">Sin campañas</div>
-                              }
-                              <button onClick={()=>{setNuevaCampProd(p.id);setNuevaCampNombre(new Date().getFullYear()+"/"+(new Date().getFullYear()+1));}}
-                                className="px-2.5 py-2 rounded-lg bg-amber-900/50 border border-amber-700 text-amber-400 text-xs font-semibold hover:bg-amber-900 transition-colors flex-shrink-0">
-                                + Nueva
-                              </button>
-                            </div>
-                            {nuevaCampProd===p.id&&(
-                              <div className="flex gap-2 mt-2">
-                                <input value={nuevaCampNombre} onChange={e=>setNuevaCampNombre(e.target.value)} placeholder="2025/2026" className={iCls+" flex-1"}/>
-                                <button onClick={async()=>{if(nuevaCampNombre.trim()){await crearCampana(eid,nuevaCampNombre.trim());setNuevaCampProd(null);setNuevaCampNombre("");}}} className="px-3 py-2 rounded-lg bg-green-700 text-white text-xs font-semibold hover:bg-green-600">✓</button>
-                                <button onClick={()=>{setNuevaCampProd(null);setNuevaCampNombre("");}} className="px-2.5 py-2 rounded-lg border border-gray-700 text-gray-400 text-xs">✕</button>
-                              </div>
-                            )}
-                            <div className="text-xs text-gray-600 mt-1.5">{lotesP.length} lotes · {haReales.toLocaleString("es-AR")} ha en esta campaña</div>
-                          </div>
+                      </div>
 
-                          {/* Stats */}
-                          <div className="grid grid-cols-2 gap-3 mb-4">
-                            <div className="bg-amber-950/50 border border-amber-900/50 rounded-xl p-3 text-center">
-                              <div className="text-xs text-amber-500">Hectáreas</div>
-                              <div className="text-2xl font-bold text-amber-300 mt-0.5">{haReales.toLocaleString("es-AR")}</div>
-                            </div>
-                            <div className="bg-green-950/50 border border-green-900/50 rounded-xl p-3 text-center">
-                              <div className="text-xs text-green-500">Honorario</div>
-                              <div className="text-2xl font-bold text-green-300 mt-0.5">${(p.honorario_monto||0).toLocaleString("es-AR")}</div>
-                            </div>
+                      <div className="px-4 py-3 space-y-3">
+                        {/* Campaña */}
+                        <div>
+                          <label className="block text-xs text-gray-500 font-medium mb-1.5 uppercase tracking-wide">Campaña</label>
+                          <div className="flex gap-2">
+                            {camps.length>0
+                              ?<select value={campActiva??""} onChange={e=>cambiarCampana(eid,e.target.value,p.nombre)} className={`${iCls} flex-1`}>
+                                {camps.map((c:any)=><option key={c.id} value={c.id}>{c.nombre}{c.activa?" ★":""}</option>)}
+                              </select>
+                              :<div className="flex-1 bg-[#1a2535] rounded-xl px-3 py-2.5 text-xs text-gray-600">Sin campañas</div>
+                            }
+                            <button onClick={()=>{setNuevaCampProd(p.id);setNuevaCampNombre(new Date().getFullYear()+"/"+(new Date().getFullYear()+1));}}
+                              className="px-3 py-2 rounded-xl text-xs font-semibold flex-shrink-0 transition-colors" style={{background:"rgba(234,179,8,0.12)",border:"1px solid rgba(234,179,8,0.25)",color:"#eab308"}}>
+                              + Nueva
+                            </button>
                           </div>
-
-                          {/* Cultivos */}
-                          {cultivosProd.length>0&&(
-                            <div className="flex gap-1.5 flex-wrap mb-4">
-                              {cultivosProd.map(c=>{const col=getCultivoColor(c);const lab=getCultivoLabel(c);return(
-                                <span key={c} className="text-xs px-2.5 py-1 rounded-full font-medium" style={{background:col+"22",color:col,border:"1px solid "+col+"44"}}>{lab}</span>
-                              );})}
+                          {nuevaCampProd===p.id&&(
+                            <div className="flex gap-2 mt-2">
+                              <input value={nuevaCampNombre} onChange={e=>setNuevaCampNombre(e.target.value)} className={`${iCls} flex-1 text-xs`} placeholder="2025/2026"/>
+                              <button onClick={async()=>{if(nuevaCampNombre.trim()){await crearCampana(eid,nuevaCampNombre.trim());setNuevaCampProd(null);setNuevaCampNombre("");}}} className="px-3 py-2 rounded-xl bg-green-600 text-white text-xs font-semibold hover:bg-green-500 transition-colors">✓</button>
+                              <button onClick={()=>{setNuevaCampProd(null);setNuevaCampNombre("");}} className="px-2.5 py-2 rounded-xl border border-[#2d3f55] text-gray-500 text-xs hover:text-gray-300 transition-colors">✕</button>
                             </div>
                           )}
+                          <div className="text-xs text-gray-600 mt-1.5">{lotesP.length} lotes · {haReales.toLocaleString("es-AR")} ha</div>
+                        </div>
 
-                          <div className="flex gap-2">
-                            {p.telefono&&<a href={"https://wa.me/54"+p.telefono.replace(/\D/g,"")} target="_blank" rel="noreferrer" className="p-2.5 rounded-xl bg-green-900/50 border border-green-800 text-green-400 hover:bg-green-900 transition-colors flex-shrink-0">💬</a>}
-                            <button onClick={()=>entrar(p)} className="btn-p flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5">{p.tiene_cuenta?"🔗 Ver Lotes":"🌾 Mis Lotes"}</button>
+                        {/* Stats */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="rounded-xl p-3 text-center" style={{background:"rgba(234,179,8,0.08)",border:"1px solid rgba(234,179,8,0.15)"}}>
+                            <div className="text-xs text-amber-500 font-medium">Hectáreas</div>
+                            <div className="text-2xl font-bold text-amber-300 mt-0.5">{haReales.toLocaleString("es-AR")}</div>
+                          </div>
+                          <div className="rounded-xl p-3 text-center" style={{background:"rgba(34,197,94,0.08)",border:"1px solid rgba(34,197,94,0.15)"}}>
+                            <div className="text-xs text-green-500 font-medium">Honorario</div>
+                            <div className="text-2xl font-bold text-green-300 mt-0.5">${(p.honorario_monto||0).toLocaleString("es-AR")}</div>
                           </div>
                         </div>
-                        {p.observaciones&&<div className="px-5 py-3 bg-gray-950/50 border-t border-gray-800 text-xs text-gray-500">{p.observaciones}</div>}
+
+                        {/* Cultivos */}
+                        {cultivosProd.length>0&&(
+                          <div className="flex gap-1.5 flex-wrap">
+                            {cultivosProd.map(c=>{const info=getCultivoInfo(c);return(
+                              <span key={c} className="text-xs px-2.5 py-1 rounded-lg font-medium" style={{background:info.color+"18",color:info.color,border:`1px solid ${info.color}30`}}>{info.label}</span>
+                            );})}
+                          </div>
+                        )}
+
+                        {/* Botones */}
+                        <div className="flex gap-2 pt-1">
+                          {p.telefono&&<a href={"https://wa.me/54"+p.telefono.replace(/\D/g,"")} target="_blank" rel="noreferrer" className="p-2.5 rounded-xl flex-shrink-0 transition-colors" style={{background:"rgba(37,211,102,0.1)",border:"1px solid rgba(37,211,102,0.2)"}}>💬</a>}
+                          <button onClick={()=>entrar(p)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-1.5" style={{background:"rgba(34,197,94,0.15)",border:"1px solid rgba(34,197,94,0.3)",color:"#22c55e"}}>
+                            {p.tiene_cuenta?"🔗 Ver Lotes":"🌾 Mis Lotes"}
+                          </button>
+                        </div>
                       </div>
-                    );
-                  })}
+
+                      {p.observaciones&&<div className="px-4 py-2.5 border-t border-[#1a2535] text-xs text-gray-600">{p.observaciones}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            }
+          </div>
+        )}
+
+        {/* ══ COBRANZA ══ */}
+        {seccion==="cobranza"&&(
+          <div className="fade-in">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-100">Cobranza</h2>
+                <div className="flex gap-3 mt-1">
+                  <span className="text-xs text-red-400">Pendiente: <strong>${totPend.toLocaleString("es-AR")}</strong></span>
+                  <span className="text-xs text-green-400">Cobrado: <strong>${totCob.toLocaleString("es-AR")}</strong></span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={async()=>{const XLSX=await import("xlsx");const data=cobranzas.map(c=>{const p=productores.find(x=>x.id===c.productor_id);return{PRODUCTOR:p?.nombre??"—",CONCEPTO:c.concepto,MONTO:c.monto,FECHA:c.fecha,ESTADO:c.estado};});const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Cobranzas");XLSX.writeFile(wb,"cobranzas_"+new Date().toISOString().slice(0,10)+".xlsx");}} className="bg-[#1e2a3a] hover:bg-[#253447] text-gray-400 px-3 py-2 rounded-xl text-sm transition-colors">📤</button>
+                <button onClick={()=>{setShowForm(!showForm);setForm({estado:"pendiente",fecha_c:new Date().toISOString().split("T")[0]});}} className="bg-amber-600/20 border border-amber-600/30 text-amber-400 hover:bg-amber-600/30 px-3 py-2 rounded-xl text-sm font-semibold transition-colors">+ Cobro</button>
+              </div>
+            </div>
+
+            {showForm&&(
+              <div className={`${cardCls} p-4 mb-4 fade-in`}>
+                <h3 className="font-semibold text-gray-200 mb-3 text-sm">+ Nuevo cobro</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div><label className={lCls}>Productor</label><select value={form.prod_c??""} onChange={e=>setForm({...form,prod_c:e.target.value})} className={iCls}><option value="">Sin productor</option>{productores.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
+                  <div><label className={lCls}>Concepto</label><input type="text" value={form.concepto??""} onChange={e=>setForm({...form,concepto:e.target.value})} className={iCls} placeholder="Honorario enero"/></div>
+                  <div><label className={lCls}>Monto</label><input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_c??""} onChange={e=>setForm({...form,fecha_c:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>Estado</label><select value={form.estado??"pendiente"} onChange={e=>setForm({...form,estado:e.target.value})} className={iCls}><option value="pendiente">Pendiente</option><option value="cobrado">Cobrado</option></select></div>
+                  <div><label className={lCls}>Método</label><select value={form.metodo??""} onChange={e=>setForm({...form,metodo:e.target.value})} className={iCls}><option value="">—</option><option value="transferencia">Transferencia</option><option value="efectivo">Efectivo</option><option value="cheque">Cheque</option></select></div>
+                </div>
+                <div className="flex gap-2 mt-3"><button onClick={guardarCob} className="bg-green-600 hover:bg-green-500 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-colors">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="bg-[#1e2a3a] text-gray-400 px-4 py-2 rounded-xl text-sm transition-colors">Cancelar</button></div>
+              </div>
+            )}
+
+            <div className={`${cardCls} overflow-hidden`}>
+              {cobranzas.length===0?<div className="text-center py-16 text-gray-600">Sin cobros registrados</div>:(
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[600px]">
+                    <thead><tr className="border-b border-[#1e2d3d]">{["Fecha","Productor","Concepto","Monto","Estado",""].map(h=><th key={h} className="text-left px-4 py-3 text-xs text-gray-500 font-semibold">{h}</th>)}</tr></thead>
+                    <tbody className="divide-y divide-[#1a2535]">
+                      {cobranzas.map(c=>{const p=productores.find(x=>x.id===c.productor_id);return(
+                        <tr key={c.id} className="hover:bg-[#0f1923]/50 transition-colors">
+                          <td className="px-4 py-3 text-gray-500 text-xs">{c.fecha}</td>
+                          <td className="px-4 py-3 font-medium text-gray-200 text-xs">{p?.nombre??"—"}</td>
+                          <td className="px-4 py-3 text-gray-400 text-xs">{c.concepto}</td>
+                          <td className="px-4 py-3 font-bold text-amber-400">${Number(c.monto).toLocaleString("es-AR")}</td>
+                          <td className="px-4 py-3"><span className={`text-xs px-2.5 py-1 rounded-lg font-medium ${c.estado==="cobrado"?"bg-green-500/15 text-green-400":"bg-red-500/15 text-red-400"}`}>{c.estado}</span></td>
+                          <td className="px-4 py-3 flex gap-2">
+                            {c.estado==="pendiente"&&<button onClick={()=>marcarCobrado(c.id)} className="text-green-400 text-xs hover:underline font-medium">✓</button>}
+                            <button onClick={async()=>{const sb=await getSB();await sb.from("ing_cobranzas").delete().eq("id",c.id);await fetchCobs(ingId);}} className="text-gray-600 hover:text-red-400 text-xs transition-colors">✕</button>
+                          </td>
+                        </tr>
+                      );})}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ══ VEHICULO ══ */}
+        {seccion==="vehiculo"&&(
+          <div className="fade-in">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-100">Mi Vehículo</h2>
+              {!vehiculoSel
+                ?<button onClick={()=>{setShowForm(true);setForm({});}} className="bg-green-600/20 border border-green-600/30 text-green-400 hover:bg-green-600/30 px-4 py-2 rounded-xl text-sm font-semibold transition-colors">+ Agregar</button>
+                :<div className="flex gap-2">
+                  <button onClick={()=>{setShowForm(true);setForm({});}} className="bg-amber-600/20 border border-amber-600/30 text-amber-400 px-3 py-2 rounded-xl text-sm transition-colors">+ Service</button>
+                  <button onClick={()=>{setVehiculoSel(null);setServicios([]);setShowForm(false);}} className="bg-[#1e2a3a] text-gray-400 px-3 py-2 rounded-xl text-sm transition-colors">← Volver</button>
                 </div>
               }
             </div>
-          )}
 
-          {/* ===== COBRANZA ===== */}
-          {seccion==="cobranza"&&(
-            <div>
-              <div className="flex items-center justify-between mb-5">
-                <div><h2 className="text-xl font-bold text-white">Cobranza</h2><div className="flex gap-4 mt-1"><span className="text-sm text-red-400">Pendiente: <strong>${totPend.toLocaleString("es-AR")}</strong></span><span className="text-sm text-green-400">Cobrado: <strong>${totCob.toLocaleString("es-AR")}</strong></span></div></div>
-                <div className="flex gap-2">
-                  <button onClick={async()=>{const XLSX=await import("xlsx");const data=cobranzas.map(c=>{const p=productores.find(x=>x.id===c.productor_id);return{PRODUCTOR:p?.nombre??"—",CONCEPTO:c.concepto,MONTO:c.monto,FECHA:c.fecha,ESTADO:c.estado};});const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Cobranzas");XLSX.writeFile(wb,"cobranzas_"+new Date().toISOString().slice(0,10)+".xlsx");}} className="btn-o px-4 py-2 rounded-lg text-sm font-medium">📤 Exportar</button>
-                  <button onClick={()=>{setShowForm(!showForm);setForm({estado:"pendiente",fecha_c:new Date().toISOString().split("T")[0]});}} className="btn-p px-4 py-2 rounded-lg text-sm font-semibold">+ Nuevo cobro</button>
+            {showForm&&!vehiculoSel&&(
+              <div className={`${cardCls} p-4 mb-4 fade-in`}>
+                <h3 className="font-semibold text-gray-200 mb-3 text-sm">+ Nuevo vehículo</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[["nombre","Nombre","Toyota Hilux","text"],["marca","Marca","","text"],["modelo","Modelo","","text"],["anio","Año","","number"],["patente","Patente","","text"],["seg_comp","Compañía seguro","","text"],["seg_venc","Venc. seguro","","date"],["vtv_venc","Venc. VTV","","date"],["km","Km actuales","","number"],["prox_km","Próx. service km","","number"]].map(([k,l,ph,t])=>(
+                    <div key={k as string}><label className={lCls}>{l as string}</label><input type={t as string} value={form[k as string]??""} onChange={e=>setForm({...form,[k as string]:e.target.value})} className={iCls} placeholder={ph as string}/></div>
+                  ))}
                 </div>
+                <div className="flex gap-2 mt-3"><button onClick={guardarVeh} className="bg-green-600 hover:bg-green-500 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-colors">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="bg-[#1e2a3a] text-gray-400 px-4 py-2 rounded-xl text-sm transition-colors">Cancelar</button></div>
               </div>
-              {showForm&&(
-                <div className="card bg-gray-900 border border-gray-700 rounded-2xl p-5 mb-5">
-                  <h3 className="font-semibold text-white mb-4">+ Nuevo cobro</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div><label className={lCls}>Productor</label><select value={form.prod_c??""} onChange={e=>setForm({...form,prod_c:e.target.value})} className={iCls}><option value="">Sin productor</option>{productores.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
-                    <div><label className={lCls}>Concepto</label><input type="text" value={form.concepto??""} onChange={e=>setForm({...form,concepto:e.target.value})} className={iCls} placeholder="Honorario enero"/></div>
-                    <div><label className={lCls}>Monto</label><input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value})} className={iCls}/></div>
-                    <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_c??""} onChange={e=>setForm({...form,fecha_c:e.target.value})} className={iCls}/></div>
-                    <div><label className={lCls}>Estado</label><select value={form.estado??"pendiente"} onChange={e=>setForm({...form,estado:e.target.value})} className={iCls}><option value="pendiente">Pendiente</option><option value="cobrado">Cobrado</option></select></div>
-                    <div><label className={lCls}>Método</label><select value={form.metodo??""} onChange={e=>setForm({...form,metodo:e.target.value})} className={iCls}><option value="">—</option><option value="transferencia">Transferencia</option><option value="efectivo">Efectivo</option><option value="cheque">Cheque</option></select></div>
-                  </div>
-                  <div className="flex gap-3 mt-4"><button onClick={guardarCob} className="btn-p px-5 py-2 rounded-lg text-sm font-semibold">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="btn-o px-5 py-2 rounded-lg text-sm">Cancelar</button></div>
-                </div>
-              )}
-              <div className="card bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-                {cobranzas.length===0?<div className="text-center py-16 text-gray-500">Sin cobros registrados</div>:(
-                  <div className="overflow-x-auto"><table className="w-full text-sm">
-                    <thead className="bg-gray-800 border-b border-gray-700"><tr>{["Fecha","Productor","Concepto","Monto","Estado","Método",""].map(h=><th key={h} className="text-left px-5 py-3 text-xs text-gray-400 font-semibold">{h}</th>)}</tr></thead>
-                    <tbody className="divide-y divide-gray-800">{cobranzas.map(c=>{const p=productores.find(x=>x.id===c.productor_id);return(
-                      <tr key={c.id} className="hover:bg-gray-800/50 transition-colors">
-                        <td className="px-5 py-3.5 text-gray-500">{c.fecha}</td>
-                        <td className="px-5 py-3.5 font-medium text-gray-200">{p?.nombre??"—"}</td>
-                        <td className="px-5 py-3.5 text-gray-300">{c.concepto}</td>
-                        <td className="px-5 py-3.5 font-bold text-amber-400">${Number(c.monto).toLocaleString("es-AR")}</td>
-                        <td className="px-5 py-3.5"><span className={`text-xs px-2.5 py-1 rounded-full font-medium ${c.estado==="cobrado"?"bg-green-900 text-green-400":"bg-red-900 text-red-400"}`}>{c.estado}</span></td>
-                        <td className="px-5 py-3.5 text-gray-500">{c.metodo_pago||"—"}</td>
-                        <td className="px-5 py-3.5 flex gap-2">
-                          {c.estado==="pendiente"&&<button onClick={()=>marcarCobrado(c.id)} className="text-green-400 text-xs font-medium hover:underline">✓ Cobrado</button>}
-                          <button onClick={async()=>{const sb=await getSB();await sb.from("ing_cobranzas").delete().eq("id",c.id);await fetchCobs(ingId);}} className="text-gray-600 hover:text-red-400 text-xs">✕</button>
-                        </td>
-                      </tr>
-                    );})}</tbody>
-                  </table></div>
-                )}
-              </div>
-            </div>
-          )}
+            )}
 
-          {/* ===== VEHICULO ===== */}
-          {seccion==="vehiculo"&&(
-            <div>
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-xl font-bold text-white">Mi Vehículo</h2>
-                {!vehiculoSel?<button onClick={()=>{setShowForm(true);setForm({});}} className="btn-p px-4 py-2 rounded-lg text-sm font-semibold">+ Agregar</button>:(
-                  <div className="flex gap-2"><button onClick={()=>{setShowForm(true);setForm({});}} className="btn-o px-4 py-2 rounded-lg text-sm">+ Service</button><button onClick={()=>{setVehiculoSel(null);setServicios([]);setShowForm(false);}} className="btn-o px-4 py-2 rounded-lg text-sm">← Volver</button></div>
-                )}
-              </div>
-              {showForm&&!vehiculoSel&&(
-                <div className="card bg-gray-900 border border-gray-700 rounded-2xl p-5 mb-5">
-                  <h3 className="font-semibold text-white mb-4">+ Nuevo vehículo</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[["nombre","Nombre","Toyota Hilux","text"],["marca","Marca","","text"],["modelo","Modelo","","text"],["anio","Año","","number"],["patente","Patente","","text"],["seg_comp","Compañía seguro","","text"],["seg_venc","Venc. seguro","","date"],["vtv_venc","Venc. VTV","","date"],["km","Km actuales","","number"],["prox_km","Próx. service km","","number"]].map(([k,l,ph,t])=>(
-                      <div key={k as string}><label className={lCls}>{l as string}</label><input type={t as string} value={form[k as string]??""} onChange={e=>setForm({...form,[k as string]:e.target.value})} className={iCls} placeholder={ph as string}/></div>
-                    ))}
-                  </div>
-                  <div className="flex gap-3 mt-4"><button onClick={guardarVeh} className="btn-p px-5 py-2 rounded-lg text-sm font-semibold">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="btn-o px-5 py-2 rounded-lg text-sm">Cancelar</button></div>
-                </div>
-              )}
-              {!vehiculoSel?(
-                vehiculos.length===0?<div className="card bg-gray-900 border border-gray-800 rounded-2xl p-20 text-center"><div className="text-5xl mb-4 opacity-20">🚗</div><p className="text-gray-500">Sin vehículos registrados</p></div>:(
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {vehiculos.map((v:any)=>{const sV=v.seguro_vencimiento&&new Date(v.seguro_vencimiento)<new Date();const vV=v.vtv_vencimiento&&new Date(v.vtv_vencimiento)<new Date();return(
-                      <div key={v.id} className="prod-card card bg-gray-900 border border-gray-800 rounded-2xl p-5" onClick={async()=>{setVehiculoSel(v);const sb=await getSB();const{data}=await sb.from("ing_vehiculo_service").select("*").eq("vehiculo_id",v.id).order("fecha",{ascending:false});setServicios(data??[]);}}>
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex items-center gap-3"><div className="w-12 h-12 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center text-2xl">🚗</div><div><div className="font-bold text-white">{v.nombre}</div><div className="text-sm text-gray-400">{v.marca} {v.modelo} · {v.anio} · {v.patente}</div></div></div>
-                          <button onClick={e=>{e.stopPropagation();(async()=>{const sb=await getSB();await sb.from("ing_vehiculos").delete().eq("id",v.id);await fetchVehs(ingId);})();}} className="text-gray-600 hover:text-red-400 text-sm">✕</button>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 mb-3">
-                          <div className="bg-gray-800 rounded-xl p-3"><div className="text-xs text-gray-500">Km actuales</div><div className="text-xl font-bold text-white mt-0.5">{(v.km_actuales||0).toLocaleString()}</div></div>
-                          <div className="bg-amber-950/50 border border-amber-900/50 rounded-xl p-3"><div className="text-xs text-amber-500">Próx. service</div><div className="text-xl font-bold text-amber-300 mt-0.5">{v.proximo_service_km?(v.proximo_service_km.toLocaleString()+" km"):"—"}</div></div>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className={`text-xs px-3 py-1.5 rounded-full font-medium flex-1 text-center ${sV?"bg-red-900 text-red-400":"bg-green-900/50 text-green-400"}`}>🛡 {sV?"VENCIDO":v.seguro_vencimiento||"—"}</span>
-                          <span className={`text-xs px-3 py-1.5 rounded-full font-medium flex-1 text-center ${vV?"bg-red-900 text-red-400":"bg-green-900/50 text-green-400"}`}>📋 {vV?"VTV VENCIDA":v.vtv_vencimiento||"—"}</span>
-                        </div>
+            {!vehiculoSel?(
+              vehiculos.length===0?<div className={`${cardCls} p-16 text-center`}><div className="text-5xl mb-4 opacity-20">🚗</div><p className="text-gray-600">Sin vehículos</p></div>:(
+                <div className="space-y-3">
+                  {vehiculos.map((v:any)=>{const sV=v.seguro_vencimiento&&new Date(v.seguro_vencimiento)<new Date();const vV=v.vtv_vencimiento&&new Date(v.vtv_vencimiento)<new Date();return(
+                    <div key={v.id} className={`prod-card ${cardCls} p-4 cursor-pointer`} onClick={async()=>{setVehiculoSel(v);const sb=await getSB();const{data}=await sb.from("ing_vehiculo_service").select("*").eq("vehiculo_id",v.id).order("fecha",{ascending:false});setServicios(data??[]);}}>
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className="w-11 h-11 rounded-xl bg-[#1e2a3a] border border-[#2d3f55] flex items-center justify-center text-2xl flex-shrink-0">🚗</div>
+                        <div className="flex-1"><div className="font-bold text-gray-100">{v.nombre}</div><div className="text-xs text-gray-500 mt-0.5">{v.marca} {v.modelo} · {v.anio} · {v.patente}</div></div>
+                        <button onClick={e=>{e.stopPropagation();(async()=>{const sb=await getSB();await sb.from("ing_vehiculos").delete().eq("id",v.id);await fetchVehs(ingId);})();}} className="text-gray-600 hover:text-red-400 transition-colors">✕</button>
                       </div>
-                    );})}
-                  </div>
-                )
-              ):(
-                <div>
-                  <div className="card bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-4 flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-xl bg-gray-800 flex items-center justify-center text-3xl">🚗</div>
-                    <div><div className="text-xl font-bold text-white">{vehiculoSel.nombre}</div><div className="text-sm text-gray-400">{vehiculoSel.marca} {vehiculoSel.modelo} · {(vehiculoSel as any).anio} · {vehiculoSel.patente}</div></div>
-                  </div>
-                  {showForm&&vehiculoSel&&(
-                    <div className="card bg-gray-900 border border-gray-700 rounded-2xl p-5 mb-4">
-                      <h3 className="font-semibold text-white mb-4">+ Service</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        <div><label className={lCls}>Tipo</label><select value={form.tipo_s??"service"} onChange={e=>setForm({...form,tipo_s:e.target.value})} className={iCls}><option value="service">Service</option><option value="reparacion">Reparación</option><option value="vtv">VTV</option><option value="otro">Otro</option></select></div>
-                        <div><label className={lCls}>Descripción</label><input type="text" value={form.desc_s??""} onChange={e=>setForm({...form,desc_s:e.target.value})} className={iCls}/></div>
-                        <div><label className={lCls}>Taller</label><input type="text" value={form.taller??""} onChange={e=>setForm({...form,taller:e.target.value})} className={iCls}/></div>
-                        <div><label className={lCls}>Km</label><input type="number" value={form.km_s??""} onChange={e=>setForm({...form,km_s:e.target.value})} className={iCls}/></div>
-                        <div><label className={lCls}>Costo</label><input type="number" value={form.costo_s??""} onChange={e=>setForm({...form,costo_s:e.target.value})} className={iCls}/></div>
-                        <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_s??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_s:e.target.value})} className={iCls}/></div>
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <div className="bg-[#1a2535] rounded-xl p-3 text-center"><div className="text-xs text-gray-500">Km actuales</div><div className="text-lg font-bold text-gray-200 mt-0.5">{(v.km_actuales||0).toLocaleString()}</div></div>
+                        <div className="rounded-xl p-3 text-center" style={{background:"rgba(234,179,8,0.08)",border:"1px solid rgba(234,179,8,0.15)"}}><div className="text-xs text-amber-500">Próx. service</div><div className="text-lg font-bold text-amber-300 mt-0.5">{v.proximo_service_km?(v.proximo_service_km.toLocaleString()+" km"):"—"}</div></div>
                       </div>
-                      <div className="flex gap-3 mt-4"><button onClick={guardarService} className="btn-p px-5 py-2 rounded-lg text-sm font-semibold">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="btn-o px-5 py-2 rounded-lg text-sm">Cancelar</button></div>
+                      <div className="flex gap-2">
+                        <span className={`text-xs px-3 py-1.5 rounded-lg font-medium flex-1 text-center ${sV?"bg-red-500/15 text-red-400":"bg-green-500/10 text-green-400"}`}>🛡 {sV?"VENCIDO":v.seguro_vencimiento||"—"}</span>
+                        <span className={`text-xs px-3 py-1.5 rounded-lg font-medium flex-1 text-center ${vV?"bg-red-500/15 text-red-400":"bg-green-500/10 text-green-400"}`}>📋 {vV?"VTV VENCIDA":v.vtv_vencimiento||"—"}</span>
+                      </div>
                     </div>
+                  );})}
+                </div>
+              )
+            ):(
+              <div className="space-y-4">
+                <div className={`${cardCls} p-4 flex items-center gap-3`}>
+                  <div className="w-12 h-12 rounded-xl bg-[#1e2a3a] flex items-center justify-center text-2xl">🚗</div>
+                  <div><div className="font-bold text-gray-100">{vehiculoSel.nombre}</div><div className="text-xs text-gray-500">{vehiculoSel.marca} {vehiculoSel.modelo} · {(vehiculoSel as any).anio} · {vehiculoSel.patente}</div></div>
+                </div>
+                {showForm&&vehiculoSel&&(
+                  <div className={`${cardCls} p-4 fade-in`}>
+                    <h3 className="font-semibold text-gray-200 mb-3 text-sm">+ Service</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div><label className={lCls}>Tipo</label><select value={form.tipo_s??"service"} onChange={e=>setForm({...form,tipo_s:e.target.value})} className={iCls}><option value="service">Service</option><option value="reparacion">Reparación</option><option value="vtv">VTV</option><option value="otro">Otro</option></select></div>
+                      <div><label className={lCls}>Descripción</label><input type="text" value={form.desc_s??""} onChange={e=>setForm({...form,desc_s:e.target.value})} className={iCls}/></div>
+                      <div><label className={lCls}>Taller</label><input type="text" value={form.taller??""} onChange={e=>setForm({...form,taller:e.target.value})} className={iCls}/></div>
+                      <div><label className={lCls}>Km</label><input type="number" value={form.km_s??""} onChange={e=>setForm({...form,km_s:e.target.value})} className={iCls}/></div>
+                      <div><label className={lCls}>Costo</label><input type="number" value={form.costo_s??""} onChange={e=>setForm({...form,costo_s:e.target.value})} className={iCls}/></div>
+                      <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_s??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_s:e.target.value})} className={iCls}/></div>
+                    </div>
+                    <div className="flex gap-2 mt-3"><button onClick={guardarService} className="bg-green-600 hover:bg-green-500 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-colors">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="bg-[#1e2a3a] text-gray-400 px-4 py-2 rounded-xl text-sm transition-colors">Cancelar</button></div>
+                  </div>
+                )}
+                <div className={`${cardCls} overflow-hidden`}>
+                  <div className="px-4 py-3 border-b border-[#1e2d3d]"><span className="font-semibold text-gray-200 text-sm">🔧 Historial</span></div>
+                  {servicios.length===0?<div className="text-center py-10 text-gray-600 text-sm">Sin historial</div>:(
+                    <div className="overflow-x-auto"><table className="w-full text-sm min-w-[500px]"><thead><tr className="border-b border-[#1e2d3d]">{["Fecha","Tipo","Descripción","Km","Costo",""].map(h=><th key={h} className="text-left px-4 py-2.5 text-xs text-gray-500 font-semibold">{h}</th>)}</tr></thead>
+                      <tbody className="divide-y divide-[#1a2535]">{servicios.map(s=><tr key={s.id} className="hover:bg-[#0f1923]/50"><td className="px-4 py-3 text-gray-500 text-xs">{s.fecha}</td><td className="px-4 py-3"><span className="bg-amber-500/15 text-amber-400 px-2 py-0.5 rounded-lg text-xs font-medium">{s.tipo}</span></td><td className="px-4 py-3 text-gray-300 text-xs">{s.descripcion}</td><td className="px-4 py-3 text-gray-500 text-xs">{s.km?(s.km.toLocaleString()+" km"):"—"}</td><td className="px-4 py-3 font-bold text-red-400 text-xs">${Number(s.costo).toLocaleString("es-AR")}</td><td className="px-4 py-3"><button onClick={async()=>{const sb=await getSB();await sb.from("ing_vehiculo_service").delete().eq("id",s.id);const sb2=await getSB();const{data}=await sb2.from("ing_vehiculo_service").select("*").eq("vehiculo_id",vehiculoSel!.id).order("fecha",{ascending:false});setServicios(data??[]);}} className="text-gray-600 hover:text-red-400 text-xs transition-colors">✕</button></td></tr>)}</tbody>
+                    </table></div>
                   )}
-                  <div className="card bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-                    <div className="px-5 py-3.5 border-b border-gray-800"><span className="font-semibold text-white">🔧 Historial de services</span></div>
-                    {servicios.length===0?<div className="text-center py-12 text-gray-500 text-sm">Sin historial</div>:(
-                      <table className="w-full text-sm"><thead className="bg-gray-800 border-b border-gray-700"><tr>{["Fecha","Tipo","Descripción","Taller","Km","Costo",""].map(h=><th key={h} className="text-left px-5 py-3 text-xs text-gray-400 font-semibold">{h}</th>)}</tr></thead>
-                        <tbody className="divide-y divide-gray-800">{servicios.map(s=><tr key={s.id} className="hover:bg-gray-800/50"><td className="px-5 py-3.5 text-gray-500">{s.fecha}</td><td className="px-5 py-3.5"><span className="bg-amber-900/50 text-amber-400 px-2 py-0.5 rounded-full text-xs font-medium border border-amber-800/50">{s.tipo}</span></td><td className="px-5 py-3.5 text-gray-300">{s.descripcion}</td><td className="px-5 py-3.5 text-gray-500">{s.taller}</td><td className="px-5 py-3.5 text-gray-500">{s.km?(s.km.toLocaleString()+" km"):"—"}</td><td className="px-5 py-3.5 font-bold text-red-400">${Number(s.costo).toLocaleString("es-AR")}</td><td className="px-5 py-3.5"><button onClick={async()=>{const sb=await getSB();await sb.from("ing_vehiculo_service").delete().eq("id",s.id);const sb2=await getSB();const{data}=await sb2.from("ing_vehiculo_service").select("*").eq("vehiculo_id",vehiculoSel!.id).order("fecha",{ascending:false});setServicios(data??[]);}} className="text-gray-600 hover:text-red-400 text-xs">✕</button></td></tr>)}</tbody>
-                      </table>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ===== IA CAMPO ===== */}
-          {seccion==="ia_campo"&&(
-            <div>
-              <div className="mb-5"><h2 className="text-xl font-bold text-white">IA Campo</h2><p className="text-sm text-gray-500 mt-0.5">Consultas sobre dosis, plagas, enfermedades, cultivos y mercados</p></div>
-              {aiChat.length===0&&(
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
-                  {["Dosis glifosato soja","Roya asiática síntomas","Fungicida maíz","Siembra trigo pampeana","Insecticida soja MIP","Precio soja hoy"].map(q=>(
-                    <button key={q} onClick={()=>askAI(q)} className="text-left text-sm text-gray-400 border border-gray-700 px-4 py-3 rounded-xl hover:border-green-600 hover:text-green-400 hover:bg-green-950/30 transition-all bg-gray-900">💬 {q}</button>
-                  ))}
-                </div>
-              )}
-              <div className="card bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden mb-4">
-                <div className="px-5 py-3.5 border-b border-gray-800 flex items-center justify-between">
-                  <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"/><span className="font-medium text-gray-200 text-sm">IA Agronómica</span></div>
-                  {aiChat.length>0&&<button onClick={()=>setAiChat([])} className="text-xs text-gray-500 hover:text-gray-300">Limpiar</button>}
-                </div>
-                <div className="p-5 max-h-96 overflow-y-auto flex flex-col gap-4">
-                  {aiChat.length===0&&<div className="text-center py-10 text-gray-600"><div className="text-4xl mb-3">🌾</div><p className="text-sm">Hacé tu consulta agronómica...</p></div>}
-                  {aiChat.map((msg,i)=>(
-                    <div key={i} className={`flex ${msg.rol==="user"?"justify-end":"justify-start"}`}>
-                      <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${msg.rol==="user"?"bg-green-700 text-white":"bg-gray-800 text-gray-200 border border-gray-700"}`}>
-                        {msg.rol==="assistant"&&<div className="text-xs text-green-400 font-semibold mb-1.5">◆ IA Agronómica</div>}
-                        <p className="whitespace-pre-wrap">{msg.texto}</p>
-                      </div>
-                    </div>
-                  ))}
-                  {aiLoad&&<div className="flex"><div className="bg-gray-800 border border-gray-700 px-4 py-3 rounded-2xl"><div className="flex gap-1">{[0,1,2].map(i=><div key={i} className="w-2 h-2 rounded-full bg-gray-500 animate-bounce" style={{animationDelay:i*0.15+"s"}}/>)}</div></div></div>}
                 </div>
               </div>
-              <div className="flex gap-3">
-                <button onClick={escucharVoz} className="btn-o p-3 rounded-xl text-gray-400 flex-shrink-0">🎤</button>
-                <input type="text" value={aiInput} onChange={e=>setAiInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&askAI()} placeholder="Consultá sobre dosis, plagas, cultivos..." className={iCls+" flex-1"}/>
-                <button onClick={()=>askAI()} disabled={aiLoad||!aiInput.trim()} className="btn-p px-5 py-3 rounded-xl text-sm font-semibold disabled:opacity-40 flex-shrink-0">Enviar →</button>
-              </div>
-            </div>
-          )}
-        </div>
-      </main>
-
-      {/* ── PANEL VOZ FLOTANTE ── */}
-      {vozPanel&&(
-        <div className="fixed bottom-28 right-6 z-50 w-72 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{background:VOZ_COLOR[vozEstado]}}/><span className="text-green-400 text-xs font-bold">🎤 ASISTENTE VOZ</span></div>
-            <button onClick={()=>{setVozPanel(false);recRef.current?.stop();setVozEstado("idle");}} className="text-gray-500 hover:text-gray-300 text-sm">✕</button>
+            )}
           </div>
-          <div className="p-4 min-h-16">
+        )}
+
+        {/* ══ IA CAMPO ══ */}
+        {seccion==="ia_campo"&&(
+          <div className="fade-in">
+            <div className="mb-4"><h2 className="text-lg font-bold text-gray-100">IA Campo</h2><p className="text-sm text-gray-500 mt-0.5">Dosis, plagas, enfermedades, cultivos y mercados</p></div>
+            {aiChat.length===0&&(
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                {["Dosis glifosato soja","Roya asiática síntomas","Fungicida maíz","Precio soja hoy","Insecticida MIP soja","Trigo siembra pampeana"].map(q=>(
+                  <button key={q} onClick={()=>askAI(q)} className="text-left text-xs text-gray-500 border border-[#1e2d3d] px-3 py-3 rounded-xl hover:border-green-600/50 hover:text-green-400 hover:bg-green-950/30 transition-all bg-[#0f1923]">💬 {q}</button>
+                ))}
+              </div>
+            )}
+            <div className={`${cardCls} overflow-hidden mb-3`}>
+              <div className="px-4 py-3 border-b border-[#1e2d3d] flex items-center justify-between">
+                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"/><span className="font-medium text-gray-200 text-sm">IA Agronómica</span></div>
+                {aiChat.length>0&&<button onClick={()=>setAiChat([])} className="text-xs text-gray-600 hover:text-gray-400 transition-colors">Limpiar</button>}
+              </div>
+              <div className="p-4 max-h-80 overflow-y-auto flex flex-col gap-3">
+                {aiChat.length===0&&<div className="text-center py-8 text-gray-700"><div className="text-3xl mb-2">🌾</div><p className="text-sm">Hacé tu consulta agronómica...</p></div>}
+                {aiChat.map((msg,i)=>(
+                  <div key={i} className={`flex ${msg.rol==="user"?"justify-end":"justify-start"}`}>
+                    <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${msg.rol==="user"?"bg-green-600 text-white":"bg-[#1a2535] text-gray-200 border border-[#2d3f55]"}`}>
+                      {msg.rol==="assistant"&&<div className="text-xs text-green-400 font-semibold mb-1.5">◆ IA Agronómica</div>}
+                      <p className="whitespace-pre-wrap">{msg.texto}</p>
+                    </div>
+                  </div>
+                ))}
+                {aiLoad&&<div className="flex"><div className="bg-[#1a2535] border border-[#2d3f55] px-4 py-3 rounded-2xl"><div className="flex gap-1">{[0,1,2].map(i=><div key={i} className="w-1.5 h-1.5 rounded-full bg-green-600 animate-bounce" style={{animationDelay:i*0.15+"s"}}/>)}</div></div></div>}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={escucharVoz} className="p-3 rounded-xl transition-colors flex-shrink-0" style={{background:"rgba(34,197,94,0.1)",border:"1px solid rgba(34,197,94,0.2)",color:"#22c55e"}}>🎤</button>
+              <input type="text" value={aiInput} onChange={e=>setAiInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&askAI()} placeholder="Consultá sobre dosis, plagas, cultivos..." className={`${iCls} flex-1`}/>
+              <button onClick={()=>askAI()} disabled={aiLoad||!aiInput.trim()} className="bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white px-4 py-3 rounded-xl text-sm font-semibold transition-colors flex-shrink-0">→</button>
+            </div>
+          </div>
+        )}
+
+        {/* Espacio para botón flotante */}
+        <div className="h-24"/>
+      </div>
+
+      {/* ══ PANEL VOZ ══ */}
+      {vozPanel&&(
+        <div className="fixed bottom-24 right-4 z-50 w-72 bg-[#0c1520] border border-[#1e2d3d] rounded-2xl shadow-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e2d3d]">
+            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{background:VOZ_COLOR[vozEstado]}}/><span className="text-green-400 text-xs font-bold">🎤 ASISTENTE</span></div>
+            <button onClick={()=>{setVozPanel(false);recRef.current?.stop();setVozEstado("idle");}} className="text-gray-500 hover:text-gray-300 transition-colors">✕</button>
+          </div>
+          <div className="p-4 min-h-14">
             {vozEstado==="escuchando"&&<p className="text-red-400 text-sm animate-pulse">🔴 Escuchando...</p>}
-            {vozRespuesta&&<p className="text-gray-200 text-sm leading-relaxed">{vozRespuesta}</p>}
-            {vozEstado==="idle"&&!vozRespuesta&&(
+            {vozEstado==="procesando"&&<p className="text-amber-400 text-sm">⚙️ Procesando...</p>}
+            {vozEstado==="idle"&&(
               <div className="space-y-1.5">
-                {["¿Cuántos productores tengo?","Cuántas ha totales","Dosis glifosato soja"].map(q=>(
-                  <button key={q} onClick={()=>askAI(q)} className="w-full text-left text-xs text-gray-500 hover:text-green-400 border border-gray-800 hover:border-green-800 px-3 py-2 rounded-lg transition-all">💬 {q}</button>
+                {["¿Cuántas ha totales?","Dosis glifosato soja","¿Cuántos productores?"].map(q=>(
+                  <button key={q} onClick={()=>{askAI(q);setVozPanel(false);}} className="w-full text-left text-xs text-gray-500 hover:text-green-400 border border-[#1e2d3d] hover:border-green-800/50 px-3 py-2 rounded-lg transition-all">💬 {q}</button>
                 ))}
               </div>
             )}
           </div>
-          <div className="px-3 pb-3 flex gap-2 border-t border-gray-800 pt-3">
-            <input value={vozInput} onChange={e=>setVozInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&vozInput.trim()){askAI(vozInput);setVozInput("");setVozPanel(false);}}} placeholder="Escribí..." className={iCls+" flex-1 text-xs py-2"}/>
-            <button onClick={escucharVoz} className="px-3 py-2 rounded-lg text-sm" style={{background:VOZ_COLOR[vozEstado]+"22",border:"1px solid "+VOZ_COLOR[vozEstado],color:VOZ_COLOR[vozEstado]}}>{VOZ_ICON[vozEstado]}</button>
+          <div className="px-3 pb-3 flex gap-2 border-t border-[#1e2d3d] pt-3">
+            <input value={vozInput} onChange={e=>setVozInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&vozInput.trim()){askAI(vozInput);setVozInput("");setVozPanel(false);}}} placeholder="Escribí..." className={`${iCls} flex-1 text-xs py-2`}/>
+            <button onClick={escucharVoz} className="px-3 py-2 rounded-xl text-sm transition-colors" style={{background:VOZ_COLOR[vozEstado]+"20",border:"1px solid "+VOZ_COLOR[vozEstado]+"50",color:VOZ_COLOR[vozEstado]}}>{VOZ_ICON[vozEstado]}</button>
           </div>
         </div>
       )}
 
       {/* Botón flotante voz */}
       <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}}
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full flex items-center justify-center text-xl shadow-lg"
-        style={{background:VOZ_COLOR[vozEstado]+"18",border:"2px solid "+VOZ_COLOR[vozEstado],color:VOZ_COLOR[vozEstado],animation:vozEstado==="idle"?"float 3s ease-in-out infinite":"none",boxShadow:"0 4px 20px "+VOZ_COLOR[vozEstado]+"40"}}>
+        className="fixed bottom-6 right-4 z-40 w-14 h-14 rounded-full flex items-center justify-center text-xl shadow-2xl transition-all"
+        style={{background:VOZ_COLOR[vozEstado]+"20",border:"2px solid "+VOZ_COLOR[vozEstado]+"80",color:VOZ_COLOR[vozEstado],animation:vozEstado==="idle"?"float 3s ease-in-out infinite":"none",boxShadow:"0 4px 24px "+VOZ_COLOR[vozEstado]+"35"}}>
         {VOZ_ICON[vozEstado]}
       </button>
     </div>
