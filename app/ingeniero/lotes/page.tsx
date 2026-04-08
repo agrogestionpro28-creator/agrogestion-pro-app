@@ -470,95 +470,126 @@ export default function IngenieroLotesPage() {
   };
 
   // ── IMPORT CUADERNO MULTI-LOTE ──
-  // Columnas esperadas: LOTE | FECHA | TIPO | PRODUCTO/DOSIS | APLICADOR | COSTO_HA | COSTO_TOTAL | COMENTARIO
+  // Formato mínimo: FECHA | LOTE | HAS | CULTIVO | DOSIS
+  // Opcionales:     APLICADOR | COSTO_HA | COSTO_TOTAL | COMENTARIO
   const leerExcelCuaderno = async (file: File) => {
     setCuadernoMsg("Leyendo...");
     try {
       const XLSX = await import("xlsx");
       const wb = XLSX.read(await file.arrayBuffer(), { type:"array" });
       const rows: any[] = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:"" });
-      if (rows.length<2) { setCuadernoMsg("Sin datos"); return; }
-      const headers = rows[0].map((h: any) => String(h).toLowerCase().trim().replace(/ /g,"_").replace(/\//g,"_"));
+      if (rows.length < 2) { setCuadernoMsg("Sin datos"); return; }
 
-      // ── Detección de columnas ESTRICTA para evitar falsos positivos ──
-      // cCostoHa: debe ser exactamente "costo_ha", "$/ha", "precio_ha", "costo_por_ha" — NO "lote" ni "ha" suelto
-      const cLote    = headers.findIndex((h: string) => h==="lote"||h==="campo"||h==="nombre_lote"||h.startsWith("lote"));
-      const cFecha   = headers.findIndex((h: string) => h.includes("fecha"));
-      const cTipo    = headers.findIndex((h: string) => h==="tipo"||h==="accion"||h==="acción"||h.includes("tipo_labor"));
-      const cProd    = headers.findIndex((h: string) => h.includes("prod")||h.includes("dosis")||h==="desc"||h.includes("descripcion"));
-      const cAplic   = headers.findIndex((h: string) => h.includes("aplic"));
-      // CRÍTICO: costo_ha debe tener "costo" Y "ha" — no solo "ha"
-      const cCostoHa = headers.findIndex((h: string) => (h.includes("costo")&&h.includes("ha"))||(h.includes("precio")&&h.includes("ha"))||h==="$_ha"||h==="$/ha");
-      // costo_total: debe tener "total" o "costo_t" pero NO ser costo_ha
-      const cCostoT  = headers.findIndex((h: string) => (h.includes("total")||h==="costo"||h==="importe")&&!h.includes("ha"));
-      const cComent  = headers.findIndex((h: string) => h.includes("coment")||h.includes("obs")||h==="nota");
+      // Normalizar headers: minúsculas, sin tildes, sin espacios extra
+      const norm = (s: string) => String(s).toLowerCase().trim()
+        .replace(/á/g,"a").replace(/é/g,"e").replace(/í/g,"i").replace(/ó/g,"o").replace(/ú/g,"u")
+        .replace(/[^a-z0-9]/g,"_").replace(/_+/g,"_").replace(/^_|_$/g,"");
 
-      if (cFecha===-1) { setCuadernoMsg("❌ Falta columna FECHA"); return; }
-      if (cLote===-1)  { setCuadernoMsg("❌ Falta columna LOTE"); return; }
+      const rawHeaders = rows[0].map((h: any) => norm(h));
 
-      // Función de búsqueda de lote: exacta primero, luego parcial
-      const buscarLote = (nombreExcel: string) => {
-        if (!nombreExcel) return undefined;
-        const ne = nombreExcel.toLowerCase().trim();
-        // 1. Coincidencia exacta
-        let found = lotes.find(l => l.nombre.toLowerCase().trim() === ne);
-        if (found) return found;
-        // 2. El nombre del Excel está contenido al inicio del nombre del lote (ej: "7" matchea "7- GRANDE N")
-        found = lotes.find(l => {
-          const ln = l.nombre.toLowerCase().trim();
-          return ln.startsWith(ne+"-") || ln.startsWith(ne+" ") || ln === ne;
-        });
-        if (found) return found;
-        // 3. El lote empieza con el número seguido de guión (ej: Excel "7", lote "7- GRANDE N")
-        if (/^\d+$/.test(ne)) {
-          found = lotes.find(l => {
-            const ln = l.nombre.toLowerCase().trim();
-            return ln.startsWith(ne+"-") || ln.startsWith(ne+" -") || ln.startsWith(ne + " ");
-          });
-          if (found) return found;
+      // Encontrar columna por múltiples posibles nombres
+      const col = (opts: string[]) => {
+        for (const o of opts) {
+          const i = rawHeaders.findIndex(h => h === o || h.includes(o));
+          if (i >= 0) return i;
         }
-        // 4. Parcial: el nombre del Excel está contenido en el nombre del lote
-        found = lotes.find(l => l.nombre.toLowerCase().includes(ne) && ne.length > 2);
-        if (found) return found;
-        // 5. Parcial inversa: el nombre del lote está contenido en el Excel
-        found = lotes.find(l => ne.includes(l.nombre.toLowerCase().trim()) && l.nombre.length > 2);
-        return found;
+        return -1;
       };
 
-      const preview = rows.slice(1).filter((r: any) => r[cFecha] && String(r[cFecha]).trim()).map((r: any) => {
-        const loteNombreRaw = cLote>=0 ? String(r[cLote]).trim() : "";
-        const tipoRaw = cTipo>=0 ? String(r[cTipo]).trim() : "";
-        const prod = cProd>=0 ? String(r[cProd]).trim() : "";
-        const dl = (tipoRaw+prod).toLowerCase();
-        const tipo = tipoRaw || (dl.includes("siem")?"Siembra":dl.includes("cosech")?"Cosecha":dl.includes("fertil")?"Fertilización":"Aplicación");
-        // Buscar lote con algoritmo mejorado
-        const loteEncontrado = buscarLote(loteNombreRaw);
-        // Costos: solo leer si la columna fue detectada correctamente
+      const cFecha   = col(["fecha","date","dia"]);
+      const cLote    = col(["lote","campo","parcela","numero_lote","n_lote","lote_n"]);
+      const cHas     = col(["has","ha","hectareas","superficie","sup"]);
+      const cCultivo = col(["cultivo","especie","crop"]);
+      const cDosis   = col(["dosis","producto","producto_dosis","descripcion","desc","detalle","aplicacion","tarea"]);
+      const cAplic   = col(["aplicador","maquina","equipo","mosquito","drone"]);
+      const cCostoHa = col(["costo_ha","precio_ha","valor_ha","costo_por_ha"]);
+      const cCostoT  = col(["costo_total","total","importe","costo"]);
+      const cTipo    = col(["tipo","tipo_labor","labor","accion"]);
+      const cComent  = col(["comentario","obs","observacion","nota"]);
+
+      if (cFecha === -1) { setCuadernoMsg("❌ No encontré columna FECHA"); return; }
+      if (cLote === -1)  { setCuadernoMsg("❌ No encontré columna LOTE"); return; }
+
+      // Buscar lote por número al inicio del nombre: "7- GRANDE N" matchea "7"
+      const buscarLote = (val: string | number) => {
+        const v = String(val).trim();
+        if (!v || v === "0") return undefined;
+        const vLow = v.toLowerCase();
+        // 1. Exacto
+        let f = lotes.find(l => l.nombre.toLowerCase().trim() === vLow);
+        if (f) return f;
+        // 2. El valor es un número y el lote empieza con ese número seguido de - o espacio
+        if (/^\d+$/.test(v)) {
+          f = lotes.find(l => {
+            const n = l.nombre.trim();
+            return n === v ||
+              n.startsWith(v + "-") ||
+              n.startsWith(v + " -") ||
+              n.startsWith(v + " ") ||
+              n.match(new RegExp("^" + v + "\\b"));
+          });
+          if (f) return f;
+        }
+        // 3. Contiene el texto (mínimo 3 chars)
+        if (vLow.length >= 3) {
+          f = lotes.find(l => l.nombre.toLowerCase().includes(vLow));
+          if (f) return f;
+          f = lotes.find(l => vLow.includes(l.nombre.toLowerCase().trim()) && l.nombre.length >= 3);
+          if (f) return f;
+        }
+        return undefined;
+      };
+
+      const preview = rows.slice(1).filter((r: any) => {
+        const fecha = r[cFecha]; const loteVal = r[cLote];
+        return fecha && String(fecha).trim() && loteVal && String(loteVal).trim();
+      }).map((r: any) => {
+        const loteVal   = String(r[cLote]).trim();
+        const loteObj   = buscarLote(loteVal);
+        const fechaPars = parseFecha(r[cFecha]);
+        const haExcel   = cHas>=0 ? (Number(r[cHas])||0) : 0;
+        const ha        = haExcel > 0 ? haExcel : (loteObj?.hectareas ?? 0);
+
+        // Tipo: inferir de dosis/cultivo si no hay columna
+        const tipoRaw   = cTipo>=0 ? String(r[cTipo]).trim() : "";
+        const dosisVal  = cDosis>=0 ? String(r[cDosis]).trim() : "";
+        const cultivoVal= cCultivo>=0 ? String(r[cCultivo]).trim() : "";
+        const textoInf  = (tipoRaw + dosisVal + cultivoVal).toLowerCase();
+        const tipo = tipoRaw ||
+          (textoInf.includes("siem") ? "Siembra" :
+           textoInf.includes("cosech") ? "Cosecha" :
+           textoInf.includes("fertil") ? "Fertilización" :
+           textoInf.includes("herbic")||textoInf.includes("insec")||textoInf.includes("fungic")||textoInf.includes("glifo")||textoInf.includes("2,4") ? "Aplicación" :
+           "Aplicación");
+
+        // Costos: solo si la columna existe y tiene valor real
         const costoHaRaw = cCostoHa>=0 ? r[cCostoHa] : "";
-        const costoHa = (costoHaRaw !== "" && costoHaRaw !== null) ? (Number(costoHaRaw)||0) : 0;
-        const costoTotalRaw = cCostoT>=0 ? r[cCostoT] : "";
-        const costoTotal = (costoTotalRaw !== "" && costoTotalRaw !== null) ? (Number(costoTotalRaw)||0) : 0;
-        // Calcular costo total final — nunca inventar valores
-        const ha = loteEncontrado?.hectareas ?? 0;
-        const costoTotalFinal = costoTotal > 0 ? costoTotal : (costoHa > 0 && ha > 0 ? costoHa * ha : 0);
+        const costoHa    = (costoHaRaw !== "" && costoHaRaw !== null) ? (Number(costoHaRaw)||0) : 0;
+        const costoTRaw  = cCostoT>=0 ? r[cCostoT] : "";
+        const costoT     = (costoTRaw !== "" && costoTRaw !== null) ? (Number(costoTRaw)||0) : 0;
+        const costoFinal = costoT > 0 ? costoT : (costoHa > 0 && ha > 0 ? costoHa * ha : 0);
+
         return {
-          lote_nombre: loteNombreRaw,
-          lote_id: loteEncontrado?.id ?? null,
-          lote_match: loteEncontrado?.nombre ?? null,
-          hectareas: ha,
-          fecha: parseFecha(r[cFecha]),
+          lote_nombre:        loteVal,
+          lote_id:            loteObj?.id ?? null,
+          lote_match:         loteObj?.nombre ?? null,
+          hectareas:          ha,
+          fecha:              fechaPars,
           tipo,
-          producto_dosis: prod,
-          aplicador: cAplic>=0 ? String(r[cAplic]).trim() : "",
-          costo_aplicacion_ha: costoHa,
-          costo_total: costoTotalFinal,
-          comentario: cComent>=0 ? String(r[cComent]).trim() : "",
+          cultivo_excel:      cultivoVal,
+          producto_dosis:     dosisVal,
+          descripcion:        dosisVal || cultivoVal,
+          aplicador:          cAplic>=0 ? String(r[cAplic]).trim() : "",
+          costo_aplicacion_ha:costoHa,
+          costo_total:        costoFinal,
+          comentario:         cComent>=0 ? String(r[cComent]).trim() : "",
         };
       });
+
       setCuadernoPreview(preview);
-      const sinMatch = preview.filter(p=>!p.lote_id).length;
       const conMatch = preview.filter(p=>p.lote_id).length;
-      setCuadernoMsg(`✅ ${preview.length} labores · ${conMatch} con lote${sinMatch>0?` · ⚠ ${sinMatch} sin match`:""}`);
+      const sinMatch = preview.filter(p=>!p.lote_id).length;
+      setCuadernoMsg(`✅ ${preview.length} labores · ${conMatch} lotes encontrados${sinMatch>0?` · ⚠ ${sinMatch} sin match`:""}`);
     } catch(e: any) { setCuadernoMsg("❌ "+e.message); }
   };
 
@@ -963,18 +994,18 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
                     :<div>
                       <div className="max-h-40 overflow-y-auto mb-3 rounded-xl border border-[#1e2d3d]">
                         <table className="w-full text-xs">
-                          <thead className="bg-[#1a2535]"><tr>{["En Excel","Lote encontrado","Fecha","Tipo","Producto/Dosis","Aplicador","$/ha","Total","Comentario"].map(h=><th key={h} className="text-left px-3 py-2 text-gray-400 font-medium">{h}</th>)}</tr></thead>
+                          <thead className="bg-[#1a2535]"><tr>{["Fecha","Lote Excel","Lote en sistema","Ha","Dosis / Producto","Aplic.","$/ha","Total","Comentario"].map(h=><th key={h} className="text-left px-3 py-2 text-gray-400 font-medium">{h}</th>)}</tr></thead>
                           <tbody>{cuadernoPreview.map((r,i)=>(
                             <tr key={i} className="border-t border-[#1a2535]">
-                              <td className="px-3 py-2 text-gray-300 font-medium">{r.lote_nombre}</td>
-                              <td className="px-3 py-2">{r.lote_match?<span className="text-green-400">✓ {r.lote_match}</span>:<span className="text-red-400">No encontrado</span>}</td>
-                              <td className="px-3 py-2 text-gray-400">{r.fecha}</td>
-                              <td className="px-3 py-2"><span className="px-1.5 py-0.5 rounded text-xs font-bold" style={{background:laborColor(r.tipo)+"20",color:laborColor(r.tipo)}}>{r.tipo}</span></td>
-                              <td className="px-3 py-2 text-gray-300 max-w-[120px] truncate">{r.producto_dosis||"—"}</td>
-                              <td className="px-3 py-2 text-gray-400">{r.aplicador||"—"}</td>
-                              <td className="px-3 py-2 text-amber-400">{r.costo_aplicacion_ha?`$${r.costo_aplicacion_ha}`:"—"}</td>
-                              <td className="px-3 py-2 text-amber-300 font-bold">{r.costo_total?`$${Number(r.costo_total).toLocaleString("es-AR")}`:"—"}</td>
-                              <td className="px-3 py-2 text-gray-500 max-w-[100px] truncate">{r.comentario||"—"}</td>
+                              <td className="px-3 py-2 text-gray-400 text-xs">{r.fecha||"—"}</td>
+                              <td className="px-3 py-2 font-bold text-gray-200 text-xs">{r.lote_nombre}</td>
+                              <td className="px-3 py-2 text-xs">{r.lote_match?<span className="text-green-400 font-medium">✓ {r.lote_match}</span>:<span className="text-red-400">✗ No encontrado</span>}</td>
+                              <td className="px-3 py-2 text-amber-400 font-bold text-xs">{r.hectareas||"—"}</td>
+                              <td className="px-3 py-2 text-gray-200 max-w-[160px] truncate text-xs">{r.producto_dosis||r.cultivo_excel||"—"}</td>
+                              <td className="px-3 py-2 text-gray-400 text-xs">{r.aplicador||"—"}</td>
+                              <td className="px-3 py-2 text-amber-400 text-xs">{r.costo_aplicacion_ha>0?`$${r.costo_aplicacion_ha}`:"—"}</td>
+                              <td className="px-3 py-2 text-amber-300 font-bold text-xs">{r.costo_total>0?`$${Number(r.costo_total).toLocaleString("es-AR")}`:"—"}</td>
+                              <td className="px-3 py-2 text-gray-500 max-w-[100px] truncate text-xs">{r.comentario||"—"}</td>
                             </tr>
                           ))}</tbody>
                         </table>
@@ -1083,11 +1114,11 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
                   :<div>
                     <div className="max-h-48 overflow-y-auto mb-3 rounded-xl border border-[#1e2d3d]">
                       <table className="w-full text-xs">
-                        <thead className="bg-[#1a2535]"><tr>{["En Excel","Lote encontrado","Fecha","Tipo","Producto","Aplic.","$/ha","Total","Coment."].map(h=><th key={h} className="text-left px-3 py-2 text-gray-400 font-medium">{h}</th>)}</tr></thead>
+                        <thead className="bg-[#1a2535]"><tr>{["Fecha","Lote Excel","Lote en sistema","Ha","Dosis / Producto","Aplic.","$/ha","Total","Coment."].map(h=><th key={h} className="text-left px-3 py-2 text-gray-400 font-medium">{h}</th>)}</tr></thead>
                         <tbody>{cuadernoPreview.map((r,i)=>(
                           <tr key={i} className={`border-t border-[#1a2535] ${!r.lote_id?"opacity-40":""}`}>
-                            <td className="px-3 py-2 text-gray-300 font-medium">{r.lote_nombre}</td>
-                            <td className="px-3 py-2">{r.lote_match?<span className="text-green-400 font-medium">✓ {r.lote_match}</span>:<span className="text-red-400">✗ No encontrado</span>}</td>
+                            <td className="px-3 py-2 font-bold text-gray-200 text-xs">{r.lote_nombre}</td>
+                            <td className="px-3 py-2 text-xs">{r.lote_match?<span className="text-green-400 font-medium">✓ {r.lote_match}</span>:<span className="text-red-400">✗ No encontrado</span>}</td>
                             <td className="px-3 py-2 text-gray-400">{r.fecha}</td>
                             <td className="px-3 py-2"><span className="px-1.5 py-0.5 rounded text-xs font-bold" style={{background:laborColor(r.tipo)+"20",color:laborColor(r.tipo)}}>{r.tipo}</span></td>
                             <td className="px-3 py-2 text-gray-300 max-w-[100px] truncate">{r.producto_dosis||"—"}</td>
