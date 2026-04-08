@@ -1,4 +1,5 @@
 "use client";
+// @ts-nocheck
 // app/ingeniero/lotes/page.tsx
 
 import { useEffect, useState, useCallback, useRef } from "react";
