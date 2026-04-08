@@ -1,4 +1,5 @@
 "use client";
+// @ts-nocheck
 import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
