@@ -1,1092 +1,587 @@
 "use client";
-// app/ingeniero/lotes/page.tsx
+import { useEffect, useState, useRef } from "react";
+import Image from "next/image";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import EscanerIA from "@/components/EscanerIA";
-
-type Lote = {
-  id: string; nombre: string; hectareas: number;
-  tipo_tenencia: string; partido: string; provincia: string;
-  cultivo: string; cultivo_orden: string; cultivo_completo: string;
-  campana_id: string; fecha_siembra: string; fecha_cosecha: string;
-  variedad: string; hibrido: string;
-  rendimiento_esperado: number; rendimiento_real: number;
-  estado: string; es_segundo_cultivo: boolean;
-  lote_id_primer_cultivo: string | null; observaciones: string;
-};
-type Campana = { id: string; nombre: string; año_inicio: number; año_fin: number; activa: boolean; };
-type Labor = {
-  id: string; lote_id: string; fecha: string; tipo: string; descripcion: string;
-  superficie_ha: number; maquinaria: string; operario: string;
-  costo_total: number; observaciones: string; metodo_carga: string;
-  // Campos nuevos cuaderno
-  producto_dosis?: string; aplicador?: string; costo_aplicacion_ha?: number;
-  comentario?: string; tipo_aplicacion?: string;
+const getSB = async () => {
+  const { createClient } = await import("@supabase/supabase-js");
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 };
 
-const CULTIVOS_LISTA = [
-  { cultivo:"soja",    orden:"1ra",         label:"Soja 1º",    color:"#22c55e", icon:"🌱", admite2do:false, usaHibrido:false },
-  { cultivo:"soja",    orden:"2da",         label:"Soja 2º",    color:"#86efac", icon:"🌿", admite2do:false, usaHibrido:false },
-  { cultivo:"maiz",    orden:"1ro_temprano",label:"Maíz 1º",    color:"#eab308", icon:"🌽", admite2do:false, usaHibrido:true  },
-  { cultivo:"maiz",    orden:"1ro_tardio",  label:"Maíz 1º Tardío", color:"#d97706", icon:"🌽", admite2do:false, usaHibrido:true  },
-  { cultivo:"maiz",    orden:"2do",         label:"Maíz 2º",    color:"#fde047", icon:"🌽", admite2do:false, usaHibrido:true  },
-  { cultivo:"trigo",   orden:"1ro",         label:"Trigo",      color:"#f59e0b", icon:"🌾", admite2do:true,  usaHibrido:false },
-  { cultivo:"girasol", orden:"1ro",         label:"Girasol",    color:"#f97316", icon:"🌻", admite2do:false, usaHibrido:true  },
-  { cultivo:"sorgo",   orden:"1ro",         label:"Sorgo 1º",   color:"#ef4444", icon:"🌿", admite2do:false, usaHibrido:true  },
-  { cultivo:"sorgo",   orden:"2do",         label:"Sorgo 2º",   color:"#fca5a5", icon:"🌿", admite2do:false, usaHibrido:true  },
-  { cultivo:"cebada",  orden:"1ra",         label:"Cebada",     color:"#8b5cf6", icon:"🍃", admite2do:true,  usaHibrido:false },
-  { cultivo:"arveja",  orden:"1ra",         label:"Arveja",     color:"#06b6d4", icon:"🫛", admite2do:true,  usaHibrido:false },
-  { cultivo:"carinata",orden:"1ra",         label:"Carinata",   color:"#0ea5e9", icon:"🌱", admite2do:false, usaHibrido:false },
-  { cultivo:"camelina",orden:"1ra",         label:"Camelina",   color:"#38bdf8", icon:"🌱", admite2do:false, usaHibrido:false },
-  { cultivo:"pastura", orden:"libre",       label:"Pastura",    color:"#10b981", icon:"🌾", admite2do:false, usaHibrido:false, libre:true },
-  { cultivo:"otros",   orden:"libre",       label:"Otros",      color:"#6b7280", icon:"🌱", admite2do:false, usaHibrido:false, libre:true },
+type Seccion = "general"|"productores"|"cobranza"|"vehiculo"|"ia_campo";
+type ProductorIng = { id:string; nombre:string; telefono:string; email:string; localidad:string; provincia:string; hectareas_total:number; observaciones:string; empresa_id:string|null; tiene_cuenta:boolean; honorario_tipo:string; honorario_monto:number; };
+type Campana = { id:string; nombre:string; activa:boolean; };
+type Cobranza = { id:string; productor_id:string; concepto:string; monto:number; fecha:string; estado:string; metodo_pago:string; };
+type Vehiculo = { id:string; nombre:string; marca:string; modelo:string; anio:number; patente:string; seguro_vencimiento:string; vtv_vencimiento:string; km_actuales:number; proximo_service_km:number; seguro_compania:string; };
+type ServiceVeh = { id:string; tipo:string; descripcion:string; costo:number; km:number; fecha:string; taller:string; };
+type MsgIA = { rol:"user"|"assistant"; texto:string };
+type LoteResumen = { nombre:string; hectareas:number; cultivo:string; cultivo_completo:string; estado:string; productor_nombre:string; empresa_id?:string; };
+
+const CULTIVOS = [
+  { key:"soja_1",   label:"Soja 1º",    color:"#22c55e", grupo:"Verano" },
+  { key:"soja_2",   label:"Soja 2º",    color:"#86efac", grupo:"Verano" },
+  { key:"maiz_1",   label:"Maíz 1º",    color:"#eab308", grupo:"Verano" },
+  { key:"maiz_2",   label:"Maíz 2º",    color:"#fde047", grupo:"Verano" },
+  { key:"girasol",  label:"Girasol",    color:"#f97316", grupo:"Verano" },
+  { key:"sorgo_1",  label:"Sorgo 1º",   color:"#ef4444", grupo:"Verano" },
+  { key:"sorgo_2",  label:"Sorgo 2º",   color:"#fca5a5", grupo:"Verano" },
+  { key:"trigo",    label:"Trigo",      color:"#f59e0b", grupo:"Invierno" },
+  { key:"cebada",   label:"Cebada",     color:"#8b5cf6", grupo:"Invierno" },
+  { key:"arveja",   label:"Arveja",     color:"#06b6d4", grupo:"Invierno" },
+  { key:"carinata", label:"Carinata",   color:"#0ea5e9", grupo:"Invierno" },
+  { key:"camelina", label:"Camelina",   color:"#38bdf8", grupo:"Invierno" },
+  { key:"pastura",  label:"Pastura",    color:"#10b981", grupo:"Especial", libre:true },
+  { key:"otros",    label:"Otros",      color:"#6b7280", grupo:"Especial", libre:true },
 ];
 
-const TIPOS_LABOR = [
-  "Siembra","Aplicación","Fertilización","Cosecha",
-  "Labranza","Riego","Control malezas","Recorrida","Otro"
+function getCultivoInfo(raw: string): { label:string; color:string } {
+  if (!raw) return { label:"Sin cultivo", color:"#6b7280" };
+  const r = raw.toLowerCase().trim();
+  const c = CULTIVOS.find(x => x.key === r || x.label.toLowerCase() === r || r.includes(x.key.replace("_"," ")));
+  if (c) return { label: c.label, color: c.color };
+  // Intentar por nombre parcial
+  if (r.includes("soja")) return { label: r.includes("2")?"Soja 2º":"Soja 1º", color: r.includes("2")?"#86efac":"#22c55e" };
+  if (r.includes("maiz")||r.includes("maíz")) return { label: r.includes("2")?"Maíz 2º":"Maíz 1º", color: r.includes("2")?"#fde047":"#eab308" };
+  if (r.includes("trigo")) return { label:"Trigo", color:"#f59e0b" };
+  if (r.includes("girasol")) return { label:"Girasol", color:"#f97316" };
+  if (r.includes("sorgo")) return { label: r.includes("2")?"Sorgo 2º":"Sorgo 1º", color: r.includes("2")?"#fca5a5":"#ef4444" };
+  if (r.includes("cebada")) return { label:"Cebada", color:"#8b5cf6" };
+  if (r.includes("arveja")) return { label:"Arveja", color:"#06b6d4" };
+  if (r.includes("carinata")) return { label:"Carinata", color:"#0ea5e9" };
+  if (r.includes("camelina")) return { label:"Camelina", color:"#38bdf8" };
+  if (r.includes("pastura")||r.includes("alfalfa")||r.includes("festuca")) return { label: raw.charAt(0).toUpperCase()+raw.slice(1), color:"#10b981" };
+  return { label: raw.charAt(0).toUpperCase()+raw.slice(1), color:"#6b7280" };
+}
+
+type VozEstado = "idle"|"escuchando"|"procesando"|"respondiendo"|"error";
+const VOZ_COLOR: Record<VozEstado,string> = {idle:"#22c55e",escuchando:"#ef4444",procesando:"#eab308",respondiendo:"#60a5fa",error:"#ef4444"};
+const VOZ_ICON: Record<VozEstado,string> = {idle:"🎤",escuchando:"🔴",procesando:"⚙️",respondiendo:"🔊",error:"❌"};
+
+const NAV = [
+  { k:"general",    icon:"📊", label:"General" },
+  { k:"productores",icon:"👨‍🌾", label:"Productores" },
+  { k:"cobranza",   icon:"💰", label:"Cobranza" },
+  { k:"vehiculo",   icon:"🚗", label:"Vehículo" },
+  { k:"ia_campo",   icon:"🤖", label:"IA Campo" },
 ];
-const APLICADORES = ["Mosquito","Drone","Avión","Tractor","Manual","—"];
-const ESTADOS = [
-  {v:"planificado",  l:"Planificado", c:"#6b7280"},
-  {v:"sembrado",     l:"Sembrado",    c:"#22c55e"},
-  {v:"en_desarrollo",l:"En Desarrollo",c:"#eab308"},
-  {v:"cosechado",    l:"Cosechado",   c:"#60a5fa"},
-  {v:"barbecho",     l:"Barbecho",    c:"#a78bfa"},
-];
 
-function naturalSort(a: string, b: string): number {
-  const seg = (s: string) => {
-    const p: Array<string|number> = []; let i = 0;
-    while (i < s.length) {
-      if (s[i] >= "0" && s[i] <= "9") {
-        let n = ""; while (i < s.length && s[i] >= "0" && s[i] <= "9") { n += s[i]; i++; }
-        p.push(parseInt(n, 10));
-      } else {
-        let t = ""; while (i < s.length && !(s[i] >= "0" && s[i] <= "9")) { t += s[i]; i++; }
-        p.push(t.toLowerCase());
-      }
-    }
-    return p;
-  };
-  const pa = seg(a); const pb = seg(b);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const va = pa[i] ?? 0; const vb = pb[i] ?? 0;
-    if (typeof va === "number" && typeof vb === "number") { if (va !== vb) return va - vb; }
-    else { const sa = String(va); const sb = String(vb); if (sa < sb) return -1; if (sa > sb) return 1; }
-  }
-  return 0;
-}
-
-function getCultivoInfo(cultivo: string, orden: string) {
-  if (!cultivo) return { label:"Sin cultivo", color:"#4b5563", icon:"🌾", admite2do:false, usaHibrido:false };
-  return CULTIVOS_LISTA.find(c => c.cultivo===cultivo && c.orden===orden) ||
-    CULTIVOS_LISTA.find(c => c.cultivo===cultivo) ||
-    { label:cultivo.charAt(0).toUpperCase()+cultivo.slice(1), color:"#6b7280", icon:"🌱", admite2do:false, usaHibrido:false };
-}
-
-function parseFecha(v: unknown): string | null {
-  const s = String(v ?? "").trim();
-  if (!s || s === "0") return null;
-  const n = Number(s);
-  if (!isNaN(n) && n > 1000) { const d = new Date((n-25569)*86400*1000); return d.toISOString().split("T")[0]; }
-  const p = s.split(/[/\-]/);
-  if (p.length === 3) { const y = p[2].length===2?"20"+p[2]:p[2]; return y+"-"+p[1].padStart(2,"0")+"-"+p[0].padStart(2,"0"); }
-  return s || null;
-}
-
-// ── Icono de aplicador ──
-const APLIC_ICON: Record<string,string> = {
-  "Mosquito":"🚜","Drone":"🚁","Avión":"✈️","Tractor":"🚜","Manual":"👤","—":"—"
-};
-
-// ── Color de tipo labor ──
-function laborColor(tipo: string): string {
-  if (tipo==="Siembra") return "#22c55e";
-  if (tipo==="Cosecha") return "#60a5fa";
-  if (tipo==="Fertilización") return "#a78bfa";
-  if (tipo==="Aplicación"||tipo==="Control malezas") return "#f97316";
-  if (tipo==="Labranza") return "#eab308";
-  if (tipo==="Recorrida") return "#06b6d4";
-  return "#6b7280";
-}
-
-export default function IngenieroLotesPage() {
-  const [empresaId, setEmpresaId] = useState("");
-  const [productorNombre, setProductorNombre] = useState("");
-  const [modoCompartido, setModoCompartido] = useState(false);
-  const [ingenieroId, setIngenieroId] = useState("");
-  const [ingenieroNombre, setIngenieroNombre] = useState("");
-  const [lotes, setLotes] = useState<Lote[]>([]);
-  const [labores, setLabores] = useState<Labor[]>([]);
-  const [campanas, setCampanas] = useState<Campana[]>([]);
-  const [campanaActiva, setCampanaActiva] = useState("");
-  const [margenes, setMargenes] = useState<any[]>([]);
-  const [loteActivo, setLoteActivo] = useState<Lote|null>(null);
+export default function IngenieroPanel() {
+  const [seccion, setSeccion] = useState<Seccion>("general");
+  const [ingId, setIngId] = useState("");
+  const [ingNombre, setIngNombre] = useState("");
+  const [ingData, setIngData] = useState<any>({});
+  const [productores, setProductores] = useState<ProductorIng[]>([]);
+  const [cobranzas, setCobranzas] = useState<Cobranza[]>([]);
+  const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
+  const [servicios, setServicios] = useState<ServiceVeh[]>([]);
+  const [vehiculoSel, setVehiculoSel] = useState<Vehiculo|null>(null);
+  const [lotes, setLotes] = useState<LoteResumen[]>([]);
+  const [campanasPorProd, setCampanasPorProd] = useState<Record<string,Campana[]>>({});
+  const [campSelProd, setCampSelProd] = useState<Record<string,string>>({});
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"lotes"|"margen">("lotes");
-  const [filterCultivo, setFilterCultivo] = useState("todos");
-  const [showFormLote, setShowFormLote] = useState(false);
-  const [showFormLabor, setShowFormLabor] = useState(false);
-  const [showFormMargen, setShowFormMargen] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [showVincular, setShowVincular] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const [showImportCuaderno, setShowImportCuaderno] = useState(false);
-  const [editandoLote, setEditandoLote] = useState<string|null>(null);
-  const [editandoLabor, setEditandoLabor] = useState<string|null>(null);
+  const [editProd, setEditProd] = useState<string|null>(null);
   const [form, setForm] = useState<Record<string,string>>({});
-  const [msgExito, setMsgExito] = useState("");
-  const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [msj, setMsj] = useState("");
+  const [alertas, setAlertas] = useState<{msg:string;urgencia:string}[]>([]);
+  const [importPrev, setImportPrev] = useState<any[]>([]);
   const [importMsg, setImportMsg] = useState("");
-  const [cuadernoPreview, setCuadernoPreview] = useState<any[]>([]);
-  const [cuadernoMsg, setCuadernoMsg] = useState("");
+  const [fCultivo, setFCultivo] = useState("todos");
+  const [fProductor, setFProductor] = useState("todos");
+  const [fEstado, setFEstado] = useState("todos");
+  const [aiChat, setAiChat] = useState<MsgIA[]>([]);
+  const [aiInput, setAiInput] = useState("");
+  const [aiLoad, setAiLoad] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
-  const importCuadernoRef = useRef<HTMLInputElement>(null);       // dentro del lote
-  const importCuadernoMultiRef = useRef<HTMLInputElement>(null);  // vista principal multi-lote
-  const adjuntoRef = useRef<HTMLInputElement>(null);
-  const [usdUsado, setUsdUsado] = useState(1);
-  // Voz
-  const [vozEstado, setVozEstado] = useState<"idle"|"escuchando"|"procesando"|"respondiendo"|"error">("idle");
-  const [vozPanel, setVozPanel] = useState(false);
-  const [vozTranscripcion, setVozTranscripcion] = useState("");
-  const [vozRespuesta, setVozRespuesta] = useState("");
-  const [vozInput, setVozInput] = useState("");
+  const [nuevaCampProd, setNuevaCampProd] = useState<string|null>(null);
+  const [nuevaCampNombre, setNuevaCampNombre] = useState("");
   const recRef = useRef<any>(null);
-
-  const getSB = async () => {
-    const { createClient } = await import("@supabase/supabase-js");
-    return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-  };
+  const [vozEstado, setVozEstado] = useState<VozEstado>("idle");
+  const [vozPanel, setVozPanel] = useState(false);
+  const [vozInput, setVozInput] = useState("");
 
   useEffect(() => { init(); }, []);
 
   const init = async () => {
-    const sb = await getSB();
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) { window.location.href = "/login"; return; }
-    const { data: u } = await sb.from("usuarios").select("id,nombre,rol").eq("auth_id", user.id).single();
-    if (!u || u.rol !== "ingeniero") { window.location.href = "/login"; return; }
-    setIngenieroId(u.id); setIngenieroNombre(u.nombre);
-    const eid = localStorage.getItem("ing_empresa_id") ?? "";
-    const pnombre = localStorage.getItem("ing_empresa_nombre") ?? "Productor";
-    const compartido = localStorage.getItem("ing_modo_compartido") === "true";
-    if (!eid) { window.location.href = "/ingeniero"; return; }
-    setEmpresaId(eid); setProductorNombre(pnombre); setModoCompartido(compartido);
-    await setupEmpresaYCampanas(eid, u.id, compartido, pnombre);
-    setLoading(false);
-  };
-
-  const setupEmpresaYCampanas = async (eid: string, iid: string, compartido: boolean, pnombre: string) => {
-    const sb = await getSB();
-    if (!compartido) {
-      const { data: emp } = await sb.from("empresas").select("id").eq("id", eid).single();
-      if (!emp) await sb.from("empresas").insert({ id: eid, nombre: pnombre + " (Ing)", propietario_id: iid }).select().single();
-    }
-    const { data: camps } = await sb.from("campanas").select("*").eq("empresa_id", eid).order("año_inicio", { ascending: false });
-    const { data: cot } = await sb.from("finanzas_cotizaciones").select("usd_usado").eq("empresa_id", eid).order("fecha", { ascending: false }).limit(1);
-    setCampanas(camps ?? []);
-    if (cot?.[0]) setUsdUsado(cot[0].usd_usado || 1);
-    let activa = (camps ?? []).find(c => c.activa)?.id ?? (camps ?? [])[0]?.id ?? "";
-    // Verificar si hay una campaña guardada en localStorage
-    const campGuardada = localStorage.getItem("ing_campana_id");
-    if (campGuardada && (camps ?? []).find(c => c.id === campGuardada)) activa = campGuardada;
-    if (!activa) {
-      const anio = new Date().getFullYear();
-      const { data: nueva } = await sb.from("campanas").insert({ empresa_id: eid, nombre: anio+"/"+(anio+1), año_inicio: anio, año_fin: anio+1, activa: true }).select().single();
-      if (nueva) { activa = nueva.id; setCampanas([nueva]); }
-    }
-    setCampanaActiva(activa);
-    if (activa) await fetchLotes(eid, activa);
-  };
-
-  const fetchLotes = async (eid: string, cid: string) => {
-    const sb = await getSB();
-    const [ls, lbs, mgs] = await Promise.all([
-      sb.from("lotes").select("*").eq("empresa_id", eid).eq("campana_id", cid),
-      sb.from("lote_labores").select("*").eq("empresa_id", eid).order("fecha", { ascending: false }),
-      sb.from("margen_bruto_detalle").select("*").eq("empresa_id", eid),
-    ]);
-    const sorted = (ls.data ?? []).sort((a: any, b: any) => naturalSort(a.nombre ?? "", b.nombre ?? ""));
-    setLotes(sorted); setLabores(lbs.data ?? []); setMargenes(mgs.data ?? []);
-  };
-
-  const msg = (t: string) => { setMsgExito(t); setTimeout(() => setMsgExito(""), 4000); };
-
-  const getCampanaId = async (sb: any): Promise<string> => {
-    if (campanaActiva) return campanaActiva;
-    const anio = new Date().getFullYear();
-    const { data: nueva } = await sb.from("campanas").insert({ empresa_id: empresaId, nombre: anio+"/"+(anio+1), año_inicio: anio, año_fin: anio+1, activa: true }).select().single();
-    if (nueva) { setCampanaActiva(nueva.id); setCampanas(p => [nueva,...p]); return nueva.id; }
-    return "";
-  };
-
-  // ── CRUD LOTES ──
-  const guardarLote = async () => {
-    if (!empresaId || !form.nombre?.trim()) { msg("❌ Ingresá el nombre del lote"); return; }
-    const sb = await getSB();
-    const cid = await getCampanaId(sb);
-    if (!cid) { msg("❌ Sin campaña"); return; }
-    const ci = CULTIVOS_LISTA.find(c => c.cultivo+"|"+c.orden === form.cultivo_key) ?? CULTIVOS_LISTA[0];
-    const payload: Record<string,any> = {
-      empresa_id: empresaId, campana_id: cid,
-      nombre: form.nombre.trim(), hectareas: Number(form.hectareas ?? 0),
-      estado: form.estado ?? "planificado", es_segundo_cultivo: false,
-    };
-    if (form.cultivo_key) { payload.cultivo=ci.cultivo; payload.cultivo_orden=ci.orden; payload.cultivo_completo=ci.label; }
-    if (form.tipo_tenencia) payload.tipo_tenencia=form.tipo_tenencia;
-    if (form.partido?.trim()) payload.partido=form.partido.trim();
-    if (form.fecha_siembra) payload.fecha_siembra=form.fecha_siembra;
-    if (form.fecha_cosecha) payload.fecha_cosecha=form.fecha_cosecha;
-    if (form.variedad?.trim()) { payload.variedad=form.variedad.trim(); payload.hibrido=form.variedad.trim(); }
-    if (form.rendimiento_esperado) payload.rendimiento_esperado=Number(form.rendimiento_esperado);
-    if (form.observaciones?.trim()) payload.observaciones=form.observaciones.trim();
-    try {
-      if (editandoLote) {
-        await sb.from("lotes").update(payload).eq("id", editandoLote);
-        const { data: updated } = await sb.from("lotes").select("*").eq("id", editandoLote).single();
-        if (updated) setLoteActivo(updated);
-        setEditandoLote(null);
-      } else {
-        await sb.from("lotes").insert(payload);
-      }
-      msg("✅ Lote guardado");
-      await fetchLotes(empresaId, campanaActiva);
-      setShowFormLote(false); setForm({});
-    } catch(e: any) { msg("❌ "+e.message); }
-  };
-
-  const eliminarLote = async (id: string) => {
-    if (!confirm("¿Eliminar lote?")) return;
-    const sb = await getSB();
-    await sb.from("lotes").delete().eq("id", id);
-    await fetchLotes(empresaId, campanaActiva);
-    setLoteActivo(null);
-  };
-
-  // ── CRUD LABORES (cuaderno mejorado) ──
-  const guardarLabor = async () => {
-    if (!loteActivo || !empresaId) return;
-    const sb = await getSB();
-    const ha = Number(form.superficie_ha ?? loteActivo.hectareas ?? 0);
-    const costoTotal = form.costo_total_lab
-      ? Number(form.costo_total_lab)
-      : form.costo_aplicacion_ha
-        ? Number(form.costo_aplicacion_ha) * ha
-        : 0;
-    const payload: Record<string,any> = {
-      empresa_id: empresaId, lote_id: loteActivo.id, campana_id: campanaActiva,
-      fecha: form.fecha_lab ?? new Date().toISOString().split("T")[0],
-      tipo: form.tipo_lab ?? "Aplicación",
-      descripcion: form.descripcion_lab ?? "",
-      superficie_ha: ha,
-      operario: form.operario ?? ingenieroNombre,
-      costo_total: costoTotal,
-      metodo_carga: "ingeniero",
-      // Campos cuaderno
-      producto_dosis: form.producto_dosis ?? "",
-      aplicador: form.aplicador ?? "",
-      costo_aplicacion_ha: Number(form.costo_aplicacion_ha ?? 0),
-      comentario: form.comentario ?? "",
-    };
-    if (editandoLabor) { await sb.from("lote_labores").update(payload).eq("id", editandoLabor); setEditandoLabor(null); }
-    else { await sb.from("lote_labores").insert(payload); }
-    // Actualizar costo labores en margen si hay MB cargado
-    if (costoTotal > 0) { await actualizarCostoLaboresEnMB(loteActivo.id, costoTotal); }
-    msg("✅ Labor guardada");
-    await fetchLotes(empresaId, campanaActiva);
-    setShowFormLabor(false); setForm({});
-  };
-
-  const actualizarCostoLaboresEnMB = async (loteId: string, costoNuevo: number) => {
-    const sb = await getSB();
-    const existing = margenes.find(m => m.lote_id === loteId);
-    if (!existing) return;
-    const labsLote = labores.filter(l => l.lote_id === loteId);
-    const totalLabores = labsLote.reduce((a,l) => a + (l.costo_total||0), 0) + costoNuevo;
-    const cd = (existing.costo_semilla||0)+(existing.costo_fertilizante||0)+(existing.costo_agroquimicos||0)+totalLabores+(existing.costo_alquiler||0)+(existing.costo_flete||0)+(existing.costo_comercializacion||0)+(existing.otros_costos||0);
-    const mb = (existing.ingreso_bruto||0) - cd;
-    await sb.from("margen_bruto_detalle").update({ costo_labores: totalLabores, costo_directo_total: cd, margen_bruto: mb, margen_bruto_ha: existing.hectareas>0?mb/existing.hectareas:0, margen_bruto_usd: mb/usdUsado }).eq("id", existing.id);
-  };
-
-  const eliminarLabor = async (id: string) => {
-    if (!confirm("¿Eliminar?")) return;
-    const sb = await getSB();
-    await sb.from("lote_labores").delete().eq("id", id);
-    await fetchLotes(empresaId, campanaActiva);
-  };
-
-  // ── MARGEN ──
-  const guardarMargen = async () => {
-    if (!loteActivo || !empresaId) return;
-    const sb = await getSB();
-    const ha = loteActivo.hectareas || 0;
-    const rend = Number(form.mg_rend_real || form.mg_rend_esp || 0);
-    const precio = Number(form.mg_precio || 0);
-    const ing2 = ha * rend * precio;
-    // Sumar costos de labores ya cargadas
-    const labsLote = labores.filter(l => l.lote_id === loteActivo.id);
-    const costoLaboresCargadas = labsLote.reduce((a,l)=>a+(l.costo_total||0),0);
-    const costoLaboresForm = Number(form.mg_labores||0);
-    const costoLaboresFinal = Math.max(costoLaboresForm, costoLaboresCargadas);
-    const costos = [form.mg_semilla,form.mg_fertilizante,form.mg_agroquimicos,String(costoLaboresFinal),form.mg_alquiler,form.mg_flete,form.mg_comercializacion,form.mg_otros];
-    const cd = costos.reduce((a,v) => a+Number(v||0), 0);
-    const mb = ing2 - cd;
-    const existing = margenes.find(m => m.lote_id === loteActivo.id);
-    const payload = {
-      empresa_id: empresaId, lote_id: loteActivo.id,
-      cultivo: loteActivo.cultivo, cultivo_orden: loteActivo.cultivo_orden,
-      hectareas: ha, rendimiento_esperado: Number(form.mg_rend_esp||0),
-      rendimiento_real: Number(form.mg_rend_real||0), precio_tn: precio,
-      ingreso_bruto: ing2, costo_semilla: Number(form.mg_semilla||0),
-      costo_fertilizante: Number(form.mg_fertilizante||0), costo_agroquimicos: Number(form.mg_agroquimicos||0),
-      costo_labores: costoLaboresFinal, costo_alquiler: Number(form.mg_alquiler||0),
-      costo_flete: Number(form.mg_flete||0), costo_comercializacion: Number(form.mg_comercializacion||0),
-      otros_costos: Number(form.mg_otros||0), costo_directo_total: cd,
-      margen_bruto: mb, margen_bruto_ha: ha>0?mb/ha:0,
-      margen_bruto_usd: mb/usdUsado, cotizacion_usd: usdUsado,
-      estado: form.mg_rend_real ? "real" : "estimado",
-    };
-    if (existing) await sb.from("margen_bruto_detalle").update(payload).eq("id", existing.id);
-    else await sb.from("margen_bruto_detalle").insert(payload);
-    msg("✅ Margen guardado");
-    await fetchLotes(empresaId, campanaActiva);
-    setShowFormMargen(false); setForm({});
-  };
-
-  // ── ADJUNTO ──
-  const subirAdjunto = async (file: File, tipo: string) => {
-    if (!empresaId || !loteActivo) return;
     try {
       const sb = await getSB();
-      const ext = file.name.split(".").pop() ?? "pdf";
-      const path = empresaId+"/"+loteActivo.id+"/"+tipo+"_"+Date.now()+"."+ext;
-      const { error } = await sb.storage.from("lotes-adjuntos").upload(path, file, { upsert:true });
-      if (error) { msg("❌ "+error.message); return; }
-      try { await sb.from("lote_adjuntos").insert({ empresa_id:empresaId, lote_id:loteActivo.id, tipo, nombre:file.name, path }); } catch {}
-      msg("✅ Adjunto guardado");
-    } catch(e: any) { msg("❌ "+e.message); }
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) { window.location.href = "/login"; return; }
+      const { data: u } = await sb.from("usuarios").select("*").eq("auth_id", user.id).single();
+      if (!u || u.rol !== "ingeniero") { window.location.href = "/login"; return; }
+      setIngId(u.id); setIngNombre(u.nombre); setIngData(u);
+      await fetchProds(u.id);
+      await fetchCobs(u.id);
+      await fetchVehs(u.id);
+    } catch(e) { console.error(e); }
+    finally { setLoading(false); }
   };
 
-  // ── EXPORT ──
-  const exportarLotes = async () => {
-    const XLSX = await import("xlsx");
-    const data = lotesPrincipales.map(l => {
-      const mg = margenes.find(m => m.lote_id === l.id);
-      return { LOTE:l.nombre, HECTAREAS:l.hectareas, CULTIVO:l.cultivo_completo||l.cultivo, VARIEDAD:l.variedad||l.hibrido||"", ESTADO:l.estado, FECHA_SIEMBRA:l.fecha_siembra||"", TENENCIA:l.tipo_tenencia||"", PARTIDO:l.partido||"", REND_ESP:l.rendimiento_esperado||0, MARGEN_BRUTO:mg?Math.round(mg.margen_bruto):"", MB_HA:mg?Math.round(mg.margen_bruto_ha):"" };
-    });
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Lotes");
-    XLSX.writeFile(wb, "lotes_"+productorNombre+"_"+new Date().toISOString().slice(0,10)+".xlsx");
+  const fetchProds = async (iid: string) => {
+    const sb = await getSB();
+    const { data: prods } = await sb.from("ing_productores").select("*").eq("ingeniero_id", iid).eq("activo", true).order("nombre");
+    setProductores(prods ?? []);
+    const cpMap: Record<string,Campana[]> = {};
+    const csMap: Record<string,string> = {};
+    const lotesAll: LoteResumen[] = [];
+    for (const p of (prods ?? [])) {
+      if (!p.empresa_id) continue;
+      const eid = p.empresa_id;
+      const { data: camps } = await sb.from("campanas").select("id,nombre,activa").eq("empresa_id", eid).order("año_inicio", { ascending: false });
+      const campList = camps ?? [];
+      cpMap[eid] = campList;
+      // Priorizar campaña activa, sino la más reciente
+      const activa = campList.find((c:any) => c.activa) ?? campList[0];
+      if (activa) {
+        csMap[eid] = activa.id;
+        const { data: ls } = await sb.from("lotes").select("nombre,hectareas,cultivo,cultivo_completo,estado").eq("empresa_id", eid).eq("campana_id", activa.id).eq("es_segundo_cultivo", false);
+        // Guardar con empresa_id además de nombre para matching más robusto
+        (ls ?? []).forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre, empresa_id: eid}));
+      } else {
+        // Sin campaña: igual buscar lotes de cualquier campaña para mostrar has
+        const { data: ls } = await sb.from("lotes").select("nombre,hectareas,cultivo,cultivo_completo,estado").eq("empresa_id", eid).eq("es_segundo_cultivo", false).limit(200);
+        if (ls && ls.length > 0) {
+          (ls ?? []).forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre, empresa_id: eid}));
+        }
+      }
+    }
+    setCampanasPorProd(cpMap); setCampSelProd(csMap); setLotes(lotesAll);
   };
 
-  const exportarCuaderno = async () => {
-    if (!loteActivo) return;
-    const XLSX = await import("xlsx");
-    const data = laboresLote.map(l => ({
-      LOTE: loteActivo.nombre, FECHA: l.fecha, TIPO: l.tipo,
-      PRODUCTO_DOSIS: (l as any).producto_dosis||l.descripcion||"",
-      APLICADOR: (l as any).aplicador||"",
-      HA: l.superficie_ha, OPERARIO: l.operario||"",
-      COSTO_HA: (l as any).costo_aplicacion_ha||"",
-      COSTO_TOTAL: l.costo_total||0,
-      COMENTARIO: (l as any).comentario||l.observaciones||""
-    }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Cuaderno");
-    XLSX.writeFile(wb, "cuaderno_"+loteActivo.nombre+"_"+new Date().toISOString().slice(0,10)+".xlsx");
+  const cambiarCampana = async (eid: string, campana_id: string, prod_nombre: string) => {
+    setCampSelProd(prev => ({...prev, [eid]: campana_id}));
+    const sb = await getSB();
+    const { data: ls } = await sb.from("lotes").select("nombre,hectareas,cultivo,cultivo_completo,estado").eq("empresa_id", eid).eq("campana_id", campana_id).eq("es_segundo_cultivo", false);
+    setLotes(prev => [
+      ...prev.filter(l => (l as any).empresa_id !== eid && l.productor_nombre !== prod_nombre),
+      ...(ls ?? []).map((l:any) => ({...l, productor_nombre: prod_nombre, empresa_id: eid}))
+    ]);
   };
 
-  // ── IMPORT LOTES ──
-  const leerExcelLotes = async (file: File) => {
+  const crearCampana = async (eid: string, nombre: string) => {
+    const sb = await getSB();
+    const parts = nombre.split("/");
+    const anioInicio = Number(parts[0]) || new Date().getFullYear();
+    const anioFin = Number(parts[1]) || anioInicio + 1;
+    await sb.from("campanas").update({ activa: false }).eq("empresa_id", eid);
+    const { data: nueva } = await sb.from("campanas").insert({ empresa_id: eid, nombre, año_inicio: anioInicio, año_fin: anioFin, activa: true }).select().single();
+    if (nueva) { setCampanasPorProd(prev => ({ ...prev, [eid]: [nueva, ...(prev[eid] ?? [])] })); setCampSelProd(prev => ({ ...prev, [eid]: nueva.id })); m("✅ Campaña creada"); }
+  };
+
+  const fetchCobs = async (iid: string) => { try { const sb=await getSB(); const{data}=await sb.from("ing_cobranzas").select("*").eq("ingeniero_id",iid).order("fecha",{ascending:false}); setCobranzas(data??[]); } catch {} };
+
+  const fetchVehs = async (iid: string) => {
+    try {
+      const sb=await getSB(); const{data}=await sb.from("ing_vehiculos").select("*").eq("ingeniero_id",iid); setVehiculos(data??[]);
+      const als:{msg:string;urgencia:string}[]=[]; const hoy=new Date();
+      (data??[]).forEach((v:any)=>{
+        if(v.seguro_vencimiento){const d=(new Date(v.seguro_vencimiento).getTime()-hoy.getTime())/86400000;if(d<0)als.push({msg:v.nombre+": Seguro VENCIDO",urgencia:"alta"});else if(d<=30)als.push({msg:v.nombre+": Seguro vence en "+Math.round(d)+" días",urgencia:d<=7?"alta":"media"});}
+        if(v.vtv_vencimiento){const d=(new Date(v.vtv_vencimiento).getTime()-hoy.getTime())/86400000;if(d<0)als.push({msg:v.nombre+": VTV VENCIDA",urgencia:"alta"});else if(d<=30)als.push({msg:v.nombre+": VTV vence en "+Math.round(d)+" días",urgencia:d<=7?"alta":"media"});}
+      });
+      setAlertas(als);
+    } catch {}
+  };
+
+  const m = (t:string) => { setMsj(t); setTimeout(()=>setMsj(""),4000); };
+
+  const guardarProductor = async () => {
+    if(!ingId||!form.nombre?.trim()){m("❌ Ingresá el nombre");return;}
+    const sb=await getSB();
+    let empresa_id=null; let tiene_cuenta=false;
+    if(form.email?.trim()){const{data:ue}=await sb.from("usuarios").select("id").eq("email",form.email.trim()).single();if(ue){const{data:emp}=await sb.from("empresas").select("id").eq("propietario_id",ue.id).single();if(emp){empresa_id=emp.id;tiene_cuenta=true;}}}
+    const pay={ingeniero_id:ingId,nombre:form.nombre.trim(),telefono:form.telefono??"",email:form.email??"",localidad:form.localidad??"",provincia:form.provincia??"Santa Fe",hectareas_total:Number(form.hectareas_total??0),observaciones:form.obs??"",honorario_tipo:form.honorario_tipo??"mensual",honorario_monto:Number(form.honorario_monto??0),empresa_id,tiene_cuenta,activo:true};
+    if(editProd){await sb.from("ing_productores").update(pay).eq("id",editProd);setEditProd(null);}else{
+      const{data:nuevo}=await sb.from("ing_productores").insert(pay).select().single();
+      if(nuevo&&!empresa_id){const{data:emp}=await sb.from("empresas").insert({nombre:form.nombre.trim()+" (Ing)",propietario_id:ingId}).select().single();if(emp)await sb.from("ing_productores").update({empresa_id:emp.id}).eq("id",nuevo.id);}
+    }
+    m(tiene_cuenta?"✅ Guardado — con cuenta APP":"✅ Guardado"); await fetchProds(ingId); setShowForm(false); setForm({});
+  };
+
+  const vincularCodigo = async () => {
+    if(!ingId||!form.codigo?.trim()){m("❌ Ingresá el código");return;}
+    const sb=await getSB();
+    const{data:u}=await sb.from("usuarios").select("id,nombre").eq("codigo",form.codigo.trim()).single();
+    if(!u){m("❌ Código no encontrado");return;}
+    let{data:emp}=await sb.from("empresas").select("id").eq("propietario_id",u.id).single();
+    if(!emp){const{data:ne}=await sb.from("empresas").insert({nombre:"Empresa de "+u.nombre,propietario_id:u.id}).select().single();emp=ne;}
+    if(!emp){m("❌ Error empresa");return;}
+    const{data:ex}=await sb.from("ing_productores").select("id").eq("ingeniero_id",ingId).eq("empresa_id",emp.id).single();
+    if(!ex)await sb.from("ing_productores").insert({ingeniero_id:ingId,nombre:u.nombre,empresa_id:emp.id,tiene_cuenta:true,honorario_tipo:form.honorario_tipo??"mensual",honorario_monto:Number(form.honorario_monto??0),activo:true});
+    else await sb.from("ing_productores").update({empresa_id:emp.id,tiene_cuenta:true}).eq("id",ex.id);
+    const{data:vex}=await sb.from("vinculaciones").select("id").eq("profesional_id",ingId).eq("empresa_id",emp.id).single();
+    if(!vex)await sb.from("vinculaciones").insert({profesional_id:ingId,empresa_id:emp.id,activa:true,rol_profesional:"ingeniero"});
+    m("✅ "+u.nombre+" vinculado"); await fetchProds(ingId); setShowVincular(false); setForm({});
+  };
+
+  const eliminarProd = async (id:string) => { if(!confirm("¿Eliminar?"))return; const sb=await getSB(); await sb.from("ing_productores").update({activo:false}).eq("id",id); await fetchProds(ingId); };
+
+  const entrar = (p:ProductorIng) => {
+    const eid = p.empresa_id ?? p.id;
+    const campId = campSelProd[eid] ?? null;
+    localStorage.setItem("ing_empresa_id", eid);
+    localStorage.setItem("ing_empresa_nombre", p.nombre);
+    localStorage.setItem("ing_modo_compartido", p.empresa_id ? "true" : "false");
+    if (campId) localStorage.setItem("ing_campana_id", campId);
+    window.location.href = "/ingeniero/lotes";
+  };
+
+  const guardarCob = async () => {
+    if(!ingId)return; const sb=await getSB();
+    await sb.from("ing_cobranzas").insert({ingeniero_id:ingId,productor_id:form.prod_c||null,concepto:form.concepto??"",monto:Number(form.monto??0),fecha:form.fecha_c??new Date().toISOString().split("T")[0],estado:form.estado??"pendiente",metodo_pago:form.metodo??""});
+    await fetchCobs(ingId); setShowForm(false); setForm({}); m("✅ Cobro registrado");
+  };
+  const marcarCobrado = async (id:string) => { const sb=await getSB(); await sb.from("ing_cobranzas").update({estado:"cobrado"}).eq("id",id); await fetchCobs(ingId); };
+
+  const guardarVeh = async () => {
+    if(!ingId||!form.nombre?.trim())return; const sb=await getSB();
+    await sb.from("ing_vehiculos").insert({ingeniero_id:ingId,nombre:form.nombre,marca:form.marca??"",modelo:form.modelo??"",anio:Number(form.anio??0),patente:form.patente??"",seguro_vencimiento:form.seg_venc||null,seguro_compania:form.seg_comp??"",vtv_vencimiento:form.vtv_venc||null,km_actuales:Number(form.km??0),proximo_service_km:Number(form.prox_km??0)});
+    await fetchVehs(ingId); setShowForm(false); setForm({}); m("✅ Vehículo guardado");
+  };
+
+  const guardarService = async () => {
+    if(!vehiculoSel||!ingId)return; const sb=await getSB();
+    await sb.from("ing_vehiculo_service").insert({vehiculo_id:vehiculoSel.id,ingeniero_id:ingId,tipo:form.tipo_s??"service",descripcion:form.desc_s??"",costo:Number(form.costo_s??0),km:Number(form.km_s??0),fecha:form.fecha_s??new Date().toISOString().split("T")[0],taller:form.taller??""});
+    const sb2=await getSB();const{data}=await sb2.from("ing_vehiculo_service").select("*").eq("vehiculo_id",vehiculoSel.id).order("fecha",{ascending:false});
+    setServicios(data??[]); setShowForm(false); setForm({}); m("✅ Service guardado");
+  };
+
+  const exportXLS = async (tipo:"productores"|"lotes") => {
+    const XLSX=await import("xlsx"); let data:any[]=[];
+    if(tipo==="productores")data=productores.map(p=>({NOMBRE:p.nombre,TEL:p.telefono,HA:lotes.filter(l=>l.productor_nombre===p.nombre).reduce((a,l)=>a+(l.hectareas||0),0),HONORARIO:p.honorario_monto,APP:p.tiene_cuenta?"SI":"NO"}));
+    else{let lf=lotes;if(fCultivo!=="todos")lf=lf.filter(l=>(l.cultivo_completo||l.cultivo)===fCultivo);if(fProductor!=="todos")lf=lf.filter(l=>l.productor_nombre===fProductor);if(fEstado!=="todos")lf=lf.filter(l=>l.estado===fEstado);data=lf.map(l=>({PRODUCTOR:l.productor_nombre,LOTE:l.nombre,HA:l.hectareas,CULTIVO:l.cultivo_completo||l.cultivo,ESTADO:l.estado}));}
+    const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,tipo);XLSX.writeFile(wb,tipo+"_"+new Date().toISOString().slice(0,10)+".xlsx");
+  };
+
+  const leerExcel = async (file:File) => {
     setImportMsg("Leyendo...");
     try {
-      const XLSX = await import("xlsx");
-      const wb = XLSX.read(await file.arrayBuffer(), { type:"array" });
-      const wsData: any[] = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:"" });
-      if (wsData.length < 2) { setImportMsg("Sin datos"); return; }
-      const headers = wsData[0].map((h: any) => String(h).toLowerCase().trim().replace(/ /g,"_"));
-      const ci = headers.findIndex((h: string) => h.includes("lote")||h.includes("nombre")||h.includes("campo"));
-      const ch = headers.findIndex((h: string) => h.includes("ha")||h.includes("hect"));
-      const cc = headers.findIndex((h: string) => h.includes("cultivo")||h.includes("especie"));
-      const cv = headers.findIndex((h: string) => h.includes("varie")||h.includes("hibri"));
-      const cf = headers.findIndex((h: string) => h.includes("siem"));
-      const cp = headers.findIndex((h: string) => h.includes("partido")||h.includes("localidad"));
-      const colN = ci >= 0 ? ci : 0;
-      const preview = wsData.slice(1).filter((r: any) => r[colN]&&String(r[colN]).trim()).map((r: any) => {
-        const nombre = String(r[colN]).trim();
-        const cultTexto = cc >= 0 ? String(r[cc]).toLowerCase().trim() : "";
-        let cultivo = ""; let orden = "1ra";
-        if (cultTexto) {
-          if (cultTexto.includes("maiz")||cultTexto.includes("maíz")) { cultivo="maiz"; orden=cultTexto.includes("2")?"2do":cultTexto.includes("tard")?"1ro_tardio":"1ro_temprano"; }
-          else if (cultTexto.includes("trigo")) { cultivo="trigo"; orden="1ro"; }
-          else if (cultTexto.includes("girasol")) { cultivo="girasol"; orden="1ro"; }
-          else if (cultTexto.includes("sorgo")) { cultivo="sorgo"; orden=cultTexto.includes("2")?"2do":"1ro"; }
-          else if (cultTexto.includes("cebada")) { cultivo="cebada"; orden="1ra"; }
-          else if (cultTexto.includes("arveja")) { cultivo="arveja"; orden="1ra"; }
-          else if (cultTexto.includes("soja")||cultTexto.includes("soy")) { cultivo="soja"; orden=cultTexto.includes("2")?"2da":"1ra"; }
-          else if (cultTexto.includes("carinata")) { cultivo="carinata"; orden="1ra"; }
-          else if (cultTexto.includes("camelina")) { cultivo="camelina"; orden="1ra"; }
-        }
-        const existe = lotes.find(l => l.nombre.toLowerCase().trim()===nombre.toLowerCase());
-        const info = cultivo ? getCultivoInfo(cultivo, orden) : null;
-        return { nombre, hectareas: ch>=0?(Number(r[ch])||0):0, cultivo:cultivo||null, cultivo_orden:orden, cultivo_completo:info?.label||"", partido:cp>=0?String(r[cp]).trim():"", fecha_siembra:cf>=0?parseFecha(r[cf]):null, variedad:cv>=0?String(r[cv]).trim():"", accion:existe?"actualizar":"crear", id_existente:existe?.id??null };
-      });
-      setImportPreview(preview);
-      setImportMsg("✅ "+preview.length+" lotes detectados");
-    } catch(e: any) { setImportMsg("❌ "+e.message); }
+      const XLSX=await import("xlsx");const wb=XLSX.read(await file.arrayBuffer(),{type:"array"});
+      const rows:any[]=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});
+      if(rows.length<2){setImportMsg("Sin datos");return;}
+      const h=rows[0].map((x:any)=>String(x).toLowerCase().trim());
+      const cn=h.findIndex((x:string)=>x.includes("nombre")||x.includes("productor"));
+      const ct=h.findIndex((x:string)=>x.includes("tel")||x.includes("cel"));
+      const cl=h.findIndex((x:string)=>x.includes("local"));
+      const cha=h.findIndex((x:string)=>x.includes("ha")||x.includes("hect"));
+      const prev=rows.slice(1).filter((r:any)=>r[cn>=0?cn:0]).map((r:any)=>({nombre:String(r[cn>=0?cn:0]).trim(),telefono:ct>=0?String(r[ct]).trim():"",localidad:cl>=0?String(r[cl]).trim():"",hectareas_total:cha>=0?Number(r[cha])||0:0,existe:productores.some(p=>p.nombre.toLowerCase()===String(r[cn>=0?cn:0]).toLowerCase().trim())}));
+      setImportPrev(prev);setImportMsg("✅ "+prev.length+" detectados");
+    } catch(e:any){setImportMsg("❌ "+e.message);}
   };
 
-  const confirmarImportLotes = async () => {
-    if (!empresaId||!importPreview.length) return;
-    const sb = await getSB();
-    const cid = await getCampanaId(sb);
-    if (!cid) { msg("❌ Sin campaña"); return; }
-    let creados=0; let actualizados=0; const errores: string[]=[];
-    const procesados: string[] = [];
-    for (const l of importPreview) {
-      const key = l.nombre.toLowerCase().trim();
-      if (procesados.includes(key)) continue; procesados.push(key);
-      try {
-        if (l.accion==="actualizar"&&l.id_existente) {
-          const upd: Record<string,any>={hectareas:l.hectareas};
-          if (l.cultivo) { upd.cultivo=l.cultivo; upd.cultivo_orden=l.cultivo_orden; upd.cultivo_completo=l.cultivo_completo; }
-          if (l.partido) upd.partido=l.partido; if (l.fecha_siembra) upd.fecha_siembra=l.fecha_siembra; if (l.variedad) { upd.variedad=l.variedad; upd.hibrido=l.variedad; }
-          const{error}=await sb.from("lotes").update(upd).eq("id",l.id_existente);
-          if(error)errores.push(l.nombre+": "+error.message); else actualizados++;
-        } else {
-          const ins: Record<string,any>={empresa_id:empresaId,campana_id:cid,nombre:l.nombre,hectareas:l.hectareas||0,estado:"planificado",es_segundo_cultivo:false};
-          if(l.cultivo){ins.cultivo=l.cultivo;ins.cultivo_orden=l.cultivo_orden;ins.cultivo_completo=l.cultivo_completo;}
-          if(l.partido)ins.partido=l.partido; if(l.fecha_siembra)ins.fecha_siembra=l.fecha_siembra; if(l.variedad){ins.variedad=l.variedad;ins.hibrido=l.variedad;}
-          const{error}=await sb.from("lotes").insert(ins);
-          if(error)errores.push(l.nombre+": "+error.message); else creados++;
-        }
-      } catch(e: any){errores.push(l.nombre+": "+e.message);}
+  const confirmarImport = async () => {
+    const sb=await getSB();let c=0;
+    for(const p of importPrev.filter(x=>!x.existe)){
+      const{data:nuevo}=await sb.from("ing_productores").insert({ingeniero_id:ingId,nombre:p.nombre,telefono:p.telefono,localidad:p.localidad,hectareas_total:p.hectareas_total,honorario_tipo:"mensual",honorario_monto:0,activo:true}).select().single();
+      if(nuevo){const{data:emp}=await sb.from("empresas").insert({nombre:p.nombre+" (Ing)",propietario_id:ingId}).select().single();if(emp)await sb.from("ing_productores").update({empresa_id:emp.id}).eq("id",nuevo.id);}
+      c++;
     }
-    if (creados+actualizados>0) {
-      msg("✅ "+creados+" creados · "+actualizados+" actualizados"+(errores.length?" · "+errores.length+" errores":""));
-      await fetchLotes(empresaId, cid);
-      setImportPreview([]); setImportMsg(""); setShowImport(false);
-    } else { msg("❌ "+errores.slice(0,2).join(" | ")); }
+    m("✅ "+c+" importados");await fetchProds(ingId);setImportPrev([]);setImportMsg("");setShowImport(false);
   };
 
-  // ── IMPORT CUADERNO MULTI-LOTE ──
-  // Columnas esperadas: LOTE | FECHA | TIPO | PRODUCTO/DOSIS | APLICADOR | COSTO_HA | COSTO_TOTAL | COMENTARIO
-  const leerExcelCuaderno = async (file: File) => {
-    setCuadernoMsg("Leyendo...");
+  const askAI = async (texto?: string) => {
+    const userMsg=(texto??aiInput).trim();
+    if(!userMsg)return;
+    setAiInput(""); setAiLoad(true);
+    setAiChat(prev=>[...prev,{rol:"user",texto:userMsg}]);
+    if(texto) setSeccion("ia_campo");
     try {
-      const XLSX = await import("xlsx");
-      const wb = XLSX.read(await file.arrayBuffer(), { type:"array" });
-      const rows: any[] = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:"" });
-      if (rows.length<2) { setCuadernoMsg("Sin datos"); return; }
-      const headers = rows[0].map((h: any) => String(h).toLowerCase().trim().replace(/ /g,"_").replace(/\//g,"_"));
-      // Detectar columnas flexiblemente
-      const cLote  = headers.findIndex((h: string) => h.includes("lote")||h.includes("campo")||h.includes("nombre"));
-      const cFecha = headers.findIndex((h: string) => h.includes("fecha"));
-      const cTipo  = headers.findIndex((h: string) => h.includes("tipo")||h.includes("accion")||h.includes("acción"));
-      const cProd  = headers.findIndex((h: string) => h.includes("prod")||h.includes("dosis")||h.includes("desc"));
-      const cAplic = headers.findIndex((h: string) => h.includes("aplic"));
-      const cCostoHa = headers.findIndex((h: string) => h.includes("costo_ha")||h.includes("precio_ha")||h.includes("ha"));
-      const cCostoT  = headers.findIndex((h: string) => (h.includes("costo_t")||h.includes("total"))&&!h.includes("ha"));
-      const cComent  = headers.findIndex((h: string) => h.includes("coment")||h.includes("obs")||h.includes("nota"));
-      if (cFecha===-1) { setCuadernoMsg("❌ Falta columna FECHA"); return; }
-
-      const preview = rows.slice(1).filter((r: any) => r[cFecha]).map((r: any) => {
-        const loteNombre = cLote>=0 ? String(r[cLote]).trim() : "";
-        const tipoRaw = cTipo>=0 ? String(r[cTipo]).trim() : "";
-        const prod = cProd>=0 ? String(r[cProd]).trim() : "";
-        const dl = (tipoRaw+prod).toLowerCase();
-        const tipo = tipoRaw || (dl.includes("siem")?"Siembra":dl.includes("cosech")?"Cosecha":dl.includes("fertil")?"Fertilización":"Aplicación");
-        // Buscar lote primero — se necesita para calcular costos
-        const loteEncontrado = lotes.find(l => l.nombre.toLowerCase().includes(loteNombre.toLowerCase()) || loteNombre.toLowerCase().includes(l.nombre.toLowerCase()));
-        const costoHa = cCostoHa>=0 ? (Number(r[cCostoHa])||0) : 0;
-        const costoTotalRaw = cCostoT>=0 ? r[cCostoT] : "";
-        const costoTotal = costoTotalRaw !== "" && costoTotalRaw !== null && costoTotalRaw !== undefined ? (Number(costoTotalRaw)||0) : 0;
-        // Solo calcular costo total si hay valores reales — nunca mostrar $0 fantasma
-        const costoTotalFinal = costoTotal > 0 ? costoTotal : (costoHa > 0 && loteEncontrado?.hectareas ? costoHa * loteEncontrado.hectareas : 0);
-        return {
-          lote_nombre: loteNombre,
-          lote_id: loteEncontrado?.id ?? null,
-          lote_match: loteEncontrado?.nombre ?? null,
-          hectareas: loteEncontrado?.hectareas ?? 0,
-          fecha: parseFecha(r[cFecha]),
-          tipo,
-          producto_dosis: prod,
-          aplicador: cAplic>=0 ? String(r[cAplic]).trim() : "",
-          costo_aplicacion_ha: costoHa,
-          costo_total: costoTotalFinal,
-          comentario: cComent>=0 ? String(r[cComent]).trim() : "",
-        };
-      });
-      setCuadernoPreview(preview);
-      const sinMatch = preview.filter(p=>!p.lote_id).length;
-      setCuadernoMsg(`✅ ${preview.length} labores detectadas${sinMatch>0?` · ⚠ ${sinMatch} sin lote`:""}`);
-    } catch(e: any) { setCuadernoMsg("❌ "+e.message); }
+      const hist=aiChat.slice(-6).map(x=>({role:x.rol==="user"?"user":"assistant",content:x.texto}));
+      const res=await fetch("/api/scanner",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1500,system:`Asistente agronómico experto Argentina. Ingeniero: ${ingNombre}. Productores: ${productores.length}. Ha totales: ${totalHa}.`,messages:[...hist,{role:"user",content:userMsg}]})});
+      const d=await res.json();setAiChat(prev=>[...prev,{rol:"assistant",texto:d.content?.[0]?.text??"Sin respuesta"}]);
+    } catch{setAiChat(prev=>[...prev,{rol:"assistant",texto:"Error de conexión"}]);}
+    setAiLoad(false);
   };
-
-  const confirmarImportCuaderno = async () => {
-    if (!empresaId||!cuadernoPreview.length) return;
-    const sb = await getSB();
-    let ok=0; let err=0;
-    for (const l of cuadernoPreview) {
-      if (!l.lote_id) { err++; continue; }
-      try {
-        await sb.from("lote_labores").insert({
-          empresa_id: empresaId, lote_id: l.lote_id, campana_id: campanaActiva,
-          fecha: l.fecha, tipo: l.tipo,
-          descripcion: l.producto_dosis,
-          producto_dosis: l.producto_dosis,
-          aplicador: l.aplicador,
-          superficie_ha: l.hectareas,
-          costo_total: l.costo_total,
-          costo_aplicacion_ha: l.costo_aplicacion_ha,
-          comentario: l.comentario,
-          metodo_carga: "excel_multi",
-        });
-        // Actualizar MB si hay costo
-        if (l.costo_total > 0) await actualizarCostoLaboresEnMB(l.lote_id, l.costo_total);
-        ok++;
-      } catch { err++; }
-    }
-    msg(`✅ ${ok} labores importadas${err>0?` · ${err} errores`:""}`);
-    await fetchLotes(empresaId, campanaActiva);
-    setCuadernoPreview([]); setCuadernoMsg(""); setShowImportCuaderno(false);
-  };
-
-  // ── VOZ ──
-  const hablar = useCallback((texto: string) => {
-    if (typeof window==="undefined") return;
-    window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(texto);
-    utt.lang="es-AR"; utt.rate=1.05;
-    const v = window.speechSynthesis.getVoices().find(x => x.lang.startsWith("es"));
-    if (v) utt.voice=v;
-    utt.onstart=()=>setVozEstado("respondiendo"); utt.onend=()=>setVozEstado("idle");
-    window.speechSynthesis.speak(utt);
-  }, []);
-
-  const interpretarVoz = useCallback(async (texto: string) => {
-    setVozEstado("procesando");
-    const resumen = lotes.slice(0,10).map(l => l.nombre+":"+l.hectareas+"ha "+( l.cultivo_completo||l.cultivo)+"("+l.estado+")").join(";");
-    const hoy = new Date().toISOString().split("T")[0];
-    try {
-      const res = await fetch("/api/scanner", { method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:500, messages:[{ role:"user", content:`Asistente cuaderno de campo agropecuario Argentina. Productor: ${productorNombre}. Lotes: ${resumen}. Fecha hoy: ${hoy}. Voz del ingeniero: "${texto}". 
-Respondé SOLO JSON sin markdown: {"texto":"respuesta breve","accion":"consulta|nueva_labor|crear_lote","datos":{}}
-Para nueva_labor incluir: lote_nombre, fecha (YYYY-MM-DD), tipo (Siembra/Aplicación/Fertilización/Cosecha/etc), producto_dosis, aplicador (Mosquito/Drone/Avión/Tractor/Manual), costo_total, comentario.
-Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
-      });
-      const data = await res.json();
-      const parsed = JSON.parse((data.content?.[0]?.text??"{}").replace(/```json|```/g,"").trim());
-      setVozRespuesta(parsed.texto??""); hablar(parsed.texto??"");
-      if (parsed.accion==="nueva_labor" && parsed.datos) {
-        const d = parsed.datos;
-        // Buscar el lote
-        const loteTarget = lotes.find(l => l.nombre.toLowerCase().includes((d.lote_nombre??"").toLowerCase()) || (d.lote_nombre??"").toLowerCase().includes(l.nombre.toLowerCase()));
-        if (loteTarget) {
-          setLoteActivo(loteTarget);
-          setForm({
-            tipo_lab: d.tipo||"Aplicación", fecha_lab: d.fecha||hoy,
-            descripcion_lab: d.producto_dosis||"", producto_dosis: d.producto_dosis||"",
-            aplicador: d.aplicador||"", costo_total_lab: String(d.costo_total||""),
-            comentario: d.comentario||"", operario: ingenieroNombre,
-            superficie_ha: String(loteTarget.hectareas)
-          });
-          setShowFormLabor(true);
-        } else {
-          setVozRespuesta((parsed.texto||"")+" — No encontré el lote \""+d.lote_nombre+"\"");
-        }
-      }
-      if (parsed.accion==="crear_lote" && parsed.datos) {
-        const ci2 = CULTIVOS_LISTA.find(c=>(parsed.datos.cultivo??"").toLowerCase().includes(c.cultivo));
-        setForm({ nombre:parsed.datos.nombre??"", hectareas:String(parsed.datos.hectareas??""), cultivo_key:ci2?ci2.cultivo+"|"+ci2.orden:"soja|1ra" });
-        setShowFormLote(true);
-      }
-      setVozEstado("respondiendo");
-    } catch { const e="No pude interpretar el audio."; setVozRespuesta(e); hablar(e); setVozEstado("error"); setTimeout(()=>setVozEstado("idle"),2000); }
-  }, [lotes, hablar, productorNombre, ingenieroNombre]);
 
   const escucharVoz = () => {
-    const hasSR = "webkitSpeechRecognition" in window || "SpeechRecognition" in window;
-    if (!hasSR) { alert("Usá Chrome para reconocimiento de voz"); return; }
-    const SR = (window as any).SpeechRecognition||(window as any).webkitSpeechRecognition;
-    const rec = new SR(); rec.lang="es-AR"; rec.continuous=false;
-    recRef.current=rec; setVozEstado("escuchando"); setVozRespuesta(""); setVozPanel(true);
-    rec.onresult=(e: any)=>{const t=e.results[0][0].transcript;setVozTranscripcion(t);interpretarVoz(t);};
+    if(!("webkitSpeechRecognition" in window)&&!("SpeechRecognition" in window)){alert("Usá Chrome");return;}
+    const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition;
+    const rec=new SR();rec.lang="es-AR";rec.continuous=false;
+    recRef.current=rec;setVozEstado("escuchando");setVozPanel(true);
+    rec.onresult=(e:any)=>{const t=e.results[0][0].transcript;setVozEstado("procesando");askAI(t);setVozEstado("idle");};
     rec.onerror=()=>{setVozEstado("error");setTimeout(()=>setVozEstado("idle"),2000);};
     rec.start();
   };
 
-  const VOZ_COLOR: Record<string,string>={idle:"#22c55e",escuchando:"#ef4444",procesando:"#eab308",respondiendo:"#60a5fa",error:"#ef4444"};
-  const VOZ_ICON: Record<string,string>={idle:"🎤",escuchando:"🔴",procesando:"⚙️",respondiendo:"🔊",error:"❌"};
+  // KPIs
+  const totalHa = lotes.reduce((a,l)=>a+(Number(l.hectareas)||0),0);
+  const totPend = cobranzas.filter(c=>c.estado==="pendiente").reduce((a,c)=>a+c.monto,0);
+  const totCob = cobranzas.filter(c=>c.estado==="cobrado").reduce((a,c)=>a+c.monto,0);
+  const cultivosU = [...new Set(lotes.map(l=>l.cultivo_completo||l.cultivo).filter(Boolean))];
 
-  // Estilos inputs
-  const iCls="w-full bg-[#0f1923] border border-[#1e2d3d] rounded-xl px-3 py-2.5 text-gray-100 text-sm focus:outline-none focus:border-green-500 transition-all placeholder:text-gray-600";
-  const lCls="block text-xs text-gray-400 font-medium mb-1.5 uppercase tracking-wide";
-
-  const lotesPrincipales = (() => {
-    const vistos: string[]=[];
-    return lotes.filter(l=>!l.es_segundo_cultivo).filter(l=>{
-      const k=l.nombre.toLowerCase().trim();
-      if(vistos.includes(k))return false;vistos.push(k);return true;
+  // Gráfico — agrupar por cultivo
+  const haPorCultivo = (() => {
+    const mapa: Record<string,{ha:number;color:string}> = {};
+    lotes.forEach(l => {
+      const raw = l.cultivo_completo || l.cultivo || "";
+      const info = getCultivoInfo(raw);
+      if(!mapa[info.label]) mapa[info.label]={ha:0,color:info.color};
+      mapa[info.label].ha += l.hectareas||0;
     });
-  })();
-  const totalHa = lotesPrincipales.reduce((a,l)=>a+(l.hectareas||0),0);
-  const laboresLote = loteActivo?labores.filter(l=>l.lote_id===loteActivo.id):[];
-  const margenLote = loteActivo?margenes.find(m=>m.lote_id===loteActivo.id):null;
-  const cultivoActivoInfo = loteActivo?getCultivoInfo(loteActivo.cultivo||"",loteActivo.cultivo_orden||""):null;
-  const usaHibrido = (cultivoActivoInfo as any)?.usaHibrido??false;
-  const admite2do = (cultivoActivoInfo as any)?.admite2do??false;
-  const segundosCultivos = loteActivo?lotes.filter(l=>l.lote_id_primer_cultivo===loteActivo.id):[];
-  const datosGrafico = (() => {
-    const mapa: Record<string,{ha:number;color:string}>={};
-    const vistos: string[]=[];
-    lotesPrincipales.filter(l=>l.cultivo&&l.cultivo!=="null").forEach(l=>{
-      const k=l.nombre.toLowerCase().trim(); if(vistos.includes(k))return; vistos.push(k);
-      const info=getCultivoInfo(l.cultivo,l.cultivo_orden);
-      const key=info.label||l.cultivo;
-      if(!mapa[key])mapa[key]={ha:0,color:info.color};
-      mapa[key].ha+=l.hectareas||0;
-    });
-    return Object.entries(mapa).filter(([,v])=>v.ha>0).map(([name,v])=>({name,value:Math.round(v.ha*10)/10,color:v.color})).sort((a,b)=>b.value-a.value);
+    return Object.entries(mapa).map(([name,v])=>({name,ha:Math.round(v.ha),color:v.color})).sort((a,b)=>b.ha-a.ha);
   })();
 
-  const campanasSinDup=campanas.filter((c,i,arr)=>arr.findIndex(x=>x.año_inicio===c.año_inicio)===i);
+  // Inputs
+  const iCls = "w-full bg-[#1e2a3a] border border-[#2d3f55] rounded-xl px-3 py-2.5 text-gray-100 text-sm focus:outline-none focus:border-green-500 transition-all placeholder:text-gray-600";
+  const lCls = "block text-xs text-gray-400 font-medium mb-1.5";
+  const cardCls = "bg-[#0f1923] border border-[#1e2d3d] rounded-2xl";
 
-  const renderPieLabel=({cx,cy,midAngle,innerRadius,outerRadius,percent}:any)=>{
-    if(percent<0.05)return null;
-    const R=Math.PI/180;const r=innerRadius+(outerRadius-innerRadius)*0.55;
-    const x=cx+r*Math.cos(-midAngle*R);const y=cy+r*Math.sin(-midAngle*R);
-    return<text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontFamily="monospace" fontWeight="bold">{Math.round(percent*100)+"%"}</text>;
+  // Selector cultivo con libre
+  const SelectorCultivo = ({value, onChange}:{value:string,onChange:(v:string)=>void}) => {
+    const isLibre = value?.startsWith("__libre__:");
+    const libreVal = isLibre ? value.replace("__libre__:","") : "";
+    const [showLibre, setShowLibre] = useState(isLibre);
+    const [libreTexto, setLibreTexto] = useState(libreVal);
+    const grupos = ["Verano","Invierno","Especial"];
+    return (
+      <div className="space-y-2">
+        <select value={showLibre?"__libre__":value??""} onChange={e=>{
+          if(e.target.value==="__libre__"){setShowLibre(true);onChange("__libre__:");}
+          else{setShowLibre(false);onChange(e.target.value);}
+        }} className={iCls}>
+          <option value="">Sin cultivo</option>
+          {grupos.map(g=>(
+            <optgroup key={g} label={g}>
+              {CULTIVOS.filter(c=>c.grupo===g).map(c=>(
+                <option key={c.key} value={c.libre?"__libre__":c.key}>{c.label}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        {showLibre&&<input type="text" value={libreTexto} onChange={e=>{setLibreTexto(e.target.value);onChange("__libre__:"+e.target.value);}} className={iCls} placeholder="Escribí el cultivo (ej: Alfalfa, Rye grass...)"/>}
+      </div>
+    );
   };
 
-  if (loading) return (
+  if(loading) return (
     <div className="min-h-screen bg-[#080f17] flex items-center justify-center">
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin"/>
-        <span className="text-gray-300">Cargando lotes...</span>
+        <span className="text-gray-300 font-medium">Cargando...</span>
       </div>
     </div>
   );
 
   return (
-    <div className="relative min-h-screen bg-[#080f17] text-gray-100" style={{fontFamily:"'Inter','Segoe UI',sans-serif"}}>
+    <div className="min-h-screen bg-[#080f17] text-gray-100" style={{fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
       <style>{`
         @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-        @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-        .fade-in{animation:fadeIn 0.18s ease}
-        .lote-card{cursor:pointer;transition:all 0.15s ease;background:#0f1923;border:1px solid #1e2d3d}
-        .lote-card:hover{border-color:#2d5a3d;transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.4)}
-        .card{background:#0f1923;border:1px solid #1e2d3d;border-radius:16px}
-        .btn-green{background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);color:#22c55e;transition:all 0.15s}
-        .btn-green:hover{background:rgba(34,197,94,0.25)}
-        .btn-amber{background:rgba(234,179,8,0.12);border:1px solid rgba(234,179,8,0.3);color:#eab308;transition:all 0.15s}
-        .btn-amber:hover{background:rgba(234,179,8,0.22)}
-        .btn-blue{background:rgba(96,165,250,0.12);border:1px solid rgba(96,165,250,0.3);color:#60a5fa;transition:all 0.15s}
-        .btn-blue:hover{background:rgba(96,165,250,0.22)}
-        .btn-solid-green{background:#16a34a;color:white;transition:all 0.15s}
-        .btn-solid-green:hover{background:#15803d}
-        .tag{display:inline-flex;align-items:center;border-radius:8px;font-size:11px;font-weight:600;padding:2px 8px}
-        ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:#080f17}::-webkit-scrollbar-thumb{background:#1e2d3d;border-radius:4px}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        .nav-btn{transition:all 0.15s ease;white-space:nowrap}
+        .nav-btn.active{background:rgba(34,197,94,0.15);color:#22c55e;border-color:rgba(34,197,94,0.4)}
+        .card-hover{transition:all 0.15s ease}
+        .card-hover:hover{border-color:#2d5a3d;transform:translateY(-1px)}
+        .prod-card{transition:all 0.15s ease}
+        .prod-card:hover{border-color:#1e4a30}
+        .fade-in{animation:fadeIn 0.2s ease}
+        ::-webkit-scrollbar{width:4px;height:4px}
+        ::-webkit-scrollbar-track{background:#080f17}
+        ::-webkit-scrollbar-thumb{background:#1e2d3d;border-radius:4px}
+        input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.5)}
       `}</style>
 
-      {/* ── HEADER ── */}
-      <div className="bg-[#0c1520] border-b border-[#1e2d3d] px-4 py-3 flex items-center gap-3 sticky top-0 z-20">
-        <button onClick={()=>loteActivo?setLoteActivo(null):window.location.href="/ingeniero"} className="text-gray-500 hover:text-green-400 text-sm font-medium transition-colors flex items-center gap-1.5">
-          ← {loteActivo?"Volver a lotes":"Mi Panel"}
-        </button>
-        <div className="flex-1"/>
-        <div className="text-right">
-          <div className="text-sm font-bold text-gray-100">{productorNombre}</div>
-          <div className="text-xs font-medium" style={{color:modoCompartido?"#22c55e":"#eab308"}}>
-            {modoCompartido?"🔗 Datos compartidos con productor":"📋 Datos propios del ingeniero"}
+      {/* ══════════════════════════════════
+          TOPBAR — logo + nav horizontal
+      ══════════════════════════════════ */}
+      <div className="bg-[#0c1520] border-b border-[#1e2d3d] sticky top-0 z-20">
+        {/* Fila 1: Logo + usuario */}
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1a2535]">
+          <Image src="/logo.png" alt="AgroGestión PRO" width={130} height={42} className="object-contain"/>
+          <div className="flex items-center gap-2.5">
+            {alertas.length>0&&(
+              <div className="w-6 h-6 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center">
+                <span className="text-red-400 text-xs font-bold">{alertas.length}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center">
+                <span className="text-green-400 text-sm font-bold">{ingNombre.charAt(0)}</span>
+              </div>
+              <div className="hidden sm:block">
+                <div className="text-sm font-semibold text-gray-200 leading-none">{ingNombre}</div>
+                <div className="text-xs text-gray-500 mt-0.5">Cód. {ingData.codigo}</div>
+              </div>
+              <button onClick={async()=>{const sb=await getSB();await sb.auth.signOut();window.location.href="/login";}} className="ml-1 text-xs text-gray-600 hover:text-red-400 transition-colors px-2 py-1 rounded-lg hover:bg-red-500/10">Salir</button>
+            </div>
           </div>
         </div>
-        <select value={campanaActiva} onChange={async e=>{setCampanaActiva(e.target.value);setLoteActivo(null);await fetchLotes(empresaId,e.target.value);}}
-          className="bg-[#0f1923] border border-[#1e2d3d] rounded-lg px-3 py-1.5 text-green-400 text-xs font-bold focus:outline-none focus:border-green-600 flex-shrink-0">
-          {campanasSinDup.map(c=><option key={c.id} value={c.id}>{c.nombre}{c.activa?" ★":""}</option>)}
-        </select>
-        <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border font-bold text-sm flex-shrink-0"
-          style={{borderColor:VOZ_COLOR[vozEstado]+"60",color:VOZ_COLOR[vozEstado],background:VOZ_COLOR[vozEstado]+"12"}}>
-          {VOZ_ICON[vozEstado]} <span className="hidden sm:inline">VOZ</span>
-        </button>
+        {/* Fila 2: nav horizontal scrollable */}
+        <div className="flex overflow-x-auto px-3 py-2 gap-1.5 scrollbar-none" style={{scrollbarWidth:"none"}}>
+          {NAV.map(item=>(
+            <button key={item.k} onClick={()=>{setSeccion(item.k as Seccion);setShowForm(false);setForm({});setVehiculoSel(null);}}
+              className={`nav-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium border flex-shrink-0 ${seccion===item.k?"active border-green-500/40 text-green-400 bg-green-500/10":"border-[#1e2d3d] text-gray-400 hover:text-gray-200 hover:bg-[#1a2535]"}`}>
+              <span className="text-base">{item.icon}</span>
+              <span>{item.label}</span>
+              {seccion===item.k&&<div className="w-1.5 h-1.5 rounded-full bg-green-400 ml-0.5"/>}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-5">
+      {/* CONTENIDO */}
+      <div className="max-w-5xl mx-auto px-4 py-5">
+
         {/* Toast */}
-        {msgExito&&<div className={`mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between fade-in ${msgExito.startsWith("✅")?"bg-green-500/10 text-green-400 border border-green-500/20":"bg-red-500/10 text-red-400 border border-red-500/20"}`}>{msgExito}<button onClick={()=>setMsgExito("")} className="ml-3 opacity-60 hover:opacity-100">✕</button></div>}
+        {msj&&(
+          <div className={`mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between fade-in ${msj.startsWith("✅")?"bg-green-500/10 text-green-400 border border-green-500/20":"bg-red-500/10 text-red-400 border border-red-500/20"}`}>
+            {msj}<button onClick={()=>setMsj("")} className="opacity-60 hover:opacity-100 ml-3 text-base">✕</button>
+          </div>
+        )}
 
-        {/* ══════════════════════════════════
-            DETALLE LOTE — CUADERNO DE CAMPO
-        ══════════════════════════════════ */}
-        {loteActivo&&(
-          <div className="space-y-4 fade-in">
-            {/* Header lote */}
-            <div className="card p-4">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-3">
-                  <div className="w-1.5 self-stretch rounded-full flex-shrink-0" style={{background:cultivoActivoInfo?.color}}/>
-                  <span className="text-2xl">{(cultivoActivoInfo as any)?.icon}</span>
-                  <div>
-                    <h2 className="text-xl font-bold text-white">{loteActivo.nombre}</h2>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className="font-bold text-sm" style={{color:"#eab308"}}>{loteActivo.hectareas} ha</span>
-                      <span className="tag" style={{background:(cultivoActivoInfo?.color??"#6b7280")+"20",color:cultivoActivoInfo?.color??"#6b7280"}}>{cultivoActivoInfo?.label||"Sin cultivo"}</span>
-                      {(()=>{const e=ESTADOS.find(x=>x.v===loteActivo.estado);return e?<span className="tag" style={{background:e.c+"20",color:e.c}}>{e.l}</span>:null;})()}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  <button onClick={()=>{const ci3=CULTIVOS_LISTA.find(c=>c.cultivo===loteActivo.cultivo&&c.orden===loteActivo.cultivo_orden);setEditandoLote(loteActivo.id);setForm({nombre:loteActivo.nombre,hectareas:String(loteActivo.hectareas),tipo_tenencia:loteActivo.tipo_tenencia||"Propio",partido:loteActivo.partido||"",cultivo_key:ci3?ci3.cultivo+"|"+ci3.orden:"soja|1ra",fecha_siembra:loteActivo.fecha_siembra||"",fecha_cosecha:loteActivo.fecha_cosecha||"",variedad:loteActivo.variedad||loteActivo.hibrido||"",rendimiento_esperado:String(loteActivo.rendimiento_esperado||""),estado:loteActivo.estado||"planificado",observaciones:loteActivo.observaciones||""});setShowFormLote(true);}} className="btn-amber px-3 py-2 rounded-xl text-xs font-bold">✏️ Editar</button>
-                  <button onClick={()=>{setShowFormLabor(true);setEditandoLabor(null);setForm({operario:ingenieroNombre,superficie_ha:String(loteActivo.hectareas),fecha_lab:new Date().toISOString().split("T")[0],tipo_lab:"Aplicación"});}} className="btn-green px-3 py-2 rounded-xl text-xs font-bold">+ Labor</button>
-                  <button onClick={()=>{const mg=margenes.find(m=>m.lote_id===loteActivo.id);const labsTotal=labores.filter(l=>l.lote_id===loteActivo.id).reduce((a,l)=>a+(l.costo_total||0),0);if(mg)setForm({mg_rend_esp:String(mg.rendimiento_esperado),mg_rend_real:String(mg.rendimiento_real),mg_precio:String(mg.precio_tn),mg_semilla:String(mg.costo_semilla),mg_fertilizante:String(mg.costo_fertilizante),mg_agroquimicos:String(mg.costo_agroquimicos),mg_labores:String(Math.max(mg.costo_labores,labsTotal)),mg_alquiler:String(mg.costo_alquiler),mg_flete:String(mg.costo_flete),mg_comercializacion:String(mg.costo_comercializacion),mg_otros:String(mg.otros_costos)});else setForm({mg_labores:String(labsTotal)});setShowFormMargen(true);}} className="btn-blue px-3 py-2 rounded-xl text-xs font-bold">📊 Margen</button>
-                  {loteActivo.estado==="cosechado"&&admite2do&&segundosCultivos.length===0&&(
-                    <button onClick={()=>{setForm({es_segundo_cultivo:"true",lote_base_id:loteActivo.id,nombre:loteActivo.nombre+" 2DO",hectareas:String(loteActivo.hectareas),tipo_tenencia:loteActivo.tipo_tenencia||"Propio",partido:loteActivo.partido||"",estado:"planificado",cultivo_key:"soja|2da"});setEditandoLote(null);setShowFormLote(true);}} className="btn-green px-3 py-2 rounded-xl text-xs font-bold">🔄 2º Cultivo</button>
-                  )}
-                  <button onClick={()=>eliminarLote(loteActivo.id)} className="px-3 py-2 rounded-xl border border-red-500/20 text-red-400 text-xs hover:bg-red-500/10 transition-colors">🗑</button>
-                </div>
-              </div>
-            </div>
+        {/* Alertas */}
+        {alertas.length>0&&(
+          <div className="mb-4 bg-red-500/8 border border-red-500/20 rounded-xl p-3 fade-in">
+            <div className="flex items-center gap-2 mb-2"><span className="text-red-400 font-semibold text-xs uppercase tracking-wide">⚠ {alertas.length} alerta{alertas.length>1?"s":""}</span></div>
+            <div className="flex flex-wrap gap-2">{alertas.map((a,i)=><span key={i} className={`text-xs px-2.5 py-1 rounded-lg font-medium ${a.urgencia==="alta"?"bg-red-500/15 text-red-300":"bg-amber-500/15 text-amber-300"}`}>{a.msg}</span>)}</div>
+          </div>
+        )}
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* ══ GENERAL ══ */}
+        {seccion==="general"&&(
+          <div className="fade-in space-y-4">
+            {/* KPIs — 2x2 grid en mobile */}
+            <div className="grid grid-cols-2 gap-3">
               {[
-                {l:"Tenencia",v:loteActivo.tipo_tenencia||"—",c:"#eab308"},
-                {l:"Partido",v:loteActivo.partido||"—",c:"#9ca3af"},
-                {l:usaHibrido?"Híbrido":"Variedad",v:loteActivo.variedad||loteActivo.hibrido||"—",c:"#22c55e"},
-                {l:"F. Siembra",v:loteActivo.fecha_siembra||"Sin fecha",c:"#60a5fa"},
-                {l:"F. Cosecha",v:loteActivo.fecha_cosecha||"—",c:"#a78bfa"},
-                {l:"Rend. Esp.",v:loteActivo.rendimiento_esperado?loteActivo.rendimiento_esperado+" tn/ha":"—",c:"#eab308"},
-                {l:"Margen Bruto",v:margenLote?"$"+Math.round(margenLote.margen_bruto).toLocaleString("es-AR"):"—",c:margenLote&&margenLote.margen_bruto>=0?"#22c55e":"#ef4444"},
-                {l:"MB/ha",v:margenLote?"$"+Math.round(margenLote.margen_bruto_ha).toLocaleString("es-AR")+"/ha":"—",c:"#eab308"},
+                {l:"Productores",v:productores.length,sub:"activos",icon:"👨‍🌾",accent:"#22c55e",bg:"rgba(34,197,94,0.08)",border:"rgba(34,197,94,0.2)"},
+                {l:"Hectáreas",v:totalHa.toLocaleString("es-AR"),sub:"ha totales",icon:"🌿",accent:"#10b981",bg:"rgba(16,185,129,0.08)",border:"rgba(16,185,129,0.2)"},
+                {l:"Lotes",v:lotes.length,sub:"activos",icon:"🗺️",accent:"#0ea5e9",bg:"rgba(14,165,233,0.08)",border:"rgba(14,165,233,0.2)"},
+                {l:"Con App",v:productores.filter(p=>p.tiene_cuenta).length,sub:"usuarios",icon:"📱",accent:"#a855f7",bg:"rgba(168,85,247,0.08)",border:"rgba(168,85,247,0.2)"},
               ].map(s=>(
-                <div key={s.l} className="card p-3">
-                  <div className="text-xs text-gray-500 uppercase tracking-wide">{s.l}</div>
-                  <div className="text-sm font-bold mt-1 uppercase" style={{color:s.c}}>{s.v}</div>
+                <div key={s.l} className="rounded-2xl p-4" style={{background:s.bg,border:`1px solid ${s.border}`}}>
+                  <div className="flex items-start justify-between mb-2">
+                    <span className="text-xs font-medium uppercase tracking-wide" style={{color:s.accent}}>{s.l}</span>
+                    <span className="text-xl">{s.icon}</span>
+                  </div>
+                  <div className="text-3xl font-bold text-white">{s.v}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{s.sub}</div>
                 </div>
               ))}
             </div>
 
-            {/* Form editar lote */}
-            {showFormLote&&editandoLote&&(
-              <div className="card p-5 fade-in">
-                <h3 className="text-amber-400 font-bold text-sm mb-4 uppercase">✏️ Editar Lote</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div><label className={lCls}>Nombre</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Hectáreas</label><input type="number" value={form.hectareas??""} onChange={e=>setForm({...form,hectareas:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Tenencia</label><select value={form.tipo_tenencia??"Propio"} onChange={e=>setForm({...form,tipo_tenencia:e.target.value})} className={iCls}>{["Propio","Arrendado","Contrato accidental","Aparcería","Otro"].map(t=><option key={t} value={t}>{t}</option>)}</select></div>
-                  <div><label className={lCls}>Partido</label><input type="text" value={form.partido??""} onChange={e=>setForm({...form,partido:e.target.value})} className={iCls}/></div>
-                  <div className="md:col-span-2"><label className={lCls}>Cultivo</label>
-                    <select value={form.cultivo_key??"soja|1ra"} onChange={e=>setForm({...form,cultivo_key:e.target.value})} className={iCls}>
-                      <optgroup label="Verano"><option value="soja|1ra">🌱 Soja 1º</option><option value="soja|2da">🌿 Soja 2º</option><option value="maiz|1ro_temprano">🌽 Maíz 1º</option><option value="maiz|1ro_tardio">🌽 Maíz 1º Tardío</option><option value="maiz|2do">🌽 Maíz 2º</option><option value="girasol|1ro">🌻 Girasol</option><option value="sorgo|1ro">🌿 Sorgo 1º</option><option value="sorgo|2do">🌿 Sorgo 2º</option></optgroup>
-                      <optgroup label="Invierno"><option value="trigo|1ro">🌾 Trigo</option><option value="cebada|1ra">🍃 Cebada</option><option value="arveja|1ra">🫛 Arveja</option><option value="carinata|1ra">🌱 Carinata</option><option value="camelina|1ra">🌱 Camelina</option></optgroup>
-                      <optgroup label="Otros"><option value="pastura|libre">🌾 Pastura</option><option value="otros|libre">🌱 Otros</option></optgroup>
-                    </select>
-                  </div>
-                  <div><label className={lCls}>{usaHibrido?"Híbrido":"Variedad"}</label><input type="text" value={form.variedad??""} onChange={e=>setForm({...form,variedad:e.target.value})} className={iCls} placeholder="DM4612, NK..."/></div>
-                  <div><label className={lCls}>Estado</label><select value={form.estado??"planificado"} onChange={e=>setForm({...form,estado:e.target.value})} className={iCls}>{ESTADOS.map(e=><option key={e.v} value={e.v}>{e.l}</option>)}</select></div>
-                  <div><label className={lCls}>F. Siembra</label><input type="date" value={form.fecha_siembra??""} onChange={e=>setForm({...form,fecha_siembra:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>F. Cosecha</label><input type="date" value={form.fecha_cosecha??""} onChange={e=>setForm({...form,fecha_cosecha:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Rend. Esp. tn/ha</label><input type="number" value={form.rendimiento_esperado??""} onChange={e=>setForm({...form,rendimiento_esperado:e.target.value})} className={iCls}/></div>
-                  <div className="md:col-span-2"><label className={lCls}>Observaciones</label><input type="text" value={form.observaciones??""} onChange={e=>setForm({...form,observaciones:e.target.value})} className={iCls}/></div>
+            {/* Gráfico barras */}
+            {haPorCultivo.length>0&&(
+              <div className={`${cardCls} p-4`}>
+                <div className="mb-3">
+                  <h3 className="font-semibold text-gray-100">Hectáreas por Cultivo</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Campaña activa — superficie total {totalHa.toLocaleString("es-AR")} ha</p>
                 </div>
-                <div className="mt-4 pt-4 border-t border-[#1e2d3d]">
-                  <span className="text-xs text-gray-500 uppercase tracking-wide">Estado rápido:</span>
-                  <div className="flex gap-2 mt-2 flex-wrap">{ESTADOS.map(e=><button key={e.v} onClick={()=>setForm({...form,estado:e.v})} className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-all" style={{borderColor:form.estado===e.v?e.c:e.c+"30",background:form.estado===e.v?e.c+"20":"transparent",color:e.c}}>{e.l}</button>)}</div>
-                </div>
-                <div className="mt-4 pt-4 border-t border-[#1e2d3d]">
-                  <span className="text-xs text-gray-500 uppercase tracking-wide">Adjuntos:</span>
-                  <input ref={adjuntoRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.xlsx" className="hidden" onChange={async e=>{const f=e.target.files?.[0];if(f)await subirAdjunto(f,form.adjunto_tipo||"suelo");}}/>
-                  <div className="flex gap-2 mt-2">{[["suelo","🌍 Suelo"],["agua","💧 Agua"],["otro","📎 Otro"]].map(([tipo,label])=><button key={tipo} onClick={()=>{setForm({...form,adjunto_tipo:tipo});adjuntoRef.current?.click();}} className="btn-amber px-3 py-2 rounded-lg text-xs font-bold">{label}</button>)}</div>
-                </div>
-                <div className="flex gap-2 mt-4">
-                  <button onClick={guardarLote} className="btn-solid-green px-5 py-2.5 rounded-xl text-sm font-bold">Guardar</button>
-                  <button onClick={()=>{setShowFormLote(false);setEditandoLote(null);setForm({});}} className="bg-[#1e2a3a] text-gray-400 px-5 py-2.5 rounded-xl text-sm hover:bg-[#253447] transition-colors">Cancelar</button>
-                </div>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={haPorCultivo} margin={{top:4,right:4,bottom:20,left:-15}}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1a2535" vertical={false}/>
+                    <XAxis dataKey="name" tick={{fontSize:10,fill:"#6b7280",fontFamily:"Inter,sans-serif"}} axisLine={false} tickLine={false} interval={0} angle={-25} textAnchor="end"/>
+                    <YAxis tick={{fontSize:10,fill:"#6b7280"}} axisLine={false} tickLine={false}/>
+                    <Tooltip formatter={(v:any)=>[v+" ha","Hectáreas"]} contentStyle={{background:"#0f1923",border:"1px solid #1e2d3d",borderRadius:"10px",fontSize:"12px",color:"#e5e7eb"}} cursor={{fill:"rgba(34,197,94,0.05)"}}/>
+                    <Bar dataKey="ha" radius={[6,6,0,0]} maxBarSize={56}>
+                      {haPorCultivo.map((e,i)=><Cell key={i} fill={e.color}/>)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             )}
 
-            {/* Form margen */}
-            {showFormMargen&&(
-              <div className="card p-5 fade-in">
-                <h3 className="text-blue-400 font-bold text-sm mb-1 uppercase">📊 Margen Bruto — {loteActivo.nombre}</h3>
-                <p className="text-xs text-gray-500 mb-4">{cultivoActivoInfo?.label} · {loteActivo.hectareas} ha · USD ${usdUsado} · Costos de labores cargados: ${labores.filter(l=>l.lote_id===loteActivo.id).reduce((a,l)=>a+(l.costo_total||0),0).toLocaleString("es-AR")}</p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-                  <div><label className={lCls}>Rend. Esperado tn/ha</label><input type="number" value={form.mg_rend_esp??""} onChange={e=>setForm({...form,mg_rend_esp:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Rend. Real tn/ha</label><input type="number" value={form.mg_rend_real??""} onChange={e=>setForm({...form,mg_rend_real:e.target.value})} className={iCls} placeholder="Al cosechar"/></div>
-                  <div><label className={lCls}>Precio $/tn</label><input type="number" value={form.mg_precio??""} onChange={e=>setForm({...form,mg_precio:e.target.value})} className={iCls}/></div>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                  {[["mg_semilla","Semillas"],["mg_fertilizante","Fertilizantes"],["mg_agroquimicos","Agroquímicos"],["mg_labores","Labores (auto)"],["mg_alquiler","Alquiler"],["mg_flete","Flete"],["mg_comercializacion","Comercialización"],["mg_otros","Otros"]].map(([k,l])=>(
-                    <div key={k}><label className={lCls}>{l}</label><input type="number" value={form[k]??""} onChange={e=>setForm({...form,[k]:e.target.value})} className={iCls} placeholder="0"/></div>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={guardarMargen} className="btn-solid-green px-5 py-2.5 rounded-xl text-sm font-bold">Guardar</button>
-                  <button onClick={()=>{setShowFormMargen(false);setForm({});}} className="bg-[#1e2a3a] text-gray-400 px-5 py-2.5 rounded-xl text-sm hover:bg-[#253447] transition-colors">Cancelar</button>
-                </div>
-              </div>
-            )}
-
-            {/* ══ FORM LABOR — CUADERNO MEJORADO ══ */}
-            {showFormLabor&&(
-              <div className="card p-5 fade-in">
-                <h3 className="text-green-400 font-bold text-sm mb-4 uppercase">{editandoLabor?"✏️ Editar Labor":"+ Nueva Labor"} — {loteActivo.nombre}</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {/* Fila 1 */}
-                  <div>
-                    <label className={lCls}>Tipo</label>
-                    <select value={form.tipo_lab??"Aplicación"} onChange={e=>setForm({...form,tipo_lab:e.target.value})} className={iCls}>
-                      {TIPOS_LABOR.map(t=><option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={lCls}>Fecha</label>
-                    <input type="date" value={form.fecha_lab??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_lab:e.target.value})} className={iCls}/>
-                  </div>
-                  <div>
-                    <label className={lCls}>Superficie ha</label>
-                    <input type="number" value={form.superficie_ha??String(loteActivo.hectareas)} onChange={e=>setForm({...form,superficie_ha:e.target.value})} className={iCls}/>
-                  </div>
-                  <div>
-                    <label className={lCls}>Operario</label>
-                    <input type="text" value={form.operario??ingenieroNombre} onChange={e=>setForm({...form,operario:e.target.value})} className={iCls}/>
-                  </div>
-                  {/* Fila 2 */}
-                  <div className="md:col-span-2">
-                    <label className={lCls}>Producto / Dosis</label>
-                    <input type="text" value={form.producto_dosis??""} onChange={e=>setForm({...form,producto_dosis:e.target.value,descripcion_lab:e.target.value})} className={iCls} placeholder="Ej: Glifosato 4L/ha + Flumioxazine 60g/ha"/>
-                  </div>
-                  <div>
-                    <label className={lCls}>Aplicador</label>
-                    <select value={form.aplicador??""} onChange={e=>setForm({...form,aplicador:e.target.value})} className={iCls}>
-                      {APLICADORES.map(a=><option key={a} value={a}>{APLIC_ICON[a]||""} {a}</option>)}
-                    </select>
-                  </div>
-                  <div/>
-                  {/* Fila 3 - Costos */}
-                  <div>
-                    <label className={lCls}>Costo aplicación $/ha</label>
-                    <input type="number" value={form.costo_aplicacion_ha??""} onChange={e=>{const ha=Number(form.superficie_ha||loteActivo.hectareas||0);setForm({...form,costo_aplicacion_ha:e.target.value,costo_total_lab:String(Number(e.target.value)*ha)});}} className={iCls} placeholder="0"/>
-                  </div>
-                  <div>
-                    <label className={lCls}>Costo total $</label>
-                    <input type="number" value={form.costo_total_lab??""} onChange={e=>setForm({...form,costo_total_lab:e.target.value})} className={iCls} placeholder="0"/>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className={lCls}>Comentario libre</label>
-                    <input type="text" value={form.comentario??""} onChange={e=>setForm({...form,comentario:e.target.value})} className={iCls} placeholder="Ej: Faltan plantas en sector norte, lote con presión de malezas..."/>
-                  </div>
-                </div>
-                {/* Preview costo */}
-                {(form.costo_total_lab||form.costo_aplicacion_ha)&&(
-                  <div className="mt-3 p-3 bg-amber-500/8 border border-amber-500/20 rounded-xl flex items-center gap-3 text-sm">
-                    <span className="text-amber-400">💰</span>
-                    <span className="text-gray-300">Costo total: <strong className="text-amber-400">${Number(form.costo_total_lab||0).toLocaleString("es-AR")}</strong></span>
-                    {margenLote&&<span className="text-gray-500 text-xs">· Se sumará automáticamente al margen bruto</span>}
-                  </div>
-                )}
-                {/* Selección rápida tipo */}
-                <div className="mt-3 pt-3 border-t border-[#1e2d3d]">
-                  <span className="text-xs text-gray-500 uppercase tracking-wide">Tipo rápido:</span>
-                  <div className="flex gap-2 mt-2 flex-wrap">
-                    {TIPOS_LABOR.map(t=><button key={t} onClick={()=>setForm({...form,tipo_lab:t})} className="px-3 py-1.5 rounded-lg text-xs font-medium border transition-all" style={{borderColor:form.tipo_lab===t?laborColor(t):laborColor(t)+"30",background:form.tipo_lab===t?laborColor(t)+"20":"transparent",color:form.tipo_lab===t?laborColor(t):laborColor(t)+"80"}}>{t}</button>)}
-                  </div>
-                </div>
-                <div className="flex gap-2 mt-4">
-                  <button onClick={guardarLabor} className="btn-solid-green px-5 py-2.5 rounded-xl text-sm font-bold">Guardar Labor</button>
-                  <button onClick={()=>{setShowFormLabor(false);setEditandoLabor(null);setForm({});}} className="bg-[#1e2a3a] text-gray-400 px-5 py-2.5 rounded-xl text-sm hover:bg-[#253447] transition-colors">Cancelar</button>
-                </div>
-              </div>
-            )}
-
-            {/* ══ HISTORIAL LABORES / CUADERNO ══ */}
-            <div className="card overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-[#1e2d3d] flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-3">
-                  <span className="font-bold text-gray-100 text-sm">📋 Cuaderno de Campo</span>
-                  <span className="text-xs text-gray-500">{laboresLote.length} registros</span>
-                  {laboresLote.length>0&&<span className="text-xs text-amber-400">Total costos: ${laboresLote.reduce((a,l)=>a+(l.costo_total||0),0).toLocaleString("es-AR")}</span>}
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={exportarCuaderno} className="btn-green px-3 py-1.5 rounded-lg text-xs font-bold">📤 Exportar</button>
-                  <button onClick={()=>{setShowImportCuaderno(!showImportCuaderno);setCuadernoPreview([]);setCuadernoMsg("");}} className="btn-amber px-3 py-1.5 rounded-lg text-xs font-bold">📥 Importar multi-lote</button>
-                </div>
-              </div>
-
-              {/* Import cuaderno */}
-              {showImportCuaderno&&(
-                <div className="border-b border-[#1e2d3d] bg-[#0a1628]/50 p-4 fade-in">
-                  <div className="text-xs text-gray-500 mb-2">Columnas Excel: <span className="text-amber-400 font-mono">LOTE | FECHA | TIPO | PRODUCTO/DOSIS | APLICADOR | COSTO_HA | COSTO_TOTAL | COMENTARIO</span></div>
-                  <input ref={importCuadernoRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)leerExcelCuaderno(f);}}/>
-                  {cuadernoPreview.length===0
-                    ?<button onClick={()=>importCuadernoRef.current?.click()} className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-[#1e2d3d] rounded-xl text-gray-500 text-sm w-full justify-center hover:border-green-600/50 hover:text-green-400 transition-colors">📁 Seleccionar Excel multi-lote</button>
-                    :<div>
-                      <div className="max-h-40 overflow-y-auto mb-3 rounded-xl border border-[#1e2d3d]">
-                        <table className="w-full text-xs">
-                          <thead className="bg-[#1a2535]"><tr>{["Lote","Match","Fecha","Tipo","Producto/Dosis","Aplicador","$/ha","Total","Comentario"].map(h=><th key={h} className="text-left px-3 py-2 text-gray-400 font-medium">{h}</th>)}</tr></thead>
-                          <tbody>{cuadernoPreview.map((r,i)=>(
-                            <tr key={i} className="border-t border-[#1a2535]">
-                              <td className="px-3 py-2 text-gray-300 font-medium">{r.lote_nombre}</td>
-                              <td className="px-3 py-2">{r.lote_match?<span className="text-green-400">✓ {r.lote_match}</span>:<span className="text-red-400">No encontrado</span>}</td>
-                              <td className="px-3 py-2 text-gray-400">{r.fecha}</td>
-                              <td className="px-3 py-2"><span className="px-1.5 py-0.5 rounded text-xs font-bold" style={{background:laborColor(r.tipo)+"20",color:laborColor(r.tipo)}}>{r.tipo}</span></td>
-                              <td className="px-3 py-2 text-gray-300 max-w-[120px] truncate">{r.producto_dosis||"—"}</td>
-                              <td className="px-3 py-2 text-gray-400">{r.aplicador||"—"}</td>
-                              <td className="px-3 py-2 text-amber-400">{r.costo_aplicacion_ha?`$${r.costo_aplicacion_ha}`:"—"}</td>
-                              <td className="px-3 py-2 text-amber-300 font-bold">{r.costo_total?`$${Number(r.costo_total).toLocaleString("es-AR")}`:"—"}</td>
-                              <td className="px-3 py-2 text-gray-500 max-w-[100px] truncate">{r.comentario||"—"}</td>
-                            </tr>
-                          ))}</tbody>
-                        </table>
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={confirmarImportCuaderno} className="btn-solid-green px-4 py-2 rounded-xl text-sm font-bold">▶ Importar {cuadernoPreview.filter(r=>r.lote_id).length} labores</button>
-                        <button onClick={()=>setCuadernoPreview([])} className="bg-[#1e2a3a] text-gray-400 px-4 py-2 rounded-xl text-sm transition-colors">Cancelar</button>
-                      </div>
+            {/* Distribución + cobranza */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Torta */}
+              {haPorCultivo.length>0&&(
+                <div className={`${cardCls} p-4`}>
+                  <h3 className="font-semibold text-gray-100 mb-3">Distribución %</h3>
+                  <div className="flex items-center gap-3">
+                    <div style={{width:110,height:110,flexShrink:0}}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={haPorCultivo.map(d=>({...d,value:d.ha}))} cx="50%" cy="50%" outerRadius={50} innerRadius={24} dataKey="value" paddingAngle={3}>
+                            {haPorCultivo.map((e,i)=><Cell key={i} fill={e.color}/>)}
+                          </Pie>
+                          <Tooltip formatter={(v:any,n:string)=>[v+" ha",n]} contentStyle={{background:"#0f1923",border:"1px solid #1e2d3d",borderRadius:"10px",fontSize:"11px",color:"#e5e7eb"}}/>
+                        </PieChart>
+                      </ResponsiveContainer>
                     </div>
-                  }
-                  {cuadernoMsg&&<p className={`mt-2 text-xs font-medium ${cuadernoMsg.startsWith("✅")?"text-green-400":"cuadernoMsg".startsWith("❌")?"text-red-400":"text-amber-400"}`}>{cuadernoMsg}</p>}
+                    <div className="flex-1 space-y-1.5 min-w-0">
+                      {haPorCultivo.slice(0,6).map((d,i)=>(
+                        <div key={i} className="flex items-center gap-2 min-w-0">
+                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{background:d.color}}/>
+                          <span className="text-xs text-gray-300 flex-1 truncate">{d.name}</span>
+                          <span className="text-xs font-semibold flex-shrink-0" style={{color:d.color}}>{Math.round(d.ha/totalHa*100)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
-
-              {/* Lista labores */}
-              {laboresLote.length===0
-                ?<div className="text-center py-12 text-gray-600">
-                  <div className="text-4xl mb-3 opacity-30">📋</div>
-                  <p className="text-sm">Sin labores registradas</p>
-                  <button onClick={()=>{setShowFormLabor(true);setEditandoLabor(null);setForm({operario:ingenieroNombre,superficie_ha:String(loteActivo.hectareas),fecha_lab:new Date().toISOString().split("T")[0],tipo_lab:"Aplicación"});}} className="mt-3 btn-green px-4 py-2 rounded-xl text-sm font-bold">+ Agregar primera labor</button>
+              {/* Cobranza resumen */}
+              <div className={`${cardCls} p-4`}>
+                <h3 className="font-semibold text-gray-100 mb-3">💰 Cobranza</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-3 rounded-xl" style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.15)"}}>
+                    <span className="text-sm text-red-400 font-medium">Pendiente</span>
+                    <span className="text-lg font-bold text-red-300">${totPend.toLocaleString("es-AR")}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-xl" style={{background:"rgba(34,197,94,0.08)",border:"1px solid rgba(34,197,94,0.15)"}}>
+                    <span className="text-sm text-green-400 font-medium">Cobrado</span>
+                    <span className="text-lg font-bold text-green-300">${totCob.toLocaleString("es-AR")}</span>
+                  </div>
                 </div>
-                :<div>
-                  {laboresLote.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(l=>{
-                    const color = laborColor(l.tipo);
-                    const aplic = (l as any).aplicador;
-                    const prod = (l as any).producto_dosis;
-                    const coment = (l as any).comentario;
-                    const costoHa = (l as any).costo_aplicacion_ha;
-                    return(
-                      <div key={l.id} className="border-b border-[#1a2535] px-4 py-3.5 hover:bg-[#0f1923]/70 transition-colors">
-                        <div className="flex items-start gap-3">
-                          {/* Indicador color tipo */}
-                          <div className="w-1 self-stretch rounded-full flex-shrink-0 mt-1" style={{background:color}}/>
-                          <div className="flex-1 min-w-0">
-                            {/* Fila principal */}
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="tag" style={{background:color+"20",color}}>{l.tipo}</span>
-                              <span className="text-xs text-gray-500">{l.fecha}</span>
-                              {aplic&&aplic!=="—"&&<span className="text-xs text-gray-400">{APLIC_ICON[aplic]||""} {aplic}</span>}
-                              {l.superficie_ha&&<span className="text-xs text-gray-500">{l.superficie_ha} ha</span>}
-                            </div>
-                            {/* Producto/Dosis */}
-                            {(prod||l.descripcion)&&<div className="text-sm text-gray-200 mt-1.5 font-medium">{prod||l.descripcion}</div>}
-                            {/* Comentario */}
-                            {coment&&<div className="text-xs text-amber-300/80 mt-1 flex items-start gap-1.5"><span className="flex-shrink-0 mt-0.5">💬</span><span>{coment}</span></div>}
-                            {/* Operario */}
-                            {l.operario&&l.operario!==ingenieroNombre&&<div className="text-xs text-gray-600 mt-0.5">👤 {l.operario}</div>}
-                          </div>
-                          {/* Costos */}
-                          <div className="text-right flex-shrink-0">
-                            {l.costo_total>0&&<div className="text-sm font-bold text-amber-400">${Number(l.costo_total).toLocaleString("es-AR")}</div>}
-                            {costoHa>0&&<div className="text-xs text-amber-600">${costoHa}/ha</div>}
-                            <div className="flex gap-1.5 mt-1.5 justify-end">
-                              <button onClick={()=>{setEditandoLabor(l.id);setForm({tipo_lab:l.tipo,fecha_lab:l.fecha,descripcion_lab:l.descripcion,producto_dosis:(l as any).producto_dosis||l.descripcion||"",aplicador:(l as any).aplicador||"",superficie_ha:String(l.superficie_ha),operario:l.operario,costo_aplicacion_ha:String((l as any).costo_aplicacion_ha||""),costo_total_lab:String(l.costo_total||""),comentario:(l as any).comentario||""});setShowFormLabor(true);}} className="text-amber-400 hover:text-amber-300 text-xs transition-colors">✏️</button>
-                              <button onClick={()=>eliminarLabor(l.id)} className="text-gray-600 hover:text-red-400 text-xs transition-colors">✕</button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              }
+              </div>
             </div>
           </div>
         )}
 
-        {/* ══════════════════════════════════
-            VISTA PRINCIPAL — LISTA LOTES
-        ══════════════════════════════════ */}
-        {!loteActivo&&(
-          <div>
-            {/* Tabs + acciones */}
-            <div className="flex items-center gap-2 mb-4 flex-wrap">
-              {[{k:"lotes",l:"📋 Lotes"},{k:"margen",l:"📊 Margen"}].map(t=>(
-                <button key={t.k} onClick={()=>setTab(t.k as "lotes"|"margen")} className="px-4 py-2 rounded-xl text-xs font-bold border transition-all" style={{borderColor:tab===t.k?"#22c55e":"#1e2d3d",color:tab===t.k?"#22c55e":"#6b7280",background:tab===t.k?"rgba(34,197,94,0.1)":"transparent"}}>{t.l}</button>
-              ))}
-              <div className="flex-1"/>
-              {/* Import multi-lote cuaderno desde vista principal */}
-              <button onClick={()=>{setShowImportCuaderno(!showImportCuaderno);setCuadernoPreview([]);setCuadernoMsg("");setLoteActivo(null);}} className="btn-amber px-3 py-2 rounded-xl text-xs font-bold">📥 Cuaderno multi-lote</button>
-              <button onClick={()=>setShowImport(!showImport)} className="btn-amber px-3 py-2 rounded-xl text-xs font-bold">📥 Importar lotes</button>
-              <button onClick={exportarLotes} className="btn-green px-3 py-2 rounded-xl text-xs font-bold">📤 Exportar</button>
-              <button onClick={()=>{setEditandoLote(null);setForm({estado:"planificado",tipo_tenencia:"Propio",cultivo_key:"soja|1ra"});setShowFormLote(!showFormLote);}} className="btn-green px-4 py-2 rounded-xl text-xs font-bold">+ Nuevo lote</button>
+        {/* ══ PRODUCTORES ══ */}
+        {seccion==="productores"&&(
+          <div className="fade-in">
+            {/* Acciones rápidas */}
+            <div className={`${cardCls} rounded-2xl overflow-hidden mb-4`}>
+              <div className="grid grid-cols-3 divide-x divide-[#1e2d3d]">
+                {[
+                  {icon:"➕",l:"Nuevo",c:"text-green-400",fn:()=>{setShowForm(!showForm);setEditProd(null);setForm({provincia:"Santa Fe",honorario_tipo:"mensual"});}},
+                  {icon:"📥",l:"Importar",c:"text-blue-400",fn:()=>setShowImport(!showImport)},
+                  {icon:"📤",l:"Exportar",c:"text-purple-400",fn:()=>exportXLS("productores")},
+                ].map(b=>(
+                  <button key={b.l} onClick={b.fn} className="flex flex-col items-center gap-1 py-4 hover:bg-[#1a2535] transition-colors">
+                    <span className="text-xl">{b.icon}</span>
+                    <span className={`text-xs font-semibold ${b.c}`}>{b.l}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Import cuaderno multi-lote desde vista principal */}
-            {showImportCuaderno&&!loteActivo&&(
-              <div className="card p-4 mb-4 fade-in">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h3 className="font-bold text-amber-400 text-sm">📥 Importar Cuaderno Multi-Lote</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">Cargá labores de varios lotes en un solo Excel</p>
-                  </div>
-                  <button onClick={()=>{setShowImportCuaderno(false);setCuadernoPreview([]);setCuadernoMsg("");}} className="text-gray-500 hover:text-gray-300">✕</button>
+            {/* Vincular */}
+            <button onClick={()=>{setShowVincular(!showVincular);setForm({});}} className="mb-3 flex items-center gap-2 text-sm text-blue-400 font-medium hover:text-blue-300 transition-colors">
+              🔗 Vincular productor por código
+            </button>
+
+            {showVincular&&(
+              <div className={`${cardCls} p-4 mb-4 fade-in`}>
+                <h3 className="font-semibold text-gray-200 mb-3 text-sm">🔗 Vincular por código</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                  <div><label className={lCls}>Código *</label><input type="text" value={form.codigo??""} onChange={e=>setForm({...form,codigo:e.target.value})} className={iCls} placeholder="10001"/></div>
+                  <div><label className={lCls}>Honorario</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className={iCls}><option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option></select></div>
+                  <div><label className={lCls}>Monto $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls}/></div>
                 </div>
-                <div className="bg-[#1a2535] rounded-xl p-3 mb-3 text-xs text-gray-400">
-                  <div className="font-bold text-gray-300 mb-1">Formato esperado:</div>
-                  <div className="font-mono text-amber-400/80">LOTE | FECHA | TIPO | PRODUCTO/DOSIS | APLICADOR | COSTO_HA | COSTO_TOTAL | COMENTARIO</div>
-                  <div className="mt-1 text-gray-600">Tipos: Siembra / Aplicación / Fertilización / Cosecha / Labranza / Control malezas / Recorrida</div>
-                  <div className="text-gray-600">Aplicadores: Mosquito / Drone / Avión / Tractor / Manual</div>
+                <div className="flex gap-2">
+                  <button onClick={vincularCodigo} className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-colors">Vincular</button>
+                  <button onClick={()=>{setShowVincular(false);setForm({});}} className="bg-[#1e2a3a] hover:bg-[#253447] text-gray-300 px-4 py-2 rounded-xl text-sm transition-colors">Cancelar</button>
                 </div>
-                {/* Ref SEPARADO para vista principal — no comparte con el del detalle de lote */}
-                <input ref={importCuadernoMultiRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f){setCuadernoPreview([]);setCuadernoMsg("");leerExcelCuaderno(f);}}}/>
-                {cuadernoPreview.length===0
-                  ?<button onClick={()=>importCuadernoMultiRef.current?.click()} className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-[#1e2d3d] rounded-xl text-gray-500 text-sm w-full justify-center hover:border-amber-600/50 hover:text-amber-400 transition-colors">📁 Seleccionar archivo Excel</button>
-                  :<div>
-                    <div className="max-h-48 overflow-y-auto mb-3 rounded-xl border border-[#1e2d3d]">
-                      <table className="w-full text-xs">
-                        <thead className="bg-[#1a2535]"><tr>{["Lote","Match","Fecha","Tipo","Producto","Aplic.","$/ha","Total","Coment."].map(h=><th key={h} className="text-left px-3 py-2 text-gray-400 font-medium">{h}</th>)}</tr></thead>
-                        <tbody>{cuadernoPreview.map((r,i)=>(
-                          <tr key={i} className={`border-t border-[#1a2535] ${!r.lote_id?"opacity-40":""}`}>
-                            <td className="px-3 py-2 text-gray-300 font-medium">{r.lote_nombre}</td>
-                            <td className="px-3 py-2">{r.lote_match?<span className="text-green-400 font-medium">✓ {r.lote_match}</span>:<span className="text-red-400">✗ No encontrado</span>}</td>
-                            <td className="px-3 py-2 text-gray-400">{r.fecha}</td>
-                            <td className="px-3 py-2"><span className="px-1.5 py-0.5 rounded text-xs font-bold" style={{background:laborColor(r.tipo)+"20",color:laborColor(r.tipo)}}>{r.tipo}</span></td>
-                            <td className="px-3 py-2 text-gray-300 max-w-[100px] truncate">{r.producto_dosis||"—"}</td>
-                            <td className="px-3 py-2 text-gray-400">{r.aplicador||"—"}</td>
-                            <td className="px-3 py-2 text-amber-400">{r.costo_aplicacion_ha>0?`$${r.costo_aplicacion_ha}`:"—"}</td>
-                            <td className="px-3 py-2 text-amber-300 font-bold">{r.costo_total>0?`$${Number(r.costo_total).toLocaleString("es-AR")}`:"—"}</td>
-                            <td className="px-3 py-2 text-gray-500 max-w-[80px] truncate">{r.comentario||"—"}</td>
-                          </tr>
-                        ))}</tbody>
-                      </table>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button onClick={confirmarImportCuaderno} className="btn-solid-green px-5 py-2.5 rounded-xl text-sm font-bold">▶ Importar {cuadernoPreview.filter(r=>r.lote_id).length} labores</button>
-                      <button onClick={()=>{setCuadernoPreview([]);setCuadernoMsg("");importCuadernoMultiRef.current?.click();}} className="bg-[#1e2a3a] text-gray-400 px-4 py-2.5 rounded-xl text-sm transition-colors">Cambiar archivo</button>
-                      {cuadernoPreview.filter(r=>!r.lote_id).length>0&&<span className="text-xs text-amber-500">⚠ {cuadernoPreview.filter(r=>!r.lote_id).length} sin match</span>}
-                    </div>
-                  </div>
-                }
-                {cuadernoMsg&&<p className={`mt-2 text-xs font-medium ${cuadernoMsg.startsWith("✅")?"text-green-400":cuadernoMsg.startsWith("❌")?"text-red-400":"text-amber-400"}`}>{cuadernoMsg}</p>}
               </div>
             )}
 
-            {/* Import lotes */}
             {showImport&&(
-              <div className="card p-4 mb-4 fade-in">
-                <div className="flex items-center justify-between mb-3"><h3 className="font-bold text-amber-400 text-sm">📥 Importar Lotes</h3><button onClick={()=>{setShowImport(false);setImportPreview([]);setImportMsg("");}} className="text-gray-500 hover:text-gray-300">✕</button></div>
-                <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)leerExcelLotes(f);}}/>
-                {importPreview.length===0
-                  ?<button onClick={()=>importRef.current?.click()} className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-[#1e2d3d] rounded-xl text-gray-500 text-sm w-full justify-center hover:border-amber-600/50 hover:text-amber-400 transition-colors">📁 Seleccionar Excel</button>
+              <div className={`${cardCls} p-4 mb-4 fade-in`}>
+                <div className="flex justify-between mb-3"><h3 className="font-semibold text-gray-200 text-sm">📥 Importar productores</h3><button onClick={()=>{setShowImport(false);setImportPrev([]);setImportMsg("");}} className="text-gray-500 hover:text-gray-300 text-lg">✕</button></div>
+                <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)leerExcel(f);}}/>
+                {importPrev.length===0
+                  ?<button onClick={()=>importRef.current?.click()} className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-[#1e2d3d] rounded-xl text-gray-500 text-sm w-full justify-center hover:border-green-600 hover:text-green-400 transition-colors">📁 Seleccionar archivo Excel</button>
                   :<div>
-                    <div className="max-h-40 overflow-y-auto mb-3 rounded-xl border border-[#1e2d3d]">
-                      <table className="w-full text-xs"><thead className="bg-[#1a2535]"><tr>{["Lote","Ha","Cultivo","Variedad","Acción"].map(h=><th key={h} className="text-left px-3 py-2 text-gray-400 font-medium">{h}</th>)}</tr></thead>
-                        <tbody>{importPreview.map((r,i)=><tr key={i} className="border-t border-[#1a2535]"><td className="px-3 py-2 text-gray-200 font-bold">{r.nombre}</td><td className="px-3 py-2 text-amber-400">{r.hectareas||"—"}</td><td className="px-3 py-2 text-green-400">{r.cultivo_completo||"—"}</td><td className="px-3 py-2 text-blue-400">{r.variedad||"—"}</td><td className="px-3 py-2"><span className={`px-2 py-0.5 rounded text-xs font-bold ${r.accion==="crear"?"bg-green-500/15 text-green-400":"bg-blue-500/15 text-blue-400"}`}>{r.accion==="crear"?"+ Crear":"✎ Actualizar"}</span></td></tr>)}</tbody>
+                    <div className="max-h-36 overflow-y-auto mb-3 rounded-xl border border-[#1e2d3d]">
+                      <table className="w-full text-xs"><thead className="bg-[#1a2535]"><tr>{["Nombre","Tel","Localidad","Ha",""].map(h=><th key={h} className="text-left px-3 py-2 text-gray-400 font-medium">{h}</th>)}</tr></thead>
+                        <tbody>{importPrev.map((r,i)=><tr key={i} className="border-t border-[#1a2535]"><td className="px-3 py-2 font-medium text-gray-200">{r.nombre}</td><td className="px-3 py-2 text-gray-500">{r.telefono||"—"}</td><td className="px-3 py-2 text-gray-500">{r.localidad||"—"}</td><td className="px-3 py-2 text-gray-400">{r.hectareas_total||"—"}</td><td className="px-3 py-2"><span className={`px-2 py-0.5 rounded-full font-medium ${r.existe?"bg-blue-500/15 text-blue-400":"bg-green-500/15 text-green-400"}`}>{r.existe?"Existente":"Nuevo"}</span></td></tr>)}</tbody>
                       </table>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={confirmarImportLotes} className="btn-solid-green px-4 py-2 rounded-xl text-sm font-bold">▶ Confirmar {importPreview.length} lotes</button>
-                      <button onClick={()=>{setImportPreview([]);importRef.current?.click();}} className="bg-[#1e2a3a] text-gray-400 px-4 py-2 rounded-xl text-sm transition-colors">Cambiar</button>
+                      <button onClick={confirmarImport} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors">Importar {importPrev.filter(p=>!p.existe).length} nuevos</button>
+                      <button onClick={()=>setImportPrev([])} className="bg-[#1e2a3a] text-gray-400 px-4 py-2 rounded-xl text-sm transition-colors">Cancelar</button>
                     </div>
                   </div>
                 }
@@ -1094,185 +589,339 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
               </div>
             )}
 
-            {/* Form nuevo lote */}
-            {showFormLote&&!editandoLote&&(
-              <div className="card p-4 mb-4 fade-in">
-                <h3 className="font-bold text-green-400 text-sm mb-4">+ Nuevo Lote</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div><label className={lCls}>Nombre *</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls} placeholder="El Norte..."/></div>
-                  <div><label className={lCls}>Hectáreas *</label><input type="number" value={form.hectareas??""} onChange={e=>setForm({...form,hectareas:e.target.value})} className={iCls}/></div>
-                  <div className="md:col-span-2"><label className={lCls}>Cultivo</label>
-                    <select value={form.cultivo_key??"soja|1ra"} onChange={e=>setForm({...form,cultivo_key:e.target.value})} className={iCls}>
-                      <optgroup label="Verano"><option value="soja|1ra">🌱 Soja 1º</option><option value="soja|2da">🌿 Soja 2º</option><option value="maiz|1ro_temprano">🌽 Maíz 1º</option><option value="maiz|1ro_tardio">🌽 Maíz 1º Tardío</option><option value="maiz|2do">🌽 Maíz 2º</option><option value="girasol|1ro">🌻 Girasol</option><option value="sorgo|1ro">🌿 Sorgo 1º</option><option value="sorgo|2do">🌿 Sorgo 2º</option></optgroup>
-                      <optgroup label="Invierno"><option value="trigo|1ro">🌾 Trigo</option><option value="cebada|1ra">🍃 Cebada</option><option value="arveja|1ra">🫛 Arveja</option><option value="carinata|1ra">🌱 Carinata</option><option value="camelina|1ra">🌱 Camelina</option></optgroup>
-                      <optgroup label="Otros"><option value="pastura|libre">🌾 Pastura</option><option value="otros|libre">🌱 Otros</option></optgroup>
-                    </select>
-                  </div>
-                  <div><label className={lCls}>F. Siembra</label><input type="date" value={form.fecha_siembra??""} onChange={e=>setForm({...form,fecha_siembra:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Tenencia</label><select value={form.tipo_tenencia??"Propio"} onChange={e=>setForm({...form,tipo_tenencia:e.target.value})} className={iCls}>{["Propio","Arrendado","Contrato accidental","Aparcería","Otro"].map(t=><option key={t} value={t}>{t}</option>)}</select></div>
-                  <div><label className={lCls}>Partido</label><input type="text" value={form.partido??""} onChange={e=>setForm({...form,partido:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Estado</label><select value={form.estado??"planificado"} onChange={e=>setForm({...form,estado:e.target.value})} className={iCls}>{ESTADOS.map(e=><option key={e.v} value={e.v}>{e.l}</option>)}</select></div>
+            {showForm&&(
+              <div className={`${cardCls} p-4 mb-4 fade-in`}>
+                <h3 className="font-semibold text-gray-200 mb-4 text-sm">{editProd?"✏️ Editar":"➕"} Productor</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div><label className={lCls}>Nombre *</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls} placeholder="Nombre y apellido"/></div>
+                  <div><label className={lCls}>Teléfono</label><input type="text" value={form.telefono??""} onChange={e=>setForm({...form,telefono:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>Email (si tiene app)</label><input type="email" value={form.email??""} onChange={e=>setForm({...form,email:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>Localidad</label><input type="text" value={form.localidad??""} onChange={e=>setForm({...form,localidad:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>Honorario tipo</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className={iCls}><option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option><option value="por_servicio">Por servicio</option></select></div>
+                  <div><label className={lCls}>Honorario $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls}/></div>
+                  <div className="sm:col-span-2"><label className={lCls}>Observaciones</label><input type="text" value={form.obs??""} onChange={e=>setForm({...form,obs:e.target.value})} className={iCls}/></div>
                 </div>
                 <div className="flex gap-2 mt-4">
-                  <button onClick={guardarLote} className="btn-solid-green px-5 py-2.5 rounded-xl text-sm font-bold">Guardar</button>
-                  <button onClick={()=>{setShowFormLote(false);setForm({});}} className="bg-[#1e2a3a] text-gray-400 px-5 py-2.5 rounded-xl text-sm transition-colors">Cancelar</button>
+                  <button onClick={guardarProductor} className="bg-green-600 hover:bg-green-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors">Guardar</button>
+                  <button onClick={()=>{setShowForm(false);setEditProd(null);setForm({});}} className="bg-[#1e2a3a] hover:bg-[#253447] text-gray-400 px-4 py-2.5 rounded-xl text-sm transition-colors">Cancelar</button>
                 </div>
               </div>
             )}
 
-            {/* KPIs + filtros + gráfico */}
-            <div className="flex items-start gap-3 mb-4 flex-wrap">
-              <div className="flex gap-2 flex-shrink-0">
-                {[{l:"Lotes",v:String(lotesPrincipales.length),c:"#e5e7eb"},{l:"Ha",v:totalHa.toLocaleString("es-AR"),c:"#eab308"},{l:"MB Est.",v:"$"+Math.round(margenes.filter(m=>m.estado==="estimado").reduce((a: number,m: any)=>a+m.margen_bruto,0)/1000)+"K",c:"#22c55e"},{l:"MB Real",v:"$"+Math.round(margenes.filter(m=>m.estado==="real").reduce((a: number,m: any)=>a+m.margen_bruto,0)/1000)+"K",c:"#60a5fa"}].map(s=>(
-                  <div key={s.l} className="card px-3 py-2.5 text-center" style={{minWidth:66}}><div className="text-xs text-gray-500">{s.l}</div><div className="text-sm font-bold mt-0.5" style={{color:s.c}}>{s.v}</div></div>
-                ))}
+            {/* Filtros exportar lotes */}
+            {lotes.length>0&&(
+              <div className={`${cardCls} p-3 mb-4`}>
+                <div className="flex flex-wrap gap-2 items-end">
+                  <span className="text-xs text-gray-400 font-medium self-center">Exportar lotes:</span>
+                  {[["Cultivo",fCultivo,setFCultivo,["todos",...cultivosU]],["Productor",fProductor,setFProductor,["todos",...productores.map(p=>p.nombre)]],["Estado",fEstado,setFEstado,["todos","planificado","sembrado","en_desarrollo","cosechado"]]].map(([l,v,fn,opts])=>(
+                    <select key={l as string} value={v as string} onChange={e=>(fn as any)(e.target.value)} className="bg-[#1e2a3a] border border-[#2d3f55] rounded-lg px-2.5 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-green-500">
+                      {(opts as string[]).map(o=><option key={o} value={o}>{o==="todos"?"Todos":o}</option>)}
+                    </select>
+                  ))}
+                  <button onClick={()=>exportXLS("lotes")} className="bg-green-600/20 border border-green-600/30 text-green-400 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-green-600/30 transition-colors">📤 Exportar</button>
+                </div>
               </div>
-              <div className="flex gap-1.5 flex-wrap items-center flex-1">
-                <button onClick={()=>setFilterCultivo("todos")} className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-all" style={{borderColor:filterCultivo==="todos"?"#22c55e":"#1e2d3d",color:filterCultivo==="todos"?"#22c55e":"#6b7280",background:filterCultivo==="todos"?"rgba(34,197,94,0.1)":"transparent"}}>Todos ({lotesPrincipales.length})</button>
-                {datosGrafico.map(d=>(
-                  <button key={d.name} onClick={()=>setFilterCultivo(filterCultivo===d.name?"todos":d.name)} className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-all" style={{borderColor:filterCultivo===d.name?d.color:d.color+"40",background:filterCultivo===d.name?d.color+"20":"transparent",color:filterCultivo===d.name?d.color:d.color+"70"}}>{d.name} · {d.value}ha</button>
-                ))}
-              </div>
-              {datosGrafico.length>0&&(
-                <div className="card p-3 flex items-center gap-3 flex-shrink-0">
-                  <div style={{width:80,height:80}}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart><Pie data={datosGrafico} cx="50%" cy="50%" outerRadius={36} innerRadius={16} dataKey="value" labelLine={false} label={renderPieLabel} paddingAngle={2}>
-                        {datosGrafico.map((e,i)=><Cell key={i} fill={e.color} stroke="rgba(8,15,23,0.5)" strokeWidth={2}/>)}
-                      </Pie><Tooltip formatter={(v: any,n: string)=>[String(v)+" ha",n]} contentStyle={{background:"#0f1923",border:"1px solid #1e2d3d",borderRadius:"8px",fontFamily:"sans-serif",fontSize:"11px",color:"#e5e7eb"}}/></PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="space-y-1.5" style={{minWidth:110}}>
-                    {datosGrafico.map((d,i)=>(
-                      <div key={i} className="flex items-center gap-1.5 cursor-pointer" onClick={()=>setFilterCultivo(filterCultivo===d.name?"todos":d.name)}>
-                        <div className="w-2 h-2 rounded-full" style={{background:d.color}}/>
-                        <span className="text-xs flex-1 truncate" style={{color:d.color,maxWidth:72}}>{d.name}</span>
-                        <span className="text-xs text-gray-500">{d.value}ha</span>
+            )}
+
+            {/* Lista productores */}
+            {productores.length===0
+              ?<div className={`${cardCls} p-16 text-center`}><div className="text-5xl mb-4 opacity-20">👨‍🌾</div><p className="text-gray-500">Sin productores — agregá el primero</p></div>
+              :<div className="space-y-3">
+                {productores.map(p=>{
+                  const eid=p.empresa_id??p.id;
+                  const camps=campanasPorProd[eid]??[];
+                  const campActiva=campSelProd[eid]??null;
+                  // Filtrar por empresa_id es más robusto que por nombre
+                  const lotesP=lotes.filter(l=>(l as any).empresa_id===eid || l.productor_nombre===p.nombre);
+                  const haReales=lotesP.reduce((a,l)=>a+(Number(l.hectareas)||0),0);
+                  const cultivosProd=[...new Set(lotesP.map(l=>l.cultivo_completo||l.cultivo).filter(Boolean))];
+                  return(
+                    <div key={p.id} className={`prod-card ${cardCls}`}>
+                      {/* Header */}
+                      <div className="px-4 pt-4 pb-3 border-b border-[#1a2535]">
+                        <div className="flex items-start gap-3">
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-lg font-bold" style={{background:"rgba(34,197,94,0.12)",color:"#22c55e",border:"1px solid rgba(34,197,94,0.2)"}}>
+                            {p.nombre.charAt(0)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-gray-100 truncate">{p.nombre}</div>
+                            <div className="text-xs text-gray-500 mt-0.5">{p.localidad}{p.provincia&&p.provincia!==p.localidad?", "+p.provincia:""}</div>
+                            {p.tiene_cuenta&&<div className="text-xs text-green-400 font-medium mt-0.5">✓ Usa la app</div>}
+                          </div>
+                          <div className="flex gap-1 flex-shrink-0">
+                            <button onClick={()=>{setEditProd(p.id);setForm({nombre:p.nombre,telefono:p.telefono||"",email:p.email||"",localidad:p.localidad||"",provincia:p.provincia||"",honorario_tipo:p.honorario_tipo||"mensual",honorario_monto:String(p.honorario_monto||0),obs:p.observaciones||""});setShowForm(true);}} className="p-1.5 rounded-lg hover:bg-[#1e2a3a] text-gray-500 hover:text-amber-400 transition-colors text-sm">✏️</button>
+                            <button onClick={()=>eliminarProd(p.id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-600 hover:text-red-400 transition-colors text-sm">✕</button>
+                          </div>
+                        </div>
                       </div>
-                    ))}
-                  </div>
+
+                      <div className="px-4 py-3 space-y-3">
+                        {/* Campaña */}
+                        <div>
+                          <label className="block text-xs text-gray-500 font-medium mb-1.5 uppercase tracking-wide">Campaña</label>
+                          <div className="flex gap-2">
+                            {camps.length>0
+                              ?<select value={campActiva??""} onChange={e=>cambiarCampana(eid,e.target.value,p.nombre)} className={`${iCls} flex-1`}>
+                                {camps.map((c:any)=><option key={c.id} value={c.id}>{c.nombre}{c.activa?" ★":""}</option>)}
+                              </select>
+                              :<div className="flex-1 bg-[#1a2535] rounded-xl px-3 py-2.5 text-xs text-gray-600">Sin campañas</div>
+                            }
+                            <button onClick={()=>{setNuevaCampProd(p.id);setNuevaCampNombre(new Date().getFullYear()+"/"+(new Date().getFullYear()+1));}}
+                              className="px-3 py-2 rounded-xl text-xs font-semibold flex-shrink-0 transition-colors" style={{background:"rgba(234,179,8,0.12)",border:"1px solid rgba(234,179,8,0.25)",color:"#eab308"}}>
+                              + Nueva
+                            </button>
+                          </div>
+                          {nuevaCampProd===p.id&&(
+                            <div className="flex gap-2 mt-2">
+                              <input value={nuevaCampNombre} onChange={e=>setNuevaCampNombre(e.target.value)} className={`${iCls} flex-1 text-xs`} placeholder="2025/2026"/>
+                              <button onClick={async()=>{if(nuevaCampNombre.trim()){await crearCampana(eid,nuevaCampNombre.trim());setNuevaCampProd(null);setNuevaCampNombre("");}}} className="px-3 py-2 rounded-xl bg-green-600 text-white text-xs font-semibold hover:bg-green-500 transition-colors">✓</button>
+                              <button onClick={()=>{setNuevaCampProd(null);setNuevaCampNombre("");}} className="px-2.5 py-2 rounded-xl border border-[#2d3f55] text-gray-500 text-xs hover:text-gray-300 transition-colors">✕</button>
+                            </div>
+                          )}
+                          <div className="text-xs text-gray-600 mt-1.5">{lotesP.length} lotes · {haReales.toLocaleString("es-AR")} ha</div>
+                        </div>
+
+                        {/* Stats */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="rounded-xl p-3 text-center" style={{background:"rgba(234,179,8,0.08)",border:"1px solid rgba(234,179,8,0.15)"}}>
+                            <div className="text-xs text-amber-500 font-medium">Hectáreas</div>
+                            <div className="text-2xl font-bold text-amber-300 mt-0.5">{haReales.toLocaleString("es-AR")}</div>
+                          </div>
+                          <div className="rounded-xl p-3 text-center" style={{background:"rgba(34,197,94,0.08)",border:"1px solid rgba(34,197,94,0.15)"}}>
+                            <div className="text-xs text-green-500 font-medium">Honorario</div>
+                            <div className="text-2xl font-bold text-green-300 mt-0.5">${(p.honorario_monto||0).toLocaleString("es-AR")}</div>
+                          </div>
+                        </div>
+
+                        {/* Cultivos */}
+                        {cultivosProd.length>0&&(
+                          <div className="flex gap-1.5 flex-wrap">
+                            {cultivosProd.map(c=>{const info=getCultivoInfo(c);return(
+                              <span key={c} className="text-xs px-2.5 py-1 rounded-lg font-medium" style={{background:info.color+"18",color:info.color,border:`1px solid ${info.color}30`}}>{info.label}</span>
+                            );})}
+                          </div>
+                        )}
+
+                        {/* Botones */}
+                        <div className="flex gap-2 pt-1">
+                          {p.telefono&&<a href={"https://wa.me/54"+p.telefono.replace(/\D/g,"")} target="_blank" rel="noreferrer" className="p-2.5 rounded-xl flex-shrink-0 transition-colors" style={{background:"rgba(37,211,102,0.1)",border:"1px solid rgba(37,211,102,0.2)"}}>💬</a>}
+                          <button onClick={()=>entrar(p)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-1.5" style={{background:"rgba(34,197,94,0.15)",border:"1px solid rgba(34,197,94,0.3)",color:"#22c55e"}}>
+                            {p.tiene_cuenta?"🔗 Ver Lotes":"🌾 Mis Lotes"}
+                          </button>
+                        </div>
+                      </div>
+
+                      {p.observaciones&&<div className="px-4 py-2.5 border-t border-[#1a2535] text-xs text-gray-600">{p.observaciones}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            }
+          </div>
+        )}
+
+        {/* ══ COBRANZA ══ */}
+        {seccion==="cobranza"&&(
+          <div className="fade-in">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-100">Cobranza</h2>
+                <div className="flex gap-3 mt-1">
+                  <span className="text-xs text-red-400">Pendiente: <strong>${totPend.toLocaleString("es-AR")}</strong></span>
+                  <span className="text-xs text-green-400">Cobrado: <strong>${totCob.toLocaleString("es-AR")}</strong></span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={async()=>{const XLSX=await import("xlsx");const data=cobranzas.map(c=>{const p=productores.find(x=>x.id===c.productor_id);return{PRODUCTOR:p?.nombre??"—",CONCEPTO:c.concepto,MONTO:c.monto,FECHA:c.fecha,ESTADO:c.estado};});const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Cobranzas");XLSX.writeFile(wb,"cobranzas_"+new Date().toISOString().slice(0,10)+".xlsx");}} className="bg-[#1e2a3a] hover:bg-[#253447] text-gray-400 px-3 py-2 rounded-xl text-sm transition-colors">📤</button>
+                <button onClick={()=>{setShowForm(!showForm);setForm({estado:"pendiente",fecha_c:new Date().toISOString().split("T")[0]});}} className="bg-amber-600/20 border border-amber-600/30 text-amber-400 hover:bg-amber-600/30 px-3 py-2 rounded-xl text-sm font-semibold transition-colors">+ Cobro</button>
+              </div>
+            </div>
+
+            {showForm&&(
+              <div className={`${cardCls} p-4 mb-4 fade-in`}>
+                <h3 className="font-semibold text-gray-200 mb-3 text-sm">+ Nuevo cobro</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div><label className={lCls}>Productor</label><select value={form.prod_c??""} onChange={e=>setForm({...form,prod_c:e.target.value})} className={iCls}><option value="">Sin productor</option>{productores.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
+                  <div><label className={lCls}>Concepto</label><input type="text" value={form.concepto??""} onChange={e=>setForm({...form,concepto:e.target.value})} className={iCls} placeholder="Honorario enero"/></div>
+                  <div><label className={lCls}>Monto</label><input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_c??""} onChange={e=>setForm({...form,fecha_c:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>Estado</label><select value={form.estado??"pendiente"} onChange={e=>setForm({...form,estado:e.target.value})} className={iCls}><option value="pendiente">Pendiente</option><option value="cobrado">Cobrado</option></select></div>
+                  <div><label className={lCls}>Método</label><select value={form.metodo??""} onChange={e=>setForm({...form,metodo:e.target.value})} className={iCls}><option value="">—</option><option value="transferencia">Transferencia</option><option value="efectivo">Efectivo</option><option value="cheque">Cheque</option></select></div>
+                </div>
+                <div className="flex gap-2 mt-3"><button onClick={guardarCob} className="bg-green-600 hover:bg-green-500 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-colors">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="bg-[#1e2a3a] text-gray-400 px-4 py-2 rounded-xl text-sm transition-colors">Cancelar</button></div>
+              </div>
+            )}
+
+            <div className={`${cardCls} overflow-hidden`}>
+              {cobranzas.length===0?<div className="text-center py-16 text-gray-600">Sin cobros registrados</div>:(
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[600px]">
+                    <thead><tr className="border-b border-[#1e2d3d]">{["Fecha","Productor","Concepto","Monto","Estado",""].map(h=><th key={h} className="text-left px-4 py-3 text-xs text-gray-500 font-semibold">{h}</th>)}</tr></thead>
+                    <tbody className="divide-y divide-[#1a2535]">
+                      {cobranzas.map(c=>{const p=productores.find(x=>x.id===c.productor_id);return(
+                        <tr key={c.id} className="hover:bg-[#0f1923]/50 transition-colors">
+                          <td className="px-4 py-3 text-gray-500 text-xs">{c.fecha}</td>
+                          <td className="px-4 py-3 font-medium text-gray-200 text-xs">{p?.nombre??"—"}</td>
+                          <td className="px-4 py-3 text-gray-400 text-xs">{c.concepto}</td>
+                          <td className="px-4 py-3 font-bold text-amber-400">${Number(c.monto).toLocaleString("es-AR")}</td>
+                          <td className="px-4 py-3"><span className={`text-xs px-2.5 py-1 rounded-lg font-medium ${c.estado==="cobrado"?"bg-green-500/15 text-green-400":"bg-red-500/15 text-red-400"}`}>{c.estado}</span></td>
+                          <td className="px-4 py-3 flex gap-2">
+                            {c.estado==="pendiente"&&<button onClick={()=>marcarCobrado(c.id)} className="text-green-400 text-xs hover:underline font-medium">✓</button>}
+                            <button onClick={async()=>{const sb=await getSB();await sb.from("ing_cobranzas").delete().eq("id",c.id);await fetchCobs(ingId);}} className="text-gray-600 hover:text-red-400 text-xs transition-colors">✕</button>
+                          </td>
+                        </tr>
+                      );})}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
+          </div>
+        )}
 
-            {/* Lista lotes */}
-            {tab==="lotes"&&(
-              lotesPrincipales.length===0?(
-                <div className="text-center py-20 card">
-                  <div className="text-5xl mb-4 opacity-20">🌾</div>
-                  <p className="text-gray-600 mb-4">Sin lotes — agregá el primero</p>
-                  <button onClick={()=>setShowFormLote(true)} className="btn-green px-4 py-2 rounded-xl text-sm font-bold">+ Agregar primer lote</button>
+        {/* ══ VEHICULO ══ */}
+        {seccion==="vehiculo"&&(
+          <div className="fade-in">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-100">Mi Vehículo</h2>
+              {!vehiculoSel
+                ?<button onClick={()=>{setShowForm(true);setForm({});}} className="bg-green-600/20 border border-green-600/30 text-green-400 hover:bg-green-600/30 px-4 py-2 rounded-xl text-sm font-semibold transition-colors">+ Agregar</button>
+                :<div className="flex gap-2">
+                  <button onClick={()=>{setShowForm(true);setForm({});}} className="bg-amber-600/20 border border-amber-600/30 text-amber-400 px-3 py-2 rounded-xl text-sm transition-colors">+ Service</button>
+                  <button onClick={()=>{setVehiculoSel(null);setServicios([]);setShowForm(false);}} className="bg-[#1e2a3a] text-gray-400 px-3 py-2 rounded-xl text-sm transition-colors">← Volver</button>
                 </div>
-              ):(
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                  {lotesPrincipales.filter(lote=>filterCultivo==="todos"||(getCultivoInfo(lote.cultivo,lote.cultivo_orden).label)===filterCultivo).map(lote=>{
-                    const ci=getCultivoInfo(lote.cultivo||"",lote.cultivo_orden||"");
-                    const mg=margenes.find(m=>m.lote_id===lote.id);
-                    const labsCount=labores.filter(l=>l.lote_id===lote.id).length;
-                    const labsCosto=labores.filter(l=>l.lote_id===lote.id).reduce((a,l)=>a+(l.costo_total||0),0);
-                    const est=ESTADOS.find(e=>e.v===lote.estado);
-                    const ultimaLabor=labores.filter(l=>l.lote_id===lote.id).sort((a,b)=>b.fecha.localeCompare(a.fecha))[0];
-                    return(
-                      <div key={lote.id} className="lote-card rounded-2xl overflow-hidden" onClick={()=>setLoteActivo(lote)}>
-                        <div className="flex items-center gap-3 p-4 border-b border-[#1a2535]">
-                          <div className="w-1 self-stretch rounded-full" style={{background:ci.color}}/>
-                          <span className="text-xl">{(ci as any).icon}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-bold text-gray-100 uppercase truncate">{lote.nombre}</div>
-                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                              <span className="text-xs font-bold" style={{color:ci.color}}>{ci.label}</span>
-                              {est&&<span className="tag" style={{background:est.c+"20",color:est.c}}>{est.l}</span>}
-                            </div>
-                          </div>
-                          <button onClick={e=>{e.stopPropagation();eliminarLote(lote.id);}} className="text-gray-600 hover:text-red-400 text-xs transition-colors flex-shrink-0">✕</button>
-                        </div>
-                        <div className="px-4 py-3 grid grid-cols-3 gap-2 text-xs">
-                          <div className="text-center"><div className="text-gray-500">Ha</div><div className="font-bold text-amber-400 mt-0.5">{lote.hectareas}</div></div>
-                          <div className="text-center"><div className="text-gray-500">Labores</div><div className="font-bold text-gray-200 mt-0.5">{labsCount}</div></div>
-                          <div className="text-center"><div className="text-gray-500">MB/ha</div><div className="font-bold mt-0.5" style={{color:mg?(mg.margen_bruto_ha>=0?"#22c55e":"#ef4444"):"#4b5563"}}>{mg?"$"+Math.round(mg.margen_bruto_ha).toLocaleString("es-AR"):"—"}</div></div>
-                        </div>
-                        {/* Última labor */}
-                        {ultimaLabor&&(
-                          <div className="px-4 pb-3 flex items-center gap-2 text-xs">
-                            <span className="tag" style={{background:laborColor(ultimaLabor.tipo)+"20",color:laborColor(ultimaLabor.tipo)}}>{ultimaLabor.tipo}</span>
-                            <span className="text-gray-600">{ultimaLabor.fecha}</span>
-                            {labsCosto>0&&<span className="ml-auto text-amber-600/80">${labsCosto.toLocaleString("es-AR")}</span>}
-                          </div>
-                        )}
-                        {(lote.fecha_siembra||(lote.variedad||lote.hibrido))&&!ultimaLabor&&(
-                          <div className="px-4 pb-3 flex gap-3 text-xs text-gray-600">
-                            {lote.fecha_siembra&&<span>🗓 {lote.fecha_siembra}</span>}
-                            {(lote.variedad||lote.hibrido)&&<span>🌱 {lote.variedad||lote.hibrido}</span>}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+              }
+            </div>
+
+            {showForm&&!vehiculoSel&&(
+              <div className={`${cardCls} p-4 mb-4 fade-in`}>
+                <h3 className="font-semibold text-gray-200 mb-3 text-sm">+ Nuevo vehículo</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[["nombre","Nombre","Toyota Hilux","text"],["marca","Marca","","text"],["modelo","Modelo","","text"],["anio","Año","","number"],["patente","Patente","","text"],["seg_comp","Compañía seguro","","text"],["seg_venc","Venc. seguro","","date"],["vtv_venc","Venc. VTV","","date"],["km","Km actuales","","number"],["prox_km","Próx. service km","","number"]].map(([k,l,ph,t])=>(
+                    <div key={k as string}><label className={lCls}>{l as string}</label><input type={t as string} value={form[k as string]??""} onChange={e=>setForm({...form,[k as string]:e.target.value})} className={iCls} placeholder={ph as string}/></div>
+                  ))}
                 </div>
-              )
+                <div className="flex gap-2 mt-3"><button onClick={guardarVeh} className="bg-green-600 hover:bg-green-500 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-colors">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="bg-[#1e2a3a] text-gray-400 px-4 py-2 rounded-xl text-sm transition-colors">Cancelar</button></div>
+              </div>
             )}
 
-            {/* Margen general */}
-            {tab==="margen"&&(
-              <div className="card overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-[#1e2d3d] flex items-center justify-between">
-                  <span className="font-bold text-gray-100">Margen Bruto por Lote</span>
-                  <span className="text-xs text-gray-500">USD ${usdUsado}</span>
+            {!vehiculoSel?(
+              vehiculos.length===0?<div className={`${cardCls} p-16 text-center`}><div className="text-5xl mb-4 opacity-20">🚗</div><p className="text-gray-600">Sin vehículos</p></div>:(
+                <div className="space-y-3">
+                  {vehiculos.map((v:any)=>{const sV=v.seguro_vencimiento&&new Date(v.seguro_vencimiento)<new Date();const vV=v.vtv_vencimiento&&new Date(v.vtv_vencimiento)<new Date();return(
+                    <div key={v.id} className={`prod-card ${cardCls} p-4 cursor-pointer`} onClick={async()=>{setVehiculoSel(v);const sb=await getSB();const{data}=await sb.from("ing_vehiculo_service").select("*").eq("vehiculo_id",v.id).order("fecha",{ascending:false});setServicios(data??[]);}}>
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className="w-11 h-11 rounded-xl bg-[#1e2a3a] border border-[#2d3f55] flex items-center justify-center text-2xl flex-shrink-0">🚗</div>
+                        <div className="flex-1"><div className="font-bold text-gray-100">{v.nombre}</div><div className="text-xs text-gray-500 mt-0.5">{v.marca} {v.modelo} · {v.anio} · {v.patente}</div></div>
+                        <button onClick={e=>{e.stopPropagation();(async()=>{const sb=await getSB();await sb.from("ing_vehiculos").delete().eq("id",v.id);await fetchVehs(ingId);})();}} className="text-gray-600 hover:text-red-400 transition-colors">✕</button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <div className="bg-[#1a2535] rounded-xl p-3 text-center"><div className="text-xs text-gray-500">Km actuales</div><div className="text-lg font-bold text-gray-200 mt-0.5">{(v.km_actuales||0).toLocaleString()}</div></div>
+                        <div className="rounded-xl p-3 text-center" style={{background:"rgba(234,179,8,0.08)",border:"1px solid rgba(234,179,8,0.15)"}}><div className="text-xs text-amber-500">Próx. service</div><div className="text-lg font-bold text-amber-300 mt-0.5">{v.proximo_service_km?(v.proximo_service_km.toLocaleString()+" km"):"—"}</div></div>
+                      </div>
+                      <div className="flex gap-2">
+                        <span className={`text-xs px-3 py-1.5 rounded-lg font-medium flex-1 text-center ${sV?"bg-red-500/15 text-red-400":"bg-green-500/10 text-green-400"}`}>🛡 {sV?"VENCIDO":v.seguro_vencimiento||"—"}</span>
+                        <span className={`text-xs px-3 py-1.5 rounded-lg font-medium flex-1 text-center ${vV?"bg-red-500/15 text-red-400":"bg-green-500/10 text-green-400"}`}>📋 {vV?"VTV VENCIDA":v.vtv_vencimiento||"—"}</span>
+                      </div>
+                    </div>
+                  );})}
                 </div>
-                {margenes.length===0?<div className="text-center py-12 text-gray-600">Sin márgenes — entrá a un lote y cargá el margen</div>:(
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm min-w-[700px]">
-                      <thead><tr className="border-b border-[#1e2d3d]">{["Lote","Cultivo","Ha","Rend.","Ingreso","Costo","Margen","MB/ha","Estado"].map(h=><th key={h} className="text-left px-4 py-3 text-xs text-gray-500 font-semibold">{h}</th>)}</tr></thead>
-                      <tbody className="divide-y divide-[#1a2535]">
-                        {margenes.map((m: any)=>{
-                          const lote=lotes.find(l=>l.id===m.lote_id);
-                          const ci=getCultivoInfo(m.cultivo||"",m.cultivo_orden||"");
-                          return(<tr key={m.id} className="hover:bg-[#0f1923]/60 cursor-pointer transition-colors" onClick={()=>{const l=lotes.find(x=>x.id===m.lote_id);if(l)setLoteActivo(l);}}>
-                            <td className="px-4 py-3 font-bold text-gray-100">{lote?.nombre||"—"}</td>
-                            <td className="px-4 py-3"><span className="tag" style={{background:ci.color+"20",color:ci.color}}>{(ci as any).icon} {ci.label}</span></td>
-                            <td className="px-4 py-3 text-gray-400">{m.hectareas}</td>
-                            <td className="px-4 py-3 text-amber-400">{m.rendimiento_real||m.rendimiento_esperado} tn/ha</td>
-                            <td className="px-4 py-3 text-gray-200">${Math.round(m.ingreso_bruto).toLocaleString("es-AR")}</td>
-                            <td className="px-4 py-3 text-red-400">${Math.round(m.costo_directo_total).toLocaleString("es-AR")}</td>
-                            <td className="px-4 py-3 font-bold" style={{color:m.margen_bruto>=0?"#22c55e":"#ef4444"}}>${Math.round(m.margen_bruto).toLocaleString("es-AR")}</td>
-                            <td className="px-4 py-3 text-amber-400">${Math.round(m.margen_bruto_ha).toLocaleString("es-AR")}</td>
-                            <td className="px-4 py-3"><span className="tag" style={{background:m.estado==="real"?"rgba(34,197,94,0.15)":"rgba(234,179,8,0.15)",color:m.estado==="real"?"#22c55e":"#eab308"}}>{m.estado==="real"?"✅ Real":"📋 Est."}</span></td>
-                          </tr>);
-                        })}
-                      </tbody>
-                    </table>
+              )
+            ):(
+              <div className="space-y-4">
+                <div className={`${cardCls} p-4 flex items-center gap-3`}>
+                  <div className="w-12 h-12 rounded-xl bg-[#1e2a3a] flex items-center justify-center text-2xl">🚗</div>
+                  <div><div className="font-bold text-gray-100">{vehiculoSel.nombre}</div><div className="text-xs text-gray-500">{vehiculoSel.marca} {vehiculoSel.modelo} · {(vehiculoSel as any).anio} · {vehiculoSel.patente}</div></div>
+                </div>
+                {showForm&&vehiculoSel&&(
+                  <div className={`${cardCls} p-4 fade-in`}>
+                    <h3 className="font-semibold text-gray-200 mb-3 text-sm">+ Service</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div><label className={lCls}>Tipo</label><select value={form.tipo_s??"service"} onChange={e=>setForm({...form,tipo_s:e.target.value})} className={iCls}><option value="service">Service</option><option value="reparacion">Reparación</option><option value="vtv">VTV</option><option value="otro">Otro</option></select></div>
+                      <div><label className={lCls}>Descripción</label><input type="text" value={form.desc_s??""} onChange={e=>setForm({...form,desc_s:e.target.value})} className={iCls}/></div>
+                      <div><label className={lCls}>Taller</label><input type="text" value={form.taller??""} onChange={e=>setForm({...form,taller:e.target.value})} className={iCls}/></div>
+                      <div><label className={lCls}>Km</label><input type="number" value={form.km_s??""} onChange={e=>setForm({...form,km_s:e.target.value})} className={iCls}/></div>
+                      <div><label className={lCls}>Costo</label><input type="number" value={form.costo_s??""} onChange={e=>setForm({...form,costo_s:e.target.value})} className={iCls}/></div>
+                      <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_s??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_s:e.target.value})} className={iCls}/></div>
+                    </div>
+                    <div className="flex gap-2 mt-3"><button onClick={guardarService} className="bg-green-600 hover:bg-green-500 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-colors">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="bg-[#1e2a3a] text-gray-400 px-4 py-2 rounded-xl text-sm transition-colors">Cancelar</button></div>
                   </div>
                 )}
+                <div className={`${cardCls} overflow-hidden`}>
+                  <div className="px-4 py-3 border-b border-[#1e2d3d]"><span className="font-semibold text-gray-200 text-sm">🔧 Historial</span></div>
+                  {servicios.length===0?<div className="text-center py-10 text-gray-600 text-sm">Sin historial</div>:(
+                    <div className="overflow-x-auto"><table className="w-full text-sm min-w-[500px]"><thead><tr className="border-b border-[#1e2d3d]">{["Fecha","Tipo","Descripción","Km","Costo",""].map(h=><th key={h} className="text-left px-4 py-2.5 text-xs text-gray-500 font-semibold">{h}</th>)}</tr></thead>
+                      <tbody className="divide-y divide-[#1a2535]">{servicios.map(s=><tr key={s.id} className="hover:bg-[#0f1923]/50"><td className="px-4 py-3 text-gray-500 text-xs">{s.fecha}</td><td className="px-4 py-3"><span className="bg-amber-500/15 text-amber-400 px-2 py-0.5 rounded-lg text-xs font-medium">{s.tipo}</span></td><td className="px-4 py-3 text-gray-300 text-xs">{s.descripcion}</td><td className="px-4 py-3 text-gray-500 text-xs">{s.km?(s.km.toLocaleString()+" km"):"—"}</td><td className="px-4 py-3 font-bold text-red-400 text-xs">${Number(s.costo).toLocaleString("es-AR")}</td><td className="px-4 py-3"><button onClick={async()=>{const sb=await getSB();await sb.from("ing_vehiculo_service").delete().eq("id",s.id);const sb2=await getSB();const{data}=await sb2.from("ing_vehiculo_service").select("*").eq("vehiculo_id",vehiculoSel!.id).order("fecha",{ascending:false});setServicios(data??[]);}} className="text-gray-600 hover:text-red-400 text-xs transition-colors">✕</button></td></tr>)}</tbody>
+                    </table></div>
+                  )}
+                </div>
               </div>
             )}
           </div>
         )}
+
+        {/* ══ IA CAMPO ══ */}
+        {seccion==="ia_campo"&&(
+          <div className="fade-in">
+            <div className="mb-4"><h2 className="text-lg font-bold text-gray-100">IA Campo</h2><p className="text-sm text-gray-500 mt-0.5">Dosis, plagas, enfermedades, cultivos y mercados</p></div>
+            {aiChat.length===0&&(
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                {["Dosis glifosato soja","Roya asiática síntomas","Fungicida maíz","Precio soja hoy","Insecticida MIP soja","Trigo siembra pampeana"].map(q=>(
+                  <button key={q} onClick={()=>askAI(q)} className="text-left text-xs text-gray-500 border border-[#1e2d3d] px-3 py-3 rounded-xl hover:border-green-600/50 hover:text-green-400 hover:bg-green-950/30 transition-all bg-[#0f1923]">💬 {q}</button>
+                ))}
+              </div>
+            )}
+            <div className={`${cardCls} overflow-hidden mb-3`}>
+              <div className="px-4 py-3 border-b border-[#1e2d3d] flex items-center justify-between">
+                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"/><span className="font-medium text-gray-200 text-sm">IA Agronómica</span></div>
+                {aiChat.length>0&&<button onClick={()=>setAiChat([])} className="text-xs text-gray-600 hover:text-gray-400 transition-colors">Limpiar</button>}
+              </div>
+              <div className="p-4 max-h-80 overflow-y-auto flex flex-col gap-3">
+                {aiChat.length===0&&<div className="text-center py-8 text-gray-700"><div className="text-3xl mb-2">🌾</div><p className="text-sm">Hacé tu consulta agronómica...</p></div>}
+                {aiChat.map((msg,i)=>(
+                  <div key={i} className={`flex ${msg.rol==="user"?"justify-end":"justify-start"}`}>
+                    <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${msg.rol==="user"?"bg-green-600 text-white":"bg-[#1a2535] text-gray-200 border border-[#2d3f55]"}`}>
+                      {msg.rol==="assistant"&&<div className="text-xs text-green-400 font-semibold mb-1.5">◆ IA Agronómica</div>}
+                      <p className="whitespace-pre-wrap">{msg.texto}</p>
+                    </div>
+                  </div>
+                ))}
+                {aiLoad&&<div className="flex"><div className="bg-[#1a2535] border border-[#2d3f55] px-4 py-3 rounded-2xl"><div className="flex gap-1">{[0,1,2].map(i=><div key={i} className="w-1.5 h-1.5 rounded-full bg-green-600 animate-bounce" style={{animationDelay:i*0.15+"s"}}/>)}</div></div></div>}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={escucharVoz} className="p-3 rounded-xl transition-colors flex-shrink-0" style={{background:"rgba(34,197,94,0.1)",border:"1px solid rgba(34,197,94,0.2)",color:"#22c55e"}}>🎤</button>
+              <input type="text" value={aiInput} onChange={e=>setAiInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&askAI()} placeholder="Consultá sobre dosis, plagas, cultivos..." className={`${iCls} flex-1`}/>
+              <button onClick={()=>askAI()} disabled={aiLoad||!aiInput.trim()} className="bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white px-4 py-3 rounded-xl text-sm font-semibold transition-colors flex-shrink-0">→</button>
+            </div>
+          </div>
+        )}
+
+        {/* Espacio para botón flotante */}
+        <div className="h-24"/>
       </div>
 
       {/* ══ PANEL VOZ ══ */}
       {vozPanel&&(
-        <div className="fixed bottom-24 right-4 z-50 w-80 bg-[#0c1520] border border-[#1e2d3d] rounded-2xl shadow-2xl overflow-hidden">
+        <div className="fixed bottom-24 right-4 z-50 w-72 bg-[#0c1520] border border-[#1e2d3d] rounded-2xl shadow-2xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e2d3d]">
-            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{background:VOZ_COLOR[vozEstado]}}/><span className="text-green-400 text-xs font-bold">🎤 ASISTENTE DE CAMPO</span></div>
-            <button onClick={()=>{setVozPanel(false);window.speechSynthesis?.cancel();recRef.current?.stop();setVozEstado("idle");}} className="text-gray-500 hover:text-gray-300 transition-colors">✕</button>
+            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{background:VOZ_COLOR[vozEstado]}}/><span className="text-green-400 text-xs font-bold">🎤 ASISTENTE</span></div>
+            <button onClick={()=>{setVozPanel(false);recRef.current?.stop();setVozEstado("idle");}} className="text-gray-500 hover:text-gray-300 transition-colors">✕</button>
           </div>
-          <div className="px-4 pt-3 pb-2 min-h-20">
-            {vozEstado==="escuchando"&&<div className="flex items-center gap-3 py-2"><div className="flex gap-1 items-end h-6">{[1,2,3,4,5].map(i=><div key={i} className="w-1 rounded-full bg-red-400 animate-bounce" style={{height:(6+i*4)+"px",animationDelay:i*0.1+"s"}}/>)}</div><span className="text-red-400 text-sm">Escuchando...</span></div>}
-            {vozEstado==="procesando"&&<p className="text-amber-400 text-sm animate-pulse">⚙️ Procesando...</p>}
-            {vozRespuesta&&<div className="bg-green-500/8 border border-green-500/20 rounded-xl px-3 py-2.5 mb-2"><p className="text-gray-100 text-sm leading-relaxed">{vozRespuesta}</p></div>}
-            {vozTranscripcion&&!vozRespuesta&&<p className="text-gray-500 text-xs italic">"{vozTranscripcion}"</p>}
-            {vozEstado==="idle"&&!vozRespuesta&&!vozTranscripcion&&(
-              <div className="space-y-1.5 py-1">
-                {["Hoy siembra lote Grande N Coggiola","Aplicación glifosato lote Casa Sur","Cosecha lote 3 rendimiento 35 quintales"].map(q=>(
-                  <button key={q} onClick={()=>{setVozTranscripcion(q);interpretarVoz(q);}} className="w-full text-left text-xs text-gray-600 hover:text-green-400 border border-[#1e2d3d] hover:border-green-800/50 px-3 py-2 rounded-lg transition-all">💬 {q}</button>
+          <div className="p-4 min-h-14">
+            {vozEstado==="escuchando"&&<p className="text-red-400 text-sm animate-pulse">🔴 Escuchando...</p>}
+            {vozEstado==="procesando"&&<p className="text-amber-400 text-sm">⚙️ Procesando...</p>}
+            {vozEstado==="idle"&&(
+              <div className="space-y-1.5">
+                {["¿Cuántas ha totales?","Dosis glifosato soja","¿Cuántos productores?"].map(q=>(
+                  <button key={q} onClick={()=>{askAI(q);setVozPanel(false);}} className="w-full text-left text-xs text-gray-500 hover:text-green-400 border border-[#1e2d3d] hover:border-green-800/50 px-3 py-2 rounded-lg transition-all">💬 {q}</button>
                 ))}
               </div>
             )}
           </div>
           <div className="px-3 pb-3 flex gap-2 border-t border-[#1e2d3d] pt-3">
-            <input value={vozInput} onChange={e=>setVozInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&vozInput.trim()){setVozTranscripcion(vozInput);interpretarVoz(vozInput);setVozInput("");}}} placeholder="Escribí o hablá..." className={`${iCls} flex-1 text-xs py-2`}/>
-            <button onClick={()=>{if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else escucharVoz();}} className="px-3 py-2 rounded-xl text-sm" style={{background:VOZ_COLOR[vozEstado]+"18",border:"1px solid "+VOZ_COLOR[vozEstado]+"50",color:VOZ_COLOR[vozEstado]}}>{VOZ_ICON[vozEstado]}</button>
-            {vozInput&&<button onClick={()=>{setVozTranscripcion(vozInput);interpretarVoz(vozInput);setVozInput("");}} className="px-3 py-2 rounded-xl bg-green-600/15 border border-green-600/30 text-green-400 text-xs font-bold">→</button>}
+            <input value={vozInput} onChange={e=>setVozInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&vozInput.trim()){askAI(vozInput);setVozInput("");setVozPanel(false);}}} placeholder="Escribí..." className={`${iCls} flex-1 text-xs py-2`}/>
+            <button onClick={escucharVoz} className="px-3 py-2 rounded-xl text-sm transition-colors" style={{background:VOZ_COLOR[vozEstado]+"20",border:"1px solid "+VOZ_COLOR[vozEstado]+"50",color:VOZ_COLOR[vozEstado]}}>{VOZ_ICON[vozEstado]}</button>
           </div>
         </div>
       )}
@@ -1280,12 +929,9 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
       {/* Botón flotante voz */}
       <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}}
         className="fixed bottom-6 right-4 z-40 w-14 h-14 rounded-full flex items-center justify-center text-xl shadow-2xl transition-all"
-        style={{background:VOZ_COLOR[vozEstado]+"18",border:"2px solid "+VOZ_COLOR[vozEstado]+"80",color:VOZ_COLOR[vozEstado],animation:vozEstado==="idle"?"float 3s ease-in-out infinite":"none",boxShadow:"0 4px 24px "+VOZ_COLOR[vozEstado]+"35"}}>
+        style={{background:VOZ_COLOR[vozEstado]+"20",border:"2px solid "+VOZ_COLOR[vozEstado]+"80",color:VOZ_COLOR[vozEstado],animation:vozEstado==="idle"?"float 3s ease-in-out infinite":"none",boxShadow:"0 4px 24px "+VOZ_COLOR[vozEstado]+"35"}}>
         {VOZ_ICON[vozEstado]}
       </button>
-
-      <p className="text-center text-[#0a2a1a] text-xs pb-4 pt-2">AgroGestión PRO · {productorNombre.toUpperCase()} · {modoCompartido?"Compartido":"Ingeniero"}</p>
-      {ingenieroId&&<EscanerIA empresaId={ingenieroId}/>}
     </div>
   );
 }
