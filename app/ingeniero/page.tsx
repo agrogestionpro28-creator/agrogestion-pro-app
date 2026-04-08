@@ -76,7 +76,7 @@ export default function IngenieroPanel() {
   const [servicios, setServicios] = useState<ServiceVeh[]>([]);
   const [vehiculoSel, setVehiculoSel] = useState<Vehiculo|null>(null);
   const [lotes, setLotes] = useState<LoteResumen[]>([]);
-  const [campanasPorProd, setCampanasPorProd] = useState<Record<string,Campana[]>>({});
+  const [campanasPorProd, setCampanasPorProd] = useState<Record<string,any[]>>({});
   const [campSelProd, setCampSelProd] = useState<Record<string,string>>({});
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -123,7 +123,7 @@ export default function IngenieroPanel() {
     const sb = await getSB();
     const { data: prods } = await sb.from("ing_productores").select("*").eq("ingeniero_id", iid).eq("activo", true).order("nombre");
     setProductores(prods ?? []);
-    const cpMap: Record<string,Campana[]> = {};
+    const cpMap: Record<string,any[]> = {};
     const csMap: Record<string,string> = {};
     const lotesAll: LoteResumen[] = [];
 
@@ -136,7 +136,7 @@ export default function IngenieroPanel() {
         .select("id,nombre,activa,año_inicio,año_fin")
         .eq("empresa_id", eid)
         .order("año_inicio", { ascending: false });
-      const campList = camps ?? [];
+      const campList: any[] = (camps ?? []) as any[];
       cpMap[eid] = campList;
 
       // Elegir campaña: activa > más reciente
