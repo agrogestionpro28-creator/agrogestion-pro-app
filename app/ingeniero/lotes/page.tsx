@@ -54,7 +54,7 @@ const TIPOS_LABOR = [
   "Siembra","Aplicación","Fertilización","Cosecha",
   "Labranza","Riego","Control malezas","Recorrida","Otro"
 ];
-const APLICADORES = ["Mosquito","Drone","Avión","Tractor","Manual","—"];
+const APLICADORES = ["Propio","Alquilado","Avión","Drone","—"];
 const ESTADOS = [
   {v:"planificado",  l:"Planificado", c:"#6b7280"},
   {v:"sembrado",     l:"Sembrado",    c:"#22c55e"},
@@ -280,6 +280,17 @@ export default function IngenieroLotesPage() {
     setLoteActivo(null);
   };
 
+
+  // Mapear aplicador al valor que acepta el constraint de lote_labores
+  const mapAplicador = (v: string): string|null => {
+    const s = (v||"").toLowerCase().trim();
+    if (s.includes("avion")||s.includes("avión")) return "avion";
+    if (s.includes("drone")||s.includes("dron"))  return "drone";
+    if (s.includes("alquil"))                     return "alquilado";
+    if (s.includes("propio")||s.includes("tractor")||s.includes("mosquito")||s.includes("manual")) return "propio";
+    return null;
+  };
+
   // ── CRUD LABORES (cuaderno mejorado) ──
   const guardarLabor = async () => {
     if (!loteActivo || !empresaId) return;
@@ -301,7 +312,7 @@ export default function IngenieroLotesPage() {
       metodo_carga:         "manual",
       metodo_entrada:       "manual",
       hectareas_trabajadas: ha,
-      tipo_aplicacion:      form.aplicador ?? "",
+      tipo_aplicacion:      mapAplicador(form.aplicador || "") || null,
       precio_aplicacion_ha: Number(form.costo_aplicacion_ha ?? 0),
       costo_total_usd:      costoTotal,
       estado_carga:         "confirmado",
@@ -632,7 +643,7 @@ export default function IngenieroLotesPage() {
         metodo_carga:         "excel",
         metodo_entrada:       "excel",
         hectareas_trabajadas: l.hectareas || 0,
-        tipo_aplicacion:      l.aplicador || "",
+        tipo_aplicacion:      mapAplicador(l.aplicador || "") || null,
         precio_aplicacion_ha: l.costo_aplicacion_ha || 0,
         costo_total_usd:      l.costo_total || 0,
         estado_carga:         "confirmado",
