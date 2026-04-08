@@ -403,7 +403,7 @@ export default function IngenieroLotesPage() {
       LOTE: loteActivo.nombre, FECHA: l.fecha, TIPO: l.tipo,
       PRODUCTO_DOSIS: (l as any).producto_dosis||l.descripcion||"",
       APLICADOR: (l as any).aplicador||"",
-      HA: l.superficie_ha, OPERARIO: l.operario||"",
+      HA: (l as any).superficie_ha||l.hectareas_trabajadas||0, OPERARIO: (l as any).operario||"",
       COSTO_HA: (l as any).costo_aplicacion_ha||"",
       COSTO_TOTAL: l.costo_total||0,
       COMENTARIO: (l as any).comentario||l.observaciones||""
