@@ -307,39 +307,58 @@ export default function IngenieroLotesPage() {
 
   // ── CRUD LABORES (cuaderno mejorado) ──
 
-  // Parsear descripción para detectar insumos y cantidades
-  // Ej: "Glifosato 4L/ha + 2,4D EHE 1,5L/ha + Metsulfuron 10gr/ha"
+  // Parsear descripción → pares (insumo del stock, cantidad total)
+  // Soporta todos los formatos reales:
+  //   "GLIFOSATO 2 LITROS + 1,5 LT 2,4D EHE + 10 GR METSULFURON"
+  //   "2 LT GLIFO + 1,5 LT 2,4D + 300 CC HALOXIFOP"
+  //   "Glifosato 4L/ha + Metsulfuron 10gr/ha"
   const parsearInsumosDeDescripcion = (desc: string, ha: number): DescuentoItem[] => {
     if (!desc || !insumosStock.length) return [];
+
+    // Regex: captura cantidad+unidad en todos los formatos (con/sin espacio, con/sin /ha)
+    const CANT_RE = /([0-9]+[,.]?[0-9]*)\s*(litros?|lts?|lt|cc|ml|kg|grs?|gr|g|l)(?=[\s\/+\-,]|$)/gi;
+
+    // Dividir por "+" → un segmento por insumo
+    const segmentos = desc.split(/\s*\+\s*/);
+    const segsParseados: Array<{palabras: string[]; cantHa: number}> = [];
+
+    for (const seg of segmentos) {
+      const s = seg.trim();
+      if (!s) continue;
+      CANT_RE.lastIndex = 0;
+      const m = CANT_RE.exec(s);
+      if (!m) continue;
+      const cantHa = parseFloat(m[1].replace(',', '.'));
+      // Nombre = todo lo que queda al quitar la cantidad+unidad+/ha
+      const nombreSeg = s.replace(/[0-9]+[,.]?[0-9]*\s*(litros?|lts?|lt|cc|ml|kg|grs?|gr|g|l)\s*(\/ha)?/gi, '').trim();
+      const palabras = nombreSeg.toLowerCase().split(/[\s,]+/).filter((p: string) => p.length >= 2);
+      segsParseados.push({ palabras, cantHa });
+    }
+
+    // Para cada insumo del stock, buscar el segmento que mejor matchea por nombre
     const items: DescuentoItem[] = [];
-    // Buscar cada insumo del stock en la descripción
+    const usados = new Set<number>();
+
     for (const ins of insumosStock) {
-      const nombreNorm = ins.nombre.toLowerCase().replace(/[^a-z0-9]/g,' ').trim();
-      const descNorm   = desc.toLowerCase();
-      // Palabras clave del nombre del insumo
-      const palabras = nombreNorm.split(' ').filter(p => p.length >= 4);
-      const encontrado = palabras.length > 0 && palabras.some(p => descNorm.includes(p));
-      if (!encontrado) continue;
-      // Intentar extraer cantidad de la descripción cerca del nombre
-      // Patrones: "4L/ha", "1,5L/ha", "10gr/ha", "200cc/ha", "4 litros"
-      let cantHa = 0;
-      const patterns = [
-        /([0-9]+[,.]?[0-9]*)\s*(?:l\/ha|lt\/ha|litros\/ha|l\/hect)/i,
-        /([0-9]+[,.]?[0-9]*)\s*(?:cc\/ha|ml\/ha)/i,
-        /([0-9]+[,.]?[0-9]*)\s*(?:gr\/ha|g\/ha|kg\/ha)/i,
-        /(\d+[,.]?\d*)\s*(?:l|lt|litros)/i,
-        /(\d+[,.]?\d*)\s*(?:cc|ml)/i,
-        /(\d+[,.]?\d*)\s*(?:kg|gr|g)/i,
-      ];
-      // Buscar la cantidad más cerca del nombre del insumo en la descripción
-      const idxNombre = descNorm.indexOf(palabras[0]);
-      const ventana = descNorm.substring(Math.max(0, idxNombre - 5), idxNombre + 30);
-      for (const pat of patterns) {
-        const m = ventana.match(pat);
-        if (m) { cantHa = parseFloat(m[1].replace(',','.')); break; }
+      const insNorm = ins.nombre.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+      const insPals = insNorm.split(/\s+/).filter((p: string) => p.length >= 3);
+      if (!insPals.length) continue;
+
+      let bestIdx = -1, bestScore = 0;
+      for (let i = 0; i < segsParseados.length; i++) {
+        if (usados.has(i)) continue;
+        const seg = segsParseados[i];
+        let score = 0;
+        for (const ip of insPals)
+          if (seg.palabras.some((sp: string) => sp.includes(ip) || ip.includes(sp))) score++;
+        for (const sp of seg.palabras)
+          if (sp.length >= 3 && insNorm.includes(sp)) score++;
+        if (score > bestScore) { bestScore = score; bestIdx = i; }
       }
-      // Si no encontró cantidad específica, poner 0 para que el usuario la complete
-      const cantTotal = cantHa > 0 ? cantHa * ha : 0;
+      if (bestIdx < 0 || bestScore === 0) continue;
+
+      usados.add(bestIdx);
+      const cantTotal = Math.round(segsParseados[bestIdx].cantHa * ha * 100) / 100;
       const ppp = ins.precio_ppp || ins.precio_unitario || 0;
       items.push({
         insumo_id: ins.id,
@@ -348,8 +367,8 @@ export default function IngenieroLotesPage() {
         cantidad_sugerida: cantTotal,
         cantidad_ajustada: cantTotal,
         precio_ppp: ppp,
-        costo_total: cantTotal * ppp,
-        seleccionado: cantTotal > 0,
+        costo_total: Math.round(cantTotal * ppp),
+        seleccionado: true,
       });
     }
     return items;
@@ -389,7 +408,7 @@ export default function IngenieroLotesPage() {
     for (const item of itemsSeleccionados) {
       const ins = insumosStock.find(i => i.id === item.insumo_id);
       if (!ins) continue;
-      const nuevaCant = Math.max(0, ins.cantidad - item.cantidad_ajustada);
+      const nuevaCant = ins.cantidad - item.cantidad_ajustada; // permite stock negativo
       const ppp = ins.precio_ppp || ins.precio_unitario || 0;
       const costoItem = item.cantidad_ajustada * ppp;
       costoInsumosTotal += costoItem;
