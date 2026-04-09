@@ -19,17 +19,26 @@ type Lote = {
 type Campana = { id: string; nombre: string; año_inicio: number; año_fin: number; activa: boolean; };
 type Labor = {
   id: string; lote_id: string; fecha: string; tipo: string; descripcion: string;
-  // Columnas reales de lote_labores
   productos?: string; dosis?: string;
   hectareas_trabajadas?: number; tipo_aplicacion?: string;
   precio_aplicacion_ha?: number; costo_total_usd?: number;
   metodo_carga?: string; metodo_entrada?: string;
   estado_carga?: string; cargado_por_rol?: string;
-  // Aliases normalizados en fetchLotes
   producto_dosis?: string; aplicador?: string;
   costo_aplicacion_ha?: number; costo_total?: number;
   superficie_ha?: number; comentario?: string; observaciones?: string;
   operario?: string; maquinaria?: string;
+};
+
+type InsumoStock = {
+  id: string; nombre: string; cantidad: number; unidad: string;
+  precio_ppp: number; precio_unitario: number; categoria: string;
+};
+
+type DescuentoItem = {
+  insumo_id: string; nombre: string; unidad: string;
+  cantidad_sugerida: number; cantidad_ajustada: number;
+  precio_ppp: number; costo_total: number; seleccionado: boolean;
 };
 
 const CULTIVOS_LISTA = [
@@ -159,6 +168,11 @@ export default function IngenieroLotesPage() {
   const [vozRespuesta, setVozRespuesta] = useState("");
   const [vozInput, setVozInput] = useState("");
   const recRef = useRef<any>(null);
+  // ── Estado descuento de insumos ──
+  const [showDescuento, setShowDescuento] = useState(false);
+  const [insumosStock, setInsumosStock] = useState<InsumoStock[]>([]);
+  const [descuentoItems, setDescuentoItems] = useState<DescuentoItem[]>([]);
+  const [laborPendiente, setLaborPendiente] = useState<any>(null);
 
   const getSB = async () => {
     const { createClient } = await import("@supabase/supabase-js");
@@ -292,6 +306,128 @@ export default function IngenieroLotesPage() {
   };
 
   // ── CRUD LABORES (cuaderno mejorado) ──
+
+  // Parsear descripción para detectar insumos y cantidades
+  // Ej: "Glifosato 4L/ha + 2,4D EHE 1,5L/ha + Metsulfuron 10gr/ha"
+  const parsearInsumosDeDescripcion = (desc: string, ha: number): DescuentoItem[] => {
+    if (!desc || !insumosStock.length) return [];
+    const items: DescuentoItem[] = [];
+    // Buscar cada insumo del stock en la descripción
+    for (const ins of insumosStock) {
+      const nombreNorm = ins.nombre.toLowerCase().replace(/[^a-z0-9]/g,' ').trim();
+      const descNorm   = desc.toLowerCase();
+      // Palabras clave del nombre del insumo
+      const palabras = nombreNorm.split(' ').filter(p => p.length >= 4);
+      const encontrado = palabras.length > 0 && palabras.some(p => descNorm.includes(p));
+      if (!encontrado) continue;
+      // Intentar extraer cantidad de la descripción cerca del nombre
+      // Patrones: "4L/ha", "1,5L/ha", "10gr/ha", "200cc/ha", "4 litros"
+      let cantHa = 0;
+      const patterns = [
+        /([0-9]+[,.]?[0-9]*)\s*(?:l\/ha|lt\/ha|litros\/ha|l\/hect)/i,
+        /([0-9]+[,.]?[0-9]*)\s*(?:cc\/ha|ml\/ha)/i,
+        /([0-9]+[,.]?[0-9]*)\s*(?:gr\/ha|g\/ha|kg\/ha)/i,
+        /(\d+[,.]?\d*)\s*(?:l|lt|litros)/i,
+        /(\d+[,.]?\d*)\s*(?:cc|ml)/i,
+        /(\d+[,.]?\d*)\s*(?:kg|gr|g)/i,
+      ];
+      // Buscar la cantidad más cerca del nombre del insumo en la descripción
+      const idxNombre = descNorm.indexOf(palabras[0]);
+      const ventana = descNorm.substring(Math.max(0, idxNombre - 5), idxNombre + 30);
+      for (const pat of patterns) {
+        const m = ventana.match(pat);
+        if (m) { cantHa = parseFloat(m[1].replace(',','.')); break; }
+      }
+      // Si no encontró cantidad específica, poner 0 para que el usuario la complete
+      const cantTotal = cantHa > 0 ? cantHa * ha : 0;
+      const ppp = ins.precio_ppp || ins.precio_unitario || 0;
+      items.push({
+        insumo_id: ins.id,
+        nombre: ins.nombre,
+        unidad: ins.unidad,
+        cantidad_sugerida: cantTotal,
+        cantidad_ajustada: cantTotal,
+        precio_ppp: ppp,
+        costo_total: cantTotal * ppp,
+        seleccionado: cantTotal > 0,
+      });
+    }
+    return items;
+  };
+
+  const abrirPanelDescuento = async (laborPayload: any, ha: number, desc: string) => {
+    const sb = await getSB();
+    const { data: ins } = await sb.from("stock_insumos")
+      .select("id,nombre,cantidad,unidad,precio_ppp,precio_unitario,categoria")
+      .eq("empresa_id", empresaId)
+      .gt("cantidad", 0)
+      .order("categoria");
+    const stockList = (ins ?? []) as InsumoStock[];
+    setInsumosStock(stockList);
+    // Parsear descripción para sugerir descuentos
+    const sugeridos = parsearInsumosDeDescripcion(desc, ha);
+    // Si no detectó ninguno, mostrar todos del stock para selección manual
+    if (sugeridos.length === 0) {
+      setDescuentoItems(stockList.map(i => ({
+        insumo_id: i.id, nombre: i.nombre, unidad: i.unidad,
+        cantidad_sugerida: 0, cantidad_ajustada: 0,
+        precio_ppp: i.precio_ppp || i.precio_unitario || 0,
+        costo_total: 0, seleccionado: false,
+      })));
+    } else {
+      setDescuentoItems(sugeridos);
+    }
+    setLaborPendiente(laborPayload);
+    setShowDescuento(true);
+  };
+
+  const confirmarDescuento = async () => {
+    if (!laborPendiente || !empresaId) return;
+    const sb = await getSB();
+    const itemsSeleccionados = descuentoItems.filter(d => d.seleccionado && d.cantidad_ajustada > 0);
+    let costoInsumosTotal = 0;
+    for (const item of itemsSeleccionados) {
+      const ins = insumosStock.find(i => i.id === item.insumo_id);
+      if (!ins) continue;
+      const nuevaCant = Math.max(0, ins.cantidad - item.cantidad_ajustada);
+      const ppp = ins.precio_ppp || ins.precio_unitario || 0;
+      const costoItem = item.cantidad_ajustada * ppp;
+      costoInsumosTotal += costoItem;
+      // Descontar del stock
+      await sb.from("stock_insumos").update({
+        cantidad: nuevaCant,
+        costo_total_stock: nuevaCant * ppp,
+      }).eq("id", item.insumo_id);
+      // Registrar movimiento
+      await sb.from("stock_insumos_movimientos").insert({
+        empresa_id: empresaId,
+        insumo_id: item.insumo_id,
+        fecha: laborPendiente.fecha || new Date().toISOString().split("T")[0],
+        tipo: "uso",
+        cantidad: item.cantidad_ajustada,
+        precio_unitario: 0,
+        precio_ppp: ppp,
+        lote_id: laborPendiente.lote_id,
+        descripcion: `Uso en labor: ${laborPendiente.descripcion || ""} — costo $${Math.round(costoItem).toLocaleString("es-AR")}`,
+        metodo: "ingeniero",
+      });
+    }
+    // Actualizar costo_insumos_usd en la labor si fue insertada
+    if (costoInsumosTotal > 0 && laborPendiente._labor_id) {
+      await sb.from("lote_labores").update({
+        costo_insumos_usd: costoInsumosTotal,
+        costo_total_usd: (laborPendiente.costo_total_usd || 0) + costoInsumosTotal,
+      }).eq("id", laborPendiente._labor_id);
+      // Actualizar MB con costo de insumos
+      if (loteActivo) await actualizarCostoLaboresEnMB(loteActivo.id, costoInsumosTotal);
+    }
+    msg(`✅ Stock descontado — ${itemsSeleccionados.length} insumos · $${Math.round(costoInsumosTotal).toLocaleString("es-AR")}`);
+    setShowDescuento(false);
+    setLaborPendiente(null);
+    setDescuentoItems([]);
+    await fetchLotes(empresaId, campanaActiva);
+  };
+
   const guardarLabor = async () => {
     if (!loteActivo || !empresaId) return;
     const sb = await getSB();
@@ -301,11 +437,12 @@ export default function IngenieroLotesPage() {
       : form.costo_aplicacion_ha
         ? Number(form.costo_aplicacion_ha) * ha
         : 0;
+    const desc = form.producto_dosis || form.descripcion_lab || "";
     const payload: Record<string,any> = {
       empresa_id:           empresaId,
       lote_id:              loteActivo.id,
       tipo:                 form.tipo_lab ?? "Aplicación",
-      descripcion:          form.producto_dosis || form.descripcion_lab || "",
+      descripcion:          desc,
       productos:            form.producto_dosis || "",
       dosis:                form.producto_dosis || "",
       fecha:                form.fecha_lab ?? new Date().toISOString().split("T")[0],
@@ -318,12 +455,24 @@ export default function IngenieroLotesPage() {
       estado_carga:         "confirmado",
       cargado_por_rol:      "ingeniero",
     };
-    if (editandoLabor) { await sb.from("lote_labores").update(payload).eq("id", editandoLabor); setEditandoLabor(null); }
-    else { await sb.from("lote_labores").insert(payload); }
-    if (costoTotal > 0) { await actualizarCostoLaboresEnMB(loteActivo.id, costoTotal); }
+    let laborId: string | null = null;
+    if (editandoLabor) {
+      await sb.from("lote_labores").update(payload).eq("id", editandoLabor);
+      laborId = editandoLabor;
+      setEditandoLabor(null);
+    } else {
+      const { data: nueva } = await sb.from("lote_labores").insert(payload).select("id").single();
+      laborId = nueva?.id ?? null;
+    }
+    if (costoTotal > 0) await actualizarCostoLaboresEnMB(loteActivo.id, costoTotal);
     msg("✅ Labor guardada");
     await fetchLotes(empresaId, campanaActiva);
     setShowFormLabor(false); setForm({});
+    // Abrir panel de descuento de insumos (si es Aplicación o Fertilización)
+    const tipoLabor = form.tipo_lab ?? "Aplicación";
+    if (["Aplicación","Fertilización","Siembra"].includes(tipoLabor) && laborId) {
+      await abrirPanelDescuento({ ...payload, _labor_id: laborId }, ha, desc);
+    }
   };
 
   const actualizarCostoLaboresEnMB = async (loteId: string, costoNuevo: number) => {
@@ -822,6 +971,74 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
       <div className="max-w-7xl mx-auto px-4 py-5">
         {/* Toast */}
         {msgExito&&<div className={`mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between fade-in ${msgExito.startsWith("✅")?"bg-green-500/10 text-green-400 border border-green-500/20":"bg-red-500/10 text-red-400 border border-red-500/20"}`}>{msgExito}<button onClick={()=>setMsgExito("")} className="ml-3 opacity-60 hover:opacity-100">✕</button></div>}
+
+        {/* ══ PANEL DESCUENTO DE INSUMOS ══ */}
+        {showDescuento&&(
+          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4" style={{background:"rgba(2,8,16,0.85)"}}>
+            <div className="w-full max-w-2xl bg-[#0a1628] border border-[#4ADE80]/40 rounded-2xl overflow-hidden shadow-2xl">
+              <div className="px-5 py-4 border-b border-[#4ADE80]/20 flex items-center justify-between" style={{background:"rgba(74,222,128,0.05)"}}>
+                <div>
+                  <h3 className="font-bold text-sm" style={{color:"#4ADE80"}}>🧪 DESCONTAR INSUMOS DEL STOCK</h3>
+                  <p className="text-xs font-mono mt-0.5" style={{color:"#4B5563"}}>Labor: {laborPendiente?.tipo} — {laborPendiente?.descripcion?.substring(0,40)}</p>
+                </div>
+                <button onClick={()=>{setShowDescuento(false);setLaborPendiente(null);setDescuentoItems([]);}} className="text-gray-500 hover:text-white text-lg">✕</button>
+              </div>
+              <div className="p-4 max-h-80 overflow-y-auto">
+                {descuentoItems.length===0?(
+                  <p className="text-center text-gray-500 text-sm py-6 font-mono">Sin insumos en stock para este productor</p>
+                ):(
+                  <table className="w-full text-xs">
+                    <thead><tr className="border-b border-green-500/15">
+                      {["✓","INSUMO","CANTIDAD","UNIDAD","PPP","COSTO"].map(h=>(
+                        <th key={h} className={`px-2 py-2 font-mono text-gray-500 ${h==="CANTIDAD"||h==="PPP"||h==="COSTO"?"text-right":"text-left"}`}>{h}</th>
+                      ))}
+                    </tr></thead>
+                    <tbody>{descuentoItems.map((item,i)=>(
+                      <tr key={item.insumo_id} className={`border-b border-green-500/10 transition-colors ${item.seleccionado?"bg-green-500/5":"opacity-50"}`}>
+                        <td className="px-2 py-2.5">
+                          <button onClick={()=>{const u=[...descuentoItems];u[i]={...u[i],seleccionado:!u[i].seleccionado};setDescuentoItems(u);}}
+                            className={`w-4 h-4 rounded border flex items-center justify-center text-xs ${item.seleccionado?"bg-green-400 border-green-400 text-black":"border-gray-600"}`}>
+                            {item.seleccionado?"✓":""}
+                          </button>
+                        </td>
+                        <td className="px-2 py-2.5 font-bold text-gray-200 font-mono">{item.nombre}</td>
+                        <td className="px-2 py-2.5 text-right">
+                          <input type="number" value={item.cantidad_ajustada||""}
+                            onChange={e=>{const c=parseFloat(e.target.value)||0;const u=[...descuentoItems];u[i]={...u[i],cantidad_ajustada:c,costo_total:c*u[i].precio_ppp,seleccionado:c>0};setDescuentoItems(u);}}
+                            className="w-20 bg-black/40 border border-green-500/30 rounded px-2 py-1 text-gray-200 text-xs font-mono text-right focus:outline-none focus:border-green-400"
+                            placeholder="0"/>
+                        </td>
+                        <td className="px-2 py-2.5 text-gray-400 font-mono">{item.unidad}</td>
+                        <td className="px-2 py-2.5 text-right font-bold font-mono text-amber-400">{item.precio_ppp>0?`$${item.precio_ppp.toFixed(2)}`:"—"}</td>
+                        <td className="px-2 py-2.5 text-right font-bold font-mono" style={{color:item.costo_total>0?"#4ADE80":"#4B5563"}}>
+                          {item.costo_total>0?`$${Math.round(item.costo_total).toLocaleString("es-AR")}`:"—"}
+                        </td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                )}
+              </div>
+              <div className="px-5 py-4 border-t border-green-500/20 bg-black/40">
+                {descuentoItems.filter(d=>d.seleccionado&&d.cantidad_ajustada>0).length>0&&(
+                  <div className="flex items-center justify-between mb-3 px-3 py-2 rounded-xl bg-green-500/10">
+                    <span className="text-xs text-gray-500 font-mono">{descuentoItems.filter(d=>d.seleccionado).length} insumos seleccionados</span>
+                    <span className="font-bold text-green-400 font-mono">Total: ${Math.round(descuentoItems.filter(d=>d.seleccionado).reduce((a,d)=>a+d.costo_total,0)).toLocaleString("es-AR")}</span>
+                  </div>
+                )}
+                <div className="flex gap-3">
+                  <button onClick={confirmarDescuento} className="flex-1 py-2.5 rounded-xl font-bold text-sm transition-colors" style={{background:"rgba(74,222,128,0.15)",border:"1px solid rgba(74,222,128,0.4)",color:"#4ADE80"}}>
+                    ✓ Confirmar y descontar
+                  </button>
+                  <button onClick={()=>{setShowDescuento(false);setLaborPendiente(null);setDescuentoItems([]);}} className="px-5 py-2.5 rounded-xl border border-gray-800 text-gray-500 text-sm hover:text-gray-300 transition-colors">
+                    Omitir
+                  </button>
+                </div>
+                <p className="text-xs text-gray-600 font-mono text-center mt-2">El costo PPP se sumará al Margen Bruto del lote</p>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* ══ FIN PANEL DESCUENTO ══ */}
 
         {/* ══════════════════════════════════
             DETALLE LOTE — CUADERNO DE CAMPO
