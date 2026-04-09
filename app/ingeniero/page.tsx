@@ -103,7 +103,15 @@ export default function IngenieroPanel() {
   const [vozPanel, setVozPanel] = useState(false);
   const [vozInput, setVozInput] = useState("");
 
-  useEffect(() => { init(); }, []);
+  useEffect(() => {
+    init();
+    // Leer sección desde URL ?s=productores
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const s = params.get("s");
+      if (s) setSeccion(s as Seccion);
+    }
+  }, []);
 
   const init = async () => {
     try {
