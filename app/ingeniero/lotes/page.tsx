@@ -798,8 +798,8 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
 
       {/* ── HEADER ── */}
       <div className="bg-[#0c1520] border-b border-[#1e2d3d] px-4 py-3 flex items-center gap-3 sticky top-0 z-20">
-        <button onClick={()=>loteActivo?setLoteActivo(null):window.location.href="/ingeniero"} className="text-gray-500 hover:text-green-400 text-sm font-medium transition-colors flex items-center gap-1.5">
-          ← {loteActivo?"Volver a lotes":"Mi Panel"}
+        <button onClick={()=>loteActivo?setLoteActivo(null):window.location.href="/ingeniero?s=productores"} className="text-gray-500 hover:text-green-400 text-sm font-medium transition-colors flex items-center gap-1.5">
+          ← {loteActivo?"Volver a lotes":"Mis Productores"}
         </button>
         <div className="flex-1"/>
         <div className="text-right">
