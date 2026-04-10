@@ -428,8 +428,6 @@ export default function IngenieroPanel() {
   const iCls = "gi w-full px-3 py-2.5 text-gray-800 text-sm";
   const lCls = "gi-label";
   const cardCls = "gc";
-  const lCls = "block text-xs text-gray-500 font-semibold mb-1.5 uppercase tracking-wide";
-  const cardCls = "glass-card";
 
   // Selector cultivo con libre
   const SelectorCultivo = ({value, onChange}:{value:string,onChange:(v:string)=>void}) => {
