@@ -425,7 +425,8 @@ export default function IngenieroPanel() {
   })();
 
   // Inputs
-  const iCls = "glass-input w-full px-3 py-2.5 text-gray-800 text-sm placeholder:text-gray-400";
+  const iCls = "gi w-full px-3 py-2.5 text-gray-800 text-sm";
+  const lCls = "block text-xs font-semibold mb-1.5 uppercase tracking-wide text-gray-500";
   const lCls = "block text-xs text-gray-500 font-semibold mb-1.5 uppercase tracking-wide";
   const cardCls = "glass-card";
 
@@ -457,819 +458,855 @@ export default function IngenieroPanel() {
   };
 
 
+
   if(loading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{background:"linear-gradient(135deg,#dbeafe 0%,#EAF2F8 50%,#f0f7ff 100%)"}}>
-      <div className="flex flex-col items-center gap-3">
-        <div className="w-10 h-10 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" style={{borderWidth:3}}/>
-        <span className="text-gray-500 font-medium text-sm">Cargando AgroGestión PRO...</span>
+    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at 30% 20%,#1a6fcf 0%,#0d47a1 40%,#063080 100%)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:12}}>
+        <div style={{width:40,height:40,border:"3px solid rgba(255,255,255,0.8)",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+        <span style={{color:"rgba(255,255,255,0.8)",fontWeight:600,fontSize:14}}>Cargando AgroGestión PRO...</span>
       </div>
     </div>
   );
 
+  // Ícono por cultivo para la sección distribución
+  const cultivoIcono = (label:string) => {
+    const l = label.toLowerCase();
+    if(l.includes("soja")) return "🌱";
+    if(l.includes("maíz")||l.includes("maiz")) return "🌽";
+    if(l.includes("trigo")) return "🌾";
+    if(l.includes("girasol")) return "🌻";
+    if(l.includes("sorgo")) return "🌿";
+    if(l.includes("cebada")) return "🍃";
+    if(l.includes("arveja")) return "🫛";
+    return "🌱";
+  };
+
   return (
-    <div className="min-h-screen" style={{background:"linear-gradient(135deg,#dbeafe 0%,#EAF2F8 35%,#f0f7ff 65%,#e8f4fd 100%)",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",position:"relative"}}>
-      {/* Orbs de luz de fondo — efecto iPhone */}
-      <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0,overflow:"hidden"}}>
-        <div style={{position:"absolute",top:"-10%",left:"-5%",width:"50%",height:"50%",borderRadius:"50%",background:"radial-gradient(ellipse,rgba(25,118,210,0.12) 0%,transparent 70%)",filter:"blur(40px)"}}/>
-        <div style={{position:"absolute",top:"30%",right:"-10%",width:"45%",height:"45%",borderRadius:"50%",background:"radial-gradient(ellipse,rgba(0,175,255,0.10) 0%,transparent 70%)",filter:"blur(50px)"}}/>
-        <div style={{position:"absolute",bottom:"10%",left:"20%",width:"40%",height:"40%",borderRadius:"50%",background:"radial-gradient(ellipse,rgba(99,179,237,0.08) 0%,transparent 70%)",filter:"blur(45px)"}}/>
-      </div>
+    <div style={{minHeight:"100vh",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",position:"relative",overflow:"hidden",
+      background:"radial-gradient(ellipse at 20% 10%, #1e88e5 0%, #1565c0 30%, #0d47a1 55%, #1a237e 80%, #0a1a6e 100%)"}}>
+
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap');
-
-        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-        @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap');
         @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes crystal-glow{
-          0%,100%{box-shadow:0 8px 32px rgba(25,118,210,0.15),0 0 0 1px rgba(255,255,255,0.5),inset 0 1px 0 rgba(255,255,255,0.9),inset 0 -1px 0 rgba(0,0,0,0.05);}
-          50%{box-shadow:0 12px 40px rgba(25,118,210,0.25),0 0 0 1px rgba(255,255,255,0.7),inset 0 1px 0 rgba(255,255,255,1),inset 0 -1px 0 rgba(0,0,0,0.03);}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+        @keyframes sweep{0%{left:-60%}100%{left:150%}}
+        @keyframes glow-pulse{0%,100%{opacity:.6}50%{opacity:1}}
+
+        /* ── FONDO RAYOS DE LUZ ── */
+        .bg-rays::before,.bg-rays::after{content:"";position:fixed;pointer-events:none;}
+        .bg-rays::before{
+          top:-20%;right:-10%;width:60%;height:80%;
+          background:radial-gradient(ellipse,rgba(100,180,255,0.25) 0%,transparent 65%);
+          filter:blur(30px);animation:glow-pulse 4s ease-in-out infinite;
         }
-        @keyframes light-sweep{
-          0%{transform:translateX(-200%) rotate(35deg);}
-          100%{transform:translateX(400%) rotate(35deg);}
+        .bg-rays::after{
+          bottom:-10%;left:-10%;width:50%;height:60%;
+          background:radial-gradient(ellipse,rgba(30,136,229,0.20) 0%,transparent 65%);
+          filter:blur(40px);animation:glow-pulse 5s ease-in-out infinite reverse;
         }
 
-        /* ══ CRYSTAL GLASS BASE ══ */
-        .glass-card {
-          position: relative;
-          overflow: hidden;
-          background: linear-gradient(
-            160deg,
-            rgba(255,255,255,0.82) 0%,
-            rgba(255,255,255,0.58) 40%,
-            rgba(240,248,255,0.65) 100%
-          );
-          backdrop-filter: blur(20px) saturate(180%);
-          -webkit-backdrop-filter: blur(20px) saturate(180%);
-          border-radius: 20px;
-          /* Borde cristal multicapa */
-          border: 1px solid rgba(255,255,255,0.75);
-          outline: 1px solid rgba(25,118,210,0.06);
-          /* Sombra profunda + rebote de luz */
+        /* ── CRISTAL PREMIUM ── */
+        .gc{
+          position:relative;overflow:hidden;
+          background:linear-gradient(145deg,rgba(255,255,255,0.28) 0%,rgba(255,255,255,0.10) 60%,rgba(200,225,255,0.12) 100%);
+          backdrop-filter:blur(22px) saturate(160%);
+          -webkit-backdrop-filter:blur(22px) saturate(160%);
+          border:1px solid rgba(255,255,255,0.35);
+          border-top:1px solid rgba(255,255,255,0.55);
+          border-left:1px solid rgba(255,255,255,0.45);
           box-shadow:
-            0 8px 32px rgba(25,118,210,0.10),
-            0 2px 8px rgba(0,0,0,0.06),
-            inset 0 2px 0 rgba(255,255,255,0.95),
-            inset 0 -1px 0 rgba(255,255,255,0.3),
-            inset 1px 0 0 rgba(255,255,255,0.5),
-            inset -1px 0 0 rgba(255,255,255,0.5);
+            0 8px 32px rgba(0,30,100,0.22),
+            0 1px 0 rgba(255,255,255,0.5) inset,
+            0 -1px 0 rgba(255,255,255,0.08) inset,
+            1px 0 0 rgba(255,255,255,0.2) inset,
+            -1px 0 0 rgba(255,255,255,0.2) inset;
+          border-radius:18px;
+          color:white;
         }
-        /* Reflejo diagonal interno (borde superior brillante) */
-        .glass-card::before {
-          content:"";
-          position:absolute;
-          top:0;left:0;right:0;
-          height:50%;
-          background:linear-gradient(180deg,rgba(255,255,255,0.55) 0%,rgba(255,255,255,0) 100%);
-          border-radius:20px 20px 0 0;
-          pointer-events:none;
-          z-index:1;
+        /* Reflejo diagonal interior */
+        .gc::before{
+          content:"";position:absolute;
+          top:0;left:0;right:0;height:55%;
+          background:linear-gradient(175deg,rgba(255,255,255,0.22) 0%,rgba(255,255,255,0) 100%);
+          border-radius:18px 18px 0 0;pointer-events:none;z-index:0;
         }
-        /* Sweep de luz — sweep lento y sutil siempre activo */
-        .glass-card::after {
-          content:"";
-          position:absolute;
-          top:-50%;left:-60%;
-          width:35%;height:200%;
-          background:linear-gradient(100deg,
-            transparent 0%,
-            rgba(255,255,255,0.08) 40%,
-            rgba(255,255,255,0.18) 50%,
-            rgba(255,255,255,0.08) 60%,
-            transparent 100%
-          );
-          transform:rotate(20deg);
-          animation:light-sweep 6s ease-in-out infinite;
-          pointer-events:none;
-          z-index:2;
+        /* Sweep de luz lento */
+        .gc::after{
+          content:"";position:absolute;
+          top:-40%;left:-60%;width:30%;height:180%;
+          background:linear-gradient(90deg,transparent,rgba(255,255,255,0.12),transparent);
+          transform:skewX(-15deg);
+          animation:sweep 8s ease-in-out infinite;
+          pointer-events:none;z-index:0;
         }
-        .glass-card > * { position:relative; z-index:3; }
+        .gc>*{position:relative;z-index:1;}
 
-        /* ══ CRYSTAL BUTTON ══ */
-        .glass-btn {
-          position:relative;
-          overflow:hidden;
-          background:linear-gradient(160deg,
-            rgba(255,255,255,0.88) 0%,
-            rgba(255,255,255,0.60) 100%
-          );
-          backdrop-filter:blur(16px) saturate(160%);
-          -webkit-backdrop-filter:blur(16px) saturate(160%);
-          border-radius:14px;
-          border:1px solid rgba(255,255,255,0.8);
+        /* Cristal más blanco para tarjetas internas en fondo oscuro */
+        .gc-inner{
+          position:relative;overflow:hidden;
+          background:linear-gradient(145deg,rgba(255,255,255,0.32) 0%,rgba(255,255,255,0.12) 55%,rgba(180,215,255,0.15) 100%);
+          backdrop-filter:blur(16px);
+          -webkit-backdrop-filter:blur(16px);
+          border:1px solid rgba(255,255,255,0.40);
+          border-top:1px solid rgba(255,255,255,0.60);
           box-shadow:
-            0 4px 16px rgba(0,0,0,0.07),
-            inset 0 2px 0 rgba(255,255,255,1),
-            inset 0 -1px 0 rgba(0,0,150,0.04);
-          cursor:pointer;
-          transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1);
+            0 4px 20px rgba(0,20,80,0.18),
+            0 1px 0 rgba(255,255,255,0.55) inset;
+          border-radius:16px;
+          color:white;
         }
-        .glass-btn::before {
+        .gc-inner::before{
           content:"";position:absolute;
           top:0;left:0;right:0;height:50%;
-          background:linear-gradient(180deg,rgba(255,255,255,0.7) 0%,transparent 100%);
-          border-radius:14px 14px 0 0;pointer-events:none;z-index:1;
+          background:linear-gradient(180deg,rgba(255,255,255,0.25) 0%,transparent 100%);
+          border-radius:16px 16px 0 0;pointer-events:none;
         }
-        .glass-btn::after {
-          content:"";position:absolute;
-          top:-20%;left:-80%;width:40%;height:140%;
-          background:linear-gradient(90deg,transparent,rgba(0,150,255,0.22),transparent);
-          transform:skewX(-20deg);
-          transition:left 0.5s ease;pointer-events:none;z-index:2;
-        }
-        .glass-btn:hover::after{left:160%;}
-        .glass-btn:hover{
-          transform:translateY(-2px) scale(1.02);
-          box-shadow:0 8px 24px rgba(25,118,210,0.18),inset 0 2px 0 rgba(255,255,255,1);
-        }
-        .glass-btn:active{transform:scale(0.98);}
-        .glass-btn > * {position:relative;z-index:3;}
+        .gc-inner>*{position:relative;}
 
-        /* ══ NAV TAB ══ */
-        .nav-btn{
+        /* ── CONTENEDOR PRINCIPAL (el marco grande del mockup) ── */
+        .main-frame{
+          background:linear-gradient(145deg,rgba(255,255,255,0.22) 0%,rgba(200,225,255,0.08) 100%);
+          backdrop-filter:blur(24px) saturate(150%);
+          -webkit-backdrop-filter:blur(24px) saturate(150%);
+          border:1.5px solid rgba(255,255,255,0.38);
+          border-top:2px solid rgba(255,255,255,0.55);
+          border-radius:28px;
+          box-shadow:
+            0 20px 60px rgba(0,20,100,0.35),
+            0 1px 0 rgba(255,255,255,0.55) inset,
+            0 -1px 0 rgba(255,255,255,0.1) inset,
+            inset 0 0 40px rgba(100,170,255,0.04);
+          overflow:hidden;position:relative;
+        }
+        .main-frame::before{
+          content:"";position:absolute;
+          top:0;left:0;right:0;height:40%;
+          background:linear-gradient(180deg,rgba(255,255,255,0.15) 0%,transparent 100%);
+          pointer-events:none;z-index:0;
+        }
+        .main-frame>*{position:relative;z-index:1;}
+
+        /* ── TOPBAR del marco ── */
+        .topbar-frame{
+          background:linear-gradient(180deg,rgba(255,255,255,0.20) 0%,rgba(255,255,255,0.08) 100%);
+          border-bottom:1px solid rgba(255,255,255,0.20);
+          padding:14px 18px;
+          display:flex;align-items:center;justify-content:space-between;
+        }
+
+        /* ── NAV TABS ── */
+        .nav-tab{
           position:relative;overflow:hidden;
-          transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1);
-          border-radius:12px;
+          padding:9px 16px;border-radius:12px;
+          font-size:13px;font-weight:600;
+          cursor:pointer;transition:all 0.2s ease;
+          border:1px solid rgba(255,255,255,0.15);
+          background:rgba(255,255,255,0.08);
+          color:rgba(255,255,255,0.7);
           white-space:nowrap;
         }
-        .nav-btn:hover{transform:translateY(-1px);}
-        .nav-active{
-          background:linear-gradient(160deg,
-            rgba(13,71,161,0.18) 0%,
-            rgba(25,118,210,0.12) 100%
-          ) !important;
-          border:1px solid rgba(25,118,210,0.35) !important;
-          box-shadow:
-            0 0 0 1px rgba(25,118,210,0.15),
-            0 4px 14px rgba(13,71,161,0.2),
-            inset 0 1px 0 rgba(255,255,255,0.7),
-            inset 0 -1px 0 rgba(25,118,210,0.1);
-          color:#0D47A1 !important;
+        .nav-tab:hover{background:rgba(255,255,255,0.14);color:white;}
+        .nav-tab.active{
+          background:linear-gradient(145deg,#1565c0,#0d47a1);
+          border:1px solid rgba(100,160,255,0.5);
+          border-top:1px solid rgba(150,200,255,0.6);
+          color:white;
+          box-shadow:0 4px 16px rgba(13,71,161,0.5),inset 0 1px 0 rgba(255,255,255,0.25);
         }
 
-        /* ══ PROD CARD ══ */
-        .prod-card{
-          transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1);
-          cursor:default;
-        }
-        .prod-card:hover{
-          transform:translateY(-4px);
-          box-shadow:
-            0 20px 48px rgba(25,118,210,0.15),
-            0 4px 12px rgba(0,0,0,0.06),
-            inset 0 2px 0 rgba(255,255,255,0.98),
-            inset 0 -1px 0 rgba(255,255,255,0.4) !important;
-          border-color:rgba(25,118,210,0.2) !important;
-        }
-
-        /* ══ BLUE BUTTON ══ */
-        .btn-blue{
-          background:linear-gradient(160deg,#2196F3 0%,#1565C0 100%);
-          border:none;color:white;border-radius:14px;
-          box-shadow:
-            0 4px 14px rgba(25,118,210,0.40),
-            inset 0 1px 0 rgba(255,255,255,0.25),
-            inset 0 -1px 0 rgba(0,0,0,0.15);
-          transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1);
-          cursor:pointer;
-        }
-        .btn-blue:hover{
-          transform:translateY(-2px);
-          box-shadow:0 8px 22px rgba(25,118,210,0.55),inset 0 1px 0 rgba(255,255,255,0.3);
-        }
-        .btn-blue:active{transform:scale(0.97);}
-
-        /* ══ GHOST BUTTON ══ */
-        .btn-ghost{
-          background:linear-gradient(160deg,rgba(255,255,255,0.75),rgba(255,255,255,0.5));
-          border:1px solid rgba(255,255,255,0.7);
+        /* ── BOTONES DE ACCION (Nuevo/Importar/Exportar) ── */
+        .action-btn{
+          position:relative;overflow:hidden;
+          background:linear-gradient(145deg,rgba(255,255,255,0.20) 0%,rgba(255,255,255,0.07) 100%);
+          border:1px solid rgba(255,255,255,0.30);
+          border-top:1px solid rgba(255,255,255,0.45);
           border-radius:14px;
-          box-shadow:0 2px 8px rgba(0,0,0,0.06),inset 0 1px 0 rgba(255,255,255,0.9);
-          transition:all 0.2s ease;
+          padding:12px 16px;
+          color:white;font-weight:600;font-size:13px;
           cursor:pointer;
+          box-shadow:0 4px 14px rgba(0,20,80,0.15),inset 0 1px 0 rgba(255,255,255,0.3);
+          transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1);
+          display:flex;align-items:center;justify-content:center;gap:7px;
         }
-        .btn-ghost:hover{background:rgba(255,255,255,0.92);transform:translateY(-1px);}
+        .action-btn::after{
+          content:"";position:absolute;
+          top:-30%;left:-70%;width:40%;height:160%;
+          background:linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent);
+          transform:skewX(-20deg);transition:left 0.5s ease;
+        }
+        .action-btn:hover{transform:translateY(-2px);background:rgba(255,255,255,0.24);box-shadow:0 8px 24px rgba(0,20,80,0.25);}
+        .action-btn:hover::after{left:150%;}
+        .action-btn:active{transform:scale(0.97);}
 
-        /* ══ INPUT ══ */
-        .glass-input{
-          background:rgba(255,255,255,0.65);
-          border:1px solid rgba(255,255,255,0.7);
-          border-radius:12px;
-          box-shadow:inset 0 2px 4px rgba(0,0,0,0.04),inset 0 1px 0 rgba(255,255,255,0.8);
+        /* ── BOTÓN AZUL SÓLIDO ── */
+        .btn-solid{
+          background:linear-gradient(145deg,#2196f3,#1565c0);
+          border:1px solid rgba(100,160,255,0.4);
+          border-top:1px solid rgba(150,200,255,0.5);
+          border-radius:14px;
+          color:white;font-weight:700;font-size:13px;
+          padding:10px 18px;cursor:pointer;
+          box-shadow:0 4px 16px rgba(21,101,192,0.5),inset 0 1px 0 rgba(255,255,255,0.25);
           transition:all 0.2s ease;
         }
-        .glass-input:focus{
-          background:rgba(255,255,255,0.92);
-          border-color:rgba(25,118,210,0.4);
-          box-shadow:0 0 0 3px rgba(25,118,210,0.1),inset 0 2px 4px rgba(0,0,0,0.02);
-          outline:none;
-        }
+        .btn-solid:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(21,101,192,0.6);}
+        .btn-solid:active{transform:scale(0.97);}
 
-        /* ══ TOPBAR ══ */
-        .topbar{
-          background:linear-gradient(180deg,
-            rgba(255,255,255,0.88) 0%,
-            rgba(255,255,255,0.78) 100%
-          );
-          backdrop-filter:blur(24px) saturate(180%);
-          -webkit-backdrop-filter:blur(24px) saturate(180%);
-          border-bottom:1px solid rgba(255,255,255,0.6);
-          box-shadow:
-            0 1px 0 rgba(255,255,255,0.9),
-            0 2px 20px rgba(0,0,0,0.06);
+        /* ── DROPDOWN CRISTAL ── */
+        .sel-crystal{
+          background:linear-gradient(145deg,rgba(255,255,255,0.18),rgba(255,255,255,0.06));
+          border:1px solid rgba(255,255,255,0.30);
+          border-radius:12px;color:white;
+          padding:8px 12px;font-size:13px;font-weight:500;
+          -webkit-appearance:none;cursor:pointer;
+          box-shadow:inset 0 1px 0 rgba(255,255,255,0.2);
         }
+        .sel-crystal option{background:#0d47a1;color:white;}
 
-        /* ══ MISC ══ */
+        /* ── INPUT CRISTAL ── */
+        .gi{
+          background:rgba(255,255,255,0.12);
+          border:1px solid rgba(255,255,255,0.28);
+          border-top:1px solid rgba(255,255,255,0.40);
+          border-radius:12px;color:white;
+          box-shadow:inset 0 1px 3px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.1);
+          transition:all 0.2s ease;
+        }
+        .gi::placeholder{color:rgba(255,255,255,0.4);}
+        .gi:focus{background:rgba(255,255,255,0.18);border-color:rgba(100,180,255,0.6);outline:none;box-shadow:0 0 0 3px rgba(100,180,255,0.15);}
+        .gi option{background:#0d47a1;color:white;}
+
+        /* ── TARJETA KPI (Hectáreas / Honorario) ── */
+        .kpi-card{
+          position:relative;overflow:hidden;
+          background:linear-gradient(155deg,rgba(255,255,255,0.30) 0%,rgba(255,255,255,0.08) 55%,rgba(180,215,255,0.10) 100%);
+          border:1px solid rgba(255,255,255,0.38);
+          border-top:1.5px solid rgba(255,255,255,0.65);
+          border-radius:16px;
+          box-shadow:0 4px 20px rgba(0,20,80,0.18),inset 0 1px 0 rgba(255,255,255,0.6),inset 0 -1px 0 rgba(255,255,255,0.05);
+          padding:16px;text-align:center;color:white;
+        }
+        .kpi-card::before{
+          content:"";position:absolute;top:0;left:0;right:0;height:50%;
+          background:linear-gradient(180deg,rgba(255,255,255,0.28) 0%,transparent 100%);
+          border-radius:16px 16px 0 0;pointer-events:none;
+        }
+        .kpi-card>*{position:relative;}
+
+        /* ── CHIP CULTIVO ── */
+        .cult-chip{
+          display:flex;align-items:center;justify-content:center;gap:6px;
+          border-radius:14px;padding:10px 14px;font-size:13px;font-weight:700;
+          border:1px solid rgba(255,255,255,0.25);
+          box-shadow:inset 0 1px 0 rgba(255,255,255,0.3),0 2px 8px rgba(0,0,0,0.12);
+          position:relative;overflow:hidden;
+        }
+        .cult-chip::before{content:"";position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.25) 0%,transparent 100%);border-radius:14px 14px 0 0;}
+
+        /* ── BTN MIS LOTES ── */
+        .btn-mislotes{
+          width:100%;padding:14px 20px;
+          background:linear-gradient(145deg,rgba(255,255,255,0.20) 0%,rgba(255,255,255,0.06) 100%);
+          border:1px solid rgba(255,255,255,0.30);
+          border-top:1.5px solid rgba(255,255,255,0.50);
+          border-radius:16px;color:white;
+          font-size:15px;font-weight:700;
+          display:flex;align-items:center;justify-content:center;gap:10px;
+          cursor:pointer;
+          box-shadow:0 4px 20px rgba(0,20,80,0.15),inset 0 1px 0 rgba(255,255,255,0.35);
+          transition:all 0.22s cubic-bezier(0.34,1.56,0.64,1);
+          position:relative;overflow:hidden;
+        }
+        .btn-mislotes::before{content:"";position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.22) 0%,transparent 100%);border-radius:16px 16px 0 0;}
+        .btn-mislotes:hover{transform:translateY(-2px);background:rgba(255,255,255,0.24);box-shadow:0 8px 28px rgba(0,20,80,0.25);}
+        .btn-mislotes>*{position:relative;}
+
+        /* ── PROD CARD ── */
+        .prod-card{transition:all 0.22s cubic-bezier(0.34,1.56,0.64,1);}
+        .prod-card:hover{transform:translateY(-3px);}
+
+        /* ── MISC ── */
         .fade-in{animation:fadeIn 0.25s ease;}
-        .badge-app{
-          background:linear-gradient(135deg,rgba(22,163,74,0.12),rgba(22,163,74,0.06));
-          border:1px solid rgba(22,163,74,0.22);
-          color:#16a34a;border-radius:8px;
-          box-shadow:inset 0 1px 0 rgba(255,255,255,0.6);
-        }
-        .cultivo-chip{
-          border-radius:10px;font-size:12px;font-weight:600;
-          padding:4px 10px;
-          box-shadow:inset 0 1px 0 rgba(255,255,255,0.6);
-        }
-        .bar-track{background:rgba(0,0,0,0.06);border-radius:99px;height:7px;overflow:hidden;}
-        ::-webkit-scrollbar{width:4px;height:4px}
-        ::-webkit-scrollbar-track{background:transparent}
-        ::-webkit-scrollbar-thumb{background:rgba(25,118,210,0.2);border-radius:4px}
-        input[type=date]::-webkit-calendar-picker-indicator{opacity:0.4}
-        select option{background:white;color:#1a1a1a;}
-`}</style>
+        ::-webkit-scrollbar{width:3px}
+        ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.2);border-radius:3px}
+        input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:0.5}
+      `}</style>
 
-      {/* ══ TOPBAR ══ */}
-      <div className="topbar sticky top-0 z-20">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/30">
-          <div className="flex items-center gap-3">
-            <Image src="/logo.png" alt="AgroGestión PRO" width={120} height={38} className="object-contain"/>
-          </div>
-          <div className="flex items-center gap-2.5">
-            {alertas.length>0&&(
-              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{background:"rgba(239,68,68,0.12)",border:"1px solid rgba(239,68,68,0.25)",color:"#dc2626"}}>
-                {alertas.length}
+      {/* ORBS DE LUZ */}
+      <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0}}>
+        <div style={{position:"absolute",top:"-15%",right:"-5%",width:"55%",height:"55%",borderRadius:"50%",background:"radial-gradient(ellipse,rgba(100,180,255,0.30) 0%,transparent 65%)",filter:"blur(50px)"}}/>
+        <div style={{position:"absolute",bottom:"-5%",left:"-10%",width:"50%",height:"50%",borderRadius:"50%",background:"radial-gradient(ellipse,rgba(30,136,229,0.22) 0%,transparent 65%)",filter:"blur(60px)"}}/>
+        <div style={{position:"absolute",top:"40%",left:"30%",width:"40%",height:"35%",borderRadius:"50%",background:"radial-gradient(ellipse,rgba(150,200,255,0.12) 0%,transparent 65%)",filter:"blur(45px)"}}/>
+      </div>
+
+      <div style={{position:"relative",zIndex:1,maxWidth:520,margin:"0 auto",padding:"16px 14px 80px"}}>
+
+        {/* ══ MARCO PRINCIPAL ══ */}
+        <div className="main-frame">
+
+          {/* TOPBAR */}
+          <div className="topbar-frame">
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <Image src="/logo.png" alt="AgroGestión PRO" width={36} height={36} className="object-contain" style={{borderRadius:10}}/>
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:18,fontWeight:800,color:"white"}}>AgroGestión</span>
+                  <span style={{fontSize:10,fontWeight:700,background:"linear-gradient(135deg,#42a5f5,#1565c0)",borderRadius:5,padding:"2px 7px",color:"white",letterSpacing:1}}>PRO</span>
+                </div>
+                <div style={{fontSize:11,color:"rgba(255,255,255,0.55)",marginTop:1}}>Gestión inteligente. Decisiones que rinden.</div>
               </div>
-            )}
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shadow-md" style={{background:"linear-gradient(135deg,#1976D2,#0D47A1)"}}>
-                {ingNombre.charAt(0)}
-              </div>
-              <div className="hidden sm:block">
-                <div className="text-sm font-semibold text-gray-800 leading-none">{ingNombre}</div>
-                <div className="text-xs text-gray-400 mt-0.5">Cód. {ingData.codigo}</div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#42a5f5,#1565c0)",border:"1.5px solid rgba(255,255,255,0.4)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,color:"white",boxShadow:"0 2px 10px rgba(21,101,192,0.4)"}}>
+                {ingNombre.charAt(0)||"M"}
               </div>
               <button onClick={async()=>{const sb=await getSB();await sb.auth.signOut();window.location.href="/login";}}
-                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50 ml-1">
-                Salir <span className="text-base">⎋</span>
+                style={{display:"flex",alignItems:"center",gap:5,color:"rgba(255,255,255,0.7)",fontSize:13,fontWeight:500,background:"none",border:"none",cursor:"pointer"}}>
+                Salir <span style={{fontSize:16}}>⎋</span>
               </button>
             </div>
           </div>
-        </div>
-        {/* Nav tabs */}
-        <div className="flex overflow-x-auto px-3 py-2.5 gap-1.5" style={{scrollbarWidth:"none"}}>
-          {NAV.map(item=>(
-            <button key={item.k}
-              onClick={()=>{setSeccion(item.k as Seccion);setShowForm(false);setForm({});setVehiculoSel(null);}}
-              className={`nav-btn flex items-center gap-1.5 px-4 py-2 text-sm font-semibold flex-shrink-0 border ${seccion===item.k?"nav-active":"glass-btn text-gray-600 hover:text-blue-700"}`}>
-              <span className="text-base">{item.icon}</span>
-              <span>{item.label}</span>
-              {seccion===item.k&&<div className="w-1.5 h-1.5 rounded-full bg-blue-600 ml-0.5"/>}
-            </button>
-          ))}
-        </div>
-      </div>
 
-      {/* ══ CONTENT ══ */}
-      <div className="max-w-2xl mx-auto px-4 py-5 pb-28" style={{position:"relative",zIndex:1}}>
-
-        {/* Toast */}
-        {msj&&<div className="mb-4 px-4 py-3 rounded-2xl text-sm font-medium flex items-center justify-between fade-in"
-          style={{background:msj.startsWith("✅")?"rgba(22,163,74,0.1)":"rgba(239,68,68,0.1)",border:msj.startsWith("✅")?"1px solid rgba(22,163,74,0.25)":"1px solid rgba(239,68,68,0.25)",color:msj.startsWith("✅")?"#16a34a":"#dc2626"}}>
-          {msj}<button onClick={()=>setMsj("")} className="ml-3 opacity-60 hover:opacity-100">✕</button>
-        </div>}
-
-        {/* ══ GENERAL ══ */}
-        {seccion==="general"&&(
-          <div className="fade-in space-y-4">
-            {/* KPIs */}
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                {l:"Productores",v:productores.length,icon:"👨‍🌾",accent:"#1976D2",bg:"rgba(25,118,210,0.08)",border:"rgba(25,118,210,0.18)"},
-                {l:"Hectáreas",v:totalHa.toLocaleString("es-AR")+" ha",icon:"🌿",accent:"#16a34a",bg:"rgba(22,163,74,0.08)",border:"rgba(22,163,74,0.18)"},
-                {l:"Lotes activos",v:lotes.length,icon:"🗺️",accent:"#0891b2",bg:"rgba(8,145,178,0.08)",border:"rgba(8,145,178,0.18)"},
-                {l:"Con App",v:productores.filter(p=>p.tiene_cuenta).length,icon:"📱",accent:"#7c3aed",bg:"rgba(124,58,237,0.08)",border:"rgba(124,58,237,0.18)"},
-              ].map(s=>(
-                <div key={s.l} className="glass-card p-4" style={{background:`linear-gradient(160deg,rgba(255,255,255,0.85),rgba(255,255,255,0.6))`,border:`1px solid ${s.border}`,transition:"all 0.25s ease"}}>
-                  <div className="flex items-start justify-between mb-2">
-                    <span className="text-xs font-semibold uppercase tracking-wide" style={{color:s.accent}}>{s.l}</span>
-                    <span className="text-xl">{s.icon}</span>
-                  </div>
-                  <div className="text-3xl font-bold text-gray-800">{s.v}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Distribución de cultivos */}
-            {haPorCultivo.length>0&&(
-              <div className="glass-card p-5">
-                <h3 className="font-bold text-gray-800 mb-1">Distribución de Cultivos</h3>
-                <p className="text-xs text-gray-400 mb-4">Campaña activa · {totalHa.toLocaleString("es-AR")} ha totales</p>
-                <div className="space-y-3">
-                  {haPorCultivo.map((d,i)=>(
-                    <div key={i} className="flex items-center gap-3">
-                      <div className="flex items-center gap-2 w-28 flex-shrink-0">
-                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{background:d.color}}/>
-                        <span className="text-xs font-medium text-gray-600 truncate">{d.name}</span>
-                      </div>
-                      <div className="flex-1 bar-track">
-                        <div className="h-full rounded-full transition-all duration-500" style={{width:totalHa>0?(d.ha/totalHa*100)+"%":"0%",background:d.color}}/>
-                      </div>
-                      <span className="text-xs font-bold w-8 text-right" style={{color:d.color}}>
-                        {totalHa>0?Math.round(d.ha/totalHa*100):0}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Cultivos chips */}
-            {haPorCultivo.length>0&&(
-              <div className="glass-card p-4">
-                <div className="flex flex-wrap gap-2">
-                  {haPorCultivo.map((d,i)=>(
-                    <div key={i} className="cultivo-chip flex items-center gap-1.5"
-                      style={{background:d.color+"15",border:`1px solid ${d.color}30`,color:d.color}}>
-                      <span>{d.name}</span>
-                      <span className="font-normal opacity-70">·</span>
-                      <span>{d.ha} ha</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Cobranza resumen */}
-            <div className="glass-card p-4">
-              <h3 className="font-bold text-gray-800 mb-3">💰 Cobranza</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl p-3 text-center" style={{background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.15)"}}>
-                  <div className="text-xs text-red-500 font-semibold uppercase tracking-wide mb-1">Pendiente</div>
-                  <div className="text-xl font-bold text-red-600">${totPend.toLocaleString("es-AR")}</div>
-                </div>
-                <div className="rounded-2xl p-3 text-center" style={{background:"rgba(22,163,74,0.06)",border:"1px solid rgba(22,163,74,0.15)"}}>
-                  <div className="text-xs text-green-600 font-semibold uppercase tracking-wide mb-1">Cobrado</div>
-                  <div className="text-xl font-bold text-green-600">${totCob.toLocaleString("es-AR")}</div>
-                </div>
-              </div>
-            </div>
+          {/* NAV TABS */}
+          <div style={{display:"flex",gap:6,padding:"10px 14px",overflowX:"auto",scrollbarWidth:"none"}}>
+            {NAV.map(item=>(
+              <button key={item.k}
+                onClick={()=>{setSeccion(item.k as Seccion);setShowForm(false);setForm({});setVehiculoSel(null);}}
+                className={`nav-tab${seccion===item.k?" active":""}`}
+                style={{display:"flex",alignItems:"center",gap:5}}>
+                <span>{item.icon}</span>
+                <span>{item.label}</span>
+                {seccion===item.k&&<span style={{width:5,height:5,borderRadius:"50%",background:"white",opacity:0.8,marginLeft:2}}/>}
+              </button>
+            ))}
           </div>
-        )}
 
-        {/* ══ PRODUCTORES ══ */}
-        {seccion==="productores"&&(
-          <div className="fade-in">
-            {/* Acciones */}
-            <div className="glass-card rounded-2xl overflow-hidden mb-4">
-              <div className="grid grid-cols-3 divide-x" style={{borderColor:"rgba(0,0,0,0.06)"}}>
-                {[
-                  {icon:"➕",l:"Nuevo",fn:()=>{setShowForm(!showForm);setEditProd(null);setForm({provincia:"Santa Fe",honorario_tipo:"mensual"});}},
-                  {icon:"📥",l:"Importar",fn:()=>setShowImport(!showImport)},
-                  {icon:"📤",l:"Exportar",fn:()=>exportXLS("productores")},
-                ].map(b=>(
-                  <button key={b.l} onClick={b.fn}
-                    className="glass-btn flex flex-col items-center gap-1 py-4 rounded-none border-none"
-                    style={{borderRadius:0,border:"none",background:"transparent",boxShadow:"none"}}>
-                    <span className="text-2xl">{b.icon}</span>
-                    <span className="text-xs font-semibold text-gray-600">{b.l}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+          {/* CONTENIDO */}
+          <div style={{padding:"0 14px 14px"}}>
 
-            {/* Vincular */}
-            <button onClick={()=>{setShowVincular(!showVincular);setForm({});}}
-              className="mb-3 flex items-center gap-2 text-sm font-semibold hover:text-blue-700 transition-colors" style={{color:"#1976D2"}}>
-              🔗 Vincular productor por código
-            </button>
+            {/* Toast */}
+            {msj&&<div className="fade-in gc-inner" style={{marginBottom:12,padding:"10px 14px",fontSize:13,fontWeight:600,color:msj.startsWith("✅")?"#a5f3a5":"#fca5a5",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              {msj}<button onClick={()=>setMsj("")} style={{background:"none",border:"none",color:"rgba(255,255,255,0.5)",cursor:"pointer",fontSize:16}}>✕</button>
+            </div>}
 
-            {showVincular&&(
-              <div className="glass-card p-4 mb-4 fade-in">
-                <h3 className="font-bold text-gray-800 mb-3 text-sm">🔗 Vincular por código</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                  <div><label className={lCls}>Código *</label><input type="text" value={form.codigo??""} onChange={e=>setForm({...form,codigo:e.target.value})} className={iCls} placeholder="10001"/></div>
-                  <div><label className={lCls}>Honorario</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className={iCls}><option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option></select></div>
-                  <div><label className={lCls}>Monto $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls}/></div>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={vincularCodigo} className="btn-blue px-5 py-2.5 text-sm font-semibold">Vincular</button>
-                  <button onClick={()=>{setShowVincular(false);setForm({});}} className="btn-ghost px-4 py-2.5 text-sm text-gray-600">Cancelar</button>
-                </div>
-              </div>
-            )}
-
-            {showImport&&(
-              <div className="glass-card p-4 mb-4 fade-in">
-                <div className="flex justify-between mb-3"><h3 className="font-bold text-gray-800 text-sm">📥 Importar productores</h3><button onClick={()=>{setShowImport(false);setImportPrev([]);setImportMsg("");}} className="text-gray-400 hover:text-gray-600 text-lg">✕</button></div>
-                <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)leerExcel(f);}}/>
-                {importPrev.length===0
-                  ?<button onClick={()=>importRef.current?.click()} className="flex items-center gap-2 px-4 py-3 border-2 border-dashed rounded-xl text-sm w-full justify-center transition-colors" style={{borderColor:"rgba(25,118,210,0.3)",color:"#1976D2"}}>📁 Seleccionar archivo Excel</button>
-                  :<div>
-                    <div className="max-h-36 overflow-y-auto mb-3 rounded-xl border" style={{borderColor:"rgba(0,0,0,0.08)"}}>
-                      <table className="w-full text-xs"><thead style={{background:"rgba(25,118,210,0.06)"}}><tr>{["Nombre","Tel","Localidad","Ha",""].map(h=><th key={h} className="text-left px-3 py-2 text-gray-500 font-semibold">{h}</th>)}</tr></thead>
-                        <tbody>{importPrev.map((r,i)=><tr key={i} className="border-t" style={{borderColor:"rgba(0,0,0,0.06)"}}><td className="px-3 py-2 font-semibold text-gray-800">{r.nombre}</td><td className="px-3 py-2 text-gray-400">{r.telefono||"—"}</td><td className="px-3 py-2 text-gray-400">{r.localidad||"—"}</td><td className="px-3 py-2 text-gray-500">{r.hectareas_total||"—"}</td><td className="px-3 py-2"><span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${r.existe?"text-blue-600":"text-green-600"}`} style={{background:r.existe?"rgba(25,118,210,0.1)":"rgba(22,163,74,0.1)"}}>{r.existe?"Existente":"Nuevo"}</span></td></tr>)}</tbody>
-                      </table>
+            {/* ══ GENERAL ══ */}
+            {seccion==="general"&&(
+              <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:10}}>
+                {/* KPIs 2x2 */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  {[
+                    {l:"Productores",v:productores.length,icon:"👨‍🌾"},
+                    {l:"Hectáreas",v:totalHa.toLocaleString("es-AR")+" ha",icon:"🌿"},
+                    {l:"Lotes",v:lotes.length,icon:"🗺️"},
+                    {l:"Con App",v:productores.filter(p=>p.tiene_cuenta).length,icon:"📱"},
+                  ].map(s=>(
+                    <div key={s.l} className="kpi-card">
+                      <div style={{fontSize:20,marginBottom:4}}>{s.icon}</div>
+                      <div style={{fontSize:26,fontWeight:800,lineHeight:1}}>{s.v}</div>
+                      <div style={{fontSize:11,opacity:0.65,marginTop:3,fontWeight:500}}>{s.l}</div>
                     </div>
-                    <div className="flex gap-2">
-                      <button onClick={confirmarImport} className="btn-blue px-4 py-2 text-sm font-semibold">Importar {importPrev.filter(p=>!p.existe).length} nuevos</button>
-                      <button onClick={()=>setImportPrev([])} className="btn-ghost px-4 py-2 text-sm text-gray-600">Cancelar</button>
-                    </div>
-                  </div>
-                }
-                {importMsg&&<p className={`mt-2 text-xs font-semibold ${importMsg.startsWith("✅")?"text-green-600":"text-red-500"}`}>{importMsg}</p>}
-              </div>
-            )}
-
-            {showForm&&(
-              <div className="glass-card p-4 mb-4 fade-in">
-                <h3 className="font-bold text-gray-800 mb-4 text-sm">{editProd?"✏️ Editar":"➕"} Productor</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div><label className={lCls}>Nombre *</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls} placeholder="Nombre y apellido"/></div>
-                  <div><label className={lCls}>Teléfono</label><input type="text" value={form.telefono??""} onChange={e=>setForm({...form,telefono:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Email (si tiene app)</label><input type="email" value={form.email??""} onChange={e=>setForm({...form,email:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Localidad</label><input type="text" value={form.localidad??""} onChange={e=>setForm({...form,localidad:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Honorario tipo</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className={iCls}><option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option><option value="por_servicio">Por servicio</option></select></div>
-                  <div><label className={lCls}>Honorario $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls}/></div>
-                  <div className="sm:col-span-2"><label className={lCls}>Observaciones</label><input type="text" value={form.obs??""} onChange={e=>setForm({...form,obs:e.target.value})} className={iCls}/></div>
-                </div>
-                <div className="flex gap-2 mt-4">
-                  <button onClick={guardarProductor} className="btn-blue px-5 py-2.5 text-sm font-semibold">Guardar</button>
-                  <button onClick={()=>{setShowForm(false);setEditProd(null);setForm({});}} className="btn-ghost px-4 py-2.5 text-sm text-gray-600">Cancelar</button>
-                </div>
-              </div>
-            )}
-
-            {/* Filtros exportar lotes */}
-            {lotes.length>0&&(
-              <div className="glass-card p-3 mb-4">
-                <div className="flex flex-wrap gap-2 items-end">
-                  <span className="text-xs text-gray-500 font-semibold self-center">Exportar lotes:</span>
-                  {[["Cultivo",fCultivo,setFCultivo,["todos",...cultivosU]],["Productor",fProductor,setFProductor,["todos",...productores.map(p=>p.nombre)]],["Estado",fEstado,setFEstado,["todos","planificado","sembrado","en_desarrollo","cosechado"]]].map(([l,v,fn,opts])=>(
-                    <select key={l as string} value={v as string} onChange={e=>(fn as any)(e.target.value)}
-                      className="text-xs text-gray-600 px-2.5 py-1.5 rounded-xl focus:outline-none" style={{background:"rgba(255,255,255,0.7)",border:"1px solid rgba(0,0,0,0.1)"}}>
-                      {(opts as string[]).map(o=><option key={o} value={o}>{o==="todos"?"Todos":o}</option>)}
-                    </select>
                   ))}
-                  <button onClick={()=>exportXLS("lotes")} className="btn-blue px-3 py-1.5 text-xs font-semibold">📤 Exportar</button>
                 </div>
-              </div>
-            )}
 
-            {/* Lista productores */}
-            {productores.length===0
-              ?<div className="glass-card p-16 text-center"><div className="text-5xl mb-4 opacity-20">👨‍🌾</div><p className="text-gray-400">Sin productores — agregá el primero</p></div>
-              :<div className="space-y-4">
-                {productores.map(p=>{
-                  const eid=p.empresa_id??p.id;
-                  const camps=campanasPorProd[eid]??[];
-                  const campActiva=campSelProd[eid]??null;
-                  const lotesP = lotes.filter(l => (l as any).empresa_id === eid);
-                  const haReales = lotesP.reduce((a,l) => a + (Number(l.hectareas)||0), 0);
-                  const cultivosProd=[...new Set(lotesP.map(l=>l.cultivo_completo||l.cultivo).filter(Boolean))];
-                  return(
-                    <div key={p.id} className="prod-card glass-card" style={{boxShadow:"0 8px 24px rgba(0,0,0,0.07)"}}>
-                      {/* Header productor */}
-                      <div className="px-4 pt-4 pb-3" style={{borderBottom:"1px solid rgba(0,0,0,0.06)"}}>
-                        <div className="flex items-start gap-3">
-                          <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-lg font-bold text-white shadow-md flex-shrink-0"
-                            style={{background:"linear-gradient(135deg,#1976D2,#0D47A1)"}}>
-                            {p.nombre.charAt(0)}
+                {/* Distribución de cultivos */}
+                {haPorCultivo.length>0&&(
+                  <div className="gc" style={{padding:16}}>
+                    <div style={{fontSize:11,fontWeight:700,letterSpacing:1.2,opacity:0.6,textTransform:"uppercase",marginBottom:12}}>Distribución de Cultivos</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                      {haPorCultivo.map((d,i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:10}}>
+                          <span style={{fontSize:16,width:22,textAlign:"center",flexShrink:0}}>{cultivoIcono(d.name)}</span>
+                          <div style={{width:80,fontSize:12,fontWeight:600,color:"rgba(255,255,255,0.85)",flexShrink:0}}>{d.name}</div>
+                          <div style={{flex:1,height:8,borderRadius:99,background:"rgba(255,255,255,0.12)",overflow:"hidden",boxShadow:"inset 0 1px 2px rgba(0,0,0,0.15)"}}>
+                            <div style={{height:"100%",borderRadius:99,background:d.color,width:totalHa>0?(d.ha/totalHa*100)+"%":"0%",
+                              boxShadow:`0 0 6px ${d.color}80`,transition:"width 0.6s ease"}}/>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-bold text-gray-900 truncate text-base">{p.nombre}</div>
-                            <div className="text-xs text-gray-400 mt-0.5">{p.localidad}{p.provincia&&p.provincia!==p.localidad?", "+p.provincia:""}</div>
-                            {p.tiene_cuenta&&<span className="badge-app text-xs px-2 py-0.5 font-semibold inline-block mt-1">✓ Usa la app</span>}
-                          </div>
-                          <div className="flex gap-1 flex-shrink-0">
-                            <button onClick={()=>{setEditProd(p.id);setForm({nombre:p.nombre,telefono:p.telefono||"",email:p.email||"",localidad:p.localidad||"",provincia:p.provincia||"",honorario_tipo:p.honorario_tipo||"mensual",honorario_monto:String(p.honorario_monto||0),obs:p.observaciones||""});setShowForm(true);}}
-                              className="p-2 rounded-xl transition-colors text-gray-400 hover:text-blue-600 hover:bg-blue-50">✏️</button>
-                            <button onClick={()=>eliminarProd(p.id)}
-                              className="p-2 rounded-xl transition-colors text-gray-400 hover:text-red-500 hover:bg-red-50">✕</button>
+                          <div style={{width:32,textAlign:"right",fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.85)",flexShrink:0}}>
+                            {totalHa>0?Math.round(d.ha/totalHa*100):0}%
                           </div>
                         </div>
-                      </div>
-
-                      <div className="px-4 py-3 space-y-3">
-                        {/* Campaña */}
-                        <div>
-                          <label className="block text-xs text-gray-400 font-semibold mb-1.5 uppercase tracking-wide">Campaña</label>
-                          <div className="flex gap-2">
-                            {camps.length>0
-                              ?<select value={campActiva??""} onChange={e=>cambiarCampana(eid,e.target.value,p.nombre)}
-                                className="flex-1 text-sm font-semibold text-gray-700 px-3 py-2 rounded-xl focus:outline-none"
-                                style={{background:"rgba(255,255,255,0.7)",border:"1px solid rgba(0,0,0,0.1)"}}>
-                                {camps.map((c:any)=><option key={c.id} value={c.id}>{c.nombre}{c.activa?" ★":""}</option>)}
-                              </select>
-                              :<div className="flex-1 rounded-xl px-3 py-2 text-xs text-gray-400" style={{background:"rgba(0,0,0,0.04)"}}>Sin campañas</div>
-                            }
-                            <button onClick={()=>{setNuevaCampProd(p.id);setNuevaCampNombre(new Date().getFullYear()+"/"+(new Date().getFullYear()+1));}}
-                              className="px-3 py-2 rounded-xl text-xs font-bold transition-colors flex-shrink-0"
-                              style={{background:"rgba(234,179,8,0.1)",border:"1px solid rgba(234,179,8,0.25)",color:"#b45309"}}>
-                              + Nueva
-                            </button>
-                          </div>
-                          {nuevaCampProd===p.id&&(
-                            <div className="flex gap-2 mt-2">
-                              <input value={nuevaCampNombre} onChange={e=>setNuevaCampNombre(e.target.value)} className={`${iCls} flex-1 text-xs`} placeholder="2025/2026"/>
-                              <button onClick={async()=>{if(nuevaCampNombre.trim()){await crearCampana(eid,nuevaCampNombre.trim());setNuevaCampProd(null);setNuevaCampNombre("");}}} className="btn-blue px-3 py-2 text-xs font-bold">✓</button>
-                              <button onClick={()=>{setNuevaCampProd(null);setNuevaCampNombre("");}} className="btn-ghost px-2.5 py-2 text-xs text-gray-500">✕</button>
-                            </div>
-                          )}
-                          <div className="text-xs text-gray-400 mt-1.5 font-medium">{lotesP.length} lotes · {haReales.toLocaleString("es-AR")} ha</div>
-                        </div>
-
-                        {/* KPIs */}
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="rounded-2xl p-3 text-center" style={{background:"rgba(234,179,8,0.07)",border:"1px solid rgba(234,179,8,0.18)"}}>
-                            <div className="text-xs font-semibold uppercase tracking-wide mb-1" style={{color:"#b45309"}}>🌿 Hectáreas</div>
-                            <div className="text-2xl font-bold" style={{color:"#92400e"}}>{haReales.toLocaleString("es-AR")}</div>
-                            <div className="text-xs mt-0.5" style={{color:"#a16207"}}>ha</div>
-                          </div>
-                          <div className="rounded-2xl p-3 text-center" style={{background:"rgba(25,118,210,0.07)",border:"1px solid rgba(25,118,210,0.18)"}}>
-                            <div className="text-xs font-semibold uppercase tracking-wide mb-1 text-blue-600">$ Honorario</div>
-                            <div className="text-2xl font-bold text-blue-700">${Number(p.honorario_monto||0).toLocaleString("es-AR")}</div>
-                            <div className="text-xs mt-0.5 text-blue-400">{p.honorario_tipo||"mensual"}</div>
-                          </div>
-                        </div>
-
-                        {/* Distribución cultivos */}
-                        {cultivosProd.length>0&&(
-                          <div className="rounded-2xl p-3" style={{background:"rgba(0,0,0,0.025)",border:"1px solid rgba(0,0,0,0.06)"}}>
-                            <div className="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-2">Distribución de cultivos</div>
-                            <div className="flex flex-wrap gap-1.5">
-                              {cultivosProd.slice(0,6).map(c=>{
-                                const info=getCultivoInfo(c);
-                                const haC=lotesP.filter(l=>(l.cultivo_completo||l.cultivo)===c).reduce((a,l)=>a+(l.hectareas||0),0);
-                                const pct=haReales>0?Math.round(haC/haReales*100):0;
-                                return(
-                                  <div key={c} className="cultivo-chip flex items-center gap-1"
-                                    style={{background:info.color+"18",border:`1px solid ${info.color}28`,color:info.color}}>
-                                    <span>{info.label}</span>
-                                    <span style={{opacity:0.6}}>·</span>
-                                    <span>{pct}%</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* CTA */}
-                        <button onClick={()=>entrar(p)}
-                          className="w-full py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all"
-                          style={{background:"linear-gradient(135deg,#1976D2,#0D47A1)",color:"white",boxShadow:"0 4px 14px rgba(25,118,210,0.3)"}}>
-                          <span style={{fontSize:18}}>🏛</span>
-                          {p.tiene_cuenta?"Ver Lotes":"Mis Lotes"}
-                          <span style={{fontSize:16}}>›</span>
-                        </button>
-                      </div>
-
-                      {p.observaciones&&<div className="px-4 py-2.5 text-xs text-gray-400" style={{borderTop:"1px solid rgba(0,0,0,0.06)"}}>{p.observaciones}</div>}
-                    </div>
-                  );
-                })}
-              </div>
-            }
-          </div>
-        )}
-
-        {/* ══ COBRANZA ══ */}
-        {seccion==="cobranza"&&(
-          <div className="fade-in">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-xl font-bold text-gray-800">Cobranza</h2>
-                <div className="flex gap-3 mt-1">
-                  <span className="text-xs font-semibold text-red-500">Pendiente: <strong>${totPend.toLocaleString("es-AR")}</strong></span>
-                  <span className="text-xs font-semibold text-green-600">Cobrado: <strong>${totCob.toLocaleString("es-AR")}</strong></span>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={async()=>{const XLSX=await import("xlsx");const data=cobranzas.map(c=>{const p=productores.find(x=>x.id===c.productor_id);return{PRODUCTOR:p?.nombre??"—",CONCEPTO:c.concepto,MONTO:c.monto,FECHA:c.fecha,ESTADO:c.estado};});const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Cobranzas");XLSX.writeFile(wb,"cobranzas_"+new Date().toISOString().slice(0,10)+".xlsx");}} className="btn-ghost px-3 py-2 text-sm text-gray-600">📤</button>
-                <button onClick={()=>{setShowForm(!showForm);setForm({estado:"pendiente",fecha_c:new Date().toISOString().split("T")[0]});}} className="btn-blue px-4 py-2 text-sm font-semibold">+ Cobro</button>
-              </div>
-            </div>
-
-            {showForm&&(
-              <div className="glass-card p-4 mb-4 fade-in">
-                <h3 className="font-bold text-gray-800 mb-3 text-sm">+ Nuevo cobro</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div><label className={lCls}>Productor</label><select value={form.prod_c??""} onChange={e=>setForm({...form,prod_c:e.target.value})} className={iCls}><option value="">Sin productor</option>{productores.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
-                  <div><label className={lCls}>Concepto</label><input type="text" value={form.concepto??""} onChange={e=>setForm({...form,concepto:e.target.value})} className={iCls} placeholder="Honorario enero"/></div>
-                  <div><label className={lCls}>Monto</label><input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_c??""} onChange={e=>setForm({...form,fecha_c:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Estado</label><select value={form.estado??"pendiente"} onChange={e=>setForm({...form,estado:e.target.value})} className={iCls}><option value="pendiente">Pendiente</option><option value="cobrado">Cobrado</option></select></div>
-                  <div><label className={lCls}>Método</label><select value={form.metodo??""} onChange={e=>setForm({...form,metodo:e.target.value})} className={iCls}><option value="">—</option><option value="transferencia">Transferencia</option><option value="efectivo">Efectivo</option><option value="cheque">Cheque</option></select></div>
-                </div>
-                <div className="flex gap-2 mt-3">
-                  <button onClick={guardarCob} className="btn-blue px-5 py-2.5 text-sm font-semibold">Guardar</button>
-                  <button onClick={()=>{setShowForm(false);setForm({});}} className="btn-ghost px-4 py-2.5 text-sm text-gray-600">Cancelar</button>
-                </div>
-              </div>
-            )}
-
-            <div className="glass-card overflow-hidden">
-              {cobranzas.length===0?<div className="text-center py-16 text-gray-400">Sin cobros registrados</div>:(
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm min-w-[600px]">
-                    <thead><tr style={{borderBottom:"1px solid rgba(0,0,0,0.07)"}}>{["Fecha","Productor","Concepto","Monto","Estado",""].map(h=><th key={h} className="text-left px-4 py-3 text-xs text-gray-400 font-semibold uppercase tracking-wide">{h}</th>)}</tr></thead>
-                    <tbody>
-                      {cobranzas.map(c=>{const p=productores.find(x=>x.id===c.productor_id);return(
-                        <tr key={c.id} className="transition-colors" style={{borderBottom:"1px solid rgba(0,0,0,0.05)"}}>
-                          <td className="px-4 py-3 text-gray-400 text-xs">{c.fecha}</td>
-                          <td className="px-4 py-3 font-semibold text-gray-800 text-xs">{p?.nombre??"—"}</td>
-                          <td className="px-4 py-3 text-gray-500 text-xs">{c.concepto}</td>
-                          <td className="px-4 py-3 font-bold text-gray-800">${Number(c.monto).toLocaleString("es-AR")}</td>
-                          <td className="px-4 py-3"><span className="text-xs px-2.5 py-1 rounded-lg font-semibold" style={{background:c.estado==="cobrado"?"rgba(22,163,74,0.1)":"rgba(239,68,68,0.1)",color:c.estado==="cobrado"?"#16a34a":"#dc2626"}}>{c.estado}</span></td>
-                          <td className="px-4 py-3 flex gap-2">
-                            {c.estado==="pendiente"&&<button onClick={()=>marcarCobrado(c.id)} className="text-green-600 text-xs hover:underline font-semibold">✓</button>}
-                            <button onClick={async()=>{const sb=await getSB();await sb.from("ing_cobranzas").delete().eq("id",c.id);await fetchCobs(ingId);}} className="text-gray-400 hover:text-red-500 text-xs transition-colors">✕</button>
-                          </td>
-                        </tr>
-                      );})}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ══ VEHICULO ══ */}
-        {seccion==="vehiculo"&&(
-          <div className="fade-in">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-800">Mi Vehículo</h2>
-              {!vehiculoSel
-                ?<button onClick={()=>{setShowForm(true);setForm({});}} className="btn-blue px-4 py-2 text-sm font-semibold">+ Agregar</button>
-                :<div className="flex gap-2">
-                  <button onClick={()=>{setShowForm(true);setForm({});}} className="btn-ghost px-3 py-2 text-sm text-gray-600">+ Service</button>
-                  <button onClick={()=>{setVehiculoSel(null);setServicios([]);setShowForm(false);}} className="btn-ghost px-3 py-2 text-sm text-gray-600">← Volver</button>
-                </div>
-              }
-            </div>
-            {showForm&&!vehiculoSel&&(
-              <div className="glass-card p-4 mb-4 fade-in">
-                <h3 className="font-bold text-gray-800 mb-3 text-sm">+ Nuevo vehículo</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {[["nombre","Nombre","Toyota Hilux","text"],["marca","Marca","","text"],["modelo","Modelo","","text"],["anio","Año","","number"],["patente","Patente","","text"],["seg_comp","Compañía seguro","","text"],["seg_venc","Venc. seguro","","date"],["vtv_venc","Venc. VTV","","date"],["km","Km actuales","","number"],["prox_km","Próx. service km","","number"]].map(([k,l,ph,t])=>(
-                    <div key={k as string}><label className={lCls}>{l as string}</label><input type={t as string} value={form[k as string]??""} onChange={e=>setForm({...form,[k as string]:e.target.value})} className={iCls} placeholder={ph as string}/></div>
-                  ))}
-                </div>
-                <div className="flex gap-2 mt-3">
-                  <button onClick={guardarVeh} className="btn-blue px-5 py-2.5 text-sm font-semibold">Guardar</button>
-                  <button onClick={()=>{setShowForm(false);setForm({});}} className="btn-ghost px-4 py-2.5 text-sm text-gray-600">Cancelar</button>
-                </div>
-              </div>
-            )}
-            {!vehiculoSel?(
-              vehiculos.length===0?<div className="glass-card p-16 text-center"><div className="text-5xl mb-4 opacity-20">🚗</div><p className="text-gray-400">Sin vehículos</p></div>:(
-                <div className="space-y-3">
-                  {vehiculos.map((v:any)=>{const sV=v.seguro_vencimiento&&new Date(v.seguro_vencimiento)<new Date();const vV=v.vtv_vencimiento&&new Date(v.vtv_vencimiento)<new Date();return(
-                    <div key={v.id} className="prod-card glass-card p-4 cursor-pointer" onClick={async()=>{setVehiculoSel(v);const sb=await getSB();const{data}=await sb.from("ing_vehiculo_service").select("*").eq("vehiculo_id",v.id).order("fecha",{ascending:false});setServicios(data??[]);}}>
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0" style={{background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.15)"}}>🚗</div>
-                        <div className="flex-1"><div className="font-bold text-gray-800">{v.nombre}</div><div className="text-xs text-gray-400 mt-0.5">{v.marca} {v.modelo} · {v.anio} · {v.patente}</div></div>
-                        <button onClick={e=>{e.stopPropagation();(async()=>{const sb=await getSB();await sb.from("ing_vehiculos").delete().eq("id",v.id);await fetchVehs(ingId);})();}} className="text-gray-400 hover:text-red-500 transition-colors p-1">✕</button>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 mb-3">
-                        <div className="rounded-xl p-3 text-center" style={{background:"rgba(0,0,0,0.03)",border:"1px solid rgba(0,0,0,0.07)"}}><div className="text-xs text-gray-400">Km actuales</div><div className="text-lg font-bold text-gray-800 mt-0.5">{(v.km_actuales||0).toLocaleString()}</div></div>
-                        <div className="rounded-xl p-3 text-center" style={{background:"rgba(234,179,8,0.07)",border:"1px solid rgba(234,179,8,0.18)"}}><div className="text-xs font-semibold" style={{color:"#b45309"}}>Próx. service</div><div className="text-lg font-bold mt-0.5" style={{color:"#92400e"}}>{v.proximo_service_km?(v.proximo_service_km.toLocaleString()+" km"):"—"}</div></div>
-                      </div>
-                      <div className="flex gap-2">
-                        <span className="text-xs px-3 py-1.5 rounded-xl font-semibold flex-1 text-center" style={{background:sV?"rgba(239,68,68,0.1)":"rgba(22,163,74,0.08)",color:sV?"#dc2626":"#16a34a",border:`1px solid ${sV?"rgba(239,68,68,0.2)":"rgba(22,163,74,0.15)"}`}}>🛡 {sV?"VENCIDO":v.seguro_vencimiento||"—"}</span>
-                        <span className="text-xs px-3 py-1.5 rounded-xl font-semibold flex-1 text-center" style={{background:vV?"rgba(239,68,68,0.1)":"rgba(22,163,74,0.08)",color:vV?"#dc2626":"#16a34a",border:`1px solid ${vV?"rgba(239,68,68,0.2)":"rgba(22,163,74,0.15)"}`}}>📋 {vV?"VTV VENCIDA":v.vtv_vencimiento||"—"}</span>
-                      </div>
-                    </div>
-                  );})}
-                </div>
-              )
-            ):(
-              <div className="space-y-4">
-                <div className="glass-card p-4 flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.15)"}}>🚗</div>
-                  <div><div className="font-bold text-gray-800">{vehiculoSel.nombre}</div><div className="text-xs text-gray-400">{vehiculoSel.marca} {vehiculoSel.modelo} · {(vehiculoSel as any).anio} · {vehiculoSel.patente}</div></div>
-                </div>
-                {showForm&&vehiculoSel&&(
-                  <div className="glass-card p-4 fade-in">
-                    <h3 className="font-bold text-gray-800 mb-3 text-sm">+ Service</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div><label className={lCls}>Tipo</label><select value={form.tipo_s??"service"} onChange={e=>setForm({...form,tipo_s:e.target.value})} className={iCls}><option value="service">Service</option><option value="reparacion">Reparación</option><option value="vtv">VTV</option><option value="otro">Otro</option></select></div>
-                      <div><label className={lCls}>Descripción</label><input type="text" value={form.desc_s??""} onChange={e=>setForm({...form,desc_s:e.target.value})} className={iCls}/></div>
-                      <div><label className={lCls}>Taller</label><input type="text" value={form.taller??""} onChange={e=>setForm({...form,taller:e.target.value})} className={iCls}/></div>
-                      <div><label className={lCls}>Km</label><input type="number" value={form.km_s??""} onChange={e=>setForm({...form,km_s:e.target.value})} className={iCls}/></div>
-                      <div><label className={lCls}>Costo</label><input type="number" value={form.costo_s??""} onChange={e=>setForm({...form,costo_s:e.target.value})} className={iCls}/></div>
-                      <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_s??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_s:e.target.value})} className={iCls}/></div>
-                    </div>
-                    <div className="flex gap-2 mt-3">
-                      <button onClick={guardarService} className="btn-blue px-5 py-2.5 text-sm font-semibold">Guardar</button>
-                      <button onClick={()=>{setShowForm(false);setForm({});}} className="btn-ghost px-4 py-2.5 text-sm text-gray-600">Cancelar</button>
+                      ))}
                     </div>
                   </div>
                 )}
-                <div className="glass-card overflow-hidden">
-                  <div className="px-4 py-3" style={{borderBottom:"1px solid rgba(0,0,0,0.06)"}}><span className="font-bold text-gray-800 text-sm">🔧 Historial de services</span></div>
-                  {servicios.length===0?<div className="text-center py-10 text-gray-400 text-sm">Sin historial</div>:(
-                    <div className="overflow-x-auto"><table className="w-full text-sm min-w-[500px]"><thead><tr style={{borderBottom:"1px solid rgba(0,0,0,0.07)"}}>{["Fecha","Tipo","Descripción","Km","Costo",""].map(h=><th key={h} className="text-left px-4 py-2.5 text-xs text-gray-400 font-semibold uppercase tracking-wide">{h}</th>)}</tr></thead>
-                      <tbody>{servicios.map(s=><tr key={s.id} style={{borderBottom:"1px solid rgba(0,0,0,0.05)"}}><td className="px-4 py-3 text-gray-400 text-xs">{s.fecha}</td><td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded-lg font-semibold" style={{background:"rgba(234,179,8,0.1)",color:"#b45309"}}>{s.tipo}</span></td><td className="px-4 py-3 text-gray-600 text-xs">{s.descripcion}</td><td className="px-4 py-3 text-gray-400 text-xs">{s.km?(s.km.toLocaleString()+" km"):"—"}</td><td className="px-4 py-3 font-bold text-red-500 text-xs">${Number(s.costo).toLocaleString("es-AR")}</td><td className="px-4 py-3"><button onClick={async()=>{const sb=await getSB();await sb.from("ing_vehiculo_service").delete().eq("id",s.id);const sb2=await getSB();const{data}=await sb2.from("ing_vehiculo_service").select("*").eq("vehiculo_id",vehiculoSel!.id).order("fecha",{ascending:false});setServicios(data??[]);}} className="text-gray-400 hover:text-red-500 text-xs transition-colors">✕</button></td></tr>)}</tbody>
-                    </table></div>
+
+                {/* Chips cultivos */}
+                {haPorCultivo.length>0&&(
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    {haPorCultivo.slice(0,4).map((d,i)=>(
+                      <div key={i} className="cult-chip" style={{background:`linear-gradient(145deg,${d.color}28,${d.color}10)`,borderColor:`${d.color}35`,color:"white"}}>
+                        <span style={{fontSize:18}}>{cultivoIcono(d.name)}</span>
+                        <span style={{fontSize:13,fontWeight:700}}>{d.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Cobranza */}
+                <div className="gc" style={{padding:16}}>
+                  <div style={{fontSize:11,fontWeight:700,letterSpacing:1.2,opacity:0.6,textTransform:"uppercase",marginBottom:12}}>💰 Cobranza</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    <div className="kpi-card" style={{background:"linear-gradient(145deg,rgba(255,100,100,0.25),rgba(255,100,100,0.08))"}}>
+                      <div style={{fontSize:11,fontWeight:700,opacity:0.7,marginBottom:4}}>Pendiente</div>
+                      <div style={{fontSize:20,fontWeight:800,color:"#ff8a8a"}}>${totPend.toLocaleString("es-AR")}</div>
+                    </div>
+                    <div className="kpi-card" style={{background:"linear-gradient(145deg,rgba(100,255,130,0.22),rgba(100,255,130,0.08))"}}>
+                      <div style={{fontSize:11,fontWeight:700,opacity:0.7,marginBottom:4}}>Cobrado</div>
+                      <div style={{fontSize:20,fontWeight:800,color:"#86efac"}}>${totCob.toLocaleString("es-AR")}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ══ PRODUCTORES ══ */}
+            {seccion==="productores"&&(
+              <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:10}}>
+
+                {/* Acciones */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                  {[
+                    {icon:"➕",l:"Nuevo",fn:()=>{setShowForm(!showForm);setEditProd(null);setForm({provincia:"Santa Fe",honorario_tipo:"mensual"});}},
+                    {icon:"📥",l:"Importar",fn:()=>setShowImport(!showImport)},
+                    {icon:"📤",l:"Exportar",fn:()=>exportXLS("productores")},
+                  ].map(b=>(
+                    <button key={b.l} className="action-btn" onClick={b.fn}>
+                      <span style={{fontSize:18}}>{b.icon}</span>
+                      <span>{b.l}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Vincular */}
+                <button onClick={()=>{setShowVincular(!showVincular);setForm({});}}
+                  style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.8)",fontSize:13,fontWeight:600,textAlign:"left",display:"flex",alignItems:"center",gap:6,padding:"4px 0"}}>
+                  🔗 Vincular productor por código
+                </button>
+
+                {showVincular&&(
+                  <div className="gc-inner fade-in" style={{padding:14}}>
+                    <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"white"}}>🔗 Vincular por código</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                      <div><label className={lCls} style={{color:"rgba(255,255,255,0.55)"}}>Código *</label><input type="text" value={form.codigo??""} onChange={e=>setForm({...form,codigo:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="10001"/></div>
+                      <div><label className={lCls} style={{color:"rgba(255,255,255,0.55)"}}>Honorario</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px"}}><option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option></select></div>
+                      <div><label className={lCls} style={{color:"rgba(255,255,255,0.55)"}}>Monto $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                    </div>
+                    <div style={{display:"flex",gap:8}}>
+                      <button onClick={vincularCodigo} className="btn-solid">Vincular</button>
+                      <button onClick={()=>{setShowVincular(false);setForm({});}} className="action-btn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button>
+                    </div>
+                  </div>
+                )}
+
+                {showImport&&(
+                  <div className="gc-inner fade-in" style={{padding:14}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                      <span style={{fontSize:13,fontWeight:700,color:"white"}}>📥 Importar productores</span>
+                      <button onClick={()=>{setShowImport(false);setImportPrev([]);setImportMsg("");}} style={{background:"none",border:"none",color:"rgba(255,255,255,0.5)",cursor:"pointer",fontSize:18}}>✕</button>
+                    </div>
+                    <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f)leerExcel(f);}}/>
+                    {importPrev.length===0
+                      ?<button onClick={()=>importRef.current?.click()} className="action-btn" style={{width:"100%",padding:"12px",justifyContent:"center",border:"1.5px dashed rgba(255,255,255,0.3)"}}>📁 Seleccionar archivo Excel</button>
+                      :<div>
+                        <div style={{maxHeight:140,overflowY:"auto",marginBottom:10,borderRadius:10,border:"1px solid rgba(255,255,255,0.15)"}}>
+                          <table style={{width:"100%",fontSize:11,borderCollapse:"collapse"}}>
+                            <thead><tr style={{borderBottom:"1px solid rgba(255,255,255,0.1)",background:"rgba(255,255,255,0.05)"}}>{["Nombre","Tel","Localidad","Ha",""].map(h=><th key={h} style={{textAlign:"left",padding:"6px 10px",color:"rgba(255,255,255,0.5)",fontWeight:600}}>{h}</th>)}</tr></thead>
+                            <tbody>{importPrev.map((r,i)=><tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,0.05)"}}><td style={{padding:"6px 10px",color:"white",fontWeight:600}}>{r.nombre}</td><td style={{padding:"6px 10px",color:"rgba(255,255,255,0.5)"}}>{r.telefono||"—"}</td><td style={{padding:"6px 10px",color:"rgba(255,255,255,0.5)"}}>{r.localidad||"—"}</td><td style={{padding:"6px 10px",color:"rgba(255,255,255,0.6)"}}>{r.hectareas_total||"—"}</td><td style={{padding:"6px 10px"}}><span style={{fontSize:10,padding:"2px 7px",borderRadius:5,fontWeight:700,background:r.existe?"rgba(100,150,255,0.2)":"rgba(100,255,150,0.15)",color:r.existe?"#90caf9":"#86efac"}}>{r.existe?"Existe":"Nuevo"}</span></td></tr>)}</tbody>
+                          </table>
+                        </div>
+                        <div style={{display:"flex",gap:8}}>
+                          <button onClick={confirmarImport} className="btn-solid">Importar {importPrev.filter(p=>!p.existe).length} nuevos</button>
+                          <button onClick={()=>setImportPrev([])} className="action-btn" style={{padding:"9px 14px",fontSize:12}}>Cancelar</button>
+                        </div>
+                      </div>
+                    }
+                    {importMsg&&<p style={{marginTop:8,fontSize:12,fontWeight:600,color:importMsg.startsWith("✅")?"#86efac":"#fca5a5"}}>{importMsg}</p>}
+                  </div>
+                )}
+
+                {showForm&&(
+                  <div className="gc-inner fade-in" style={{padding:14}}>
+                    <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"white"}}>{editProd?"✏️ Editar":"➕"} Productor</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                      {[["nombre","Nombre *","text",""],["telefono","Teléfono","text",""],["email","Email (app)","email",""],["localidad","Localidad","text",""],["honorario_monto","Honorario $","number",""],["obs","Observaciones","text",""]].map(([k,l,t,ph])=>(
+                        <div key={k as string} style={{gridColumn:k==="obs"?"1/-1":"auto"}}>
+                          <label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>{l as string}</label>
+                          <input type={t as string} value={form[k as string]??""} onChange={e=>setForm({...form,[k as string]:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder={ph as string}/>
+                        </div>
+                      ))}
+                      <div>
+                        <label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Tipo honorario</label>
+                        <select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px"}}>
+                          <option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option><option value="por_servicio">Por servicio</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:8}}>
+                      <button onClick={guardarProductor} className="btn-solid">Guardar</button>
+                      <button onClick={()=>{setShowForm(false);setEditProd(null);setForm({});}} className="action-btn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Filtros exportar lotes */}
+                {lotes.length>0&&(
+                  <div className="gc" style={{padding:12}}>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"}}>
+                      <span style={{fontSize:12,fontWeight:600,color:"rgba(255,255,255,0.7)"}}>Exportar lotes:</span>
+                      {[["Cultivo",fCultivo,setFCultivo,["todos",...cultivosU]],["Productor",fProductor,setFProductor,["todos",...productores.map(p=>p.nombre)]],["Estado",fEstado,setFEstado,["todos","planificado","sembrado","en_desarrollo","cosechado"]]].map(([l,v,fn,opts])=>(
+                        <select key={l as string} value={v as string} onChange={e=>(fn as any)(e.target.value)} className="gi sel-crystal" style={{fontSize:12,padding:"6px 10px"}}>
+                          {(opts as string[]).map(o=><option key={o} value={o}>{o==="todos"?"Todos":o}</option>)}
+                        </select>
+                      ))}
+                      <button onClick={()=>exportXLS("lotes")} className="btn-solid" style={{padding:"7px 14px",fontSize:12}}>📤 Exportar</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Lista productores */}
+                {productores.length===0
+                  ?<div className="gc" style={{padding:48,textAlign:"center"}}><div style={{fontSize:48,opacity:0.2,marginBottom:12}}>👨‍🌾</div><p style={{color:"rgba(255,255,255,0.4)",fontSize:14}}>Sin productores</p></div>
+                  :<div style={{display:"flex",flexDirection:"column",gap:10}}>
+                    {productores.map(p=>{
+                      const eid=p.empresa_id??p.id;
+                      const camps=campanasPorProd[eid]??[];
+                      const campActiva=campSelProd[eid]??null;
+                      const lotesP=lotes.filter(l=>(l as any).empresa_id===eid);
+                      const haReales=lotesP.reduce((a,l)=>a+(Number(l.hectareas)||0),0);
+                      const cultivosProd=[...new Set(lotesP.map(l=>l.cultivo_completo||l.cultivo).filter(Boolean))];
+                      return(
+                        <div key={p.id} className="prod-card gc" style={{padding:0}}>
+                          {/* Header */}
+                          <div style={{padding:"14px 14px 12px",borderBottom:"1px solid rgba(255,255,255,0.12)",display:"flex",alignItems:"flex-start",gap:12}}>
+                            <div style={{width:44,height:44,borderRadius:"50%",background:"linear-gradient(145deg,rgba(255,255,255,0.3),rgba(255,255,255,0.1))",border:"1.5px solid rgba(255,255,255,0.45)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:"white",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.4)",flexShrink:0}}>
+                              {p.nombre.charAt(0)}
+                            </div>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                                <span style={{fontSize:16,fontWeight:800,color:"white"}}>{p.nombre}</span>
+                                <span style={{fontSize:14,opacity:0.5,cursor:"pointer"}} onClick={()=>{setEditProd(p.id);setForm({nombre:p.nombre,telefono:p.telefono||"",email:p.email||"",localidad:p.localidad||"",provincia:p.provincia||"",honorario_tipo:p.honorario_tipo||"mensual",honorario_monto:String(p.honorario_monto||0),obs:p.observaciones||""});setShowForm(true);}}>✏️</span>
+                              </div>
+                              <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:2,display:"flex",alignItems:"center",gap:4}}>
+                                <span>📍</span>{p.localidad}{p.provincia&&p.provincia!==p.localidad?", "+p.provincia:""}
+                              </div>
+                              {p.tiene_cuenta&&<div style={{fontSize:11,color:"#86efac",fontWeight:600,marginTop:3}}>✓ Usa la app</div>}
+                            </div>
+                            <div style={{display:"flex",gap:6,flexShrink:0}}>
+                              <button onClick={()=>{setEditProd(p.id);setForm({nombre:p.nombre,telefono:p.telefono||"",email:p.email||"",localidad:p.localidad||"",provincia:p.provincia||"",honorario_tipo:p.honorario_tipo||"mensual",honorario_monto:String(p.honorario_monto||0),obs:p.observaciones||""});setShowForm(true);}} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.5)",fontSize:13,fontWeight:500,padding:"4px 8px",borderRadius:8,transition:"color 0.15s"}}>✏️ Editar</button>
+                              <button onClick={()=>eliminarProd(p.id)} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.3)",fontSize:18,padding:"0 4px"}}>✕</button>
+                            </div>
+                          </div>
+
+                          <div style={{padding:"12px 14px",display:"flex",flexDirection:"column",gap:12}}>
+                            {/* Campaña */}
+                            <div>
+                              <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:1,marginBottom:7}}>Campaña</div>
+                              <div style={{display:"flex",gap:8}}>
+                                {camps.length>0
+                                  ?<select value={campActiva??""} onChange={e=>cambiarCampana(eid,e.target.value,p.nombre)} className="gi sel-crystal" style={{flex:1,padding:"8px 12px",fontSize:13,fontWeight:600}}>
+                                    {camps.map((c:any)=><option key={c.id} value={c.id}>{c.nombre}{c.activa?" ★":""}</option>)}
+                                  </select>
+                                  :<div style={{flex:1,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:12,padding:"8px 12px",fontSize:12,color:"rgba(255,255,255,0.3)"}}>Sin campañas</div>
+                                }
+                                <button onClick={()=>{setNuevaCampProd(p.id);setNuevaCampNombre(new Date().getFullYear()+"/"+(new Date().getFullYear()+1));}} className="action-btn" style={{padding:"8px 12px",fontSize:12,flexShrink:0}}>+ Nueva</button>
+                              </div>
+                              {nuevaCampProd===p.id&&(
+                                <div style={{display:"flex",gap:8,marginTop:8}}>
+                                  <input value={nuevaCampNombre} onChange={e=>setNuevaCampNombre(e.target.value)} className={iCls} style={{flex:1,padding:"7px 12px",fontSize:12}} placeholder="2025/2026"/>
+                                  <button onClick={async()=>{if(nuevaCampNombre.trim()){await crearCampana(eid,nuevaCampNombre.trim());setNuevaCampProd(null);setNuevaCampNombre("");}}} className="btn-solid" style={{padding:"7px 12px",fontSize:12}}>✓</button>
+                                  <button onClick={()=>{setNuevaCampProd(null);setNuevaCampNombre("");}} className="action-btn" style={{padding:"7px 10px",fontSize:12}}>✕</button>
+                                </div>
+                              )}
+                              <div style={{fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:6,fontWeight:500}}>{lotesP.length} lotes · {haReales.toLocaleString("es-AR")} ha</div>
+                            </div>
+
+                            {/* KPIs Hectáreas + Honorario */}
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                              <div className="kpi-card">
+                                <div style={{fontSize:12,fontWeight:600,opacity:0.6,marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>🌿 Hectáreas</div>
+                                <div style={{fontSize:28,fontWeight:800,lineHeight:1}}>{haReales.toLocaleString("es-AR")}</div>
+                                <div style={{fontSize:11,opacity:0.5,marginTop:2}}>ha</div>
+                              </div>
+                              <div className="kpi-card">
+                                <div style={{fontSize:12,fontWeight:600,opacity:0.6,marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>$ Honorario</div>
+                                <div style={{fontSize:20,fontWeight:800,lineHeight:1}}>${Number(p.honorario_monto||0).toLocaleString("es-AR")}</div>
+                                <div style={{fontSize:11,opacity:0.5,marginTop:2}}>{p.honorario_tipo||"mensual"}</div>
+                              </div>
+                            </div>
+
+                            {/* Distribución cultivos del productor */}
+                            {cultivosProd.length>0&&(
+                              <div className="gc-inner" style={{padding:"10px 12px"}}>
+                                <div style={{fontSize:10,fontWeight:700,opacity:0.55,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Distribución de Cultivos</div>
+                                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                                  {cultivosProd.slice(0,4).map(c=>{
+                                    const info=getCultivoInfo(c);
+                                    const haC=lotesP.filter(l=>(l.cultivo_completo||l.cultivo)===c).reduce((a,l)=>a+(l.hectareas||0),0);
+                                    const pct=haReales>0?Math.round(haC/haReales*100):0;
+                                    return(
+                                      <div key={c} style={{display:"flex",alignItems:"center",gap:8}}>
+                                        <span style={{fontSize:14,flexShrink:0}}>{cultivoIcono(c)}</span>
+                                        <div style={{width:72,fontSize:11,fontWeight:600,color:"rgba(255,255,255,0.8)",flexShrink:0}}>{info.label}</div>
+                                        <div style={{flex:1,height:7,borderRadius:99,background:"rgba(255,255,255,0.10)",overflow:"hidden"}}>
+                                          <div style={{height:"100%",borderRadius:99,background:info.color,width:pct+"%",boxShadow:`0 0 5px ${info.color}70`}}/>
+                                        </div>
+                                        <div style={{width:28,textAlign:"right",fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.8)",flexShrink:0}}>{pct}%</div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                {/* Chips 2x2 */}
+                                {cultivosProd.length>1&&(
+                                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginTop:10}}>
+                                    {cultivosProd.slice(0,4).map(c=>{
+                                      const info=getCultivoInfo(c);
+                                      return(
+                                        <div key={c} className="cult-chip" style={{background:`linear-gradient(145deg,${info.color}22,${info.color}0a)`,borderColor:`${info.color}30`}}>
+                                          <span style={{fontSize:15}}>{cultivoIcono(c)}</span>
+                                          <span style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.9)"}}>{info.label}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* CTA Mis Lotes */}
+                            <button onClick={()=>entrar(p)} className="btn-mislotes">
+                              <span style={{fontSize:18}}>🏛</span>
+                              <span>{p.tiene_cuenta?"Ver Lotes":"Mis Lotes"}</span>
+                              <span style={{fontSize:18,opacity:0.7}}>›</span>
+                            </button>
+                          </div>
+
+                          {p.observaciones&&<div style={{padding:"8px 14px",borderTop:"1px solid rgba(255,255,255,0.08)",fontSize:11,color:"rgba(255,255,255,0.35)"}}>{p.observaciones}</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                }
+              </div>
+            )}
+
+            {/* ══ COBRANZA ══ */}
+            {seccion==="cobranza"&&(
+              <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:10}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                  <div>
+                    <h2 style={{fontSize:20,fontWeight:800,color:"white",margin:0}}>Cobranza</h2>
+                    <div style={{display:"flex",gap:12,marginTop:4}}>
+                      <span style={{fontSize:12,fontWeight:600,color:"#fca5a5"}}>Pend: <strong>${totPend.toLocaleString("es-AR")}</strong></span>
+                      <span style={{fontSize:12,fontWeight:600,color:"#86efac"}}>Cobr: <strong>${totCob.toLocaleString("es-AR")}</strong></span>
+                    </div>
+                  </div>
+                  <button onClick={()=>{setShowForm(!showForm);setForm({estado:"pendiente",fecha_c:new Date().toISOString().split("T")[0]});}} className="btn-solid">+ Cobro</button>
+                </div>
+                {showForm&&(
+                  <div className="gc-inner fade-in" style={{padding:14}}>
+                    <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"white"}}>+ Nuevo cobro</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                      <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Productor</label><select value={form.prod_c??""} onChange={e=>setForm({...form,prod_c:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px"}}><option value="">Sin productor</option>{productores.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
+                      <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Concepto</label><input type="text" value={form.concepto??""} onChange={e=>setForm({...form,concepto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Honorario enero"/></div>
+                      <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Monto</label><input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Fecha</label><input type="date" value={form.fecha_c??""} onChange={e=>setForm({...form,fecha_c:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Estado</label><select value={form.estado??"pendiente"} onChange={e=>setForm({...form,estado:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px"}}><option value="pendiente">Pendiente</option><option value="cobrado">Cobrado</option></select></div>
+                      <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Método</label><select value={form.metodo??""} onChange={e=>setForm({...form,metodo:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px"}}><option value="">—</option><option value="transferencia">Transferencia</option><option value="efectivo">Efectivo</option><option value="cheque">Cheque</option></select></div>
+                    </div>
+                    <div style={{display:"flex",gap:8}}><button onClick={guardarCob} className="btn-solid">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="action-btn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button></div>
+                  </div>
+                )}
+                <div className="gc" style={{overflow:"hidden",padding:0}}>
+                  {cobranzas.length===0?<div style={{textAlign:"center",padding:"48px 20px",color:"rgba(255,255,255,0.3)",fontSize:14}}>Sin cobros registrados</div>:(
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%",fontSize:12,minWidth:520,borderCollapse:"collapse"}}>
+                        <thead><tr style={{borderBottom:"1px solid rgba(255,255,255,0.1)"}}>{["Fecha","Productor","Concepto","Monto","Estado",""].map(h=><th key={h} style={{textAlign:"left",padding:"10px 12px",fontSize:10,color:"rgba(255,255,255,0.45)",fontWeight:700,textTransform:"uppercase",letterSpacing:0.8}}>{h}</th>)}</tr></thead>
+                        <tbody>{cobranzas.map(c=>{const p=productores.find(x=>x.id===c.productor_id);return(
+                          <tr key={c.id} style={{borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
+                            <td style={{padding:"10px 12px",color:"rgba(255,255,255,0.45)",fontSize:11}}>{c.fecha}</td>
+                            <td style={{padding:"10px 12px",fontWeight:600,color:"white",fontSize:12}}>{p?.nombre??"—"}</td>
+                            <td style={{padding:"10px 12px",color:"rgba(255,255,255,0.55)",fontSize:11}}>{c.concepto}</td>
+                            <td style={{padding:"10px 12px",fontWeight:700,color:"#fbbf24",fontSize:13}}>${Number(c.monto).toLocaleString("es-AR")}</td>
+                            <td style={{padding:"10px 12px"}}><span style={{fontSize:11,padding:"3px 8px",borderRadius:7,fontWeight:700,background:c.estado==="cobrado"?"rgba(134,239,172,0.15)":"rgba(252,165,165,0.15)",color:c.estado==="cobrado"?"#86efac":"#fca5a5"}}>{c.estado}</span></td>
+                            <td style={{padding:"10px 12px",display:"flex",gap:8}}>
+                              {c.estado==="pendiente"&&<button onClick={()=>marcarCobrado(c.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#86efac",fontSize:12,fontWeight:700}}>✓</button>}
+                              <button onClick={async()=>{const sb=await getSB();await sb.from("ing_cobranzas").delete().eq("id",c.id);await fetchCobs(ingId);}} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.3)",fontSize:15}}>✕</button>
+                            </td>
+                          </tr>
+                        );})}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
               </div>
             )}
-          </div>
-        )}
 
-        {/* ══ IA CAMPO ══ */}
-        {seccion==="ia_campo"&&(
-          <div className="fade-in">
-            <div className="mb-4">
-              <h2 className="text-xl font-bold text-gray-800">IA Campo</h2>
-              <p className="text-sm text-gray-400 mt-0.5">Dosis, plagas, enfermedades, cultivos y mercados</p>
-            </div>
-            {aiChat.length===0&&(
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                {["Dosis glifosato soja","Roya asiática síntomas","Fungicida maíz","Precio soja hoy","Insecticida MIP soja","Trigo siembra pampeana"].map(q=>(
-                  <button key={q} onClick={()=>askAI(q)}
-                    className="glass-btn text-left text-xs text-gray-500 px-3 py-3 rounded-xl hover:text-blue-700">💬 {q}</button>
-                ))}
-              </div>
-            )}
-            <div className="glass-card overflow-hidden mb-3">
-              <div className="px-4 py-3 flex items-center justify-between" style={{borderBottom:"1px solid rgba(0,0,0,0.06)"}}>
-                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"/><span className="font-bold text-gray-800 text-sm">IA Agronómica</span></div>
-                {aiChat.length>0&&<button onClick={()=>setAiChat([])} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Limpiar</button>}
-              </div>
-              <div className="p-4 max-h-80 overflow-y-auto flex flex-col gap-3">
-                {aiChat.length===0&&<div className="text-center py-8 text-gray-400"><div className="text-3xl mb-2">🌾</div><p className="text-sm">Hacé tu consulta agronómica...</p></div>}
-                {aiChat.map((msg,i)=>(
-                  <div key={i} className={`flex ${msg.rol==="user"?"justify-end":"justify-start"}`}>
-                    <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${msg.rol==="user"?"text-white":"text-gray-700 border"}`}
-                      style={msg.rol==="user"?{background:"linear-gradient(135deg,#1976D2,#0D47A1)",boxShadow:"0 4px 14px rgba(25,118,210,0.25)"}:{background:"rgba(255,255,255,0.7)",borderColor:"rgba(0,0,0,0.08)"}}>
-                      {msg.rol==="assistant"&&<div className="text-xs font-bold mb-1.5 text-blue-600">◆ IA Agronómica</div>}
-                      <p className="whitespace-pre-wrap">{msg.texto}</p>
+            {/* ══ VEHICULO ══ */}
+            {seccion==="vehiculo"&&(
+              <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:10}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                  <h2 style={{fontSize:20,fontWeight:800,color:"white",margin:0}}>Mi Vehículo</h2>
+                  {!vehiculoSel?<button onClick={()=>{setShowForm(true);setForm({});}} className="btn-solid">+ Agregar</button>
+                    :<div style={{display:"flex",gap:8}}>
+                      <button onClick={()=>{setShowForm(true);setForm({});}} className="action-btn" style={{padding:"8px 14px",fontSize:12}}>+ Service</button>
+                      <button onClick={()=>{setVehiculoSel(null);setServicios([]);setShowForm(false);}} className="action-btn" style={{padding:"8px 14px",fontSize:12}}>← Volver</button>
+                    </div>
+                  }
+                </div>
+                {showForm&&!vehiculoSel&&(
+                  <div className="gc-inner fade-in" style={{padding:14}}>
+                    <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"white"}}>+ Nuevo vehículo</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                      {[["nombre","Nombre","Toyota Hilux","text"],["marca","Marca","","text"],["modelo","Modelo","","text"],["anio","Año","","number"],["patente","Patente","","text"],["seg_comp","Compañía seguro","","text"],["seg_venc","Venc. seguro","","date"],["vtv_venc","Venc. VTV","","date"],["km","Km actuales","","number"],["prox_km","Próx. service km","","number"]].map(([k,l,ph,t])=>(
+                        <div key={k as string}><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>{l as string}</label><input type={t as string} value={form[k as string]??""} onChange={e=>setForm({...form,[k as string]:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder={ph as string}/></div>
+                      ))}
+                    </div>
+                    <div style={{display:"flex",gap:8}}><button onClick={guardarVeh} className="btn-solid">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="action-btn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button></div>
+                  </div>
+                )}
+                {!vehiculoSel?(
+                  vehiculos.length===0?<div className="gc" style={{padding:"48px 20px",textAlign:"center"}}><div style={{fontSize:48,opacity:0.2,marginBottom:12}}>🚗</div><p style={{color:"rgba(255,255,255,0.3)",fontSize:14}}>Sin vehículos</p></div>:(
+                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                      {vehiculos.map((v:any)=>{const sV=v.seguro_vencimiento&&new Date(v.seguro_vencimiento)<new Date();const vV=v.vtv_vencimiento&&new Date(v.vtv_vencimiento)<new Date();return(
+                        <div key={v.id} className="prod-card gc" style={{padding:14,cursor:"pointer"}} onClick={async()=>{setVehiculoSel(v);const sb=await getSB();const{data}=await sb.from("ing_vehiculo_service").select("*").eq("vehiculo_id",v.id).order("fecha",{ascending:false});setServicios(data??[]);}}>
+                          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+                            <div style={{width:46,height:46,borderRadius:14,background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>🚗</div>
+                            <div style={{flex:1}}><div style={{fontWeight:700,color:"white",fontSize:15}}>{v.nombre}</div><div style={{fontSize:11,color:"rgba(255,255,255,0.45)",marginTop:2}}>{v.marca} {v.modelo} · {v.anio} · {v.patente}</div></div>
+                            <button onClick={e=>{e.stopPropagation();(async()=>{const sb=await getSB();await sb.from("ing_vehiculos").delete().eq("id",v.id);await fetchVehs(ingId);})();}} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.3)",fontSize:18}}>✕</button>
+                          </div>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+                            <div className="kpi-card" style={{padding:"10px 12px"}}><div style={{fontSize:10,opacity:0.55,marginBottom:3}}>Km actuales</div><div style={{fontSize:18,fontWeight:700}}>{(v.km_actuales||0).toLocaleString()}</div></div>
+                            <div className="kpi-card" style={{padding:"10px 12px",background:"linear-gradient(145deg,rgba(251,191,36,0.20),rgba(251,191,36,0.06))"}}><div style={{fontSize:10,opacity:0.55,marginBottom:3}}>Próx. service</div><div style={{fontSize:16,fontWeight:700,color:"#fbbf24"}}>{v.proximo_service_km?(v.proximo_service_km.toLocaleString()+" km"):"—"}</div></div>
+                          </div>
+                          <div style={{display:"flex",gap:8}}>
+                            <span style={{flex:1,fontSize:11,padding:"7px 10px",borderRadius:10,fontWeight:700,textAlign:"center",background:sV?"rgba(252,165,165,0.15)":"rgba(134,239,172,0.12)",color:sV?"#fca5a5":"#86efac",border:`1px solid ${sV?"rgba(252,165,165,0.2)":"rgba(134,239,172,0.15)"}`}}>🛡 {sV?"VENCIDO":v.seguro_vencimiento||"—"}</span>
+                            <span style={{flex:1,fontSize:11,padding:"7px 10px",borderRadius:10,fontWeight:700,textAlign:"center",background:vV?"rgba(252,165,165,0.15)":"rgba(134,239,172,0.12)",color:vV?"#fca5a5":"#86efac",border:`1px solid ${vV?"rgba(252,165,165,0.2)":"rgba(134,239,172,0.15)"}`}}>📋 {vV?"VTV VENCIDA":v.vtv_vencimiento||"—"}</span>
+                          </div>
+                        </div>
+                      );})}
+                    </div>
+                  )
+                ):(
+                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                    <div className="gc" style={{padding:14,display:"flex",alignItems:"center",gap:12}}>
+                      <div style={{width:46,height:46,borderRadius:14,background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🚗</div>
+                      <div><div style={{fontWeight:700,color:"white"}}>{vehiculoSel.nombre}</div><div style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>{vehiculoSel.marca} {vehiculoSel.modelo} · {(vehiculoSel as any).anio} · {vehiculoSel.patente}</div></div>
+                    </div>
+                    {showForm&&vehiculoSel&&(
+                      <div className="gc-inner fade-in" style={{padding:14}}>
+                        <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"white"}}>+ Service</div>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                          <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Tipo</label><select value={form.tipo_s??"service"} onChange={e=>setForm({...form,tipo_s:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px"}}><option value="service">Service</option><option value="reparacion">Reparación</option><option value="vtv">VTV</option><option value="otro">Otro</option></select></div>
+                          <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Descripción</label><input type="text" value={form.desc_s??""} onChange={e=>setForm({...form,desc_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                          <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Taller</label><input type="text" value={form.taller??""} onChange={e=>setForm({...form,taller:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                          <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Km</label><input type="number" value={form.km_s??""} onChange={e=>setForm({...form,km_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                          <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Costo</label><input type="number" value={form.costo_s??""} onChange={e=>setForm({...form,costo_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                          <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Fecha</label><input type="date" value={form.fecha_s??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                        </div>
+                        <div style={{display:"flex",gap:8}}><button onClick={guardarService} className="btn-solid">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="action-btn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button></div>
+                      </div>
+                    )}
+                    <div className="gc" style={{overflow:"hidden",padding:0}}>
+                      <div style={{padding:"10px 14px",borderBottom:"1px solid rgba(255,255,255,0.1)",fontSize:13,fontWeight:700,color:"white"}}>🔧 Historial</div>
+                      {servicios.length===0?<div style={{textAlign:"center",padding:"32px 20px",color:"rgba(255,255,255,0.3)",fontSize:13}}>Sin historial</div>:(
+                        <div style={{overflowX:"auto"}}><table style={{width:"100%",fontSize:12,minWidth:440,borderCollapse:"collapse"}}>
+                          <thead><tr style={{borderBottom:"1px solid rgba(255,255,255,0.08)"}}>{["Fecha","Tipo","Descripción","Km","Costo",""].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontSize:10,color:"rgba(255,255,255,0.4)",fontWeight:600,textTransform:"uppercase",letterSpacing:0.8}}>{h}</th>)}</tr></thead>
+                          <tbody>{servicios.map(s=><tr key={s.id} style={{borderBottom:"1px solid rgba(255,255,255,0.05)"}}><td style={{padding:"9px 12px",color:"rgba(255,255,255,0.4)",fontSize:11}}>{s.fecha}</td><td style={{padding:"9px 12px"}}><span style={{fontSize:10,padding:"3px 7px",borderRadius:6,fontWeight:700,background:"rgba(251,191,36,0.15)",color:"#fbbf24"}}>{s.tipo}</span></td><td style={{padding:"9px 12px",color:"rgba(255,255,255,0.65)",fontSize:11}}>{s.descripcion}</td><td style={{padding:"9px 12px",color:"rgba(255,255,255,0.4)",fontSize:11}}>{s.km?(s.km.toLocaleString()+" km"):"—"}</td><td style={{padding:"9px 12px",fontWeight:700,color:"#fca5a5",fontSize:12}}>${Number(s.costo).toLocaleString("es-AR")}</td><td style={{padding:"9px 12px"}}><button onClick={async()=>{const sb=await getSB();await sb.from("ing_vehiculo_service").delete().eq("id",s.id);const sb2=await getSB();const{data}=await sb2.from("ing_vehiculo_service").select("*").eq("vehiculo_id",vehiculoSel!.id).order("fecha",{ascending:false});setServicios(data??[]);}} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.25)",fontSize:15}}>✕</button></td></tr>)}</tbody>
+                        </table></div>
+                      )}
                     </div>
                   </div>
-                ))}
-                {aiLoad&&<div className="flex"><div className="px-4 py-3 rounded-2xl border" style={{background:"rgba(255,255,255,0.7)",borderColor:"rgba(0,0,0,0.08)"}}><div className="flex gap-1">{[0,1,2].map(i=><div key={i} className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{animationDelay:i*0.15+"s"}}/>)}</div></div></div>}
+                )}
               </div>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={escucharVoz} className="p-3 rounded-xl transition-colors flex-shrink-0" style={{background:"rgba(25,118,210,0.1)",border:"1px solid rgba(25,118,210,0.2)",color:"#1976D2"}}>🎤</button>
-              <input type="text" value={aiInput} onChange={e=>setAiInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&askAI()} placeholder="Consultá sobre dosis, plagas, cultivos..." className={`${iCls} flex-1`}/>
-              <button onClick={()=>askAI()} disabled={aiLoad||!aiInput.trim()} className="btn-blue disabled:opacity-40 px-4 py-3 text-sm font-bold flex-shrink-0">→</button>
-            </div>
-          </div>
-        )}
+            )}
 
-        <div className="h-24"/>
+            {/* ══ IA CAMPO ══ */}
+            {seccion==="ia_campo"&&(
+              <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:10}}>
+                <div style={{marginBottom:4}}>
+                  <h2 style={{fontSize:20,fontWeight:800,color:"white",margin:0}}>IA Campo</h2>
+                  <p style={{fontSize:13,color:"rgba(255,255,255,0.45)",marginTop:4}}>Dosis, plagas, enfermedades, cultivos y mercados</p>
+                </div>
+                {aiChat.length===0&&(
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:4}}>
+                    {["Dosis glifosato soja","Roya asiática síntomas","Fungicida maíz","Precio soja hoy","Insecticida MIP soja","Trigo siembra pampeana"].map(q=>(
+                      <button key={q} onClick={()=>askAI(q)} className="action-btn" style={{padding:"10px 12px",fontSize:12,justifyContent:"flex-start",textAlign:"left"}}>💬 {q}</button>
+                    ))}
+                  </div>
+                )}
+                <div className="gc" style={{overflow:"hidden",padding:0}}>
+                  <div style={{padding:"10px 14px",borderBottom:"1px solid rgba(255,255,255,0.1)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:7}}><div style={{width:7,height:7,borderRadius:"50%",background:"#86efac",boxShadow:"0 0 6px #86efac80"}}/><span style={{fontWeight:700,color:"white",fontSize:13}}>IA Agronómica</span></div>
+                    {aiChat.length>0&&<button onClick={()=>setAiChat([])} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.35)",fontSize:12}}>Limpiar</button>}
+                  </div>
+                  <div style={{padding:14,maxHeight:300,overflowY:"auto",display:"flex",flexDirection:"column",gap:10}}>
+                    {aiChat.length===0&&<div style={{textAlign:"center",padding:"32px 20px",color:"rgba(255,255,255,0.25)"}}><div style={{fontSize:32,marginBottom:8}}>🌾</div><p style={{fontSize:13}}>Hacé tu consulta agronómica...</p></div>}
+                    {aiChat.map((msg,i)=>(
+                      <div key={i} style={{display:"flex",justifyContent:msg.rol==="user"?"flex-end":"flex-start"}}>
+                        <div style={{maxWidth:"85%",padding:"10px 14px",borderRadius:14,fontSize:13,lineHeight:1.5,
+                          ...(msg.rol==="user"
+                            ?{background:"linear-gradient(145deg,#2196f3,#1565c0)",color:"white",boxShadow:"0 4px 14px rgba(33,150,243,0.35)"}
+                            :{background:"rgba(255,255,255,0.10)",border:"1px solid rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.9)"})}}>
+                          {msg.rol==="assistant"&&<div style={{fontSize:10,fontWeight:700,color:"#90caf9",marginBottom:5,letterSpacing:1}}>◆ IA AGRONÓMICA</div>}
+                          <p style={{margin:0,whiteSpace:"pre-wrap"}}>{msg.texto}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {aiLoad&&<div style={{display:"flex"}}><div style={{background:"rgba(255,255,255,0.10)",border:"1px solid rgba(255,255,255,0.15)",padding:"10px 14px",borderRadius:14,display:"flex",gap:5}}>{[0,1,2].map(i=><div key={i} style={{width:6,height:6,borderRadius:"50%",background:"#90caf9",animation:"float 1s ease-in-out infinite",animationDelay:i*0.15+"s"}}/>)}</div></div>}
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={escucharVoz} className="action-btn" style={{padding:"10px 14px",flexShrink:0,fontSize:16}}>🎤</button>
+                  <input type="text" value={aiInput} onChange={e=>setAiInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&askAI()} placeholder="Consultá sobre dosis, plagas, cultivos..." className={iCls} style={{flex:1,padding:"10px 14px"}}/>
+                  <button onClick={()=>askAI()} disabled={aiLoad||!aiInput.trim()} className="btn-solid" style={{padding:"10px 16px",flexShrink:0,fontSize:15,opacity:aiLoad||!aiInput.trim()?0.4:1}}>→</button>
+                </div>
+              </div>
+            )}
+
+            <div style={{height:80}}/>
+          </div>
+        </div>{/* fin main-frame */}
       </div>
 
       {/* ══ PANEL VOZ ══ */}
       {vozPanel&&(
-        <div className="fixed bottom-24 right-4 z-50 w-72 rounded-2xl shadow-2xl overflow-hidden" style={{background:"rgba(255,255,255,0.9)",backdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.5)"}}>
-          <div className="flex items-center justify-between px-4 py-3" style={{borderBottom:"1px solid rgba(0,0,0,0.06)"}}>
-            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{background:VOZ_COLOR[vozEstado]}}/><span className="text-blue-700 text-xs font-bold">🎤 ASISTENTE</span></div>
-            <button onClick={()=>{setVozPanel(false);recRef.current?.stop();setVozEstado("idle");}} className="text-gray-400 hover:text-gray-600 transition-colors">✕</button>
+        <div style={{position:"fixed",bottom:88,right:16,zIndex:50,width:280,borderRadius:20,overflow:"hidden",
+          background:"linear-gradient(145deg,rgba(255,255,255,0.18),rgba(200,225,255,0.10))",
+          backdropFilter:"blur(24px)",border:"1px solid rgba(255,255,255,0.30)",
+          boxShadow:"0 16px 48px rgba(0,20,100,0.35),inset 0 1px 0 rgba(255,255,255,0.4)"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:"1px solid rgba(255,255,255,0.12)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:7}}><div style={{width:7,height:7,borderRadius:"50%",background:VOZ_COLOR[vozEstado],boxShadow:`0 0 6px ${VOZ_COLOR[vozEstado]}80`}}/><span style={{color:"white",fontSize:12,fontWeight:700}}>🎤 ASISTENTE</span></div>
+            <button onClick={()=>{setVozPanel(false);recRef.current?.stop();setVozEstado("idle");}} style={{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer",fontSize:18}}>✕</button>
           </div>
-          <div className="p-4 min-h-14">
-            {vozEstado==="escuchando"&&<p className="text-red-500 text-sm animate-pulse font-medium">🔴 Escuchando...</p>}
-            {vozEstado==="procesando"&&<p className="text-amber-600 text-sm font-medium">⚙️ Procesando...</p>}
+          <div style={{padding:14,minHeight:56}}>
+            {vozEstado==="escuchando"&&<p style={{color:"#fca5a5",fontSize:13,fontWeight:600}}>🔴 Escuchando...</p>}
+            {vozEstado==="procesando"&&<p style={{color:"#fbbf24",fontSize:13,fontWeight:600}}>⚙️ Procesando...</p>}
             {vozEstado==="idle"&&(
-              <div className="space-y-1.5">
+              <div style={{display:"flex",flexDirection:"column",gap:7}}>
                 {["¿Cuántas ha totales?","Dosis glifosato soja","¿Cuántos productores?"].map(q=>(
-                  <button key={q} onClick={()=>{askAI(q);setVozPanel(false);}}
-                    className="w-full text-left text-xs text-gray-500 hover:text-blue-700 px-3 py-2 rounded-xl transition-all"
-                    style={{background:"rgba(25,118,210,0.05)",border:"1px solid rgba(25,118,210,0.1)"}}>
-                    💬 {q}
-                  </button>
+                  <button key={q} onClick={()=>{askAI(q);setVozPanel(false);}} className="action-btn" style={{padding:"8px 12px",fontSize:11,justifyContent:"flex-start"}}>💬 {q}</button>
                 ))}
               </div>
             )}
           </div>
-          <div className="px-3 pb-3 flex gap-2 pt-3" style={{borderTop:"1px solid rgba(0,0,0,0.06)"}}>
-            <input value={vozInput} onChange={e=>setVozInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&vozInput.trim()){askAI(vozInput);setVozInput("");setVozPanel(false);}}} placeholder="Escribí..." className={`${iCls} flex-1 text-xs py-2`}/>
-            <button onClick={escucharVoz} className="px-3 py-2 rounded-xl text-sm transition-colors" style={{background:VOZ_COLOR[vozEstado]+"20",border:"1px solid "+VOZ_COLOR[vozEstado]+"40",color:VOZ_COLOR[vozEstado]}}>{VOZ_ICON[vozEstado]}</button>
+          <div style={{padding:"0 12px 12px",display:"flex",gap:8}}>
+            <input value={vozInput} onChange={e=>setVozInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&vozInput.trim()){askAI(vozInput);setVozInput("");setVozPanel(false);}}} placeholder="Escribí..." className={iCls} style={{flex:1,padding:"8px 12px",fontSize:12}}/>
+            <button onClick={escucharVoz} style={{padding:"8px 12px",borderRadius:12,fontSize:14,background:VOZ_COLOR[vozEstado]+"25",border:`1px solid ${VOZ_COLOR[vozEstado]}50`,color:VOZ_COLOR[vozEstado],cursor:"pointer"}}>{VOZ_ICON[vozEstado]}</button>
           </div>
         </div>
       )}
 
       {/* Botón flotante voz */}
       <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}}
-        className="fixed bottom-6 right-4 z-40 w-14 h-14 rounded-full flex items-center justify-center text-xl shadow-2xl transition-all"
-        style={{background:"linear-gradient(135deg,#1976D2,#0D47A1)",color:"white",animation:vozEstado==="idle"?"float 3s ease-in-out infinite":"none",boxShadow:"0 4px 24px rgba(25,118,210,0.45)"}}>
+        style={{position:"fixed",bottom:20,right:16,zIndex:40,width:56,height:56,borderRadius:"50%",
+          display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",
+          background:"linear-gradient(145deg,#2196f3,#1565c0)",color:"white",
+          border:"1.5px solid rgba(100,180,255,0.4)",
+          boxShadow:"0 4px 20px rgba(33,150,243,0.50),inset 0 1px 0 rgba(255,255,255,0.25)",
+          animation:vozEstado==="idle"?"float 3s ease-in-out infinite":"none",
+          transition:"all 0.2s ease"}}>
         {VOZ_ICON[vozEstado]}
       </button>
     </div>
