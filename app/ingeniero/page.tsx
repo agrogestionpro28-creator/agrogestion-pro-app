@@ -480,6 +480,18 @@ export default function IngenieroPanel() {
     return "🌱";
   };
 
+  const cultivoBarClass = (label:string) => {
+    const l = label.toLowerCase();
+    if(l.includes("soja")) return "bar-fill bar-soja";
+    if(l.includes("maíz")||l.includes("maiz")) return "bar-fill bar-maiz";
+    if(l.includes("trigo")) return "bar-fill bar-trigo";
+    if(l.includes("girasol")) return "bar-fill bar-girasol";
+    if(l.includes("sorgo")) return "bar-fill bar-sorgo";
+    if(l.includes("cebada")) return "bar-fill bar-cebada";
+    if(l.includes("arveja")) return "bar-fill bar-arveja";
+    return "bar-fill bar-default";
+  };
+
   return (
     <div style={{minHeight:"100vh",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",position:"relative",overflow:"hidden",
       background:"#c8e8f8"}}>
@@ -702,6 +714,37 @@ export default function IngenieroPanel() {
         ::-webkit-scrollbar-thumb{background:rgba(25,118,210,0.25);border-radius:3px}
         input[type=date]::-webkit-calendar-picker-indicator{opacity:0.5}
         select option{background:white;color:#1e3a5f;}
+
+        /* ── COLORES CULTIVOS PRO ── */
+        .bar-soja{background:linear-gradient(90deg,#4CAF50,#81C784);}
+        .bar-maiz{background:linear-gradient(90deg,#FB8C00,#FFB74D);}
+        .bar-trigo{background:linear-gradient(90deg,#D4A373,#E6C79C);}
+        .bar-girasol{background:linear-gradient(90deg,#FBC02D,#FFE082);}
+        .bar-sorgo{background:linear-gradient(90deg,#E53935,#EF9A9A);}
+        .bar-cebada{background:linear-gradient(90deg,#7B1FA2,#CE93D8);}
+        .bar-arveja{background:linear-gradient(90deg,#00897B,#80CBC4);}
+        .bar-default{background:linear-gradient(90deg,#1976D2,#64B5F6);}
+
+        /* ── BRILLO CORRIENDO EN BARRAS ── */
+        @keyframes shine{0%{left:-40%}100%{left:120%}}
+        .bar-fill{
+          height:100%;border-radius:10px;
+          position:relative;overflow:hidden;
+        }
+        .bar-fill::after{
+          content:"";position:absolute;
+          width:40%;height:100%;left:-40%;top:0;
+          background:linear-gradient(90deg,transparent,rgba(255,255,255,0.52),transparent);
+          animation:shine 2.5s ease-in-out infinite;
+        }
+
+        /* ── NÚMERO GRANDE ESTILO PRO ── */
+        .num-pro{
+          font-size:32px;font-weight:700;color:#0D47A1;line-height:1;
+        }
+        .num-med{
+          font-size:22px;font-weight:700;color:#0D47A1;line-height:1;
+        }
 `}</style>
 
       {/* FONDO CELESTE CON DESTELLOS CRISTAL */}
@@ -788,7 +831,7 @@ export default function IngenieroPanel() {
                   ].map(s=>(
                     <div key={s.l} className="kpi-card">
                       <div style={{fontSize:20,marginBottom:4}}>{s.icon}</div>
-                      <div style={{fontSize:26,fontWeight:800,lineHeight:1,color:"#0d2137"}}>{s.v}</div>
+                      <div style={{className:"num-pro"}}>{s.v}</div>
                       <div style={{fontSize:11,color:"#4a6a8a",marginTop:3,fontWeight:600}}>{s.l}</div>
                     </div>
                   ))}
@@ -802,12 +845,11 @@ export default function IngenieroPanel() {
                       {haPorCultivo.map((d,i)=>(
                         <div key={i} style={{display:"flex",alignItems:"center",gap:10}}>
                           <span style={{fontSize:16,width:22,textAlign:"center",flexShrink:0}}>{cultivoIcono(d.name)}</span>
-                          <div style={{width:80,fontSize:12,fontWeight:600,color:"rgba(255,255,255,0.85)",flexShrink:0}}>{d.name}</div>
-                          <div style={{flex:1,height:8,borderRadius:99,background:"rgba(255,255,255,0.12)",overflow:"hidden",boxShadow:"inset 0 1px 2px rgba(0,0,0,0.15)"}}>
-                            <div style={{height:"100%",borderRadius:99,background:d.color,width:totalHa>0?(d.ha/totalHa*100)+"%":"0%",
-                              boxShadow:`0 0 6px ${d.color}80`,transition:"width 0.6s ease"}}/>
+                          <div style={{width:80,fontSize:12,fontWeight:600,color:"#1e3a5f",flexShrink:0}}>{d.name}</div>
+                          <div style={{flex:1,height:9,borderRadius:10,background:"rgba(0,60,140,0.08)",overflow:"hidden",boxShadow:"inset 0 1px 3px rgba(0,60,140,0.08)"}}>
+                            <div className={cultivoBarClass(d.name)} style={{width:totalHa>0?(d.ha/totalHa*100)+"%":"0%",transition:"width 0.7s ease"}}/>
                           </div>
-                          <div style={{width:32,textAlign:"right",fontSize:12,fontWeight:700,color:"#1e3a5f",flexShrink:0}}>
+                          <div style={{width:32,textAlign:"right",fontSize:12,fontWeight:700,color:d.color,filter:"brightness(0.75)",flexShrink:0}}>
                             {totalHa>0?Math.round(d.ha/totalHa*100):0}%
                           </div>
                         </div>
@@ -820,9 +862,9 @@ export default function IngenieroPanel() {
                 {haPorCultivo.length>0&&(
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                     {haPorCultivo.slice(0,4).map((d,i)=>(
-                      <div key={i} className="cult-chip" style={{background:`linear-gradient(145deg,${d.color}28,${d.color}10)`,borderColor:`${d.color}35`,color:"white"}}>
+                      <div key={i} className="cult-chip" style={{background:`linear-gradient(145deg,${d.color}20,${d.color}08)`,border:`1px solid ${d.color}35`,color:"#1a2a4a"}}>
                         <span style={{fontSize:18}}>{cultivoIcono(d.name)}</span>
-                        <span style={{fontSize:13,fontWeight:700}}>{d.name}</span>
+                        <span style={{fontSize:13,fontWeight:700,color:"#1a2a4a"}}>{d.name}</span>
                       </div>
                     ))}
                   </div>
@@ -1015,7 +1057,7 @@ export default function IngenieroPanel() {
                               </div>
                               <div className="kpi-card">
                                 <div style={{fontSize:12,fontWeight:700,color:"#4a6a8a",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>$ Honorario</div>
-                                <div style={{fontSize:20,fontWeight:800,lineHeight:1,color:"#0d2137"}}>${Number(p.honorario_monto||0).toLocaleString("es-AR")}</div>
+                                <div style={{className:"num-med"}}>${Number(p.honorario_monto||0).toLocaleString("es-AR")}</div>
                                 <div style={{fontSize:11,opacity:0.5,marginTop:2}}>{p.honorario_tipo||"mensual"}</div>
                               </div>
                             </div>
@@ -1032,11 +1074,11 @@ export default function IngenieroPanel() {
                                     return(
                                       <div key={c} style={{display:"flex",alignItems:"center",gap:8}}>
                                         <span style={{fontSize:14,flexShrink:0}}>{cultivoIcono(c)}</span>
-                                        <div style={{width:72,fontSize:11,fontWeight:600,color:"rgba(255,255,255,0.8)",flexShrink:0}}>{info.label}</div>
-                                        <div style={{flex:1,height:7,borderRadius:99,background:"rgba(255,255,255,0.10)",overflow:"hidden"}}>
-                                          <div style={{height:"100%",borderRadius:99,background:info.color,width:pct+"%",boxShadow:`0 0 5px ${info.color}70`}}/>
+                                        <div style={{width:72,fontSize:11,fontWeight:600,color:"#1e3a5f",flexShrink:0}}>{info.label}</div>
+                                        <div style={{flex:1,height:8,borderRadius:10,background:"rgba(0,60,140,0.07)",overflow:"hidden",boxShadow:"inset 0 1px 2px rgba(0,60,140,0.06)"}}>
+                                          <div className={cultivoBarClass(c)} style={{width:pct+"%",transition:"width 0.7s ease"}}/>
                                         </div>
-                                        <div style={{width:28,textAlign:"right",fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.8)",flexShrink:0}}>{pct}%</div>
+                                        <div style={{width:28,textAlign:"right",fontSize:11,fontWeight:700,color:info.color,filter:"brightness(0.75)",flexShrink:0}}>{pct}%</div>
                                       </div>
                                     );
                                   })}
