@@ -426,7 +426,8 @@ export default function IngenieroPanel() {
 
   // Inputs
   const iCls = "gi w-full px-3 py-2.5 text-gray-800 text-sm";
-  const lCls = "block text-xs font-semibold mb-1.5 uppercase tracking-wide text-gray-500";
+  const lCls = "gi-label";
+  const cardCls = "gc";
   const lCls = "block text-xs text-gray-500 font-semibold mb-1.5 uppercase tracking-wide";
   const cardCls = "glass-card";
 
