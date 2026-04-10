@@ -63,7 +63,6 @@ const NAV = [
   { k:"productores",icon:"👨‍🌾", label:"Productores" },
   { k:"cobranza",   icon:"💰", label:"Cobranza" },
   { k:"vehiculo",   icon:"🚗", label:"Vehículo" },
-  { k:"ia_campo",   icon:"🤖", label:"IA Campo" },
 ];
 
 export default function IngenieroPanel() {
@@ -93,6 +92,7 @@ export default function IngenieroPanel() {
   const [fProductor, setFProductor] = useState("todos");
   const [fEstado, setFEstado] = useState("todos");
   const [aiChat, setAiChat] = useState<MsgIA[]>([]);
+  const [aiPanel, setAiPanel] = useState(false);
   const [aiInput, setAiInput] = useState("");
   const [aiLoad, setAiLoad] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
@@ -482,7 +482,7 @@ export default function IngenieroPanel() {
 
   return (
     <div style={{minHeight:"100vh",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",position:"relative",overflow:"hidden",
-      background:"radial-gradient(ellipse at 20% 10%, #1e88e5 0%, #1565c0 30%, #0d47a1 55%, #1a237e 80%, #0a1a6e 100%)"}}>
+      background:"#0a4fa8"}}>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap');
@@ -732,11 +732,147 @@ export default function IngenieroPanel() {
         input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:0.5}
       `}</style>
 
-      {/* ORBS DE LUZ */}
-      <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0}}>
-        <div style={{position:"absolute",top:"-15%",right:"-5%",width:"55%",height:"55%",borderRadius:"50%",background:"radial-gradient(ellipse,rgba(100,180,255,0.30) 0%,transparent 65%)",filter:"blur(50px)"}}/>
-        <div style={{position:"absolute",bottom:"-5%",left:"-10%",width:"50%",height:"50%",borderRadius:"50%",background:"radial-gradient(ellipse,rgba(30,136,229,0.22) 0%,transparent 65%)",filter:"blur(60px)"}}/>
-        <div style={{position:"absolute",top:"40%",left:"30%",width:"40%",height:"35%",borderRadius:"50%",background:"radial-gradient(ellipse,rgba(150,200,255,0.12) 0%,transparent 65%)",filter:"blur(45px)"}}/>
+      {/* FONDO CAMPO AZUL CELESTE */}
+      <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0,overflow:"hidden"}}>
+        <svg width="100%" height="100%" viewBox="0 0 800 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="sky" cx="50%" cy="20%" r="80%">
+              <stop offset="0%" stopColor="#7dd3fc"/>
+              <stop offset="40%" stopColor="#38bdf8"/>
+              <stop offset="75%" stopColor="#0ea5e9"/>
+              <stop offset="100%" stopColor="#0369a1"/>
+            </radialGradient>
+            <radialGradient id="sun" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#fef9c3" stopOpacity="0.9"/>
+              <stop offset="60%" stopColor="#fde68a" stopOpacity="0.3"/>
+              <stop offset="100%" stopColor="#fde68a" stopOpacity="0"/>
+            </radialGradient>
+            <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#e0f2fe" stopOpacity="0.5"/>
+              <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0"/>
+            </radialGradient>
+            <linearGradient id="earth" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#1e7a2f"/>
+              <stop offset="35%" stopColor="#166534"/>
+              <stop offset="70%" stopColor="#14532d"/>
+              <stop offset="100%" stopColor="#0f3d21"/>
+            </linearGradient>
+            <linearGradient id="field1" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#22c55e" stopOpacity="0.7"/>
+              <stop offset="50%" stopColor="#4ade80" stopOpacity="0.5"/>
+              <stop offset="100%" stopColor="#16a34a" stopOpacity="0.7"/>
+            </linearGradient>
+            <linearGradient id="field2" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#a3e635" stopOpacity="0.5"/>
+              <stop offset="50%" stopColor="#84cc16" stopOpacity="0.4"/>
+              <stop offset="100%" stopColor="#65a30d" stopOpacity="0.5"/>
+            </linearGradient>
+            <linearGradient id="road" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#94a3b8" stopOpacity="0.6"/>
+              <stop offset="100%" stopColor="#64748b" stopOpacity="0.4"/>
+            </linearGradient>
+            <filter id="blur-sm"><feGaussianBlur stdDeviation="2"/></filter>
+            <filter id="blur-md"><feGaussianBlur stdDeviation="4"/></filter>
+            <filter id="blur-lg"><feGaussianBlur stdDeviation="8"/></filter>
+          </defs>
+
+          {/* CIELO */}
+          <rect width="800" height="900" fill="url(#sky)"/>
+
+          {/* SOL + halo */}
+          <circle cx="400" cy="145" r="80" fill="url(#sun)" filter="url(#blur-md)"/>
+          <circle cx="400" cy="145" r="45" fill="#fef9c3" opacity="0.25" filter="url(#blur-sm)"/>
+          <circle cx="400" cy="145" r="22" fill="#fefce8" opacity="0.55"/>
+
+          {/* RAYOS DE LUZ desde el sol */}
+          {[0,30,60,90,120,150,180,210,240,270,300,330].map((a,i)=>(
+            <line key={i}
+              x1={400+Math.cos(a*Math.PI/180)*25}
+              y1={145+Math.sin(a*Math.PI/180)*25}
+              x2={400+Math.cos(a*Math.PI/180)*160}
+              y2={145+Math.sin(a*Math.PI/180)*160}
+              stroke="#fef9c3" strokeWidth={i%3===0?1.5:0.8} opacity={i%3===0?0.25:0.12}
+            />
+          ))}
+
+          {/* NUBES */}
+          <g filter="url(#blur-sm)">
+            <ellipse cx="120" cy="100" rx="80" ry="28" fill="white" opacity="0.45"/>
+            <ellipse cx="160" cy="88" rx="50" ry="22" fill="white" opacity="0.35"/>
+            <ellipse cx="80" cy="95" rx="45" ry="20" fill="white" opacity="0.3"/>
+
+            <ellipse cx="620" cy="80" rx="90" ry="26" fill="white" opacity="0.40"/>
+            <ellipse cx="660" cy="68" rx="55" ry="20" fill="white" opacity="0.32"/>
+            <ellipse cx="575" cy="75" rx="48" ry="18" fill="white" opacity="0.28"/>
+
+            <ellipse cx="350" cy="60" rx="65" ry="18" fill="white" opacity="0.30"/>
+
+            <ellipse cx="200" cy="170" rx="70" ry="22" fill="white" opacity="0.22"/>
+            <ellipse cx="550" cy="155" rx="75" ry="20" fill="white" opacity="0.20"/>
+          </g>
+
+          {/* HORIZONTE — leve niebla */}
+          <rect x="0" y="420" width="800" height="30" fill="url(#glow)" filter="url(#blur-lg)" opacity="0.6"/>
+
+          {/* TIERRA principal */}
+          <rect x="0" y="435" width="800" height="465" fill="url(#earth)"/>
+
+          {/* CAMPOS con perspectiva */}
+          {/* Campo 1 — trapezoide izquierda */}
+          <polygon points="0,435 340,435 380,520 0,520" fill="url(#field1)" opacity="0.8"/>
+          <polygon points="0,520 380,520 420,620 0,620" fill="#15803d" opacity="0.7"/>
+          <polygon points="0,620 420,620 460,750 0,750" fill="#166534" opacity="0.75"/>
+
+          {/* Campo 2 — centro */}
+          <polygon points="360,435 440,435 500,600 300,600" fill="#4ade80" opacity="0.4"/>
+
+          {/* Campo 3 — derecha */}
+          <polygon points="460,435 800,435 800,520 420,520" fill="url(#field2)" opacity="0.8"/>
+          <polygon points="420,520 800,520 800,620 380,620" fill="#16a34a" opacity="0.7"/>
+          <polygon points="380,620 800,620 800,750 340,750" fill="#166534" opacity="0.75"/>
+
+          {/* LÍNEAS DE CULTIVO — perspectiva */}
+          {[...Array(14)].map((_,i)=>{
+            const y1=460+i*22; const y2=y1+2;
+            const spread=(i/14)*0.6;
+            return <rect key={i} x={0} y={y1} width="800" height="2"
+              fill={i%3===0?"#4ade80":"#22c55e"} opacity={0.12+i*0.015}/>
+          })}
+
+          {/* CAMINO central con perspectiva */}
+          <polygon points="370,435 430,435 520,900 280,900" fill="url(#road)" opacity="0.5"/>
+          <polygon points="395,435 405,435 415,900 385,900" fill="white" opacity="0.08"/>
+
+          {/* SILO / ESTRUCTURA derecha */}
+          <rect x="620" y="370" width="22" height="68" rx="3" fill="#94a3b8" opacity="0.55" filter="url(#blur-sm)"/>
+          <ellipse cx="631" cy="370" rx="11" ry="6" fill="#cbd5e1" opacity="0.5" filter="url(#blur-sm)"/>
+
+          {/* ÁRBOL izquierda horizonte */}
+          <rect x="95" y="390" width="5" height="48" fill="#78716c" opacity="0.4" filter="url(#blur-sm)"/>
+          <ellipse cx="97" cy="390" rx="14" ry="18" fill="#15803d" opacity="0.45" filter="url(#blur-sm)"/>
+
+          <rect x="135" y="398" width="4" height="38" fill="#78716c" opacity="0.35" filter="url(#blur-sm)"/>
+          <ellipse cx="137" cy="398" rx="11" ry="14" fill="#166534" opacity="0.40" filter="url(#blur-sm)"/>
+
+          {/* LUZ AMBIENTAL desde arriba — overlay */}
+          <radialGradient id="ambient" cx="50%" cy="0%" r="80%">
+            <stop offset="0%" stopColor="#7dd3fc" stopOpacity="0.22"/>
+            <stop offset="100%" stopColor="#0369a1" stopOpacity="0"/>
+          </radialGradient>
+          <rect width="800" height="900" fill="url(#ambient)"/>
+
+          {/* OVERLAY oscuro en la parte inferior para legibilidad del contenido */}
+          <linearGradient id="overlay" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#0a4fa8" stopOpacity="0.45"/>
+            <stop offset="40%" stopColor="#0d47a1" stopOpacity="0.55"/>
+            <stop offset="100%" stopColor="#0a1a6e" stopOpacity="0.75"/>
+          </linearGradient>
+          <rect width="800" height="900" fill="url(#overlay)"/>
+        </svg>
+
+        {/* Brillo lateral derecho */}
+        <div style={{position:"absolute",top:"10%",right:"-5%",width:"35%",height:"50%",borderRadius:"50%",background:"radial-gradient(ellipse,rgba(125,211,252,0.22) 0%,transparent 65%)",filter:"blur(40px)"}}/>
+        <div style={{position:"absolute",bottom:"5%",left:"5%",width:"30%",height:"35%",borderRadius:"50%",background:"radial-gradient(ellipse,rgba(56,189,248,0.15) 0%,transparent 65%)",filter:"blur(50px)"}}/>
       </div>
 
       <div style={{position:"relative",zIndex:1,maxWidth:520,margin:"0 auto",padding:"16px 14px 80px"}}>
@@ -750,10 +886,10 @@ export default function IngenieroPanel() {
               <Image src="/logo.png" alt="AgroGestión PRO" width={36} height={36} className="object-contain" style={{borderRadius:10}}/>
               <div>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
-                  <span style={{fontSize:18,fontWeight:800,color:"white"}}>AgroGestión</span>
+                  <span style={{fontSize:18,fontWeight:800,color:"white",textShadow:"0 1px 3px rgba(0,0,50,0.3)"}}>AgroGestión</span>
                   <span style={{fontSize:10,fontWeight:700,background:"linear-gradient(135deg,#42a5f5,#1565c0)",borderRadius:5,padding:"2px 7px",color:"white",letterSpacing:1}}>PRO</span>
                 </div>
-                <div style={{fontSize:11,color:"rgba(255,255,255,0.55)",marginTop:1}}>Gestión inteligente. Decisiones que rinden.</div>
+                <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",marginTop:1,fontWeight:500}}>Gestión inteligente. Decisiones que rinden.</div>
               </div>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -761,7 +897,7 @@ export default function IngenieroPanel() {
                 {ingNombre.charAt(0)||"M"}
               </div>
               <button onClick={async()=>{const sb=await getSB();await sb.auth.signOut();window.location.href="/login";}}
-                style={{display:"flex",alignItems:"center",gap:5,color:"rgba(255,255,255,0.7)",fontSize:13,fontWeight:500,background:"none",border:"none",cursor:"pointer"}}>
+                style={{display:"flex",alignItems:"center",gap:5,color:"rgba(255,255,255,0.9)",fontSize:13,fontWeight:600,background:"none",border:"none",cursor:"pointer"}}>
                 Salir <span style={{fontSize:16}}>⎋</span>
               </button>
             </div>
@@ -879,7 +1015,7 @@ export default function IngenieroPanel() {
 
                 {/* Vincular */}
                 <button onClick={()=>{setShowVincular(!showVincular);setForm({});}}
-                  style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.8)",fontSize:13,fontWeight:600,textAlign:"left",display:"flex",alignItems:"center",gap:6,padding:"4px 0"}}>
+                  style={{background:"none",border:"none",cursor:"pointer",color:"white",fontSize:14,fontWeight:700,textAlign:"left",display:"flex",alignItems:"center",gap:6,padding:"4px 0",textShadow:"0 1px 3px rgba(0,0,50,0.3)"}}>
                   🔗 Vincular productor por código
                 </button>
 
@@ -952,7 +1088,7 @@ export default function IngenieroPanel() {
                 {lotes.length>0&&(
                   <div className="gc" style={{padding:12}}>
                     <div style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"}}>
-                      <span style={{fontSize:12,fontWeight:600,color:"rgba(255,255,255,0.7)"}}>Exportar lotes:</span>
+                      <span style={{fontSize:12,fontWeight:700,color:"white"}}>Exportar lotes:</span>
                       {[["Cultivo",fCultivo,setFCultivo,["todos",...cultivosU]],["Productor",fProductor,setFProductor,["todos",...productores.map(p=>p.nombre)]],["Estado",fEstado,setFEstado,["todos","planificado","sembrado","en_desarrollo","cosechado"]]].map(([l,v,fn,opts])=>(
                         <select key={l as string} value={v as string} onChange={e=>(fn as any)(e.target.value)} className="gi sel-crystal" style={{fontSize:12,padding:"6px 10px"}}>
                           {(opts as string[]).map(o=><option key={o} value={o}>{o==="todos"?"Todos":o}</option>)}
@@ -983,7 +1119,7 @@ export default function IngenieroPanel() {
                             </div>
                             <div style={{flex:1,minWidth:0}}>
                               <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                                <span style={{fontSize:16,fontWeight:800,color:"white"}}>{p.nombre}</span>
+                                <span style={{fontSize:16,fontWeight:800,color:"white",textShadow:"0 1px 3px rgba(0,0,60,0.3)"}}>{p.nombre}</span>
                                 <span style={{fontSize:14,opacity:0.5,cursor:"pointer"}} onClick={()=>{setEditProd(p.id);setForm({nombre:p.nombre,telefono:p.telefono||"",email:p.email||"",localidad:p.localidad||"",provincia:p.provincia||"",honorario_tipo:p.honorario_tipo||"mensual",honorario_monto:String(p.honorario_monto||0),obs:p.observaciones||""});setShowForm(true);}}>✏️</span>
                               </div>
                               <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:2,display:"flex",alignItems:"center",gap:4}}>
@@ -1000,7 +1136,7 @@ export default function IngenieroPanel() {
                           <div style={{padding:"12px 14px",display:"flex",flexDirection:"column",gap:12}}>
                             {/* Campaña */}
                             <div>
-                              <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:1,marginBottom:7}}>Campaña</div>
+                              <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.9)",textTransform:"uppercase",letterSpacing:1,marginBottom:7}}>Campaña</div>
                               <div style={{display:"flex",gap:8}}>
                                 {camps.length>0
                                   ?<select value={campActiva??""} onChange={e=>cambiarCampana(eid,e.target.value,p.nombre)} className="gi sel-crystal" style={{flex:1,padding:"8px 12px",fontSize:13,fontWeight:600}}>
@@ -1017,18 +1153,18 @@ export default function IngenieroPanel() {
                                   <button onClick={()=>{setNuevaCampProd(null);setNuevaCampNombre("");}} className="action-btn" style={{padding:"7px 10px",fontSize:12}}>✕</button>
                                 </div>
                               )}
-                              <div style={{fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:6,fontWeight:500}}>{lotesP.length} lotes · {haReales.toLocaleString("es-AR")} ha</div>
+                              <div style={{fontSize:12,color:"rgba(255,255,255,0.75)",marginTop:6,fontWeight:600}}>{lotesP.length} lotes · {haReales.toLocaleString("es-AR")} ha</div>
                             </div>
 
                             {/* KPIs Hectáreas + Honorario */}
                             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                               <div className="kpi-card">
-                                <div style={{fontSize:12,fontWeight:600,opacity:0.6,marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>🌿 Hectáreas</div>
+                                <div style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.85)",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>🌿 Hectáreas</div>
                                 <div style={{fontSize:28,fontWeight:800,lineHeight:1}}>{haReales.toLocaleString("es-AR")}</div>
                                 <div style={{fontSize:11,opacity:0.5,marginTop:2}}>ha</div>
                               </div>
                               <div className="kpi-card">
-                                <div style={{fontSize:12,fontWeight:600,opacity:0.6,marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>$ Honorario</div>
+                                <div style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.85)",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>$ Honorario</div>
                                 <div style={{fontSize:20,fontWeight:800,lineHeight:1}}>${Number(p.honorario_monto||0).toLocaleString("es-AR")}</div>
                                 <div style={{fontSize:11,opacity:0.5,marginTop:2}}>{p.honorario_tipo||"mensual"}</div>
                               </div>
@@ -1037,7 +1173,7 @@ export default function IngenieroPanel() {
                             {/* Distribución cultivos del productor */}
                             {cultivosProd.length>0&&(
                               <div className="gc-inner" style={{padding:"10px 12px"}}>
-                                <div style={{fontSize:10,fontWeight:700,opacity:0.55,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Distribución de Cultivos</div>
+                                <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.9)",textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Distribución de Cultivos</div>
                                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
                                   {cultivosProd.slice(0,4).map(c=>{
                                     const info=getCultivoInfo(c);
@@ -1221,49 +1357,6 @@ export default function IngenieroPanel() {
               </div>
             )}
 
-            {/* ══ IA CAMPO ══ */}
-            {seccion==="ia_campo"&&(
-              <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:10}}>
-                <div style={{marginBottom:4}}>
-                  <h2 style={{fontSize:20,fontWeight:800,color:"white",margin:0}}>IA Campo</h2>
-                  <p style={{fontSize:13,color:"rgba(255,255,255,0.45)",marginTop:4}}>Dosis, plagas, enfermedades, cultivos y mercados</p>
-                </div>
-                {aiChat.length===0&&(
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:4}}>
-                    {["Dosis glifosato soja","Roya asiática síntomas","Fungicida maíz","Precio soja hoy","Insecticida MIP soja","Trigo siembra pampeana"].map(q=>(
-                      <button key={q} onClick={()=>askAI(q)} className="action-btn" style={{padding:"10px 12px",fontSize:12,justifyContent:"flex-start",textAlign:"left"}}>💬 {q}</button>
-                    ))}
-                  </div>
-                )}
-                <div className="gc" style={{overflow:"hidden",padding:0}}>
-                  <div style={{padding:"10px 14px",borderBottom:"1px solid rgba(255,255,255,0.1)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:7}}><div style={{width:7,height:7,borderRadius:"50%",background:"#86efac",boxShadow:"0 0 6px #86efac80"}}/><span style={{fontWeight:700,color:"white",fontSize:13}}>IA Agronómica</span></div>
-                    {aiChat.length>0&&<button onClick={()=>setAiChat([])} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.35)",fontSize:12}}>Limpiar</button>}
-                  </div>
-                  <div style={{padding:14,maxHeight:300,overflowY:"auto",display:"flex",flexDirection:"column",gap:10}}>
-                    {aiChat.length===0&&<div style={{textAlign:"center",padding:"32px 20px",color:"rgba(255,255,255,0.25)"}}><div style={{fontSize:32,marginBottom:8}}>🌾</div><p style={{fontSize:13}}>Hacé tu consulta agronómica...</p></div>}
-                    {aiChat.map((msg,i)=>(
-                      <div key={i} style={{display:"flex",justifyContent:msg.rol==="user"?"flex-end":"flex-start"}}>
-                        <div style={{maxWidth:"85%",padding:"10px 14px",borderRadius:14,fontSize:13,lineHeight:1.5,
-                          ...(msg.rol==="user"
-                            ?{background:"linear-gradient(145deg,#2196f3,#1565c0)",color:"white",boxShadow:"0 4px 14px rgba(33,150,243,0.35)"}
-                            :{background:"rgba(255,255,255,0.10)",border:"1px solid rgba(255,255,255,0.15)",color:"rgba(255,255,255,0.9)"})}}>
-                          {msg.rol==="assistant"&&<div style={{fontSize:10,fontWeight:700,color:"#90caf9",marginBottom:5,letterSpacing:1}}>◆ IA AGRONÓMICA</div>}
-                          <p style={{margin:0,whiteSpace:"pre-wrap"}}>{msg.texto}</p>
-                        </div>
-                      </div>
-                    ))}
-                    {aiLoad&&<div style={{display:"flex"}}><div style={{background:"rgba(255,255,255,0.10)",border:"1px solid rgba(255,255,255,0.15)",padding:"10px 14px",borderRadius:14,display:"flex",gap:5}}>{[0,1,2].map(i=><div key={i} style={{width:6,height:6,borderRadius:"50%",background:"#90caf9",animation:"float 1s ease-in-out infinite",animationDelay:i*0.15+"s"}}/>)}</div></div>}
-                  </div>
-                </div>
-                <div style={{display:"flex",gap:8}}>
-                  <button onClick={escucharVoz} className="action-btn" style={{padding:"10px 14px",flexShrink:0,fontSize:16}}>🎤</button>
-                  <input type="text" value={aiInput} onChange={e=>setAiInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&askAI()} placeholder="Consultá sobre dosis, plagas, cultivos..." className={iCls} style={{flex:1,padding:"10px 14px"}}/>
-                  <button onClick={()=>askAI()} disabled={aiLoad||!aiInput.trim()} className="btn-solid" style={{padding:"10px 16px",flexShrink:0,fontSize:15,opacity:aiLoad||!aiInput.trim()?0.4:1}}>→</button>
-                </div>
-              </div>
-            )}
-
             <div style={{height:80}}/>
           </div>
         </div>{/* fin main-frame */}
@@ -1297,9 +1390,83 @@ export default function IngenieroPanel() {
         </div>
       )}
 
+      {/* ══ PANEL IA CAMPO FLOTANTE ══ */}
+      {aiPanel&&(
+        <div style={{position:"fixed",bottom:88,right:80,zIndex:50,width:320,maxHeight:"75vh",borderRadius:22,overflow:"hidden",display:"flex",flexDirection:"column",
+          background:"linear-gradient(145deg,rgba(13,71,161,0.97),rgba(10,50,130,0.97))",
+          backdropFilter:"blur(24px)",border:"1px solid rgba(100,180,255,0.35)",
+          boxShadow:"0 20px 60px rgba(0,20,100,0.50),inset 0 1px 0 rgba(255,255,255,0.25)"}}>
+          {/* Header */}
+          <div style={{padding:"12px 16px",borderBottom:"1px solid rgba(255,255,255,0.12)",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{width:8,height:8,borderRadius:"50%",background:"#86efac",boxShadow:"0 0 8px #86efac"}}/>
+              <span style={{color:"white",fontSize:13,fontWeight:700}}>🌾 IA Agronómica</span>
+            </div>
+            <button onClick={()=>setAiPanel(false)} style={{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer",fontSize:20,lineHeight:1}}>✕</button>
+          </div>
+          {/* Sugerencias rápidas si no hay chat */}
+          {aiChat.length===0&&(
+            <div style={{padding:"10px 12px",borderBottom:"1px solid rgba(255,255,255,0.08)",display:"flex",flexWrap:"wrap",gap:6,flexShrink:0}}>
+              {["Dosis glifosato","Roya soja","Fungicida maíz","Precio soja"].map(q=>(
+                <button key={q} onClick={()=>askAI(q)}
+                  style={{fontSize:11,padding:"5px 10px",borderRadius:20,cursor:"pointer",fontWeight:600,
+                    background:"rgba(255,255,255,0.10)",border:"1px solid rgba(255,255,255,0.18)",
+                    color:"rgba(255,255,255,0.8)",whiteSpace:"nowrap",transition:"all 0.15s"
+                  }}>💬 {q}</button>
+              ))}
+            </div>
+          )}
+          {/* Chat */}
+          <div style={{flex:1,overflowY:"auto",padding:12,display:"flex",flexDirection:"column",gap:8,minHeight:0}}>
+            {aiChat.length===0&&(
+              <div style={{textAlign:"center",padding:"24px 16px",color:"rgba(255,255,255,0.25)"}}>
+                <div style={{fontSize:36,marginBottom:8}}>🌾</div>
+                <p style={{fontSize:12,lineHeight:1.5}}>Preguntá sobre dosis, plagas,<br/>cultivos y mercados</p>
+              </div>
+            )}
+            {aiChat.map((msg,i)=>(
+              <div key={i} style={{display:"flex",justifyContent:msg.rol==="user"?"flex-end":"flex-start"}}>
+                <div style={{maxWidth:"85%",padding:"9px 13px",borderRadius:14,fontSize:12,lineHeight:1.5,
+                  ...(msg.rol==="user"
+                    ?{background:"linear-gradient(145deg,#42a5f5,#1565c0)",color:"white",boxShadow:"0 3px 10px rgba(33,150,243,0.35)"}
+                    :{background:"rgba(255,255,255,0.10)",border:"1px solid rgba(255,255,255,0.14)",color:"rgba(255,255,255,0.92)"})}}>
+                  {msg.rol==="assistant"&&<div style={{fontSize:9,fontWeight:700,color:"#90caf9",marginBottom:4,letterSpacing:1}}>◆ IA AGRONÓMICA</div>}
+                  <p style={{margin:0,whiteSpace:"pre-wrap"}}>{msg.texto}</p>
+                </div>
+              </div>
+            ))}
+            {aiLoad&&(
+              <div style={{display:"flex"}}>
+                <div style={{background:"rgba(255,255,255,0.10)",border:"1px solid rgba(255,255,255,0.14)",padding:"9px 13px",borderRadius:14,display:"flex",gap:4,alignItems:"center"}}>
+                  {[0,1,2].map(i=><div key={i} style={{width:5,height:5,borderRadius:"50%",background:"#90caf9",animation:"float 1s ease-in-out infinite",animationDelay:i*0.18+"s"}}/>)}
+                </div>
+              </div>
+            )}
+          </div>
+          {/* Input */}
+          <div style={{padding:"10px 12px",borderTop:"1px solid rgba(255,255,255,0.10)",display:"flex",gap:8,flexShrink:0,background:"rgba(0,0,0,0.15)"}}>
+            <input type="text" value={aiInput} onChange={e=>setAiInput(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&askAI()}
+              placeholder="Consultá sobre dosis, plagas..."
+              className={iCls}
+              style={{flex:1,padding:"9px 12px",fontSize:12}}/>
+            <button onClick={()=>askAI()} disabled={aiLoad||!aiInput.trim()}
+              style={{padding:"9px 14px",borderRadius:12,fontSize:16,cursor:"pointer",flexShrink:0,
+                background:"linear-gradient(145deg,#42a5f5,#1565c0)",border:"none",color:"white",
+                boxShadow:"0 3px 10px rgba(33,150,243,0.4)",opacity:aiLoad||!aiInput.trim()?0.4:1,
+                transition:"all 0.15s"}}>→</button>
+          </div>
+          {aiChat.length>0&&(
+            <div style={{padding:"4px 12px 8px",textAlign:"center"}}>
+              <button onClick={()=>setAiChat([])} style={{fontSize:10,color:"rgba(255,255,255,0.3)",background:"none",border:"none",cursor:"pointer"}}>Limpiar chat</button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Botón flotante voz */}
       <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}}
-        style={{position:"fixed",bottom:20,right:16,zIndex:40,width:56,height:56,borderRadius:"50%",
+        style={{position:"fixed",bottom:20,right:16,zIndex:40,width:54,height:54,borderRadius:"50%",
           display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",
           background:"linear-gradient(145deg,#2196f3,#1565c0)",color:"white",
           border:"1.5px solid rgba(100,180,255,0.4)",
@@ -1307,6 +1474,18 @@ export default function IngenieroPanel() {
           animation:vozEstado==="idle"?"float 3s ease-in-out infinite":"none",
           transition:"all 0.2s ease"}}>
         {VOZ_ICON[vozEstado]}
+      </button>
+
+      {/* Botón flotante IA Campo */}
+      <button onClick={()=>{setAiPanel(!aiPanel);if(!aiPanel)setVozPanel(false);}}
+        style={{position:"fixed",bottom:82,right:16,zIndex:40,width:54,height:54,borderRadius:"50%",
+          display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",
+          background:aiPanel?"linear-gradient(145deg,#43a047,#1b5e20)":"linear-gradient(145deg,#1b5e20,#2e7d32)",
+          color:"white",
+          border:`1.5px solid ${aiPanel?"rgba(134,239,172,0.6)":"rgba(100,200,120,0.4)"}`,
+          boxShadow:aiPanel?"0 4px 20px rgba(67,160,71,0.60),inset 0 1px 0 rgba(255,255,255,0.25)":"0 4px 16px rgba(67,160,71,0.35),inset 0 1px 0 rgba(255,255,255,0.20)",
+          transition:"all 0.2s ease"}}>
+        🌾
       </button>
     </div>
   );
