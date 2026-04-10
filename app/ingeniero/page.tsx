@@ -482,7 +482,7 @@ export default function IngenieroPanel() {
 
   return (
     <div style={{minHeight:"100vh",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",position:"relative",overflow:"hidden",
-      background:"#0a4fa8"}}>
+      background:"#c8e8f8"}}>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap');
@@ -490,106 +490,80 @@ export default function IngenieroPanel() {
         @keyframes fadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
         @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
         @keyframes sweep{0%{left:-60%}100%{left:150%}}
-        @keyframes glow-pulse{0%,100%{opacity:.6}50%{opacity:1}}
 
-        /* ── FONDO RAYOS DE LUZ ── */
-        .bg-rays::before,.bg-rays::after{content:"";position:fixed;pointer-events:none;}
-        .bg-rays::before{
-          top:-20%;right:-10%;width:60%;height:80%;
-          background:radial-gradient(ellipse,rgba(100,180,255,0.25) 0%,transparent 65%);
-          filter:blur(30px);animation:glow-pulse 4s ease-in-out infinite;
-        }
-        .bg-rays::after{
-          bottom:-10%;left:-10%;width:50%;height:60%;
-          background:radial-gradient(ellipse,rgba(30,136,229,0.20) 0%,transparent 65%);
-          filter:blur(40px);animation:glow-pulse 5s ease-in-out infinite reverse;
-        }
-
-        /* ── CRISTAL PREMIUM ── */
+        /* ── CRISTAL CLARO (fondo blanco translúcido) ── */
         .gc{
           position:relative;overflow:hidden;
-          background:linear-gradient(145deg,rgba(255,255,255,0.28) 0%,rgba(255,255,255,0.10) 60%,rgba(200,225,255,0.12) 100%);
-          backdrop-filter:blur(22px) saturate(160%);
-          -webkit-backdrop-filter:blur(22px) saturate(160%);
-          border:1px solid rgba(255,255,255,0.35);
-          border-top:1px solid rgba(255,255,255,0.55);
-          border-left:1px solid rgba(255,255,255,0.45);
+          background:linear-gradient(160deg,rgba(255,255,255,0.72) 0%,rgba(255,255,255,0.50) 55%,rgba(220,240,255,0.55) 100%);
+          backdrop-filter:blur(20px) saturate(140%);
+          -webkit-backdrop-filter:blur(20px) saturate(140%);
+          border:1px solid rgba(255,255,255,0.80);
+          border-top:1.5px solid rgba(255,255,255,0.95);
           box-shadow:
-            0 8px 32px rgba(0,30,100,0.22),
-            0 1px 0 rgba(255,255,255,0.5) inset,
-            0 -1px 0 rgba(255,255,255,0.08) inset,
-            1px 0 0 rgba(255,255,255,0.2) inset,
-            -1px 0 0 rgba(255,255,255,0.2) inset;
+            0 8px 32px rgba(30,100,180,0.12),
+            0 2px 8px rgba(0,0,0,0.06),
+            inset 0 2px 0 rgba(255,255,255,0.95),
+            inset 0 -1px 0 rgba(255,255,255,0.40);
           border-radius:18px;
-          color:white;
+          color:#1a2a4a;
         }
-        /* Reflejo diagonal interior */
         .gc::before{
-          content:"";position:absolute;
-          top:0;left:0;right:0;height:55%;
-          background:linear-gradient(175deg,rgba(255,255,255,0.22) 0%,rgba(255,255,255,0) 100%);
+          content:"";position:absolute;top:0;left:0;right:0;height:50%;
+          background:linear-gradient(180deg,rgba(255,255,255,0.45) 0%,transparent 100%);
           border-radius:18px 18px 0 0;pointer-events:none;z-index:0;
         }
-        /* Sweep de luz lento */
         .gc::after{
-          content:"";position:absolute;
-          top:-40%;left:-60%;width:30%;height:180%;
-          background:linear-gradient(90deg,transparent,rgba(255,255,255,0.12),transparent);
-          transform:skewX(-15deg);
-          animation:sweep 8s ease-in-out infinite;
+          content:"";position:absolute;top:-40%;left:-60%;width:30%;height:180%;
+          background:linear-gradient(90deg,transparent,rgba(255,255,255,0.25),transparent);
+          transform:skewX(-15deg);animation:sweep 9s ease-in-out infinite;
           pointer-events:none;z-index:0;
         }
         .gc>*{position:relative;z-index:1;}
 
-        /* Cristal más blanco para tarjetas internas en fondo oscuro */
+        /* Cristal interior — aún más blanco */
         .gc-inner{
           position:relative;overflow:hidden;
-          background:linear-gradient(145deg,rgba(255,255,255,0.32) 0%,rgba(255,255,255,0.12) 55%,rgba(180,215,255,0.15) 100%);
-          backdrop-filter:blur(16px);
-          -webkit-backdrop-filter:blur(16px);
-          border:1px solid rgba(255,255,255,0.40);
-          border-top:1px solid rgba(255,255,255,0.60);
-          box-shadow:
-            0 4px 20px rgba(0,20,80,0.18),
-            0 1px 0 rgba(255,255,255,0.55) inset;
-          border-radius:16px;
-          color:white;
+          background:linear-gradient(155deg,rgba(255,255,255,0.65) 0%,rgba(230,245,255,0.50) 100%);
+          backdrop-filter:blur(14px);
+          -webkit-backdrop-filter:blur(14px);
+          border:1px solid rgba(255,255,255,0.75);
+          border-top:1.5px solid rgba(255,255,255,0.95);
+          box-shadow:0 4px 16px rgba(30,100,180,0.10),inset 0 2px 0 rgba(255,255,255,0.90);
+          border-radius:14px;
+          color:#1a2a4a;
         }
         .gc-inner::before{
-          content:"";position:absolute;
-          top:0;left:0;right:0;height:50%;
-          background:linear-gradient(180deg,rgba(255,255,255,0.25) 0%,transparent 100%);
-          border-radius:16px 16px 0 0;pointer-events:none;
+          content:"";position:absolute;top:0;left:0;right:0;height:50%;
+          background:linear-gradient(180deg,rgba(255,255,255,0.40) 0%,transparent 100%);
+          border-radius:14px 14px 0 0;pointer-events:none;
         }
         .gc-inner>*{position:relative;}
 
-        /* ── CONTENEDOR PRINCIPAL (el marco grande del mockup) ── */
+        /* ── MARCO PRINCIPAL ── */
         .main-frame{
-          background:linear-gradient(145deg,rgba(255,255,255,0.22) 0%,rgba(200,225,255,0.08) 100%);
+          background:linear-gradient(155deg,rgba(255,255,255,0.60) 0%,rgba(210,235,255,0.42) 100%);
           backdrop-filter:blur(24px) saturate(150%);
           -webkit-backdrop-filter:blur(24px) saturate(150%);
-          border:1.5px solid rgba(255,255,255,0.38);
-          border-top:2px solid rgba(255,255,255,0.55);
-          border-radius:28px;
+          border:1.5px solid rgba(255,255,255,0.75);
+          border-top:2px solid rgba(255,255,255,0.95);
+          border-radius:26px;
           box-shadow:
-            0 20px 60px rgba(0,20,100,0.35),
-            0 1px 0 rgba(255,255,255,0.55) inset,
-            0 -1px 0 rgba(255,255,255,0.1) inset,
-            inset 0 0 40px rgba(100,170,255,0.04);
+            0 20px 60px rgba(20,80,160,0.18),
+            0 1px 0 rgba(255,255,255,0.95) inset,
+            inset 0 0 40px rgba(200,230,255,0.15);
           overflow:hidden;position:relative;
         }
         .main-frame::before{
-          content:"";position:absolute;
-          top:0;left:0;right:0;height:40%;
-          background:linear-gradient(180deg,rgba(255,255,255,0.15) 0%,transparent 100%);
+          content:"";position:absolute;top:0;left:0;right:0;height:35%;
+          background:linear-gradient(180deg,rgba(255,255,255,0.30) 0%,transparent 100%);
           pointer-events:none;z-index:0;
         }
         .main-frame>*{position:relative;z-index:1;}
 
-        /* ── TOPBAR del marco ── */
+        /* ── TOPBAR ── */
         .topbar-frame{
-          background:linear-gradient(180deg,rgba(255,255,255,0.20) 0%,rgba(255,255,255,0.08) 100%);
-          border-bottom:1px solid rgba(255,255,255,0.20);
+          background:linear-gradient(180deg,rgba(255,255,255,0.65) 0%,rgba(255,255,255,0.45) 100%);
+          border-bottom:1px solid rgba(255,255,255,0.55);
           padding:14px 18px;
           display:flex;align-items:center;justify-content:space-between;
         }
@@ -600,41 +574,41 @@ export default function IngenieroPanel() {
           padding:9px 16px;border-radius:12px;
           font-size:13px;font-weight:600;
           cursor:pointer;transition:all 0.2s ease;
-          border:1px solid rgba(255,255,255,0.15);
-          background:rgba(255,255,255,0.08);
-          color:rgba(255,255,255,0.7);
+          border:1px solid rgba(255,255,255,0.65);
+          background:rgba(255,255,255,0.50);
+          color:#1e3a5f;
           white-space:nowrap;
+          box-shadow:0 2px 8px rgba(0,60,140,0.08),inset 0 1px 0 rgba(255,255,255,0.9);
         }
-        .nav-tab:hover{background:rgba(255,255,255,0.14);color:white;}
+        .nav-tab:hover{background:rgba(255,255,255,0.72);color:#0d47a1;}
         .nav-tab.active{
           background:linear-gradient(145deg,#1565c0,#0d47a1);
-          border:1px solid rgba(100,160,255,0.5);
-          border-top:1px solid rgba(150,200,255,0.6);
-          color:white;
-          box-shadow:0 4px 16px rgba(13,71,161,0.5),inset 0 1px 0 rgba(255,255,255,0.25);
+          border:1px solid rgba(100,160,255,0.45);
+          border-top:1px solid rgba(150,200,255,0.55);
+          color:white !important;
+          box-shadow:0 4px 16px rgba(13,71,161,0.40),inset 0 1px 0 rgba(255,255,255,0.22);
         }
 
-        /* ── BOTONES DE ACCION (Nuevo/Importar/Exportar) ── */
+        /* ── BOTONES ACCION ── */
         .action-btn{
           position:relative;overflow:hidden;
-          background:linear-gradient(145deg,rgba(255,255,255,0.20) 0%,rgba(255,255,255,0.07) 100%);
-          border:1px solid rgba(255,255,255,0.30);
-          border-top:1px solid rgba(255,255,255,0.45);
+          background:linear-gradient(155deg,rgba(255,255,255,0.72) 0%,rgba(225,242,255,0.55) 100%);
+          border:1px solid rgba(255,255,255,0.80);
+          border-top:1.5px solid rgba(255,255,255,0.98);
           border-radius:14px;
           padding:12px 16px;
-          color:white;font-weight:600;font-size:13px;
+          color:#1e3a5f;font-weight:700;font-size:13px;
           cursor:pointer;
-          box-shadow:0 4px 14px rgba(0,20,80,0.15),inset 0 1px 0 rgba(255,255,255,0.3);
+          box-shadow:0 4px 14px rgba(20,80,160,0.10),inset 0 2px 0 rgba(255,255,255,0.95);
           transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1);
           display:flex;align-items:center;justify-content:center;gap:7px;
         }
         .action-btn::after{
-          content:"";position:absolute;
-          top:-30%;left:-70%;width:40%;height:160%;
-          background:linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent);
+          content:"";position:absolute;top:-30%;left:-70%;width:40%;height:160%;
+          background:linear-gradient(90deg,transparent,rgba(255,255,255,0.35),transparent);
           transform:skewX(-20deg);transition:left 0.5s ease;
         }
-        .action-btn:hover{transform:translateY(-2px);background:rgba(255,255,255,0.24);box-shadow:0 8px 24px rgba(0,20,80,0.25);}
+        .action-btn:hover{transform:translateY(-2px);background:rgba(255,255,255,0.90);box-shadow:0 8px 24px rgba(20,80,160,0.16);}
         .action-btn:hover::after{left:150%;}
         .action-btn:active{transform:scale(0.97);}
 
@@ -642,54 +616,43 @@ export default function IngenieroPanel() {
         .btn-solid{
           background:linear-gradient(145deg,#2196f3,#1565c0);
           border:1px solid rgba(100,160,255,0.4);
-          border-top:1px solid rgba(150,200,255,0.5);
+          border-top:1px solid rgba(160,210,255,0.6);
           border-radius:14px;
           color:white;font-weight:700;font-size:13px;
           padding:10px 18px;cursor:pointer;
-          box-shadow:0 4px 16px rgba(21,101,192,0.5),inset 0 1px 0 rgba(255,255,255,0.25);
+          box-shadow:0 4px 16px rgba(21,101,192,0.40),inset 0 1px 0 rgba(255,255,255,0.25);
           transition:all 0.2s ease;
         }
-        .btn-solid:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(21,101,192,0.6);}
+        .btn-solid:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(21,101,192,0.55);}
         .btn-solid:active{transform:scale(0.97);}
 
-        /* ── DROPDOWN CRISTAL ── */
-        .sel-crystal{
-          background:linear-gradient(145deg,rgba(255,255,255,0.18),rgba(255,255,255,0.06));
-          border:1px solid rgba(255,255,255,0.30);
-          border-radius:12px;color:white;
-          padding:8px 12px;font-size:13px;font-weight:500;
-          -webkit-appearance:none;cursor:pointer;
-          box-shadow:inset 0 1px 0 rgba(255,255,255,0.2);
-        }
-        .sel-crystal option{background:#0d47a1;color:white;}
-
-        /* ── INPUT CRISTAL ── */
+        /* ── INPUT ── */
         .gi{
-          background:rgba(255,255,255,0.12);
-          border:1px solid rgba(255,255,255,0.28);
-          border-top:1px solid rgba(255,255,255,0.40);
-          border-radius:12px;color:white;
-          box-shadow:inset 0 1px 3px rgba(0,0,0,0.08),inset 0 1px 0 rgba(255,255,255,0.1);
+          background:rgba(255,255,255,0.65);
+          border:1px solid rgba(180,210,240,0.60);
+          border-top:1px solid rgba(255,255,255,0.90);
+          border-radius:12px;color:#1e3a5f;
+          box-shadow:inset 0 2px 4px rgba(0,60,140,0.05),inset 0 1px 0 rgba(255,255,255,0.8);
           transition:all 0.2s ease;
         }
-        .gi::placeholder{color:rgba(255,255,255,0.4);}
-        .gi:focus{background:rgba(255,255,255,0.18);border-color:rgba(100,180,255,0.6);outline:none;box-shadow:0 0 0 3px rgba(100,180,255,0.15);}
-        .gi option{background:#0d47a1;color:white;}
+        .gi::placeholder{color:rgba(80,120,160,0.55);}
+        .gi:focus{background:rgba(255,255,255,0.90);border-color:rgba(25,118,210,0.45);outline:none;box-shadow:0 0 0 3px rgba(25,118,210,0.12);}
+        .gi option{background:white;color:#1e3a5f;}
 
-        /* ── TARJETA KPI (Hectáreas / Honorario) ── */
+        /* ── KPI CARD ── */
         .kpi-card{
           position:relative;overflow:hidden;
-          background:linear-gradient(155deg,rgba(255,255,255,0.30) 0%,rgba(255,255,255,0.08) 55%,rgba(180,215,255,0.10) 100%);
-          border:1px solid rgba(255,255,255,0.38);
-          border-top:1.5px solid rgba(255,255,255,0.65);
-          border-radius:16px;
-          box-shadow:0 4px 20px rgba(0,20,80,0.18),inset 0 1px 0 rgba(255,255,255,0.6),inset 0 -1px 0 rgba(255,255,255,0.05);
-          padding:16px;text-align:center;color:white;
+          background:linear-gradient(155deg,rgba(255,255,255,0.75) 0%,rgba(220,240,255,0.55) 100%);
+          border:1px solid rgba(255,255,255,0.80);
+          border-top:1.5px solid rgba(255,255,255,0.98);
+          border-radius:14px;
+          box-shadow:0 4px 16px rgba(20,80,160,0.10),inset 0 2px 0 rgba(255,255,255,0.95);
+          padding:16px;text-align:center;color:#1a2a4a;
         }
         .kpi-card::before{
           content:"";position:absolute;top:0;left:0;right:0;height:50%;
-          background:linear-gradient(180deg,rgba(255,255,255,0.28) 0%,transparent 100%);
-          border-radius:16px 16px 0 0;pointer-events:none;
+          background:linear-gradient(180deg,rgba(255,255,255,0.50) 0%,transparent 100%);
+          border-radius:14px 14px 0 0;pointer-events:none;
         }
         .kpi-card>*{position:relative;}
 
@@ -697,182 +660,69 @@ export default function IngenieroPanel() {
         .cult-chip{
           display:flex;align-items:center;justify-content:center;gap:6px;
           border-radius:14px;padding:10px 14px;font-size:13px;font-weight:700;
-          border:1px solid rgba(255,255,255,0.25);
-          box-shadow:inset 0 1px 0 rgba(255,255,255,0.3),0 2px 8px rgba(0,0,0,0.12);
-          position:relative;overflow:hidden;
+          border:1px solid rgba(255,255,255,0.65);
+          box-shadow:inset 0 1px 0 rgba(255,255,255,0.80),0 2px 8px rgba(0,0,0,0.06);
+          position:relative;overflow:hidden;color:#1a2a4a;
         }
-        .cult-chip::before{content:"";position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.25) 0%,transparent 100%);border-radius:14px 14px 0 0;}
+        .cult-chip::before{
+          content:"";position:absolute;top:0;left:0;right:0;height:50%;
+          background:linear-gradient(180deg,rgba(255,255,255,0.45) 0%,transparent 100%);
+          border-radius:14px 14px 0 0;
+        }
 
         /* ── BTN MIS LOTES ── */
         .btn-mislotes{
           width:100%;padding:14px 20px;
-          background:linear-gradient(145deg,rgba(255,255,255,0.20) 0%,rgba(255,255,255,0.06) 100%);
-          border:1px solid rgba(255,255,255,0.30);
-          border-top:1.5px solid rgba(255,255,255,0.50);
-          border-radius:16px;color:white;
+          background:linear-gradient(155deg,rgba(255,255,255,0.68) 0%,rgba(210,235,255,0.50) 100%);
+          border:1px solid rgba(255,255,255,0.80);
+          border-top:1.5px solid rgba(255,255,255,0.98);
+          border-radius:16px;color:#0d47a1;
           font-size:15px;font-weight:700;
           display:flex;align-items:center;justify-content:center;gap:10px;
           cursor:pointer;
-          box-shadow:0 4px 20px rgba(0,20,80,0.15),inset 0 1px 0 rgba(255,255,255,0.35);
+          box-shadow:0 4px 16px rgba(20,80,160,0.12),inset 0 2px 0 rgba(255,255,255,0.95);
           transition:all 0.22s cubic-bezier(0.34,1.56,0.64,1);
           position:relative;overflow:hidden;
         }
-        .btn-mislotes::before{content:"";position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.22) 0%,transparent 100%);border-radius:16px 16px 0 0;}
-        .btn-mislotes:hover{transform:translateY(-2px);background:rgba(255,255,255,0.24);box-shadow:0 8px 28px rgba(0,20,80,0.25);}
+        .btn-mislotes::before{
+          content:"";position:absolute;top:0;left:0;right:0;height:50%;
+          background:linear-gradient(180deg,rgba(255,255,255,0.40) 0%,transparent 100%);
+          border-radius:16px 16px 0 0;
+        }
+        .btn-mislotes:hover{transform:translateY(-2px);background:rgba(255,255,255,0.88);box-shadow:0 8px 24px rgba(20,80,160,0.18);}
         .btn-mislotes>*{position:relative;}
 
         /* ── PROD CARD ── */
         .prod-card{transition:all 0.22s cubic-bezier(0.34,1.56,0.64,1);}
-        .prod-card:hover{transform:translateY(-3px);}
+        .prod-card:hover{transform:translateY(-3px);box-shadow:0 16px 40px rgba(20,80,160,0.16) !important;}
 
         /* ── MISC ── */
         .fade-in{animation:fadeIn 0.25s ease;}
         ::-webkit-scrollbar{width:3px}
-        ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.2);border-radius:3px}
-        input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:0.5}
-      `}</style>
+        ::-webkit-scrollbar-thumb{background:rgba(25,118,210,0.25);border-radius:3px}
+        input[type=date]::-webkit-calendar-picker-indicator{opacity:0.5}
+        select option{background:white;color:#1e3a5f;}
+`}</style>
 
-      {/* FONDO CAMPO AZUL CELESTE */}
+      {/* FONDO CELESTE CON DESTELLOS CRISTAL */}
       <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0,overflow:"hidden"}}>
-        <svg width="100%" height="100%" viewBox="0 0 800 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <radialGradient id="sky" cx="50%" cy="20%" r="80%">
-              <stop offset="0%" stopColor="#7dd3fc"/>
-              <stop offset="40%" stopColor="#38bdf8"/>
-              <stop offset="75%" stopColor="#0ea5e9"/>
-              <stop offset="100%" stopColor="#0369a1"/>
-            </radialGradient>
-            <radialGradient id="sun" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#fef9c3" stopOpacity="0.9"/>
-              <stop offset="60%" stopColor="#fde68a" stopOpacity="0.3"/>
-              <stop offset="100%" stopColor="#fde68a" stopOpacity="0"/>
-            </radialGradient>
-            <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#e0f2fe" stopOpacity="0.5"/>
-              <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0"/>
-            </radialGradient>
-            <linearGradient id="earth" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#1e7a2f"/>
-              <stop offset="35%" stopColor="#166534"/>
-              <stop offset="70%" stopColor="#14532d"/>
-              <stop offset="100%" stopColor="#0f3d21"/>
-            </linearGradient>
-            <linearGradient id="field1" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#22c55e" stopOpacity="0.7"/>
-              <stop offset="50%" stopColor="#4ade80" stopOpacity="0.5"/>
-              <stop offset="100%" stopColor="#16a34a" stopOpacity="0.7"/>
-            </linearGradient>
-            <linearGradient id="field2" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#a3e635" stopOpacity="0.5"/>
-              <stop offset="50%" stopColor="#84cc16" stopOpacity="0.4"/>
-              <stop offset="100%" stopColor="#65a30d" stopOpacity="0.5"/>
-            </linearGradient>
-            <linearGradient id="road" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#94a3b8" stopOpacity="0.6"/>
-              <stop offset="100%" stopColor="#64748b" stopOpacity="0.4"/>
-            </linearGradient>
-            <filter id="blur-sm"><feGaussianBlur stdDeviation="2"/></filter>
-            <filter id="blur-md"><feGaussianBlur stdDeviation="4"/></filter>
-            <filter id="blur-lg"><feGaussianBlur stdDeviation="8"/></filter>
-          </defs>
-
-          {/* CIELO */}
-          <rect width="800" height="900" fill="url(#sky)"/>
-
-          {/* SOL + halo */}
-          <circle cx="400" cy="145" r="80" fill="url(#sun)" filter="url(#blur-md)"/>
-          <circle cx="400" cy="145" r="45" fill="#fef9c3" opacity="0.25" filter="url(#blur-sm)"/>
-          <circle cx="400" cy="145" r="22" fill="#fefce8" opacity="0.55"/>
-
-          {/* RAYOS DE LUZ desde el sol */}
-          {[0,30,60,90,120,150,180,210,240,270,300,330].map((a,i)=>(
-            <line key={i}
-              x1={400+Math.cos(a*Math.PI/180)*25}
-              y1={145+Math.sin(a*Math.PI/180)*25}
-              x2={400+Math.cos(a*Math.PI/180)*160}
-              y2={145+Math.sin(a*Math.PI/180)*160}
-              stroke="#fef9c3" strokeWidth={i%3===0?1.5:0.8} opacity={i%3===0?0.25:0.12}
-            />
-          ))}
-
-          {/* NUBES */}
-          <g filter="url(#blur-sm)">
-            <ellipse cx="120" cy="100" rx="80" ry="28" fill="white" opacity="0.45"/>
-            <ellipse cx="160" cy="88" rx="50" ry="22" fill="white" opacity="0.35"/>
-            <ellipse cx="80" cy="95" rx="45" ry="20" fill="white" opacity="0.3"/>
-
-            <ellipse cx="620" cy="80" rx="90" ry="26" fill="white" opacity="0.40"/>
-            <ellipse cx="660" cy="68" rx="55" ry="20" fill="white" opacity="0.32"/>
-            <ellipse cx="575" cy="75" rx="48" ry="18" fill="white" opacity="0.28"/>
-
-            <ellipse cx="350" cy="60" rx="65" ry="18" fill="white" opacity="0.30"/>
-
-            <ellipse cx="200" cy="170" rx="70" ry="22" fill="white" opacity="0.22"/>
-            <ellipse cx="550" cy="155" rx="75" ry="20" fill="white" opacity="0.20"/>
-          </g>
-
-          {/* HORIZONTE — leve niebla */}
-          <rect x="0" y="420" width="800" height="30" fill="url(#glow)" filter="url(#blur-lg)" opacity="0.6"/>
-
-          {/* TIERRA principal */}
-          <rect x="0" y="435" width="800" height="465" fill="url(#earth)"/>
-
-          {/* CAMPOS con perspectiva */}
-          {/* Campo 1 — trapezoide izquierda */}
-          <polygon points="0,435 340,435 380,520 0,520" fill="url(#field1)" opacity="0.8"/>
-          <polygon points="0,520 380,520 420,620 0,620" fill="#15803d" opacity="0.7"/>
-          <polygon points="0,620 420,620 460,750 0,750" fill="#166534" opacity="0.75"/>
-
-          {/* Campo 2 — centro */}
-          <polygon points="360,435 440,435 500,600 300,600" fill="#4ade80" opacity="0.4"/>
-
-          {/* Campo 3 — derecha */}
-          <polygon points="460,435 800,435 800,520 420,520" fill="url(#field2)" opacity="0.8"/>
-          <polygon points="420,520 800,520 800,620 380,620" fill="#16a34a" opacity="0.7"/>
-          <polygon points="380,620 800,620 800,750 340,750" fill="#166534" opacity="0.75"/>
-
-          {/* LÍNEAS DE CULTIVO — perspectiva */}
-          {[...Array(14)].map((_,i)=>{
-            const y1=460+i*22; const y2=y1+2;
-            const spread=(i/14)*0.6;
-            return <rect key={i} x={0} y={y1} width="800" height="2"
-              fill={i%3===0?"#4ade80":"#22c55e"} opacity={0.12+i*0.015}/>
-          })}
-
-          {/* CAMINO central con perspectiva */}
-          <polygon points="370,435 430,435 520,900 280,900" fill="url(#road)" opacity="0.5"/>
-          <polygon points="395,435 405,435 415,900 385,900" fill="white" opacity="0.08"/>
-
-          {/* SILO / ESTRUCTURA derecha */}
-          <rect x="620" y="370" width="22" height="68" rx="3" fill="#94a3b8" opacity="0.55" filter="url(#blur-sm)"/>
-          <ellipse cx="631" cy="370" rx="11" ry="6" fill="#cbd5e1" opacity="0.5" filter="url(#blur-sm)"/>
-
-          {/* ÁRBOL izquierda horizonte */}
-          <rect x="95" y="390" width="5" height="48" fill="#78716c" opacity="0.4" filter="url(#blur-sm)"/>
-          <ellipse cx="97" cy="390" rx="14" ry="18" fill="#15803d" opacity="0.45" filter="url(#blur-sm)"/>
-
-          <rect x="135" y="398" width="4" height="38" fill="#78716c" opacity="0.35" filter="url(#blur-sm)"/>
-          <ellipse cx="137" cy="398" rx="11" ry="14" fill="#166534" opacity="0.40" filter="url(#blur-sm)"/>
-
-          {/* LUZ AMBIENTAL desde arriba — overlay */}
-          <radialGradient id="ambient" cx="50%" cy="0%" r="80%">
-            <stop offset="0%" stopColor="#7dd3fc" stopOpacity="0.22"/>
-            <stop offset="100%" stopColor="#0369a1" stopOpacity="0"/>
-          </radialGradient>
-          <rect width="800" height="900" fill="url(#ambient)"/>
-
-          {/* OVERLAY oscuro en la parte inferior para legibilidad del contenido */}
-          <linearGradient id="overlay" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#0a4fa8" stopOpacity="0.45"/>
-            <stop offset="40%" stopColor="#0d47a1" stopOpacity="0.55"/>
-            <stop offset="100%" stopColor="#0a1a6e" stopOpacity="0.75"/>
-          </linearGradient>
-          <rect width="800" height="900" fill="url(#overlay)"/>
-        </svg>
-
-        {/* Brillo lateral derecho */}
-        <div style={{position:"absolute",top:"10%",right:"-5%",width:"35%",height:"50%",borderRadius:"50%",background:"radial-gradient(ellipse,rgba(125,211,252,0.22) 0%,transparent 65%)",filter:"blur(40px)"}}/>
-        <div style={{position:"absolute",bottom:"5%",left:"5%",width:"30%",height:"35%",borderRadius:"50%",background:"radial-gradient(ellipse,rgba(56,189,248,0.15) 0%,transparent 65%)",filter:"blur(50px)"}}/>
+        {/* Gradiente base celeste */}
+        <div style={{position:"absolute",inset:0,background:"linear-gradient(160deg,#e0f4ff 0%,#b8e0f7 25%,#7ec8e3 55%,#4aa8d4 80%,#2980b9 100%)"}}/>
+        {/* Imagen de fondo si existe */}
+        <div style={{position:"absolute",inset:0,backgroundImage:"url('/bg-ingeniero.jpg')",backgroundSize:"cover",backgroundPosition:"center",opacity:0.4}}/>
+        {/* Destello central brillante */}
+        <div style={{position:"absolute",top:"15%",left:"50%",transform:"translateX(-50%)",width:"70%",height:"55%",background:"radial-gradient(ellipse,rgba(255,255,255,0.55) 0%,rgba(200,235,255,0.25) 40%,transparent 70%)",filter:"blur(18px)"}}/>
+        {/* Destello superior izquierdo */}
+        <div style={{position:"absolute",top:"-5%",left:"-5%",width:"50%",height:"45%",background:"radial-gradient(ellipse,rgba(255,255,255,0.40) 0%,rgba(174,214,241,0.20) 50%,transparent 75%)",filter:"blur(24px)"}}/>
+        {/* Destello inferior derecho */}
+        <div style={{position:"absolute",bottom:"5%",right:"-5%",width:"45%",height:"45%",background:"radial-gradient(ellipse,rgba(255,255,255,0.30) 0%,rgba(133,193,233,0.20) 50%,transparent 75%)",filter:"blur(28px)"}}/>
+        {/* Rayos de luz diagonales */}
+        <div style={{position:"absolute",inset:0,background:"linear-gradient(120deg,transparent 30%,rgba(255,255,255,0.18) 45%,rgba(255,255,255,0.08) 50%,transparent 65%)"}}/>
+        <div style={{position:"absolute",inset:0,background:"linear-gradient(240deg,transparent 35%,rgba(255,255,255,0.12) 48%,transparent 60%)"}}/>
+        {/* Partículas de luz (destellos) */}
+        {[[12,18,8],[80,35,5],[45,65,7],[70,20,4],[25,45,6],[90,70,5],[55,85,7],[15,75,4],[85,50,6]].map(([x,y,r],i)=>(
+          <div key={i} style={{position:"absolute",left:x+"%",top:y+"%",width:r*2+"px",height:r*2+"px",borderRadius:"50%",background:"radial-gradient(circle,rgba(255,255,255,0.9) 0%,rgba(255,255,255,0) 70%)",filter:"blur(1px)"}}/>
+        ))}
       </div>
 
       <div style={{position:"relative",zIndex:1,maxWidth:520,margin:"0 auto",padding:"16px 14px 80px"}}>
@@ -886,18 +736,18 @@ export default function IngenieroPanel() {
               <Image src="/logo.png" alt="AgroGestión PRO" width={36} height={36} className="object-contain" style={{borderRadius:10}}/>
               <div>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
-                  <span style={{fontSize:18,fontWeight:800,color:"white",textShadow:"0 1px 3px rgba(0,0,50,0.3)"}}>AgroGestión</span>
+                  <span style={{fontSize:18,fontWeight:800,color:"#1a2a4a"}}>AgroGestión</span>
                   <span style={{fontSize:10,fontWeight:700,background:"linear-gradient(135deg,#42a5f5,#1565c0)",borderRadius:5,padding:"2px 7px",color:"white",letterSpacing:1}}>PRO</span>
                 </div>
-                <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",marginTop:1,fontWeight:500}}>Gestión inteligente. Decisiones que rinden.</div>
+                <div style={{fontSize:11,color:"#4a6a8a",marginTop:1,fontWeight:500}}>Gestión inteligente. Decisiones que rinden.</div>
               </div>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
-              <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#42a5f5,#1565c0)",border:"1.5px solid rgba(255,255,255,0.4)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,color:"white",boxShadow:"0 2px 10px rgba(21,101,192,0.4)"}}>
+              <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#1976d2,#0d47a1)",border:"2px solid rgba(255,255,255,0.9)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,color:"white",boxShadow:"0 2px 10px rgba(21,101,192,0.4)"}}>
                 {ingNombre.charAt(0)||"M"}
               </div>
               <button onClick={async()=>{const sb=await getSB();await sb.auth.signOut();window.location.href="/login";}}
-                style={{display:"flex",alignItems:"center",gap:5,color:"rgba(255,255,255,0.9)",fontSize:13,fontWeight:600,background:"none",border:"none",cursor:"pointer"}}>
+                style={{display:"flex",alignItems:"center",gap:5,color:"#1e3a5f",fontSize:13,fontWeight:600,background:"none",border:"none",cursor:"pointer"}}>
                 Salir <span style={{fontSize:16}}>⎋</span>
               </button>
             </div>
@@ -938,8 +788,8 @@ export default function IngenieroPanel() {
                   ].map(s=>(
                     <div key={s.l} className="kpi-card">
                       <div style={{fontSize:20,marginBottom:4}}>{s.icon}</div>
-                      <div style={{fontSize:26,fontWeight:800,lineHeight:1}}>{s.v}</div>
-                      <div style={{fontSize:11,opacity:0.65,marginTop:3,fontWeight:500}}>{s.l}</div>
+                      <div style={{fontSize:26,fontWeight:800,lineHeight:1,color:"#0d2137"}}>{s.v}</div>
+                      <div style={{fontSize:11,color:"#4a6a8a",marginTop:3,fontWeight:600}}>{s.l}</div>
                     </div>
                   ))}
                 </div>
@@ -947,7 +797,7 @@ export default function IngenieroPanel() {
                 {/* Distribución de cultivos */}
                 {haPorCultivo.length>0&&(
                   <div className="gc" style={{padding:16}}>
-                    <div style={{fontSize:11,fontWeight:700,letterSpacing:1.2,opacity:0.6,textTransform:"uppercase",marginBottom:12}}>Distribución de Cultivos</div>
+                    <div style={{fontSize:11,fontWeight:700,letterSpacing:1.2,color:"#4a6a8a",textTransform:"uppercase",marginBottom:12}}>Distribución de Cultivos</div>
                     <div style={{display:"flex",flexDirection:"column",gap:10}}>
                       {haPorCultivo.map((d,i)=>(
                         <div key={i} style={{display:"flex",alignItems:"center",gap:10}}>
@@ -957,7 +807,7 @@ export default function IngenieroPanel() {
                             <div style={{height:"100%",borderRadius:99,background:d.color,width:totalHa>0?(d.ha/totalHa*100)+"%":"0%",
                               boxShadow:`0 0 6px ${d.color}80`,transition:"width 0.6s ease"}}/>
                           </div>
-                          <div style={{width:32,textAlign:"right",fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.85)",flexShrink:0}}>
+                          <div style={{width:32,textAlign:"right",fontSize:12,fontWeight:700,color:"#1e3a5f",flexShrink:0}}>
                             {totalHa>0?Math.round(d.ha/totalHa*100):0}%
                           </div>
                         </div>
@@ -980,7 +830,7 @@ export default function IngenieroPanel() {
 
                 {/* Cobranza */}
                 <div className="gc" style={{padding:16}}>
-                  <div style={{fontSize:11,fontWeight:700,letterSpacing:1.2,opacity:0.6,textTransform:"uppercase",marginBottom:12}}>💰 Cobranza</div>
+                  <div style={{fontSize:11,fontWeight:700,letterSpacing:1.2,color:"#4a6a8a",textTransform:"uppercase",marginBottom:12}}>💰 Cobranza</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                     <div className="kpi-card" style={{background:"linear-gradient(145deg,rgba(255,100,100,0.25),rgba(255,100,100,0.08))"}}>
                       <div style={{fontSize:11,fontWeight:700,opacity:0.7,marginBottom:4}}>Pendiente</div>
@@ -1015,7 +865,7 @@ export default function IngenieroPanel() {
 
                 {/* Vincular */}
                 <button onClick={()=>{setShowVincular(!showVincular);setForm({});}}
-                  style={{background:"none",border:"none",cursor:"pointer",color:"white",fontSize:14,fontWeight:700,textAlign:"left",display:"flex",alignItems:"center",gap:6,padding:"4px 0",textShadow:"0 1px 3px rgba(0,0,50,0.3)"}}>
+                  style={{background:"none",border:"none",cursor:"pointer",color:"#1565c0",fontSize:14,fontWeight:700,textAlign:"left",display:"flex",alignItems:"center",gap:6,padding:"4px 0"}}>
                   🔗 Vincular productor por código
                 </button>
 
@@ -1023,9 +873,9 @@ export default function IngenieroPanel() {
                   <div className="gc-inner fade-in" style={{padding:14}}>
                     <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"white"}}>🔗 Vincular por código</div>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-                      <div><label className={lCls} style={{color:"rgba(255,255,255,0.55)"}}>Código *</label><input type="text" value={form.codigo??""} onChange={e=>setForm({...form,codigo:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="10001"/></div>
-                      <div><label className={lCls} style={{color:"rgba(255,255,255,0.55)"}}>Honorario</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px"}}><option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option></select></div>
-                      <div><label className={lCls} style={{color:"rgba(255,255,255,0.55)"}}>Monto $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label className={lCls} style={{color:"rgba(255,255,255,0.55)"}}>Código *</label><input type="text" value={form.codigo??""} onChange={e=>setForm({...form,codigo:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}} placeholder="10001"/></div>
+                      <div><label className={lCls} style={{color:"rgba(255,255,255,0.55)"}}>Honorario</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}><option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option></select></div>
+                      <div><label className={lCls} style={{color:"rgba(255,255,255,0.55)"}}>Monto $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}/></div>
                     </div>
                     <div style={{display:"flex",gap:8}}>
                       <button onClick={vincularCodigo} className="btn-solid">Vincular</button>
@@ -1037,7 +887,7 @@ export default function IngenieroPanel() {
                 {showImport&&(
                   <div className="gc-inner fade-in" style={{padding:14}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                      <span style={{fontSize:13,fontWeight:700,color:"white"}}>📥 Importar productores</span>
+                      <span style={{fontSize:13,fontWeight:700,color:"#0d2137"}}>📥 Importar productores</span>
                       <button onClick={()=>{setShowImport(false);setImportPrev([]);setImportMsg("");}} style={{background:"none",border:"none",color:"rgba(255,255,255,0.5)",cursor:"pointer",fontSize:18}}>✕</button>
                     </div>
                     <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f)leerExcel(f);}}/>
@@ -1066,13 +916,13 @@ export default function IngenieroPanel() {
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
                       {[["nombre","Nombre *","text",""],["telefono","Teléfono","text",""],["email","Email (app)","email",""],["localidad","Localidad","text",""],["honorario_monto","Honorario $","number",""],["obs","Observaciones","text",""]].map(([k,l,t,ph])=>(
                         <div key={k as string} style={{gridColumn:k==="obs"?"1/-1":"auto"}}>
-                          <label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>{l as string}</label>
-                          <input type={t as string} value={form[k as string]??""} onChange={e=>setForm({...form,[k as string]:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder={ph as string}/>
+                          <label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>{l as string}</label>
+                          <input type={t as string} value={form[k as string]??""} onChange={e=>setForm({...form,[k as string]:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}} placeholder={ph as string}/>
                         </div>
                       ))}
                       <div>
-                        <label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Tipo honorario</label>
-                        <select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px"}}>
+                        <label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Tipo honorario</label>
+                        <select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}>
                           <option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option><option value="por_servicio">Por servicio</option>
                         </select>
                       </div>
@@ -1088,7 +938,7 @@ export default function IngenieroPanel() {
                 {lotes.length>0&&(
                   <div className="gc" style={{padding:12}}>
                     <div style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"}}>
-                      <span style={{fontSize:12,fontWeight:700,color:"white"}}>Exportar lotes:</span>
+                      <span style={{fontSize:12,fontWeight:700,color:"#1e3a5f"}}>Exportar lotes:</span>
                       {[["Cultivo",fCultivo,setFCultivo,["todos",...cultivosU]],["Productor",fProductor,setFProductor,["todos",...productores.map(p=>p.nombre)]],["Estado",fEstado,setFEstado,["todos","planificado","sembrado","en_desarrollo","cosechado"]]].map(([l,v,fn,opts])=>(
                         <select key={l as string} value={v as string} onChange={e=>(fn as any)(e.target.value)} className="gi sel-crystal" style={{fontSize:12,padding:"6px 10px"}}>
                           {(opts as string[]).map(o=><option key={o} value={o}>{o==="todos"?"Todos":o}</option>)}
@@ -1101,7 +951,7 @@ export default function IngenieroPanel() {
 
                 {/* Lista productores */}
                 {productores.length===0
-                  ?<div className="gc" style={{padding:48,textAlign:"center"}}><div style={{fontSize:48,opacity:0.2,marginBottom:12}}>👨‍🌾</div><p style={{color:"rgba(255,255,255,0.4)",fontSize:14}}>Sin productores</p></div>
+                  ?<div className="gc" style={{padding:48,textAlign:"center"}}><div style={{fontSize:48,opacity:0.2,marginBottom:12}}>👨‍🌾</div><p style={{color:"#4a6a8a",fontSize:14}}>Sin productores</p></div>
                   :<div style={{display:"flex",flexDirection:"column",gap:10}}>
                     {productores.map(p=>{
                       const eid=p.empresa_id??p.id;
@@ -1114,18 +964,18 @@ export default function IngenieroPanel() {
                         <div key={p.id} className="prod-card gc" style={{padding:0}}>
                           {/* Header */}
                           <div style={{padding:"14px 14px 12px",borderBottom:"1px solid rgba(255,255,255,0.12)",display:"flex",alignItems:"flex-start",gap:12}}>
-                            <div style={{width:44,height:44,borderRadius:"50%",background:"linear-gradient(145deg,rgba(255,255,255,0.3),rgba(255,255,255,0.1))",border:"1.5px solid rgba(255,255,255,0.45)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:"white",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.4)",flexShrink:0}}>
+                            <div style={{width:44,height:44,borderRadius:"50%",background:"linear-gradient(145deg,#1976d2,#0d47a1)",border:"2px solid rgba(255,255,255,0.8)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:"white",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.4)",flexShrink:0}}>
                               {p.nombre.charAt(0)}
                             </div>
                             <div style={{flex:1,minWidth:0}}>
                               <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                                <span style={{fontSize:16,fontWeight:800,color:"white",textShadow:"0 1px 3px rgba(0,0,60,0.3)"}}>{p.nombre}</span>
+                                <span style={{fontSize:16,fontWeight:800,color:"#0d2137"}}>{p.nombre}</span>
                                 <span style={{fontSize:14,opacity:0.5,cursor:"pointer"}} onClick={()=>{setEditProd(p.id);setForm({nombre:p.nombre,telefono:p.telefono||"",email:p.email||"",localidad:p.localidad||"",provincia:p.provincia||"",honorario_tipo:p.honorario_tipo||"mensual",honorario_monto:String(p.honorario_monto||0),obs:p.observaciones||""});setShowForm(true);}}>✏️</span>
                               </div>
-                              <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:2,display:"flex",alignItems:"center",gap:4}}>
+                              <div style={{fontSize:12,color:"#4a6a8a",marginTop:2,display:"flex",alignItems:"center",gap:4}}>
                                 <span>📍</span>{p.localidad}{p.provincia&&p.provincia!==p.localidad?", "+p.provincia:""}
                               </div>
-                              {p.tiene_cuenta&&<div style={{fontSize:11,color:"#86efac",fontWeight:600,marginTop:3}}>✓ Usa la app</div>}
+                              {p.tiene_cuenta&&<div style={{fontSize:11,color:"#16a34a",fontWeight:700,marginTop:3,background:"rgba(22,163,74,0.1)",padding:"2px 7px",borderRadius:6,display:"inline-block"}}>✓ Usa la app</div>}
                             </div>
                             <div style={{display:"flex",gap:6,flexShrink:0}}>
                               <button onClick={()=>{setEditProd(p.id);setForm({nombre:p.nombre,telefono:p.telefono||"",email:p.email||"",localidad:p.localidad||"",provincia:p.provincia||"",honorario_tipo:p.honorario_tipo||"mensual",honorario_monto:String(p.honorario_monto||0),obs:p.observaciones||""});setShowForm(true);}} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.5)",fontSize:13,fontWeight:500,padding:"4px 8px",borderRadius:8,transition:"color 0.15s"}}>✏️ Editar</button>
@@ -1136,7 +986,7 @@ export default function IngenieroPanel() {
                           <div style={{padding:"12px 14px",display:"flex",flexDirection:"column",gap:12}}>
                             {/* Campaña */}
                             <div>
-                              <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.9)",textTransform:"uppercase",letterSpacing:1,marginBottom:7}}>Campaña</div>
+                              <div style={{fontSize:10,fontWeight:700,color:"#4a6a8a",textTransform:"uppercase",letterSpacing:1,marginBottom:7}}>Campaña</div>
                               <div style={{display:"flex",gap:8}}>
                                 {camps.length>0
                                   ?<select value={campActiva??""} onChange={e=>cambiarCampana(eid,e.target.value,p.nombre)} className="gi sel-crystal" style={{flex:1,padding:"8px 12px",fontSize:13,fontWeight:600}}>
@@ -1153,19 +1003,19 @@ export default function IngenieroPanel() {
                                   <button onClick={()=>{setNuevaCampProd(null);setNuevaCampNombre("");}} className="action-btn" style={{padding:"7px 10px",fontSize:12}}>✕</button>
                                 </div>
                               )}
-                              <div style={{fontSize:12,color:"rgba(255,255,255,0.75)",marginTop:6,fontWeight:600}}>{lotesP.length} lotes · {haReales.toLocaleString("es-AR")} ha</div>
+                              <div style={{fontSize:12,color:"#4a6a8a",marginTop:6,fontWeight:600}}>{lotesP.length} lotes · {haReales.toLocaleString("es-AR")} ha</div>
                             </div>
 
                             {/* KPIs Hectáreas + Honorario */}
                             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                               <div className="kpi-card">
-                                <div style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.85)",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>🌿 Hectáreas</div>
+                                <div style={{fontSize:12,fontWeight:700,color:"#4a6a8a",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>🌿 Hectáreas</div>
                                 <div style={{fontSize:28,fontWeight:800,lineHeight:1}}>{haReales.toLocaleString("es-AR")}</div>
                                 <div style={{fontSize:11,opacity:0.5,marginTop:2}}>ha</div>
                               </div>
                               <div className="kpi-card">
-                                <div style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.85)",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>$ Honorario</div>
-                                <div style={{fontSize:20,fontWeight:800,lineHeight:1}}>${Number(p.honorario_monto||0).toLocaleString("es-AR")}</div>
+                                <div style={{fontSize:12,fontWeight:700,color:"#4a6a8a",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>$ Honorario</div>
+                                <div style={{fontSize:20,fontWeight:800,lineHeight:1,color:"#0d2137"}}>${Number(p.honorario_monto||0).toLocaleString("es-AR")}</div>
                                 <div style={{fontSize:11,opacity:0.5,marginTop:2}}>{p.honorario_tipo||"mensual"}</div>
                               </div>
                             </div>
@@ -1173,7 +1023,7 @@ export default function IngenieroPanel() {
                             {/* Distribución cultivos del productor */}
                             {cultivosProd.length>0&&(
                               <div className="gc-inner" style={{padding:"10px 12px"}}>
-                                <div style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.9)",textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Distribución de Cultivos</div>
+                                <div style={{fontSize:10,fontWeight:700,color:"#4a6a8a",textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Distribución de Cultivos</div>
                                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
                                   {cultivosProd.slice(0,4).map(c=>{
                                     const info=getCultivoInfo(c);
@@ -1199,7 +1049,7 @@ export default function IngenieroPanel() {
                                       return(
                                         <div key={c} className="cult-chip" style={{background:`linear-gradient(145deg,${info.color}22,${info.color}0a)`,borderColor:`${info.color}30`}}>
                                           <span style={{fontSize:15}}>{cultivoIcono(c)}</span>
-                                          <span style={{fontSize:12,fontWeight:700,color:"rgba(255,255,255,0.9)"}}>{info.label}</span>
+                                          <span style={{fontSize:12,fontWeight:700,color:"#1a2a4a"}}>{info.label}</span>
                                         </div>
                                       );
                                     })}
@@ -1230,10 +1080,10 @@ export default function IngenieroPanel() {
               <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:10}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
                   <div>
-                    <h2 style={{fontSize:20,fontWeight:800,color:"white",margin:0}}>Cobranza</h2>
+                    <h2 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>Cobranza</h2>
                     <div style={{display:"flex",gap:12,marginTop:4}}>
-                      <span style={{fontSize:12,fontWeight:600,color:"#fca5a5"}}>Pend: <strong>${totPend.toLocaleString("es-AR")}</strong></span>
-                      <span style={{fontSize:12,fontWeight:600,color:"#86efac"}}>Cobr: <strong>${totCob.toLocaleString("es-AR")}</strong></span>
+                      <span style={{fontSize:12,fontWeight:600,color:"#dc2626"}}>Pend: <strong>${totPend.toLocaleString("es-AR")}</strong></span>
+                      <span style={{fontSize:12,fontWeight:600,color:"#16a34a"}}>Cobr: <strong>${totCob.toLocaleString("es-AR")}</strong></span>
                     </div>
                   </div>
                   <button onClick={()=>{setShowForm(!showForm);setForm({estado:"pendiente",fecha_c:new Date().toISOString().split("T")[0]});}} className="btn-solid">+ Cobro</button>
@@ -1242,26 +1092,26 @@ export default function IngenieroPanel() {
                   <div className="gc-inner fade-in" style={{padding:14}}>
                     <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"white"}}>+ Nuevo cobro</div>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-                      <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Productor</label><select value={form.prod_c??""} onChange={e=>setForm({...form,prod_c:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px"}}><option value="">Sin productor</option>{productores.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
-                      <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Concepto</label><input type="text" value={form.concepto??""} onChange={e=>setForm({...form,concepto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Honorario enero"/></div>
-                      <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Monto</label><input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
-                      <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Fecha</label><input type="date" value={form.fecha_c??""} onChange={e=>setForm({...form,fecha_c:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
-                      <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Estado</label><select value={form.estado??"pendiente"} onChange={e=>setForm({...form,estado:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px"}}><option value="pendiente">Pendiente</option><option value="cobrado">Cobrado</option></select></div>
-                      <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Método</label><select value={form.metodo??""} onChange={e=>setForm({...form,metodo:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px"}}><option value="">—</option><option value="transferencia">Transferencia</option><option value="efectivo">Efectivo</option><option value="cheque">Cheque</option></select></div>
+                      <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Productor</label><select value={form.prod_c??""} onChange={e=>setForm({...form,prod_c:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}><option value="">Sin productor</option>{productores.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
+                      <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Concepto</label><input type="text" value={form.concepto??""} onChange={e=>setForm({...form,concepto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}} placeholder="Honorario enero"/></div>
+                      <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Monto</label><input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}/></div>
+                      <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Fecha</label><input type="date" value={form.fecha_c??""} onChange={e=>setForm({...form,fecha_c:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}/></div>
+                      <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Estado</label><select value={form.estado??"pendiente"} onChange={e=>setForm({...form,estado:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}><option value="pendiente">Pendiente</option><option value="cobrado">Cobrado</option></select></div>
+                      <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Método</label><select value={form.metodo??""} onChange={e=>setForm({...form,metodo:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}><option value="">—</option><option value="transferencia">Transferencia</option><option value="efectivo">Efectivo</option><option value="cheque">Cheque</option></select></div>
                     </div>
                     <div style={{display:"flex",gap:8}}><button onClick={guardarCob} className="btn-solid">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="action-btn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button></div>
                   </div>
                 )}
                 <div className="gc" style={{overflow:"hidden",padding:0}}>
-                  {cobranzas.length===0?<div style={{textAlign:"center",padding:"48px 20px",color:"rgba(255,255,255,0.3)",fontSize:14}}>Sin cobros registrados</div>:(
+                  {cobranzas.length===0?<div style={{textAlign:"center",padding:"48px 20px",color:"#4a6a8a",fontSize:14}}>Sin cobros registrados</div>:(
                     <div style={{overflowX:"auto"}}>
                       <table style={{width:"100%",fontSize:12,minWidth:520,borderCollapse:"collapse"}}>
-                        <thead><tr style={{borderBottom:"1px solid rgba(255,255,255,0.1)"}}>{["Fecha","Productor","Concepto","Monto","Estado",""].map(h=><th key={h} style={{textAlign:"left",padding:"10px 12px",fontSize:10,color:"rgba(255,255,255,0.45)",fontWeight:700,textTransform:"uppercase",letterSpacing:0.8}}>{h}</th>)}</tr></thead>
+                        <thead><tr style={{borderBottom:"1px solid rgba(255,255,255,0.1)"}}>{["Fecha","Productor","Concepto","Monto","Estado",""].map(h=><th key={h} style={{textAlign:"left",padding:"10px 12px",fontSize:10,color:"#8aabbf",fontWeight:700,textTransform:"uppercase",letterSpacing:0.8}}>{h}</th>)}</tr></thead>
                         <tbody>{cobranzas.map(c=>{const p=productores.find(x=>x.id===c.productor_id);return(
                           <tr key={c.id} style={{borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
-                            <td style={{padding:"10px 12px",color:"rgba(255,255,255,0.45)",fontSize:11}}>{c.fecha}</td>
-                            <td style={{padding:"10px 12px",fontWeight:600,color:"white",fontSize:12}}>{p?.nombre??"—"}</td>
-                            <td style={{padding:"10px 12px",color:"rgba(255,255,255,0.55)",fontSize:11}}>{c.concepto}</td>
+                            <td style={{padding:"10px 12px",color:"#8aabbf",fontSize:11}}>{c.fecha}</td>
+                            <td style={{padding:"10px 12px",fontWeight:600,color:"#0d2137",fontSize:12}}>{p?.nombre??"—"}</td>
+                            <td style={{padding:"10px 12px",color:"#4a6a8a",fontSize:11}}>{c.concepto}</td>
                             <td style={{padding:"10px 12px",fontWeight:700,color:"#fbbf24",fontSize:13}}>${Number(c.monto).toLocaleString("es-AR")}</td>
                             <td style={{padding:"10px 12px"}}><span style={{fontSize:11,padding:"3px 8px",borderRadius:7,fontWeight:700,background:c.estado==="cobrado"?"rgba(134,239,172,0.15)":"rgba(252,165,165,0.15)",color:c.estado==="cobrado"?"#86efac":"#fca5a5"}}>{c.estado}</span></td>
                             <td style={{padding:"10px 12px",display:"flex",gap:8}}>
@@ -1282,7 +1132,7 @@ export default function IngenieroPanel() {
             {seccion==="vehiculo"&&(
               <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:10}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-                  <h2 style={{fontSize:20,fontWeight:800,color:"white",margin:0}}>Mi Vehículo</h2>
+                  <h2 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>Mi Vehículo</h2>
                   {!vehiculoSel?<button onClick={()=>{setShowForm(true);setForm({});}} className="btn-solid">+ Agregar</button>
                     :<div style={{display:"flex",gap:8}}>
                       <button onClick={()=>{setShowForm(true);setForm({});}} className="action-btn" style={{padding:"8px 14px",fontSize:12}}>+ Service</button>
@@ -1295,20 +1145,20 @@ export default function IngenieroPanel() {
                     <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"white"}}>+ Nuevo vehículo</div>
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
                       {[["nombre","Nombre","Toyota Hilux","text"],["marca","Marca","","text"],["modelo","Modelo","","text"],["anio","Año","","number"],["patente","Patente","","text"],["seg_comp","Compañía seguro","","text"],["seg_venc","Venc. seguro","","date"],["vtv_venc","Venc. VTV","","date"],["km","Km actuales","","number"],["prox_km","Próx. service km","","number"]].map(([k,l,ph,t])=>(
-                        <div key={k as string}><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>{l as string}</label><input type={t as string} value={form[k as string]??""} onChange={e=>setForm({...form,[k as string]:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder={ph as string}/></div>
+                        <div key={k as string}><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>{l as string}</label><input type={t as string} value={form[k as string]??""} onChange={e=>setForm({...form,[k as string]:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}} placeholder={ph as string}/></div>
                       ))}
                     </div>
                     <div style={{display:"flex",gap:8}}><button onClick={guardarVeh} className="btn-solid">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="action-btn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button></div>
                   </div>
                 )}
                 {!vehiculoSel?(
-                  vehiculos.length===0?<div className="gc" style={{padding:"48px 20px",textAlign:"center"}}><div style={{fontSize:48,opacity:0.2,marginBottom:12}}>🚗</div><p style={{color:"rgba(255,255,255,0.3)",fontSize:14}}>Sin vehículos</p></div>:(
+                  vehiculos.length===0?<div className="gc" style={{padding:"48px 20px",textAlign:"center"}}><div style={{fontSize:48,opacity:0.2,marginBottom:12}}>🚗</div><p style={{color:"#4a6a8a",fontSize:14}}>Sin vehículos</p></div>:(
                     <div style={{display:"flex",flexDirection:"column",gap:10}}>
                       {vehiculos.map((v:any)=>{const sV=v.seguro_vencimiento&&new Date(v.seguro_vencimiento)<new Date();const vV=v.vtv_vencimiento&&new Date(v.vtv_vencimiento)<new Date();return(
                         <div key={v.id} className="prod-card gc" style={{padding:14,cursor:"pointer"}} onClick={async()=>{setVehiculoSel(v);const sb=await getSB();const{data}=await sb.from("ing_vehiculo_service").select("*").eq("vehiculo_id",v.id).order("fecha",{ascending:false});setServicios(data??[]);}}>
                           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
                             <div style={{width:46,height:46,borderRadius:14,background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>🚗</div>
-                            <div style={{flex:1}}><div style={{fontWeight:700,color:"white",fontSize:15}}>{v.nombre}</div><div style={{fontSize:11,color:"rgba(255,255,255,0.45)",marginTop:2}}>{v.marca} {v.modelo} · {v.anio} · {v.patente}</div></div>
+                            <div style={{flex:1}}><div style={{fontWeight:700,color:"#0d2137",fontSize:15}}>{v.nombre}</div><div style={{fontSize:11,color:"rgba(255,255,255,0.45)",marginTop:2}}>{v.marca} {v.modelo} · {v.anio} · {v.patente}</div></div>
                             <button onClick={e=>{e.stopPropagation();(async()=>{const sb=await getSB();await sb.from("ing_vehiculos").delete().eq("id",v.id);await fetchVehs(ingId);})();}} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.3)",fontSize:18}}>✕</button>
                           </div>
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
@@ -1327,28 +1177,28 @@ export default function IngenieroPanel() {
                   <div style={{display:"flex",flexDirection:"column",gap:10}}>
                     <div className="gc" style={{padding:14,display:"flex",alignItems:"center",gap:12}}>
                       <div style={{width:46,height:46,borderRadius:14,background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🚗</div>
-                      <div><div style={{fontWeight:700,color:"white"}}>{vehiculoSel.nombre}</div><div style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>{vehiculoSel.marca} {vehiculoSel.modelo} · {(vehiculoSel as any).anio} · {vehiculoSel.patente}</div></div>
+                      <div><div style={{fontWeight:700,color:"#0d2137"}}>{vehiculoSel.nombre}</div><div style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>{vehiculoSel.marca} {vehiculoSel.modelo} · {(vehiculoSel as any).anio} · {vehiculoSel.patente}</div></div>
                     </div>
                     {showForm&&vehiculoSel&&(
                       <div className="gc-inner fade-in" style={{padding:14}}>
                         <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"white"}}>+ Service</div>
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-                          <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Tipo</label><select value={form.tipo_s??"service"} onChange={e=>setForm({...form,tipo_s:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px"}}><option value="service">Service</option><option value="reparacion">Reparación</option><option value="vtv">VTV</option><option value="otro">Otro</option></select></div>
-                          <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Descripción</label><input type="text" value={form.desc_s??""} onChange={e=>setForm({...form,desc_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
-                          <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Taller</label><input type="text" value={form.taller??""} onChange={e=>setForm({...form,taller:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
-                          <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Km</label><input type="number" value={form.km_s??""} onChange={e=>setForm({...form,km_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
-                          <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Costo</label><input type="number" value={form.costo_s??""} onChange={e=>setForm({...form,costo_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
-                          <div><label style={{display:"block",fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:600,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Fecha</label><input type="date" value={form.fecha_s??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                          <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Tipo</label><select value={form.tipo_s??"service"} onChange={e=>setForm({...form,tipo_s:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}><option value="service">Service</option><option value="reparacion">Reparación</option><option value="vtv">VTV</option><option value="otro">Otro</option></select></div>
+                          <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Descripción</label><input type="text" value={form.desc_s??""} onChange={e=>setForm({...form,desc_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}/></div>
+                          <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Taller</label><input type="text" value={form.taller??""} onChange={e=>setForm({...form,taller:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}/></div>
+                          <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Km</label><input type="number" value={form.km_s??""} onChange={e=>setForm({...form,km_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}/></div>
+                          <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Costo</label><input type="number" value={form.costo_s??""} onChange={e=>setForm({...form,costo_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}/></div>
+                          <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Fecha</label><input type="date" value={form.fecha_s??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}/></div>
                         </div>
                         <div style={{display:"flex",gap:8}}><button onClick={guardarService} className="btn-solid">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="action-btn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button></div>
                       </div>
                     )}
                     <div className="gc" style={{overflow:"hidden",padding:0}}>
-                      <div style={{padding:"10px 14px",borderBottom:"1px solid rgba(255,255,255,0.1)",fontSize:13,fontWeight:700,color:"white"}}>🔧 Historial</div>
+                      <div style={{padding:"10px 14px",borderBottom:"1px solid rgba(255,255,255,0.1)",fontSize:13,fontWeight:700,color:"#0d2137"}}>🔧 Historial</div>
                       {servicios.length===0?<div style={{textAlign:"center",padding:"32px 20px",color:"rgba(255,255,255,0.3)",fontSize:13}}>Sin historial</div>:(
                         <div style={{overflowX:"auto"}}><table style={{width:"100%",fontSize:12,minWidth:440,borderCollapse:"collapse"}}>
                           <thead><tr style={{borderBottom:"1px solid rgba(255,255,255,0.08)"}}>{["Fecha","Tipo","Descripción","Km","Costo",""].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontSize:10,color:"rgba(255,255,255,0.4)",fontWeight:600,textTransform:"uppercase",letterSpacing:0.8}}>{h}</th>)}</tr></thead>
-                          <tbody>{servicios.map(s=><tr key={s.id} style={{borderBottom:"1px solid rgba(255,255,255,0.05)"}}><td style={{padding:"9px 12px",color:"rgba(255,255,255,0.4)",fontSize:11}}>{s.fecha}</td><td style={{padding:"9px 12px"}}><span style={{fontSize:10,padding:"3px 7px",borderRadius:6,fontWeight:700,background:"rgba(251,191,36,0.15)",color:"#fbbf24"}}>{s.tipo}</span></td><td style={{padding:"9px 12px",color:"rgba(255,255,255,0.65)",fontSize:11}}>{s.descripcion}</td><td style={{padding:"9px 12px",color:"rgba(255,255,255,0.4)",fontSize:11}}>{s.km?(s.km.toLocaleString()+" km"):"—"}</td><td style={{padding:"9px 12px",fontWeight:700,color:"#fca5a5",fontSize:12}}>${Number(s.costo).toLocaleString("es-AR")}</td><td style={{padding:"9px 12px"}}><button onClick={async()=>{const sb=await getSB();await sb.from("ing_vehiculo_service").delete().eq("id",s.id);const sb2=await getSB();const{data}=await sb2.from("ing_vehiculo_service").select("*").eq("vehiculo_id",vehiculoSel!.id).order("fecha",{ascending:false});setServicios(data??[]);}} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.25)",fontSize:15}}>✕</button></td></tr>)}</tbody>
+                          <tbody>{servicios.map(s=><tr key={s.id} style={{borderBottom:"1px solid rgba(255,255,255,0.05)"}}><td style={{padding:"9px 12px",color:"rgba(255,255,255,0.4)",fontSize:11}}>{s.fecha}</td><td style={{padding:"9px 12px"}}><span style={{fontSize:10,padding:"3px 7px",borderRadius:6,fontWeight:700,background:"rgba(251,191,36,0.15)",color:"#fbbf24"}}>{s.tipo}</span></td><td style={{padding:"9px 12px",color:"#1e3a5f",fontSize:11}}>{s.descripcion}</td><td style={{padding:"9px 12px",color:"rgba(255,255,255,0.4)",fontSize:11}}>{s.km?(s.km.toLocaleString()+" km"):"—"}</td><td style={{padding:"9px 12px",fontWeight:700,color:"#fca5a5",fontSize:12}}>${Number(s.costo).toLocaleString("es-AR")}</td><td style={{padding:"9px 12px"}}><button onClick={async()=>{const sb=await getSB();await sb.from("ing_vehiculo_service").delete().eq("id",s.id);const sb2=await getSB();const{data}=await sb2.from("ing_vehiculo_service").select("*").eq("vehiculo_id",vehiculoSel!.id).order("fecha",{ascending:false});setServicios(data??[]);}} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.25)",fontSize:15}}>✕</button></td></tr>)}</tbody>
                         </table></div>
                       )}
                     </div>
@@ -1365,12 +1215,12 @@ export default function IngenieroPanel() {
       {/* ══ PANEL VOZ ══ */}
       {vozPanel&&(
         <div style={{position:"fixed",bottom:88,right:16,zIndex:50,width:280,borderRadius:20,overflow:"hidden",
-          background:"linear-gradient(145deg,rgba(255,255,255,0.18),rgba(200,225,255,0.10))",
-          backdropFilter:"blur(24px)",border:"1px solid rgba(255,255,255,0.30)",
+          background:"rgba(255,255,255,0.88)",
+          backdropFilter:"blur(24px)",border:"1px solid rgba(255,255,255,0.85)",
           boxShadow:"0 16px 48px rgba(0,20,100,0.35),inset 0 1px 0 rgba(255,255,255,0.4)"}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:"1px solid rgba(255,255,255,0.12)"}}>
-            <div style={{display:"flex",alignItems:"center",gap:7}}><div style={{width:7,height:7,borderRadius:"50%",background:VOZ_COLOR[vozEstado],boxShadow:`0 0 6px ${VOZ_COLOR[vozEstado]}80`}}/><span style={{color:"white",fontSize:12,fontWeight:700}}>🎤 ASISTENTE</span></div>
-            <button onClick={()=>{setVozPanel(false);recRef.current?.stop();setVozEstado("idle");}} style={{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer",fontSize:18}}>✕</button>
+            <div style={{display:"flex",alignItems:"center",gap:7}}><div style={{width:7,height:7,borderRadius:"50%",background:VOZ_COLOR[vozEstado],boxShadow:`0 0 6px ${VOZ_COLOR[vozEstado]}80`}}/><span style={{color:"#0d2137",fontSize:12,fontWeight:700}}>🎤 ASISTENTE</span></div>
+            <button onClick={()=>{setVozPanel(false);recRef.current?.stop();setVozEstado("idle");}} style={{background:"none",border:"none",color:"#4a6a8a",cursor:"pointer",fontSize:18}}>✕</button>
           </div>
           <div style={{padding:14,minHeight:56}}>
             {vozEstado==="escuchando"&&<p style={{color:"#fca5a5",fontSize:13,fontWeight:600}}>🔴 Escuchando...</p>}
@@ -1393,14 +1243,14 @@ export default function IngenieroPanel() {
       {/* ══ PANEL IA CAMPO FLOTANTE ══ */}
       {aiPanel&&(
         <div style={{position:"fixed",bottom:88,right:80,zIndex:50,width:320,maxHeight:"75vh",borderRadius:22,overflow:"hidden",display:"flex",flexDirection:"column",
-          background:"linear-gradient(145deg,rgba(13,71,161,0.97),rgba(10,50,130,0.97))",
-          backdropFilter:"blur(24px)",border:"1px solid rgba(100,180,255,0.35)",
-          boxShadow:"0 20px 60px rgba(0,20,100,0.50),inset 0 1px 0 rgba(255,255,255,0.25)"}}>
+          background:"linear-gradient(145deg,rgba(255,255,255,0.92),rgba(230,245,255,0.90))",
+          backdropFilter:"blur(24px)",border:"1px solid rgba(255,255,255,0.85)",
+          boxShadow:"0 20px 60px rgba(20,80,160,0.22),inset 0 1px 0 rgba(255,255,255,0.95)"}}>
           {/* Header */}
-          <div style={{padding:"12px 16px",borderBottom:"1px solid rgba(255,255,255,0.12)",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+          <div style={{padding:"12px 16px",borderBottom:"1px solid rgba(25,118,210,0.12)",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <div style={{width:8,height:8,borderRadius:"50%",background:"#86efac",boxShadow:"0 0 8px #86efac"}}/>
-              <span style={{color:"white",fontSize:13,fontWeight:700}}>🌾 IA Agronómica</span>
+              <span style={{color:"#0d2137",fontSize:13,fontWeight:700}}>🌾 IA Agronómica</span>
             </div>
             <button onClick={()=>setAiPanel(false)} style={{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer",fontSize:20,lineHeight:1}}>✕</button>
           </div>
@@ -1410,8 +1260,8 @@ export default function IngenieroPanel() {
               {["Dosis glifosato","Roya soja","Fungicida maíz","Precio soja"].map(q=>(
                 <button key={q} onClick={()=>askAI(q)}
                   style={{fontSize:11,padding:"5px 10px",borderRadius:20,cursor:"pointer",fontWeight:600,
-                    background:"rgba(255,255,255,0.10)",border:"1px solid rgba(255,255,255,0.18)",
-                    color:"rgba(255,255,255,0.8)",whiteSpace:"nowrap",transition:"all 0.15s"
+                    background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.20)",
+                    color:"#1565c0",whiteSpace:"nowrap",transition:"all 0.15s"
                   }}>💬 {q}</button>
               ))}
             </div>
@@ -1419,7 +1269,7 @@ export default function IngenieroPanel() {
           {/* Chat */}
           <div style={{flex:1,overflowY:"auto",padding:12,display:"flex",flexDirection:"column",gap:8,minHeight:0}}>
             {aiChat.length===0&&(
-              <div style={{textAlign:"center",padding:"24px 16px",color:"rgba(255,255,255,0.25)"}}>
+              <div style={{textAlign:"center",padding:"24px 16px",color:"#4a6a8a"}}>
                 <div style={{fontSize:36,marginBottom:8}}>🌾</div>
                 <p style={{fontSize:12,lineHeight:1.5}}>Preguntá sobre dosis, plagas,<br/>cultivos y mercados</p>
               </div>
@@ -1429,8 +1279,8 @@ export default function IngenieroPanel() {
                 <div style={{maxWidth:"85%",padding:"9px 13px",borderRadius:14,fontSize:12,lineHeight:1.5,
                   ...(msg.rol==="user"
                     ?{background:"linear-gradient(145deg,#42a5f5,#1565c0)",color:"white",boxShadow:"0 3px 10px rgba(33,150,243,0.35)"}
-                    :{background:"rgba(255,255,255,0.10)",border:"1px solid rgba(255,255,255,0.14)",color:"rgba(255,255,255,0.92)"})}}>
-                  {msg.rol==="assistant"&&<div style={{fontSize:9,fontWeight:700,color:"#90caf9",marginBottom:4,letterSpacing:1}}>◆ IA AGRONÓMICA</div>}
+                    :{background:"rgba(240,248,255,0.90)",border:"1px solid rgba(25,118,210,0.18)",color:"#1e3a5f"})}}>
+                  {msg.rol==="assistant"&&<div style={{fontSize:9,fontWeight:700,color:"#1565c0",marginBottom:4,letterSpacing:1}}>◆ IA AGRONÓMICA</div>}
                   <p style={{margin:0,whiteSpace:"pre-wrap"}}>{msg.texto}</p>
                 </div>
               </div>
@@ -1444,7 +1294,7 @@ export default function IngenieroPanel() {
             )}
           </div>
           {/* Input */}
-          <div style={{padding:"10px 12px",borderTop:"1px solid rgba(255,255,255,0.10)",display:"flex",gap:8,flexShrink:0,background:"rgba(0,0,0,0.15)"}}>
+          <div style={{padding:"10px 12px",borderTop:"1px solid rgba(255,255,255,0.10)",display:"flex",gap:8,flexShrink:0,background:"rgba(230,243,255,0.60)"}}>
             <input type="text" value={aiInput} onChange={e=>setAiInput(e.target.value)}
               onKeyDown={e=>e.key==="Enter"&&askAI()}
               placeholder="Consultá sobre dosis, plagas..."
@@ -1458,7 +1308,7 @@ export default function IngenieroPanel() {
           </div>
           {aiChat.length>0&&(
             <div style={{padding:"4px 12px 8px",textAlign:"center"}}>
-              <button onClick={()=>setAiChat([])} style={{fontSize:10,color:"rgba(255,255,255,0.3)",background:"none",border:"none",cursor:"pointer"}}>Limpiar chat</button>
+              <button onClick={()=>setAiChat([])} style={{fontSize:10,color:"#4a6a8a",background:"none",border:"none",cursor:"pointer"}}>Limpiar chat</button>
             </div>
           )}
         </div>
