@@ -425,9 +425,9 @@ export default function IngenieroPanel() {
   })();
 
   // Inputs
-  const iCls = "w-full bg-[#1e2a3a] border border-[#2d3f55] rounded-xl px-3 py-2.5 text-gray-100 text-sm focus:outline-none focus:border-green-500 transition-all placeholder:text-gray-600";
-  const lCls = "block text-xs text-gray-400 font-medium mb-1.5";
-  const cardCls = "bg-[#0f1923] border border-[#1e2d3d] rounded-2xl";
+  const iCls = "w-full bg-white/60 border border-white/30 rounded-xl px-3 py-2.5 text-gray-800 text-sm focus:outline-none focus:border-blue-400 focus:bg-white/90 transition-all placeholder:text-gray-400";
+  const lCls = "block text-xs text-gray-500 font-semibold mb-1.5 uppercase tracking-wide";
+  const cardCls = "glass-card";
 
   // Selector cultivo con libre
   const SelectorCultivo = ({value, onChange}:{value:string,onChange:(v:string)=>void}) => {
@@ -456,174 +456,212 @@ export default function IngenieroPanel() {
     );
   };
 
+
   if(loading) return (
-    <div className="min-h-screen bg-[#080f17] flex items-center justify-center">
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin"/>
-        <span className="text-gray-300 font-medium">Cargando...</span>
+    <div className="min-h-screen flex items-center justify-center" style={{background:"linear-gradient(135deg,#EAF2F8 0%,#F4F8FB 100%)"}}>
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-10 h-10 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" style={{borderWidth:3}}/>
+        <span className="text-gray-500 font-medium text-sm">Cargando AgroGestión PRO...</span>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#080f17] text-gray-100" style={{fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
+    <div className="min-h-screen" style={{background:"linear-gradient(135deg,#EAF2F8 0%,#dbeafe 30%,#F4F8FB 100%)",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif"}}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
         @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes shimmer{0%{left:-100%}100%{left:200%}}
         @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-        .nav-btn{transition:all 0.15s ease;white-space:nowrap}
-        .nav-btn.active{background:rgba(34,197,94,0.15);color:#22c55e;border-color:rgba(34,197,94,0.4)}
-        .card-hover{transition:all 0.15s ease}
-        .card-hover:hover{border-color:#2d5a3d;transform:translateY(-1px)}
-        .prod-card{transition:all 0.15s ease}
-        .prod-card:hover{border-color:#1e4a30}
-        .fade-in{animation:fadeIn 0.2s ease}
+        .glass-card{
+          background:rgba(255,255,255,0.55);
+          backdrop-filter:blur(14px);
+          -webkit-backdrop-filter:blur(14px);
+          border:1px solid rgba(255,255,255,0.35);
+          border-radius:16px;
+          box-shadow:0 8px 24px rgba(0,0,0,0.08),inset 0 1px 2px rgba(255,255,255,0.4),inset 0 -2px 6px rgba(0,0,0,0.03);
+        }
+        .glass-btn{
+          position:relative;overflow:hidden;
+          background:rgba(255,255,255,0.55);
+          backdrop-filter:blur(10px);
+          border:1px solid rgba(255,255,255,0.4);
+          border-radius:12px;
+          box-shadow:0 4px 12px rgba(0,0,0,0.06);
+          transition:all 0.25s ease;
+          cursor:pointer;
+        }
+        .glass-btn::after{
+          content:"";position:absolute;top:0;left:-100%;width:60%;height:100%;
+          background:linear-gradient(120deg,transparent 20%,rgba(0,150,255,0.18) 50%,transparent 80%);
+          transition:left 0.5s ease;pointer-events:none;
+        }
+        .glass-btn:hover{transform:scale(1.02);box-shadow:0 6px 20px rgba(0,0,0,0.1);}
+        .glass-btn:hover::after{left:150%;}
+        .nav-btn{position:relative;overflow:hidden;transition:all 0.2s ease;border-radius:12px;white-space:nowrap;}
+        .nav-btn:hover{transform:translateY(-1px);}
+        .nav-active{
+          background:rgba(13,71,161,0.12)!important;
+          border:1px solid rgba(13,71,161,0.35)!important;
+          box-shadow:0 0 14px rgba(13,71,161,0.18);
+          color:#0D47A1!important;
+        }
+        .prod-card{transition:all 0.2s ease;}
+        .prod-card:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,0.12)!important;}
+        .btn-blue{
+          background:linear-gradient(135deg,#1976D2,#0D47A1);
+          border:none;color:white;border-radius:12px;
+          box-shadow:0 4px 14px rgba(25,118,210,0.35);
+          transition:all 0.2s ease;
+        }
+        .btn-blue:hover{box-shadow:0 6px 20px rgba(25,118,210,0.5);transform:translateY(-1px);}
+        .btn-ghost{
+          background:rgba(255,255,255,0.5);
+          border:1px solid rgba(255,255,255,0.4);
+          border-radius:12px;color:#374151;
+          transition:all 0.2s ease;
+        }
+        .btn-ghost:hover{background:rgba(255,255,255,0.8);}
+        .fade-in{animation:fadeIn 0.25s ease;}
+        .badge-app{background:linear-gradient(135deg,rgba(22,163,74,0.12),rgba(22,163,74,0.06));border:1px solid rgba(22,163,74,0.2);color:#16a34a;border-radius:8px;}
+        .cultivo-chip{border-radius:10px;font-size:12px;font-weight:600;padding:4px 10px;}
         ::-webkit-scrollbar{width:4px;height:4px}
-        ::-webkit-scrollbar-track{background:#080f17}
-        ::-webkit-scrollbar-thumb{background:#1e2d3d;border-radius:4px}
-        input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.5)}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.15);border-radius:4px}
+        input[type=date]::-webkit-calendar-picker-indicator{opacity:0.5}
+        .bar-track{background:#E5E7EB;border-radius:99px;height:6px;overflow:hidden;}
+        .topbar{
+          background:rgba(255,255,255,0.72);
+          backdrop-filter:blur(20px);
+          -webkit-backdrop-filter:blur(20px);
+          border-bottom:1px solid rgba(255,255,255,0.4);
+          box-shadow:0 2px 16px rgba(0,0,0,0.06);
+        }
       `}</style>
 
-      {/* ══════════════════════════════════
-          TOPBAR — logo + nav horizontal
-      ══════════════════════════════════ */}
-      <div className="bg-[#0c1520] border-b border-[#1e2d3d] sticky top-0 z-20">
-        {/* Fila 1: Logo + usuario */}
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#1a2535]">
-          <Image src="/logo.png" alt="AgroGestión PRO" width={130} height={42} className="object-contain"/>
+      {/* ══ TOPBAR ══ */}
+      <div className="topbar sticky top-0 z-20">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/30">
+          <div className="flex items-center gap-3">
+            <Image src="/logo.png" alt="AgroGestión PRO" width={120} height={38} className="object-contain"/>
+          </div>
           <div className="flex items-center gap-2.5">
             {alertas.length>0&&(
-              <div className="w-6 h-6 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center">
-                <span className="text-red-400 text-xs font-bold">{alertas.length}</span>
+              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{background:"rgba(239,68,68,0.12)",border:"1px solid rgba(239,68,68,0.25)",color:"#dc2626"}}>
+                {alertas.length}
               </div>
             )}
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center">
-                <span className="text-green-400 text-sm font-bold">{ingNombre.charAt(0)}</span>
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shadow-md" style={{background:"linear-gradient(135deg,#1976D2,#0D47A1)"}}>
+                {ingNombre.charAt(0)}
               </div>
               <div className="hidden sm:block">
-                <div className="text-sm font-semibold text-gray-200 leading-none">{ingNombre}</div>
-                <div className="text-xs text-gray-500 mt-0.5">Cód. {ingData.codigo}</div>
+                <div className="text-sm font-semibold text-gray-800 leading-none">{ingNombre}</div>
+                <div className="text-xs text-gray-400 mt-0.5">Cód. {ingData.codigo}</div>
               </div>
-              <button onClick={async()=>{const sb=await getSB();await sb.auth.signOut();window.location.href="/login";}} className="ml-1 text-xs text-gray-600 hover:text-red-400 transition-colors px-2 py-1 rounded-lg hover:bg-red-500/10">Salir</button>
+              <button onClick={async()=>{const sb=await getSB();await sb.auth.signOut();window.location.href="/login";}}
+                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50 ml-1">
+                Salir <span className="text-base">⎋</span>
+              </button>
             </div>
           </div>
         </div>
-        {/* Fila 2: nav horizontal scrollable */}
-        <div className="flex overflow-x-auto px-3 py-2 gap-1.5 scrollbar-none" style={{scrollbarWidth:"none"}}>
+        {/* Nav tabs */}
+        <div className="flex overflow-x-auto px-3 py-2.5 gap-1.5" style={{scrollbarWidth:"none"}}>
           {NAV.map(item=>(
-            <button key={item.k} onClick={()=>{setSeccion(item.k as Seccion);setShowForm(false);setForm({});setVehiculoSel(null);}}
-              className={`nav-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium border flex-shrink-0 ${seccion===item.k?"active border-green-500/40 text-green-400 bg-green-500/10":"border-[#1e2d3d] text-gray-400 hover:text-gray-200 hover:bg-[#1a2535]"}`}>
+            <button key={item.k}
+              onClick={()=>{setSeccion(item.k as Seccion);setShowForm(false);setForm({});setVehiculoSel(null);}}
+              className={`nav-btn flex items-center gap-1.5 px-4 py-2 text-sm font-semibold flex-shrink-0 border ${seccion===item.k?"nav-active":"glass-btn text-gray-600 hover:text-blue-700"}`}>
               <span className="text-base">{item.icon}</span>
               <span>{item.label}</span>
-              {seccion===item.k&&<div className="w-1.5 h-1.5 rounded-full bg-green-400 ml-0.5"/>}
+              {seccion===item.k&&<div className="w-1.5 h-1.5 rounded-full bg-blue-600 ml-0.5"/>}
             </button>
           ))}
         </div>
       </div>
 
-      {/* CONTENIDO */}
-      <div className="max-w-5xl mx-auto px-4 py-5">
+      {/* ══ CONTENT ══ */}
+      <div className="max-w-2xl mx-auto px-4 py-5 pb-28">
 
         {/* Toast */}
-        {msj&&(
-          <div className={`mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between fade-in ${msj.startsWith("✅")?"bg-green-500/10 text-green-400 border border-green-500/20":"bg-red-500/10 text-red-400 border border-red-500/20"}`}>
-            {msj}<button onClick={()=>setMsj("")} className="opacity-60 hover:opacity-100 ml-3 text-base">✕</button>
-          </div>
-        )}
-
-        {/* Alertas */}
-        {alertas.length>0&&(
-          <div className="mb-4 bg-red-500/8 border border-red-500/20 rounded-xl p-3 fade-in">
-            <div className="flex items-center gap-2 mb-2"><span className="text-red-400 font-semibold text-xs uppercase tracking-wide">⚠ {alertas.length} alerta{alertas.length>1?"s":""}</span></div>
-            <div className="flex flex-wrap gap-2">{alertas.map((a,i)=><span key={i} className={`text-xs px-2.5 py-1 rounded-lg font-medium ${a.urgencia==="alta"?"bg-red-500/15 text-red-300":"bg-amber-500/15 text-amber-300"}`}>{a.msg}</span>)}</div>
-          </div>
-        )}
+        {msj&&<div className="mb-4 px-4 py-3 rounded-2xl text-sm font-medium flex items-center justify-between fade-in"
+          style={{background:msj.startsWith("✅")?"rgba(22,163,74,0.1)":"rgba(239,68,68,0.1)",border:msj.startsWith("✅")?"1px solid rgba(22,163,74,0.25)":"1px solid rgba(239,68,68,0.25)",color:msj.startsWith("✅")?"#16a34a":"#dc2626"}}>
+          {msj}<button onClick={()=>setMsj("")} className="ml-3 opacity-60 hover:opacity-100">✕</button>
+        </div>}
 
         {/* ══ GENERAL ══ */}
         {seccion==="general"&&(
           <div className="fade-in space-y-4">
-            {/* KPIs — 2x2 grid en mobile */}
+            {/* KPIs */}
             <div className="grid grid-cols-2 gap-3">
               {[
-                {l:"Productores",v:productores.length,sub:"activos",icon:"👨‍🌾",accent:"#22c55e",bg:"rgba(34,197,94,0.08)",border:"rgba(34,197,94,0.2)"},
-                {l:"Hectáreas",v:totalHa.toLocaleString("es-AR"),sub:"ha totales",icon:"🌿",accent:"#10b981",bg:"rgba(16,185,129,0.08)",border:"rgba(16,185,129,0.2)"},
-                {l:"Lotes",v:lotes.length,sub:"activos",icon:"🗺️",accent:"#0ea5e9",bg:"rgba(14,165,233,0.08)",border:"rgba(14,165,233,0.2)"},
-                {l:"Con App",v:productores.filter(p=>p.tiene_cuenta).length,sub:"usuarios",icon:"📱",accent:"#a855f7",bg:"rgba(168,85,247,0.08)",border:"rgba(168,85,247,0.2)"},
+                {l:"Productores",v:productores.length,icon:"👨‍🌾",accent:"#1976D2",bg:"rgba(25,118,210,0.08)",border:"rgba(25,118,210,0.18)"},
+                {l:"Hectáreas",v:totalHa.toLocaleString("es-AR")+" ha",icon:"🌿",accent:"#16a34a",bg:"rgba(22,163,74,0.08)",border:"rgba(22,163,74,0.18)"},
+                {l:"Lotes activos",v:lotes.length,icon:"🗺️",accent:"#0891b2",bg:"rgba(8,145,178,0.08)",border:"rgba(8,145,178,0.18)"},
+                {l:"Con App",v:productores.filter(p=>p.tiene_cuenta).length,icon:"📱",accent:"#7c3aed",bg:"rgba(124,58,237,0.08)",border:"rgba(124,58,237,0.18)"},
               ].map(s=>(
-                <div key={s.l} className="rounded-2xl p-4" style={{background:s.bg,border:`1px solid ${s.border}`}}>
+                <div key={s.l} className="glass-card p-4" style={{background:`rgba(255,255,255,0.6)`,border:`1px solid ${s.border}`}}>
                   <div className="flex items-start justify-between mb-2">
-                    <span className="text-xs font-medium uppercase tracking-wide" style={{color:s.accent}}>{s.l}</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide" style={{color:s.accent}}>{s.l}</span>
                     <span className="text-xl">{s.icon}</span>
                   </div>
-                  <div className="text-3xl font-bold text-white">{s.v}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">{s.sub}</div>
+                  <div className="text-3xl font-bold text-gray-800">{s.v}</div>
                 </div>
               ))}
             </div>
 
-            {/* Gráfico barras */}
+            {/* Distribución de cultivos */}
             {haPorCultivo.length>0&&(
-              <div className={`${cardCls} p-4`}>
-                <div className="mb-3">
-                  <h3 className="font-semibold text-gray-100">Hectáreas por Cultivo</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Campaña activa — superficie total {totalHa.toLocaleString("es-AR")} ha</p>
+              <div className="glass-card p-5">
+                <h3 className="font-bold text-gray-800 mb-1">Distribución de Cultivos</h3>
+                <p className="text-xs text-gray-400 mb-4">Campaña activa · {totalHa.toLocaleString("es-AR")} ha totales</p>
+                <div className="space-y-3">
+                  {haPorCultivo.map((d,i)=>(
+                    <div key={i} className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 w-28 flex-shrink-0">
+                        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{background:d.color}}/>
+                        <span className="text-xs font-medium text-gray-600 truncate">{d.name}</span>
+                      </div>
+                      <div className="flex-1 bar-track">
+                        <div className="h-full rounded-full transition-all duration-500" style={{width:totalHa>0?(d.ha/totalHa*100)+"%":"0%",background:d.color}}/>
+                      </div>
+                      <span className="text-xs font-bold w-8 text-right" style={{color:d.color}}>
+                        {totalHa>0?Math.round(d.ha/totalHa*100):0}%
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={haPorCultivo} margin={{top:4,right:4,bottom:20,left:-15}}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1a2535" vertical={false}/>
-                    <XAxis dataKey="name" tick={{fontSize:10,fill:"#6b7280",fontFamily:"Inter,sans-serif"}} axisLine={false} tickLine={false} interval={0} angle={-25} textAnchor="end"/>
-                    <YAxis tick={{fontSize:10,fill:"#6b7280"}} axisLine={false} tickLine={false}/>
-                    <Tooltip formatter={(v:any)=>[v+" ha","Hectáreas"]} contentStyle={{background:"#0f1923",border:"1px solid #1e2d3d",borderRadius:"10px",fontSize:"12px",color:"#e5e7eb"}} cursor={{fill:"rgba(34,197,94,0.05)"}}/>
-                    <Bar dataKey="ha" radius={[6,6,0,0]} maxBarSize={56}>
-                      {haPorCultivo.map((e,i)=><Cell key={i} fill={e.color}/>)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
               </div>
             )}
 
-            {/* Distribución + cobranza */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Torta */}
-              {haPorCultivo.length>0&&(
-                <div className={`${cardCls} p-4`}>
-                  <h3 className="font-semibold text-gray-100 mb-3">Distribución %</h3>
-                  <div className="flex items-center gap-3">
-                    <div style={{width:110,height:110,flexShrink:0}}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie data={haPorCultivo.map(d=>({...d,value:d.ha}))} cx="50%" cy="50%" outerRadius={50} innerRadius={24} dataKey="value" paddingAngle={3}>
-                            {haPorCultivo.map((e,i)=><Cell key={i} fill={e.color}/>)}
-                          </Pie>
-                          <Tooltip formatter={(v:any,n:string)=>[v+" ha",n]} contentStyle={{background:"#0f1923",border:"1px solid #1e2d3d",borderRadius:"10px",fontSize:"11px",color:"#e5e7eb"}}/>
-                        </PieChart>
-                      </ResponsiveContainer>
+            {/* Cultivos chips */}
+            {haPorCultivo.length>0&&(
+              <div className="glass-card p-4">
+                <div className="flex flex-wrap gap-2">
+                  {haPorCultivo.map((d,i)=>(
+                    <div key={i} className="cultivo-chip flex items-center gap-1.5"
+                      style={{background:d.color+"15",border:`1px solid ${d.color}30`,color:d.color}}>
+                      <span>{d.name}</span>
+                      <span className="font-normal opacity-70">·</span>
+                      <span>{d.ha} ha</span>
                     </div>
-                    <div className="flex-1 space-y-1.5 min-w-0">
-                      {haPorCultivo.slice(0,6).map((d,i)=>(
-                        <div key={i} className="flex items-center gap-2 min-w-0">
-                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{background:d.color}}/>
-                          <span className="text-xs text-gray-300 flex-1 truncate">{d.name}</span>
-                          <span className="text-xs font-semibold flex-shrink-0" style={{color:d.color}}>{Math.round(d.ha/totalHa*100)}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              )}
-              {/* Cobranza resumen */}
-              <div className={`${cardCls} p-4`}>
-                <h3 className="font-semibold text-gray-100 mb-3">💰 Cobranza</h3>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between p-3 rounded-xl" style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.15)"}}>
-                    <span className="text-sm text-red-400 font-medium">Pendiente</span>
-                    <span className="text-lg font-bold text-red-300">${totPend.toLocaleString("es-AR")}</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 rounded-xl" style={{background:"rgba(34,197,94,0.08)",border:"1px solid rgba(34,197,94,0.15)"}}>
-                    <span className="text-sm text-green-400 font-medium">Cobrado</span>
-                    <span className="text-lg font-bold text-green-300">${totCob.toLocaleString("es-AR")}</span>
-                  </div>
+              </div>
+            )}
+
+            {/* Cobranza resumen */}
+            <div className="glass-card p-4">
+              <h3 className="font-bold text-gray-800 mb-3">💰 Cobranza</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl p-3 text-center" style={{background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.15)"}}>
+                  <div className="text-xs text-red-500 font-semibold uppercase tracking-wide mb-1">Pendiente</div>
+                  <div className="text-xl font-bold text-red-600">${totPend.toLocaleString("es-AR")}</div>
+                </div>
+                <div className="rounded-2xl p-3 text-center" style={{background:"rgba(22,163,74,0.06)",border:"1px solid rgba(22,163,74,0.15)"}}>
+                  <div className="text-xs text-green-600 font-semibold uppercase tracking-wide mb-1">Cobrado</div>
+                  <div className="text-xl font-bold text-green-600">${totCob.toLocaleString("es-AR")}</div>
                 </div>
               </div>
             </div>
@@ -633,67 +671,70 @@ export default function IngenieroPanel() {
         {/* ══ PRODUCTORES ══ */}
         {seccion==="productores"&&(
           <div className="fade-in">
-            {/* Acciones rápidas */}
-            <div className={`${cardCls} rounded-2xl overflow-hidden mb-4`}>
-              <div className="grid grid-cols-3 divide-x divide-[#1e2d3d]">
+            {/* Acciones */}
+            <div className="glass-card rounded-2xl overflow-hidden mb-4">
+              <div className="grid grid-cols-3 divide-x" style={{borderColor:"rgba(0,0,0,0.06)"}}>
                 {[
-                  {icon:"➕",l:"Nuevo",c:"text-green-400",fn:()=>{setShowForm(!showForm);setEditProd(null);setForm({provincia:"Santa Fe",honorario_tipo:"mensual"});}},
-                  {icon:"📥",l:"Importar",c:"text-blue-400",fn:()=>setShowImport(!showImport)},
-                  {icon:"📤",l:"Exportar",c:"text-purple-400",fn:()=>exportXLS("productores")},
+                  {icon:"➕",l:"Nuevo",fn:()=>{setShowForm(!showForm);setEditProd(null);setForm({provincia:"Santa Fe",honorario_tipo:"mensual"});}},
+                  {icon:"📥",l:"Importar",fn:()=>setShowImport(!showImport)},
+                  {icon:"📤",l:"Exportar",fn:()=>exportXLS("productores")},
                 ].map(b=>(
-                  <button key={b.l} onClick={b.fn} className="flex flex-col items-center gap-1 py-4 hover:bg-[#1a2535] transition-colors">
-                    <span className="text-xl">{b.icon}</span>
-                    <span className={`text-xs font-semibold ${b.c}`}>{b.l}</span>
+                  <button key={b.l} onClick={b.fn}
+                    className="glass-btn flex flex-col items-center gap-1 py-4 rounded-none border-none"
+                    style={{borderRadius:0,border:"none",background:"transparent",boxShadow:"none"}}>
+                    <span className="text-2xl">{b.icon}</span>
+                    <span className="text-xs font-semibold text-gray-600">{b.l}</span>
                   </button>
                 ))}
               </div>
             </div>
 
             {/* Vincular */}
-            <button onClick={()=>{setShowVincular(!showVincular);setForm({});}} className="mb-3 flex items-center gap-2 text-sm text-blue-400 font-medium hover:text-blue-300 transition-colors">
+            <button onClick={()=>{setShowVincular(!showVincular);setForm({});}}
+              className="mb-3 flex items-center gap-2 text-sm font-semibold hover:text-blue-700 transition-colors" style={{color:"#1976D2"}}>
               🔗 Vincular productor por código
             </button>
 
             {showVincular&&(
-              <div className={`${cardCls} p-4 mb-4 fade-in`}>
-                <h3 className="font-semibold text-gray-200 mb-3 text-sm">🔗 Vincular por código</h3>
+              <div className="glass-card p-4 mb-4 fade-in">
+                <h3 className="font-bold text-gray-800 mb-3 text-sm">🔗 Vincular por código</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                   <div><label className={lCls}>Código *</label><input type="text" value={form.codigo??""} onChange={e=>setForm({...form,codigo:e.target.value})} className={iCls} placeholder="10001"/></div>
                   <div><label className={lCls}>Honorario</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className={iCls}><option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option></select></div>
                   <div><label className={lCls}>Monto $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls}/></div>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={vincularCodigo} className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-colors">Vincular</button>
-                  <button onClick={()=>{setShowVincular(false);setForm({});}} className="bg-[#1e2a3a] hover:bg-[#253447] text-gray-300 px-4 py-2 rounded-xl text-sm transition-colors">Cancelar</button>
+                  <button onClick={vincularCodigo} className="btn-blue px-5 py-2.5 text-sm font-semibold">Vincular</button>
+                  <button onClick={()=>{setShowVincular(false);setForm({});}} className="btn-ghost px-4 py-2.5 text-sm text-gray-600">Cancelar</button>
                 </div>
               </div>
             )}
 
             {showImport&&(
-              <div className={`${cardCls} p-4 mb-4 fade-in`}>
-                <div className="flex justify-between mb-3"><h3 className="font-semibold text-gray-200 text-sm">📥 Importar productores</h3><button onClick={()=>{setShowImport(false);setImportPrev([]);setImportMsg("");}} className="text-gray-500 hover:text-gray-300 text-lg">✕</button></div>
+              <div className="glass-card p-4 mb-4 fade-in">
+                <div className="flex justify-between mb-3"><h3 className="font-bold text-gray-800 text-sm">📥 Importar productores</h3><button onClick={()=>{setShowImport(false);setImportPrev([]);setImportMsg("");}} className="text-gray-400 hover:text-gray-600 text-lg">✕</button></div>
                 <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)leerExcel(f);}}/>
                 {importPrev.length===0
-                  ?<button onClick={()=>importRef.current?.click()} className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-[#1e2d3d] rounded-xl text-gray-500 text-sm w-full justify-center hover:border-green-600 hover:text-green-400 transition-colors">📁 Seleccionar archivo Excel</button>
+                  ?<button onClick={()=>importRef.current?.click()} className="flex items-center gap-2 px-4 py-3 border-2 border-dashed rounded-xl text-sm w-full justify-center transition-colors" style={{borderColor:"rgba(25,118,210,0.3)",color:"#1976D2"}}>📁 Seleccionar archivo Excel</button>
                   :<div>
-                    <div className="max-h-36 overflow-y-auto mb-3 rounded-xl border border-[#1e2d3d]">
-                      <table className="w-full text-xs"><thead className="bg-[#1a2535]"><tr>{["Nombre","Tel","Localidad","Ha",""].map(h=><th key={h} className="text-left px-3 py-2 text-gray-400 font-medium">{h}</th>)}</tr></thead>
-                        <tbody>{importPrev.map((r,i)=><tr key={i} className="border-t border-[#1a2535]"><td className="px-3 py-2 font-medium text-gray-200">{r.nombre}</td><td className="px-3 py-2 text-gray-500">{r.telefono||"—"}</td><td className="px-3 py-2 text-gray-500">{r.localidad||"—"}</td><td className="px-3 py-2 text-gray-400">{r.hectareas_total||"—"}</td><td className="px-3 py-2"><span className={`px-2 py-0.5 rounded-full font-medium ${r.existe?"bg-blue-500/15 text-blue-400":"bg-green-500/15 text-green-400"}`}>{r.existe?"Existente":"Nuevo"}</span></td></tr>)}</tbody>
+                    <div className="max-h-36 overflow-y-auto mb-3 rounded-xl border" style={{borderColor:"rgba(0,0,0,0.08)"}}>
+                      <table className="w-full text-xs"><thead style={{background:"rgba(25,118,210,0.06)"}}><tr>{["Nombre","Tel","Localidad","Ha",""].map(h=><th key={h} className="text-left px-3 py-2 text-gray-500 font-semibold">{h}</th>)}</tr></thead>
+                        <tbody>{importPrev.map((r,i)=><tr key={i} className="border-t" style={{borderColor:"rgba(0,0,0,0.06)"}}><td className="px-3 py-2 font-semibold text-gray-800">{r.nombre}</td><td className="px-3 py-2 text-gray-400">{r.telefono||"—"}</td><td className="px-3 py-2 text-gray-400">{r.localidad||"—"}</td><td className="px-3 py-2 text-gray-500">{r.hectareas_total||"—"}</td><td className="px-3 py-2"><span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${r.existe?"text-blue-600":"text-green-600"}`} style={{background:r.existe?"rgba(25,118,210,0.1)":"rgba(22,163,74,0.1)"}}>{r.existe?"Existente":"Nuevo"}</span></td></tr>)}</tbody>
                       </table>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={confirmarImport} className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors">Importar {importPrev.filter(p=>!p.existe).length} nuevos</button>
-                      <button onClick={()=>setImportPrev([])} className="bg-[#1e2a3a] text-gray-400 px-4 py-2 rounded-xl text-sm transition-colors">Cancelar</button>
+                      <button onClick={confirmarImport} className="btn-blue px-4 py-2 text-sm font-semibold">Importar {importPrev.filter(p=>!p.existe).length} nuevos</button>
+                      <button onClick={()=>setImportPrev([])} className="btn-ghost px-4 py-2 text-sm text-gray-600">Cancelar</button>
                     </div>
                   </div>
                 }
-                {importMsg&&<p className={`mt-2 text-xs font-medium ${importMsg.startsWith("✅")?"text-green-400":"text-red-400"}`}>{importMsg}</p>}
+                {importMsg&&<p className={`mt-2 text-xs font-semibold ${importMsg.startsWith("✅")?"text-green-600":"text-red-500"}`}>{importMsg}</p>}
               </div>
             )}
 
             {showForm&&(
-              <div className={`${cardCls} p-4 mb-4 fade-in`}>
-                <h3 className="font-semibold text-gray-200 mb-4 text-sm">{editProd?"✏️ Editar":"➕"} Productor</h3>
+              <div className="glass-card p-4 mb-4 fade-in">
+                <h3 className="font-bold text-gray-800 mb-4 text-sm">{editProd?"✏️ Editar":"➕"} Productor</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><label className={lCls}>Nombre *</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls} placeholder="Nombre y apellido"/></div>
                   <div><label className={lCls}>Teléfono</label><input type="text" value={form.telefono??""} onChange={e=>setForm({...form,telefono:e.target.value})} className={iCls}/></div>
@@ -704,56 +745,58 @@ export default function IngenieroPanel() {
                   <div className="sm:col-span-2"><label className={lCls}>Observaciones</label><input type="text" value={form.obs??""} onChange={e=>setForm({...form,obs:e.target.value})} className={iCls}/></div>
                 </div>
                 <div className="flex gap-2 mt-4">
-                  <button onClick={guardarProductor} className="bg-green-600 hover:bg-green-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors">Guardar</button>
-                  <button onClick={()=>{setShowForm(false);setEditProd(null);setForm({});}} className="bg-[#1e2a3a] hover:bg-[#253447] text-gray-400 px-4 py-2.5 rounded-xl text-sm transition-colors">Cancelar</button>
+                  <button onClick={guardarProductor} className="btn-blue px-5 py-2.5 text-sm font-semibold">Guardar</button>
+                  <button onClick={()=>{setShowForm(false);setEditProd(null);setForm({});}} className="btn-ghost px-4 py-2.5 text-sm text-gray-600">Cancelar</button>
                 </div>
               </div>
             )}
 
             {/* Filtros exportar lotes */}
             {lotes.length>0&&(
-              <div className={`${cardCls} p-3 mb-4`}>
+              <div className="glass-card p-3 mb-4">
                 <div className="flex flex-wrap gap-2 items-end">
-                  <span className="text-xs text-gray-400 font-medium self-center">Exportar lotes:</span>
+                  <span className="text-xs text-gray-500 font-semibold self-center">Exportar lotes:</span>
                   {[["Cultivo",fCultivo,setFCultivo,["todos",...cultivosU]],["Productor",fProductor,setFProductor,["todos",...productores.map(p=>p.nombre)]],["Estado",fEstado,setFEstado,["todos","planificado","sembrado","en_desarrollo","cosechado"]]].map(([l,v,fn,opts])=>(
-                    <select key={l as string} value={v as string} onChange={e=>(fn as any)(e.target.value)} className="bg-[#1e2a3a] border border-[#2d3f55] rounded-lg px-2.5 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-green-500">
+                    <select key={l as string} value={v as string} onChange={e=>(fn as any)(e.target.value)}
+                      className="text-xs text-gray-600 px-2.5 py-1.5 rounded-xl focus:outline-none" style={{background:"rgba(255,255,255,0.7)",border:"1px solid rgba(0,0,0,0.1)"}}>
                       {(opts as string[]).map(o=><option key={o} value={o}>{o==="todos"?"Todos":o}</option>)}
                     </select>
                   ))}
-                  <button onClick={()=>exportXLS("lotes")} className="bg-green-600/20 border border-green-600/30 text-green-400 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-green-600/30 transition-colors">📤 Exportar</button>
+                  <button onClick={()=>exportXLS("lotes")} className="btn-blue px-3 py-1.5 text-xs font-semibold">📤 Exportar</button>
                 </div>
               </div>
             )}
 
             {/* Lista productores */}
             {productores.length===0
-              ?<div className={`${cardCls} p-16 text-center`}><div className="text-5xl mb-4 opacity-20">👨‍🌾</div><p className="text-gray-500">Sin productores — agregá el primero</p></div>
-              :<div className="space-y-3">
+              ?<div className="glass-card p-16 text-center"><div className="text-5xl mb-4 opacity-20">👨‍🌾</div><p className="text-gray-400">Sin productores — agregá el primero</p></div>
+              :<div className="space-y-4">
                 {productores.map(p=>{
                   const eid=p.empresa_id??p.id;
                   const camps=campanasPorProd[eid]??[];
                   const campActiva=campSelProd[eid]??null;
-                  // Filtrar por empresa_id es más robusto que por nombre
-                  // Filtrar por empresa_id (siempre guardado en fetchProds)
                   const lotesP = lotes.filter(l => (l as any).empresa_id === eid);
                   const haReales = lotesP.reduce((a,l) => a + (Number(l.hectareas)||0), 0);
                   const cultivosProd=[...new Set(lotesP.map(l=>l.cultivo_completo||l.cultivo).filter(Boolean))];
                   return(
-                    <div key={p.id} className={`prod-card ${cardCls}`}>
-                      {/* Header */}
-                      <div className="px-4 pt-4 pb-3 border-b border-[#1a2535]">
+                    <div key={p.id} className="prod-card glass-card" style={{boxShadow:"0 8px 24px rgba(0,0,0,0.07)"}}>
+                      {/* Header productor */}
+                      <div className="px-4 pt-4 pb-3" style={{borderBottom:"1px solid rgba(0,0,0,0.06)"}}>
                         <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-lg font-bold" style={{background:"rgba(34,197,94,0.12)",color:"#22c55e",border:"1px solid rgba(34,197,94,0.2)"}}>
+                          <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-lg font-bold text-white shadow-md flex-shrink-0"
+                            style={{background:"linear-gradient(135deg,#1976D2,#0D47A1)"}}>
                             {p.nombre.charAt(0)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="font-bold text-gray-100 truncate">{p.nombre}</div>
-                            <div className="text-xs text-gray-500 mt-0.5">{p.localidad}{p.provincia&&p.provincia!==p.localidad?", "+p.provincia:""}</div>
-                            {p.tiene_cuenta&&<div className="text-xs text-green-400 font-medium mt-0.5">✓ Usa la app</div>}
+                            <div className="font-bold text-gray-900 truncate text-base">{p.nombre}</div>
+                            <div className="text-xs text-gray-400 mt-0.5">{p.localidad}{p.provincia&&p.provincia!==p.localidad?", "+p.provincia:""}</div>
+                            {p.tiene_cuenta&&<span className="badge-app text-xs px-2 py-0.5 font-semibold inline-block mt-1">✓ Usa la app</span>}
                           </div>
                           <div className="flex gap-1 flex-shrink-0">
-                            <button onClick={()=>{setEditProd(p.id);setForm({nombre:p.nombre,telefono:p.telefono||"",email:p.email||"",localidad:p.localidad||"",provincia:p.provincia||"",honorario_tipo:p.honorario_tipo||"mensual",honorario_monto:String(p.honorario_monto||0),obs:p.observaciones||""});setShowForm(true);}} className="p-1.5 rounded-lg hover:bg-[#1e2a3a] text-gray-500 hover:text-amber-400 transition-colors text-sm">✏️</button>
-                            <button onClick={()=>eliminarProd(p.id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-600 hover:text-red-400 transition-colors text-sm">✕</button>
+                            <button onClick={()=>{setEditProd(p.id);setForm({nombre:p.nombre,telefono:p.telefono||"",email:p.email||"",localidad:p.localidad||"",provincia:p.provincia||"",honorario_tipo:p.honorario_tipo||"mensual",honorario_monto:String(p.honorario_monto||0),obs:p.observaciones||""});setShowForm(true);}}
+                              className="p-2 rounded-xl transition-colors text-gray-400 hover:text-blue-600 hover:bg-blue-50">✏️</button>
+                            <button onClick={()=>eliminarProd(p.id)}
+                              className="p-2 rounded-xl transition-colors text-gray-400 hover:text-red-500 hover:bg-red-50">✕</button>
                           </div>
                         </div>
                       </div>
@@ -761,60 +804,79 @@ export default function IngenieroPanel() {
                       <div className="px-4 py-3 space-y-3">
                         {/* Campaña */}
                         <div>
-                          <label className="block text-xs text-gray-500 font-medium mb-1.5 uppercase tracking-wide">Campaña</label>
+                          <label className="block text-xs text-gray-400 font-semibold mb-1.5 uppercase tracking-wide">Campaña</label>
                           <div className="flex gap-2">
                             {camps.length>0
-                              ?<select value={campActiva??""} onChange={e=>cambiarCampana(eid,e.target.value,p.nombre)} className={`${iCls} flex-1`}>
+                              ?<select value={campActiva??""} onChange={e=>cambiarCampana(eid,e.target.value,p.nombre)}
+                                className="flex-1 text-sm font-semibold text-gray-700 px-3 py-2 rounded-xl focus:outline-none"
+                                style={{background:"rgba(255,255,255,0.7)",border:"1px solid rgba(0,0,0,0.1)"}}>
                                 {camps.map((c:any)=><option key={c.id} value={c.id}>{c.nombre}{c.activa?" ★":""}</option>)}
                               </select>
-                              :<div className="flex-1 bg-[#1a2535] rounded-xl px-3 py-2.5 text-xs text-gray-600">Sin campañas</div>
+                              :<div className="flex-1 rounded-xl px-3 py-2 text-xs text-gray-400" style={{background:"rgba(0,0,0,0.04)"}}>Sin campañas</div>
                             }
                             <button onClick={()=>{setNuevaCampProd(p.id);setNuevaCampNombre(new Date().getFullYear()+"/"+(new Date().getFullYear()+1));}}
-                              className="px-3 py-2 rounded-xl text-xs font-semibold flex-shrink-0 transition-colors" style={{background:"rgba(234,179,8,0.12)",border:"1px solid rgba(234,179,8,0.25)",color:"#eab308"}}>
+                              className="px-3 py-2 rounded-xl text-xs font-bold transition-colors flex-shrink-0"
+                              style={{background:"rgba(234,179,8,0.1)",border:"1px solid rgba(234,179,8,0.25)",color:"#b45309"}}>
                               + Nueva
                             </button>
                           </div>
                           {nuevaCampProd===p.id&&(
                             <div className="flex gap-2 mt-2">
                               <input value={nuevaCampNombre} onChange={e=>setNuevaCampNombre(e.target.value)} className={`${iCls} flex-1 text-xs`} placeholder="2025/2026"/>
-                              <button onClick={async()=>{if(nuevaCampNombre.trim()){await crearCampana(eid,nuevaCampNombre.trim());setNuevaCampProd(null);setNuevaCampNombre("");}}} className="px-3 py-2 rounded-xl bg-green-600 text-white text-xs font-semibold hover:bg-green-500 transition-colors">✓</button>
-                              <button onClick={()=>{setNuevaCampProd(null);setNuevaCampNombre("");}} className="px-2.5 py-2 rounded-xl border border-[#2d3f55] text-gray-500 text-xs hover:text-gray-300 transition-colors">✕</button>
+                              <button onClick={async()=>{if(nuevaCampNombre.trim()){await crearCampana(eid,nuevaCampNombre.trim());setNuevaCampProd(null);setNuevaCampNombre("");}}} className="btn-blue px-3 py-2 text-xs font-bold">✓</button>
+                              <button onClick={()=>{setNuevaCampProd(null);setNuevaCampNombre("");}} className="btn-ghost px-2.5 py-2 text-xs text-gray-500">✕</button>
                             </div>
                           )}
-                          <div className="text-xs text-gray-600 mt-1.5">{lotesP.length} lotes · {haReales.toLocaleString("es-AR")} ha</div>
+                          <div className="text-xs text-gray-400 mt-1.5 font-medium">{lotesP.length} lotes · {haReales.toLocaleString("es-AR")} ha</div>
                         </div>
 
-                        {/* Stats */}
+                        {/* KPIs */}
                         <div className="grid grid-cols-2 gap-2">
-                          <div className="rounded-xl p-3 text-center" style={{background:"rgba(234,179,8,0.08)",border:"1px solid rgba(234,179,8,0.15)"}}>
-                            <div className="text-xs text-amber-500 font-medium">Hectáreas</div>
-                            <div className="text-2xl font-bold text-amber-300 mt-0.5">{haReales.toLocaleString("es-AR")}</div>
+                          <div className="rounded-2xl p-3 text-center" style={{background:"rgba(234,179,8,0.07)",border:"1px solid rgba(234,179,8,0.18)"}}>
+                            <div className="text-xs font-semibold uppercase tracking-wide mb-1" style={{color:"#b45309"}}>🌿 Hectáreas</div>
+                            <div className="text-2xl font-bold" style={{color:"#92400e"}}>{haReales.toLocaleString("es-AR")}</div>
+                            <div className="text-xs mt-0.5" style={{color:"#a16207"}}>ha</div>
                           </div>
-                          <div className="rounded-xl p-3 text-center" style={{background:"rgba(34,197,94,0.08)",border:"1px solid rgba(34,197,94,0.15)"}}>
-                            <div className="text-xs text-green-500 font-medium">Honorario</div>
-                            <div className="text-2xl font-bold text-green-300 mt-0.5">${(p.honorario_monto||0).toLocaleString("es-AR")}</div>
+                          <div className="rounded-2xl p-3 text-center" style={{background:"rgba(25,118,210,0.07)",border:"1px solid rgba(25,118,210,0.18)"}}>
+                            <div className="text-xs font-semibold uppercase tracking-wide mb-1 text-blue-600">$ Honorario</div>
+                            <div className="text-2xl font-bold text-blue-700">${Number(p.honorario_monto||0).toLocaleString("es-AR")}</div>
+                            <div className="text-xs mt-0.5 text-blue-400">{p.honorario_tipo||"mensual"}</div>
                           </div>
                         </div>
 
-                        {/* Cultivos */}
+                        {/* Distribución cultivos */}
                         {cultivosProd.length>0&&(
-                          <div className="flex gap-1.5 flex-wrap">
-                            {cultivosProd.map(c=>{const info=getCultivoInfo(c);return(
-                              <span key={c} className="text-xs px-2.5 py-1 rounded-lg font-medium" style={{background:info.color+"18",color:info.color,border:`1px solid ${info.color}30`}}>{info.label}</span>
-                            );})}
+                          <div className="rounded-2xl p-3" style={{background:"rgba(0,0,0,0.025)",border:"1px solid rgba(0,0,0,0.06)"}}>
+                            <div className="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-2">Distribución de cultivos</div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {cultivosProd.slice(0,6).map(c=>{
+                                const info=getCultivoInfo(c);
+                                const haC=lotesP.filter(l=>(l.cultivo_completo||l.cultivo)===c).reduce((a,l)=>a+(l.hectareas||0),0);
+                                const pct=haReales>0?Math.round(haC/haReales*100):0;
+                                return(
+                                  <div key={c} className="cultivo-chip flex items-center gap-1"
+                                    style={{background:info.color+"18",border:`1px solid ${info.color}28`,color:info.color}}>
+                                    <span>{info.label}</span>
+                                    <span style={{opacity:0.6}}>·</span>
+                                    <span>{pct}%</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         )}
 
-                        {/* Botones */}
-                        <div className="flex gap-2 pt-1">
-                          {p.telefono&&<a href={"https://wa.me/54"+p.telefono.replace(/\D/g,"")} target="_blank" rel="noreferrer" className="p-2.5 rounded-xl flex-shrink-0 transition-colors" style={{background:"rgba(37,211,102,0.1)",border:"1px solid rgba(37,211,102,0.2)"}}>💬</a>}
-                          <button onClick={()=>entrar(p)} className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-1.5" style={{background:"rgba(34,197,94,0.15)",border:"1px solid rgba(34,197,94,0.3)",color:"#22c55e"}}>
-                            {p.tiene_cuenta?"🔗 Ver Lotes":"🌾 Mis Lotes"}
-                          </button>
-                        </div>
+                        {/* CTA */}
+                        <button onClick={()=>entrar(p)}
+                          className="w-full py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all"
+                          style={{background:"linear-gradient(135deg,#1976D2,#0D47A1)",color:"white",boxShadow:"0 4px 14px rgba(25,118,210,0.3)"}}>
+                          <span style={{fontSize:18}}>🏛</span>
+                          {p.tiene_cuenta?"Ver Lotes":"Mis Lotes"}
+                          <span style={{fontSize:16}}>›</span>
+                        </button>
                       </div>
 
-                      {p.observaciones&&<div className="px-4 py-2.5 border-t border-[#1a2535] text-xs text-gray-600">{p.observaciones}</div>}
+                      {p.observaciones&&<div className="px-4 py-2.5 text-xs text-gray-400" style={{borderTop:"1px solid rgba(0,0,0,0.06)"}}>{p.observaciones}</div>}
                     </div>
                   );
                 })}
@@ -828,21 +890,21 @@ export default function IngenieroPanel() {
           <div className="fade-in">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-lg font-bold text-gray-100">Cobranza</h2>
+                <h2 className="text-xl font-bold text-gray-800">Cobranza</h2>
                 <div className="flex gap-3 mt-1">
-                  <span className="text-xs text-red-400">Pendiente: <strong>${totPend.toLocaleString("es-AR")}</strong></span>
-                  <span className="text-xs text-green-400">Cobrado: <strong>${totCob.toLocaleString("es-AR")}</strong></span>
+                  <span className="text-xs font-semibold text-red-500">Pendiente: <strong>${totPend.toLocaleString("es-AR")}</strong></span>
+                  <span className="text-xs font-semibold text-green-600">Cobrado: <strong>${totCob.toLocaleString("es-AR")}</strong></span>
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={async()=>{const XLSX=await import("xlsx");const data=cobranzas.map(c=>{const p=productores.find(x=>x.id===c.productor_id);return{PRODUCTOR:p?.nombre??"—",CONCEPTO:c.concepto,MONTO:c.monto,FECHA:c.fecha,ESTADO:c.estado};});const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Cobranzas");XLSX.writeFile(wb,"cobranzas_"+new Date().toISOString().slice(0,10)+".xlsx");}} className="bg-[#1e2a3a] hover:bg-[#253447] text-gray-400 px-3 py-2 rounded-xl text-sm transition-colors">📤</button>
-                <button onClick={()=>{setShowForm(!showForm);setForm({estado:"pendiente",fecha_c:new Date().toISOString().split("T")[0]});}} className="bg-amber-600/20 border border-amber-600/30 text-amber-400 hover:bg-amber-600/30 px-3 py-2 rounded-xl text-sm font-semibold transition-colors">+ Cobro</button>
+                <button onClick={async()=>{const XLSX=await import("xlsx");const data=cobranzas.map(c=>{const p=productores.find(x=>x.id===c.productor_id);return{PRODUCTOR:p?.nombre??"—",CONCEPTO:c.concepto,MONTO:c.monto,FECHA:c.fecha,ESTADO:c.estado};});const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Cobranzas");XLSX.writeFile(wb,"cobranzas_"+new Date().toISOString().slice(0,10)+".xlsx");}} className="btn-ghost px-3 py-2 text-sm text-gray-600">📤</button>
+                <button onClick={()=>{setShowForm(!showForm);setForm({estado:"pendiente",fecha_c:new Date().toISOString().split("T")[0]});}} className="btn-blue px-4 py-2 text-sm font-semibold">+ Cobro</button>
               </div>
             </div>
 
             {showForm&&(
-              <div className={`${cardCls} p-4 mb-4 fade-in`}>
-                <h3 className="font-semibold text-gray-200 mb-3 text-sm">+ Nuevo cobro</h3>
+              <div className="glass-card p-4 mb-4 fade-in">
+                <h3 className="font-bold text-gray-800 mb-3 text-sm">+ Nuevo cobro</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div><label className={lCls}>Productor</label><select value={form.prod_c??""} onChange={e=>setForm({...form,prod_c:e.target.value})} className={iCls}><option value="">Sin productor</option>{productores.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
                   <div><label className={lCls}>Concepto</label><input type="text" value={form.concepto??""} onChange={e=>setForm({...form,concepto:e.target.value})} className={iCls} placeholder="Honorario enero"/></div>
@@ -851,26 +913,29 @@ export default function IngenieroPanel() {
                   <div><label className={lCls}>Estado</label><select value={form.estado??"pendiente"} onChange={e=>setForm({...form,estado:e.target.value})} className={iCls}><option value="pendiente">Pendiente</option><option value="cobrado">Cobrado</option></select></div>
                   <div><label className={lCls}>Método</label><select value={form.metodo??""} onChange={e=>setForm({...form,metodo:e.target.value})} className={iCls}><option value="">—</option><option value="transferencia">Transferencia</option><option value="efectivo">Efectivo</option><option value="cheque">Cheque</option></select></div>
                 </div>
-                <div className="flex gap-2 mt-3"><button onClick={guardarCob} className="bg-green-600 hover:bg-green-500 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-colors">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="bg-[#1e2a3a] text-gray-400 px-4 py-2 rounded-xl text-sm transition-colors">Cancelar</button></div>
+                <div className="flex gap-2 mt-3">
+                  <button onClick={guardarCob} className="btn-blue px-5 py-2.5 text-sm font-semibold">Guardar</button>
+                  <button onClick={()=>{setShowForm(false);setForm({});}} className="btn-ghost px-4 py-2.5 text-sm text-gray-600">Cancelar</button>
+                </div>
               </div>
             )}
 
-            <div className={`${cardCls} overflow-hidden`}>
-              {cobranzas.length===0?<div className="text-center py-16 text-gray-600">Sin cobros registrados</div>:(
+            <div className="glass-card overflow-hidden">
+              {cobranzas.length===0?<div className="text-center py-16 text-gray-400">Sin cobros registrados</div>:(
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm min-w-[600px]">
-                    <thead><tr className="border-b border-[#1e2d3d]">{["Fecha","Productor","Concepto","Monto","Estado",""].map(h=><th key={h} className="text-left px-4 py-3 text-xs text-gray-500 font-semibold">{h}</th>)}</tr></thead>
-                    <tbody className="divide-y divide-[#1a2535]">
+                    <thead><tr style={{borderBottom:"1px solid rgba(0,0,0,0.07)"}}>{["Fecha","Productor","Concepto","Monto","Estado",""].map(h=><th key={h} className="text-left px-4 py-3 text-xs text-gray-400 font-semibold uppercase tracking-wide">{h}</th>)}</tr></thead>
+                    <tbody>
                       {cobranzas.map(c=>{const p=productores.find(x=>x.id===c.productor_id);return(
-                        <tr key={c.id} className="hover:bg-[#0f1923]/50 transition-colors">
-                          <td className="px-4 py-3 text-gray-500 text-xs">{c.fecha}</td>
-                          <td className="px-4 py-3 font-medium text-gray-200 text-xs">{p?.nombre??"—"}</td>
-                          <td className="px-4 py-3 text-gray-400 text-xs">{c.concepto}</td>
-                          <td className="px-4 py-3 font-bold text-amber-400">${Number(c.monto).toLocaleString("es-AR")}</td>
-                          <td className="px-4 py-3"><span className={`text-xs px-2.5 py-1 rounded-lg font-medium ${c.estado==="cobrado"?"bg-green-500/15 text-green-400":"bg-red-500/15 text-red-400"}`}>{c.estado}</span></td>
+                        <tr key={c.id} className="transition-colors" style={{borderBottom:"1px solid rgba(0,0,0,0.05)"}}>
+                          <td className="px-4 py-3 text-gray-400 text-xs">{c.fecha}</td>
+                          <td className="px-4 py-3 font-semibold text-gray-800 text-xs">{p?.nombre??"—"}</td>
+                          <td className="px-4 py-3 text-gray-500 text-xs">{c.concepto}</td>
+                          <td className="px-4 py-3 font-bold text-gray-800">${Number(c.monto).toLocaleString("es-AR")}</td>
+                          <td className="px-4 py-3"><span className="text-xs px-2.5 py-1 rounded-lg font-semibold" style={{background:c.estado==="cobrado"?"rgba(22,163,74,0.1)":"rgba(239,68,68,0.1)",color:c.estado==="cobrado"?"#16a34a":"#dc2626"}}>{c.estado}</span></td>
                           <td className="px-4 py-3 flex gap-2">
-                            {c.estado==="pendiente"&&<button onClick={()=>marcarCobrado(c.id)} className="text-green-400 text-xs hover:underline font-medium">✓</button>}
-                            <button onClick={async()=>{const sb=await getSB();await sb.from("ing_cobranzas").delete().eq("id",c.id);await fetchCobs(ingId);}} className="text-gray-600 hover:text-red-400 text-xs transition-colors">✕</button>
+                            {c.estado==="pendiente"&&<button onClick={()=>marcarCobrado(c.id)} className="text-green-600 text-xs hover:underline font-semibold">✓</button>}
+                            <button onClick={async()=>{const sb=await getSB();await sb.from("ing_cobranzas").delete().eq("id",c.id);await fetchCobs(ingId);}} className="text-gray-400 hover:text-red-500 text-xs transition-colors">✕</button>
                           </td>
                         </tr>
                       );})}
@@ -886,45 +951,46 @@ export default function IngenieroPanel() {
         {seccion==="vehiculo"&&(
           <div className="fade-in">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-100">Mi Vehículo</h2>
+              <h2 className="text-xl font-bold text-gray-800">Mi Vehículo</h2>
               {!vehiculoSel
-                ?<button onClick={()=>{setShowForm(true);setForm({});}} className="bg-green-600/20 border border-green-600/30 text-green-400 hover:bg-green-600/30 px-4 py-2 rounded-xl text-sm font-semibold transition-colors">+ Agregar</button>
+                ?<button onClick={()=>{setShowForm(true);setForm({});}} className="btn-blue px-4 py-2 text-sm font-semibold">+ Agregar</button>
                 :<div className="flex gap-2">
-                  <button onClick={()=>{setShowForm(true);setForm({});}} className="bg-amber-600/20 border border-amber-600/30 text-amber-400 px-3 py-2 rounded-xl text-sm transition-colors">+ Service</button>
-                  <button onClick={()=>{setVehiculoSel(null);setServicios([]);setShowForm(false);}} className="bg-[#1e2a3a] text-gray-400 px-3 py-2 rounded-xl text-sm transition-colors">← Volver</button>
+                  <button onClick={()=>{setShowForm(true);setForm({});}} className="btn-ghost px-3 py-2 text-sm text-gray-600">+ Service</button>
+                  <button onClick={()=>{setVehiculoSel(null);setServicios([]);setShowForm(false);}} className="btn-ghost px-3 py-2 text-sm text-gray-600">← Volver</button>
                 </div>
               }
             </div>
-
             {showForm&&!vehiculoSel&&(
-              <div className={`${cardCls} p-4 mb-4 fade-in`}>
-                <h3 className="font-semibold text-gray-200 mb-3 text-sm">+ Nuevo vehículo</h3>
+              <div className="glass-card p-4 mb-4 fade-in">
+                <h3 className="font-bold text-gray-800 mb-3 text-sm">+ Nuevo vehículo</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[["nombre","Nombre","Toyota Hilux","text"],["marca","Marca","","text"],["modelo","Modelo","","text"],["anio","Año","","number"],["patente","Patente","","text"],["seg_comp","Compañía seguro","","text"],["seg_venc","Venc. seguro","","date"],["vtv_venc","Venc. VTV","","date"],["km","Km actuales","","number"],["prox_km","Próx. service km","","number"]].map(([k,l,ph,t])=>(
                     <div key={k as string}><label className={lCls}>{l as string}</label><input type={t as string} value={form[k as string]??""} onChange={e=>setForm({...form,[k as string]:e.target.value})} className={iCls} placeholder={ph as string}/></div>
                   ))}
                 </div>
-                <div className="flex gap-2 mt-3"><button onClick={guardarVeh} className="bg-green-600 hover:bg-green-500 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-colors">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="bg-[#1e2a3a] text-gray-400 px-4 py-2 rounded-xl text-sm transition-colors">Cancelar</button></div>
+                <div className="flex gap-2 mt-3">
+                  <button onClick={guardarVeh} className="btn-blue px-5 py-2.5 text-sm font-semibold">Guardar</button>
+                  <button onClick={()=>{setShowForm(false);setForm({});}} className="btn-ghost px-4 py-2.5 text-sm text-gray-600">Cancelar</button>
+                </div>
               </div>
             )}
-
             {!vehiculoSel?(
-              vehiculos.length===0?<div className={`${cardCls} p-16 text-center`}><div className="text-5xl mb-4 opacity-20">🚗</div><p className="text-gray-600">Sin vehículos</p></div>:(
+              vehiculos.length===0?<div className="glass-card p-16 text-center"><div className="text-5xl mb-4 opacity-20">🚗</div><p className="text-gray-400">Sin vehículos</p></div>:(
                 <div className="space-y-3">
                   {vehiculos.map((v:any)=>{const sV=v.seguro_vencimiento&&new Date(v.seguro_vencimiento)<new Date();const vV=v.vtv_vencimiento&&new Date(v.vtv_vencimiento)<new Date();return(
-                    <div key={v.id} className={`prod-card ${cardCls} p-4 cursor-pointer`} onClick={async()=>{setVehiculoSel(v);const sb=await getSB();const{data}=await sb.from("ing_vehiculo_service").select("*").eq("vehiculo_id",v.id).order("fecha",{ascending:false});setServicios(data??[]);}}>
+                    <div key={v.id} className="prod-card glass-card p-4 cursor-pointer" onClick={async()=>{setVehiculoSel(v);const sb=await getSB();const{data}=await sb.from("ing_vehiculo_service").select("*").eq("vehiculo_id",v.id).order("fecha",{ascending:false});setServicios(data??[]);}}>
                       <div className="flex items-start gap-3 mb-3">
-                        <div className="w-11 h-11 rounded-xl bg-[#1e2a3a] border border-[#2d3f55] flex items-center justify-center text-2xl flex-shrink-0">🚗</div>
-                        <div className="flex-1"><div className="font-bold text-gray-100">{v.nombre}</div><div className="text-xs text-gray-500 mt-0.5">{v.marca} {v.modelo} · {v.anio} · {v.patente}</div></div>
-                        <button onClick={e=>{e.stopPropagation();(async()=>{const sb=await getSB();await sb.from("ing_vehiculos").delete().eq("id",v.id);await fetchVehs(ingId);})();}} className="text-gray-600 hover:text-red-400 transition-colors">✕</button>
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0" style={{background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.15)"}}>🚗</div>
+                        <div className="flex-1"><div className="font-bold text-gray-800">{v.nombre}</div><div className="text-xs text-gray-400 mt-0.5">{v.marca} {v.modelo} · {v.anio} · {v.patente}</div></div>
+                        <button onClick={e=>{e.stopPropagation();(async()=>{const sb=await getSB();await sb.from("ing_vehiculos").delete().eq("id",v.id);await fetchVehs(ingId);})();}} className="text-gray-400 hover:text-red-500 transition-colors p-1">✕</button>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 mb-2">
-                        <div className="bg-[#1a2535] rounded-xl p-3 text-center"><div className="text-xs text-gray-500">Km actuales</div><div className="text-lg font-bold text-gray-200 mt-0.5">{(v.km_actuales||0).toLocaleString()}</div></div>
-                        <div className="rounded-xl p-3 text-center" style={{background:"rgba(234,179,8,0.08)",border:"1px solid rgba(234,179,8,0.15)"}}><div className="text-xs text-amber-500">Próx. service</div><div className="text-lg font-bold text-amber-300 mt-0.5">{v.proximo_service_km?(v.proximo_service_km.toLocaleString()+" km"):"—"}</div></div>
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div className="rounded-xl p-3 text-center" style={{background:"rgba(0,0,0,0.03)",border:"1px solid rgba(0,0,0,0.07)"}}><div className="text-xs text-gray-400">Km actuales</div><div className="text-lg font-bold text-gray-800 mt-0.5">{(v.km_actuales||0).toLocaleString()}</div></div>
+                        <div className="rounded-xl p-3 text-center" style={{background:"rgba(234,179,8,0.07)",border:"1px solid rgba(234,179,8,0.18)"}}><div className="text-xs font-semibold" style={{color:"#b45309"}}>Próx. service</div><div className="text-lg font-bold mt-0.5" style={{color:"#92400e"}}>{v.proximo_service_km?(v.proximo_service_km.toLocaleString()+" km"):"—"}</div></div>
                       </div>
                       <div className="flex gap-2">
-                        <span className={`text-xs px-3 py-1.5 rounded-lg font-medium flex-1 text-center ${sV?"bg-red-500/15 text-red-400":"bg-green-500/10 text-green-400"}`}>🛡 {sV?"VENCIDO":v.seguro_vencimiento||"—"}</span>
-                        <span className={`text-xs px-3 py-1.5 rounded-lg font-medium flex-1 text-center ${vV?"bg-red-500/15 text-red-400":"bg-green-500/10 text-green-400"}`}>📋 {vV?"VTV VENCIDA":v.vtv_vencimiento||"—"}</span>
+                        <span className="text-xs px-3 py-1.5 rounded-xl font-semibold flex-1 text-center" style={{background:sV?"rgba(239,68,68,0.1)":"rgba(22,163,74,0.08)",color:sV?"#dc2626":"#16a34a",border:`1px solid ${sV?"rgba(239,68,68,0.2)":"rgba(22,163,74,0.15)"}`}}>🛡 {sV?"VENCIDO":v.seguro_vencimiento||"—"}</span>
+                        <span className="text-xs px-3 py-1.5 rounded-xl font-semibold flex-1 text-center" style={{background:vV?"rgba(239,68,68,0.1)":"rgba(22,163,74,0.08)",color:vV?"#dc2626":"#16a34a",border:`1px solid ${vV?"rgba(239,68,68,0.2)":"rgba(22,163,74,0.15)"}`}}>📋 {vV?"VTV VENCIDA":v.vtv_vencimiento||"—"}</span>
                       </div>
                     </div>
                   );})}
@@ -932,13 +998,13 @@ export default function IngenieroPanel() {
               )
             ):(
               <div className="space-y-4">
-                <div className={`${cardCls} p-4 flex items-center gap-3`}>
-                  <div className="w-12 h-12 rounded-xl bg-[#1e2a3a] flex items-center justify-center text-2xl">🚗</div>
-                  <div><div className="font-bold text-gray-100">{vehiculoSel.nombre}</div><div className="text-xs text-gray-500">{vehiculoSel.marca} {vehiculoSel.modelo} · {(vehiculoSel as any).anio} · {vehiculoSel.patente}</div></div>
+                <div className="glass-card p-4 flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.15)"}}>🚗</div>
+                  <div><div className="font-bold text-gray-800">{vehiculoSel.nombre}</div><div className="text-xs text-gray-400">{vehiculoSel.marca} {vehiculoSel.modelo} · {(vehiculoSel as any).anio} · {vehiculoSel.patente}</div></div>
                 </div>
                 {showForm&&vehiculoSel&&(
-                  <div className={`${cardCls} p-4 fade-in`}>
-                    <h3 className="font-semibold text-gray-200 mb-3 text-sm">+ Service</h3>
+                  <div className="glass-card p-4 fade-in">
+                    <h3 className="font-bold text-gray-800 mb-3 text-sm">+ Service</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div><label className={lCls}>Tipo</label><select value={form.tipo_s??"service"} onChange={e=>setForm({...form,tipo_s:e.target.value})} className={iCls}><option value="service">Service</option><option value="reparacion">Reparación</option><option value="vtv">VTV</option><option value="otro">Otro</option></select></div>
                       <div><label className={lCls}>Descripción</label><input type="text" value={form.desc_s??""} onChange={e=>setForm({...form,desc_s:e.target.value})} className={iCls}/></div>
@@ -947,14 +1013,17 @@ export default function IngenieroPanel() {
                       <div><label className={lCls}>Costo</label><input type="number" value={form.costo_s??""} onChange={e=>setForm({...form,costo_s:e.target.value})} className={iCls}/></div>
                       <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_s??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_s:e.target.value})} className={iCls}/></div>
                     </div>
-                    <div className="flex gap-2 mt-3"><button onClick={guardarService} className="bg-green-600 hover:bg-green-500 text-white px-5 py-2 rounded-xl text-sm font-semibold transition-colors">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="bg-[#1e2a3a] text-gray-400 px-4 py-2 rounded-xl text-sm transition-colors">Cancelar</button></div>
+                    <div className="flex gap-2 mt-3">
+                      <button onClick={guardarService} className="btn-blue px-5 py-2.5 text-sm font-semibold">Guardar</button>
+                      <button onClick={()=>{setShowForm(false);setForm({});}} className="btn-ghost px-4 py-2.5 text-sm text-gray-600">Cancelar</button>
+                    </div>
                   </div>
                 )}
-                <div className={`${cardCls} overflow-hidden`}>
-                  <div className="px-4 py-3 border-b border-[#1e2d3d]"><span className="font-semibold text-gray-200 text-sm">🔧 Historial</span></div>
-                  {servicios.length===0?<div className="text-center py-10 text-gray-600 text-sm">Sin historial</div>:(
-                    <div className="overflow-x-auto"><table className="w-full text-sm min-w-[500px]"><thead><tr className="border-b border-[#1e2d3d]">{["Fecha","Tipo","Descripción","Km","Costo",""].map(h=><th key={h} className="text-left px-4 py-2.5 text-xs text-gray-500 font-semibold">{h}</th>)}</tr></thead>
-                      <tbody className="divide-y divide-[#1a2535]">{servicios.map(s=><tr key={s.id} className="hover:bg-[#0f1923]/50"><td className="px-4 py-3 text-gray-500 text-xs">{s.fecha}</td><td className="px-4 py-3"><span className="bg-amber-500/15 text-amber-400 px-2 py-0.5 rounded-lg text-xs font-medium">{s.tipo}</span></td><td className="px-4 py-3 text-gray-300 text-xs">{s.descripcion}</td><td className="px-4 py-3 text-gray-500 text-xs">{s.km?(s.km.toLocaleString()+" km"):"—"}</td><td className="px-4 py-3 font-bold text-red-400 text-xs">${Number(s.costo).toLocaleString("es-AR")}</td><td className="px-4 py-3"><button onClick={async()=>{const sb=await getSB();await sb.from("ing_vehiculo_service").delete().eq("id",s.id);const sb2=await getSB();const{data}=await sb2.from("ing_vehiculo_service").select("*").eq("vehiculo_id",vehiculoSel!.id).order("fecha",{ascending:false});setServicios(data??[]);}} className="text-gray-600 hover:text-red-400 text-xs transition-colors">✕</button></td></tr>)}</tbody>
+                <div className="glass-card overflow-hidden">
+                  <div className="px-4 py-3" style={{borderBottom:"1px solid rgba(0,0,0,0.06)"}}><span className="font-bold text-gray-800 text-sm">🔧 Historial de services</span></div>
+                  {servicios.length===0?<div className="text-center py-10 text-gray-400 text-sm">Sin historial</div>:(
+                    <div className="overflow-x-auto"><table className="w-full text-sm min-w-[500px]"><thead><tr style={{borderBottom:"1px solid rgba(0,0,0,0.07)"}}>{["Fecha","Tipo","Descripción","Km","Costo",""].map(h=><th key={h} className="text-left px-4 py-2.5 text-xs text-gray-400 font-semibold uppercase tracking-wide">{h}</th>)}</tr></thead>
+                      <tbody>{servicios.map(s=><tr key={s.id} style={{borderBottom:"1px solid rgba(0,0,0,0.05)"}}><td className="px-4 py-3 text-gray-400 text-xs">{s.fecha}</td><td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded-lg font-semibold" style={{background:"rgba(234,179,8,0.1)",color:"#b45309"}}>{s.tipo}</span></td><td className="px-4 py-3 text-gray-600 text-xs">{s.descripcion}</td><td className="px-4 py-3 text-gray-400 text-xs">{s.km?(s.km.toLocaleString()+" km"):"—"}</td><td className="px-4 py-3 font-bold text-red-500 text-xs">${Number(s.costo).toLocaleString("es-AR")}</td><td className="px-4 py-3"><button onClick={async()=>{const sb=await getSB();await sb.from("ing_vehiculo_service").delete().eq("id",s.id);const sb2=await getSB();const{data}=await sb2.from("ing_vehiculo_service").select("*").eq("vehiculo_id",vehiculoSel!.id).order("fecha",{ascending:false});setServicios(data??[]);}} className="text-gray-400 hover:text-red-500 text-xs transition-colors">✕</button></td></tr>)}</tbody>
                     </table></div>
                   )}
                 </div>
@@ -966,65 +1035,73 @@ export default function IngenieroPanel() {
         {/* ══ IA CAMPO ══ */}
         {seccion==="ia_campo"&&(
           <div className="fade-in">
-            <div className="mb-4"><h2 className="text-lg font-bold text-gray-100">IA Campo</h2><p className="text-sm text-gray-500 mt-0.5">Dosis, plagas, enfermedades, cultivos y mercados</p></div>
+            <div className="mb-4">
+              <h2 className="text-xl font-bold text-gray-800">IA Campo</h2>
+              <p className="text-sm text-gray-400 mt-0.5">Dosis, plagas, enfermedades, cultivos y mercados</p>
+            </div>
             {aiChat.length===0&&(
               <div className="grid grid-cols-2 gap-2 mb-4">
                 {["Dosis glifosato soja","Roya asiática síntomas","Fungicida maíz","Precio soja hoy","Insecticida MIP soja","Trigo siembra pampeana"].map(q=>(
-                  <button key={q} onClick={()=>askAI(q)} className="text-left text-xs text-gray-500 border border-[#1e2d3d] px-3 py-3 rounded-xl hover:border-green-600/50 hover:text-green-400 hover:bg-green-950/30 transition-all bg-[#0f1923]">💬 {q}</button>
+                  <button key={q} onClick={()=>askAI(q)}
+                    className="glass-btn text-left text-xs text-gray-500 px-3 py-3 rounded-xl hover:text-blue-700">💬 {q}</button>
                 ))}
               </div>
             )}
-            <div className={`${cardCls} overflow-hidden mb-3`}>
-              <div className="px-4 py-3 border-b border-[#1e2d3d] flex items-center justify-between">
-                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"/><span className="font-medium text-gray-200 text-sm">IA Agronómica</span></div>
-                {aiChat.length>0&&<button onClick={()=>setAiChat([])} className="text-xs text-gray-600 hover:text-gray-400 transition-colors">Limpiar</button>}
+            <div className="glass-card overflow-hidden mb-3">
+              <div className="px-4 py-3 flex items-center justify-between" style={{borderBottom:"1px solid rgba(0,0,0,0.06)"}}>
+                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"/><span className="font-bold text-gray-800 text-sm">IA Agronómica</span></div>
+                {aiChat.length>0&&<button onClick={()=>setAiChat([])} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Limpiar</button>}
               </div>
               <div className="p-4 max-h-80 overflow-y-auto flex flex-col gap-3">
-                {aiChat.length===0&&<div className="text-center py-8 text-gray-700"><div className="text-3xl mb-2">🌾</div><p className="text-sm">Hacé tu consulta agronómica...</p></div>}
+                {aiChat.length===0&&<div className="text-center py-8 text-gray-400"><div className="text-3xl mb-2">🌾</div><p className="text-sm">Hacé tu consulta agronómica...</p></div>}
                 {aiChat.map((msg,i)=>(
                   <div key={i} className={`flex ${msg.rol==="user"?"justify-end":"justify-start"}`}>
-                    <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${msg.rol==="user"?"bg-green-600 text-white":"bg-[#1a2535] text-gray-200 border border-[#2d3f55]"}`}>
-                      {msg.rol==="assistant"&&<div className="text-xs text-green-400 font-semibold mb-1.5">◆ IA Agronómica</div>}
+                    <div className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${msg.rol==="user"?"text-white":"text-gray-700 border"}`}
+                      style={msg.rol==="user"?{background:"linear-gradient(135deg,#1976D2,#0D47A1)",boxShadow:"0 4px 14px rgba(25,118,210,0.25)"}:{background:"rgba(255,255,255,0.7)",borderColor:"rgba(0,0,0,0.08)"}}>
+                      {msg.rol==="assistant"&&<div className="text-xs font-bold mb-1.5 text-blue-600">◆ IA Agronómica</div>}
                       <p className="whitespace-pre-wrap">{msg.texto}</p>
                     </div>
                   </div>
                 ))}
-                {aiLoad&&<div className="flex"><div className="bg-[#1a2535] border border-[#2d3f55] px-4 py-3 rounded-2xl"><div className="flex gap-1">{[0,1,2].map(i=><div key={i} className="w-1.5 h-1.5 rounded-full bg-green-600 animate-bounce" style={{animationDelay:i*0.15+"s"}}/>)}</div></div></div>}
+                {aiLoad&&<div className="flex"><div className="px-4 py-3 rounded-2xl border" style={{background:"rgba(255,255,255,0.7)",borderColor:"rgba(0,0,0,0.08)"}}><div className="flex gap-1">{[0,1,2].map(i=><div key={i} className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{animationDelay:i*0.15+"s"}}/>)}</div></div></div>}
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={escucharVoz} className="p-3 rounded-xl transition-colors flex-shrink-0" style={{background:"rgba(34,197,94,0.1)",border:"1px solid rgba(34,197,94,0.2)",color:"#22c55e"}}>🎤</button>
+              <button onClick={escucharVoz} className="p-3 rounded-xl transition-colors flex-shrink-0" style={{background:"rgba(25,118,210,0.1)",border:"1px solid rgba(25,118,210,0.2)",color:"#1976D2"}}>🎤</button>
               <input type="text" value={aiInput} onChange={e=>setAiInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&askAI()} placeholder="Consultá sobre dosis, plagas, cultivos..." className={`${iCls} flex-1`}/>
-              <button onClick={()=>askAI()} disabled={aiLoad||!aiInput.trim()} className="bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white px-4 py-3 rounded-xl text-sm font-semibold transition-colors flex-shrink-0">→</button>
+              <button onClick={()=>askAI()} disabled={aiLoad||!aiInput.trim()} className="btn-blue disabled:opacity-40 px-4 py-3 text-sm font-bold flex-shrink-0">→</button>
             </div>
           </div>
         )}
 
-        {/* Espacio para botón flotante */}
         <div className="h-24"/>
       </div>
 
       {/* ══ PANEL VOZ ══ */}
       {vozPanel&&(
-        <div className="fixed bottom-24 right-4 z-50 w-72 bg-[#0c1520] border border-[#1e2d3d] rounded-2xl shadow-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e2d3d]">
-            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{background:VOZ_COLOR[vozEstado]}}/><span className="text-green-400 text-xs font-bold">🎤 ASISTENTE</span></div>
-            <button onClick={()=>{setVozPanel(false);recRef.current?.stop();setVozEstado("idle");}} className="text-gray-500 hover:text-gray-300 transition-colors">✕</button>
+        <div className="fixed bottom-24 right-4 z-50 w-72 rounded-2xl shadow-2xl overflow-hidden" style={{background:"rgba(255,255,255,0.9)",backdropFilter:"blur(20px)",border:"1px solid rgba(255,255,255,0.5)"}}>
+          <div className="flex items-center justify-between px-4 py-3" style={{borderBottom:"1px solid rgba(0,0,0,0.06)"}}>
+            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{background:VOZ_COLOR[vozEstado]}}/><span className="text-blue-700 text-xs font-bold">🎤 ASISTENTE</span></div>
+            <button onClick={()=>{setVozPanel(false);recRef.current?.stop();setVozEstado("idle");}} className="text-gray-400 hover:text-gray-600 transition-colors">✕</button>
           </div>
           <div className="p-4 min-h-14">
-            {vozEstado==="escuchando"&&<p className="text-red-400 text-sm animate-pulse">🔴 Escuchando...</p>}
-            {vozEstado==="procesando"&&<p className="text-amber-400 text-sm">⚙️ Procesando...</p>}
+            {vozEstado==="escuchando"&&<p className="text-red-500 text-sm animate-pulse font-medium">🔴 Escuchando...</p>}
+            {vozEstado==="procesando"&&<p className="text-amber-600 text-sm font-medium">⚙️ Procesando...</p>}
             {vozEstado==="idle"&&(
               <div className="space-y-1.5">
                 {["¿Cuántas ha totales?","Dosis glifosato soja","¿Cuántos productores?"].map(q=>(
-                  <button key={q} onClick={()=>{askAI(q);setVozPanel(false);}} className="w-full text-left text-xs text-gray-500 hover:text-green-400 border border-[#1e2d3d] hover:border-green-800/50 px-3 py-2 rounded-lg transition-all">💬 {q}</button>
+                  <button key={q} onClick={()=>{askAI(q);setVozPanel(false);}}
+                    className="w-full text-left text-xs text-gray-500 hover:text-blue-700 px-3 py-2 rounded-xl transition-all"
+                    style={{background:"rgba(25,118,210,0.05)",border:"1px solid rgba(25,118,210,0.1)"}}>
+                    💬 {q}
+                  </button>
                 ))}
               </div>
             )}
           </div>
-          <div className="px-3 pb-3 flex gap-2 border-t border-[#1e2d3d] pt-3">
+          <div className="px-3 pb-3 flex gap-2 pt-3" style={{borderTop:"1px solid rgba(0,0,0,0.06)"}}>
             <input value={vozInput} onChange={e=>setVozInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&vozInput.trim()){askAI(vozInput);setVozInput("");setVozPanel(false);}}} placeholder="Escribí..." className={`${iCls} flex-1 text-xs py-2`}/>
-            <button onClick={escucharVoz} className="px-3 py-2 rounded-xl text-sm transition-colors" style={{background:VOZ_COLOR[vozEstado]+"20",border:"1px solid "+VOZ_COLOR[vozEstado]+"50",color:VOZ_COLOR[vozEstado]}}>{VOZ_ICON[vozEstado]}</button>
+            <button onClick={escucharVoz} className="px-3 py-2 rounded-xl text-sm transition-colors" style={{background:VOZ_COLOR[vozEstado]+"20",border:"1px solid "+VOZ_COLOR[vozEstado]+"40",color:VOZ_COLOR[vozEstado]}}>{VOZ_ICON[vozEstado]}</button>
           </div>
         </div>
       )}
@@ -1032,7 +1109,7 @@ export default function IngenieroPanel() {
       {/* Botón flotante voz */}
       <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}}
         className="fixed bottom-6 right-4 z-40 w-14 h-14 rounded-full flex items-center justify-center text-xl shadow-2xl transition-all"
-        style={{background:VOZ_COLOR[vozEstado]+"20",border:"2px solid "+VOZ_COLOR[vozEstado]+"80",color:VOZ_COLOR[vozEstado],animation:vozEstado==="idle"?"float 3s ease-in-out infinite":"none",boxShadow:"0 4px 24px "+VOZ_COLOR[vozEstado]+"35"}}>
+        style={{background:"linear-gradient(135deg,#1976D2,#0D47A1)",color:"white",animation:vozEstado==="idle"?"float 3s ease-in-out infinite":"none",boxShadow:"0 4px 24px rgba(25,118,210,0.45)"}}>
         {VOZ_ICON[vozEstado]}
       </button>
     </div>
