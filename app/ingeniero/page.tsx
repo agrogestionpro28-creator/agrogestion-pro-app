@@ -831,7 +831,7 @@ export default function IngenieroPanel() {
                   ].map(s=>(
                     <div key={s.l} className="kpi-card">
                       <div style={{fontSize:20,marginBottom:4}}>{s.icon}</div>
-                      <div style={{className:"num-pro"}}>{s.v}</div>
+                      <div className="num-pro">{s.v}</div>
                       <div style={{fontSize:11,color:"#4a6a8a",marginTop:3,fontWeight:600}}>{s.l}</div>
                     </div>
                   ))}
@@ -1057,7 +1057,7 @@ export default function IngenieroPanel() {
                               </div>
                               <div className="kpi-card">
                                 <div style={{fontSize:12,fontWeight:700,color:"#4a6a8a",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>$ Honorario</div>
-                                <div style={{className:"num-med"}}>${Number(p.honorario_monto||0).toLocaleString("es-AR")}</div>
+                                <div className="num-med">${Number(p.honorario_monto||0).toLocaleString("es-AR")}</div>
                                 <div style={{fontSize:11,opacity:0.5,marginTop:2}}>{p.honorario_tipo||"mensual"}</div>
                               </div>
                             </div>
