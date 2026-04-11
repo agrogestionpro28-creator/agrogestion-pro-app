@@ -482,13 +482,44 @@ export default function IngenieroPanel() {
 
   const cultivoColor = (label:string) => {
     const l = label.toLowerCase();
-    if(l.includes("soja")) return {bar:"linear-gradient(90deg,#4CAF50,#81C784)",chip:"rgba(76,175,80,0.10)",border:"rgba(76,175,80,0.25)",text:"#2e7d32"};
-    if(l.includes("maíz")||l.includes("maiz")) return {bar:"linear-gradient(90deg,#FB8C00,#FFB74D)",chip:"rgba(251,140,0,0.10)",border:"rgba(251,140,0,0.25)",text:"#e65100"};
-    if(l.includes("trigo")) return {bar:"linear-gradient(90deg,#D4A373,#E6C79C)",chip:"rgba(212,163,115,0.12)",border:"rgba(212,163,115,0.30)",text:"#795548"};
-    if(l.includes("girasol")) return {bar:"linear-gradient(90deg,#FBC02D,#FFE082)",chip:"rgba(251,192,45,0.10)",border:"rgba(251,192,45,0.28)",text:"#f57f17"};
-    if(l.includes("sorgo")) return {bar:"linear-gradient(90deg,#E53935,#EF9A9A)",chip:"rgba(229,57,53,0.09)",border:"rgba(229,57,53,0.22)",text:"#c62828"};
-    if(l.includes("cebada")) return {bar:"linear-gradient(90deg,#7B1FA2,#CE93D8)",chip:"rgba(123,31,162,0.09)",border:"rgba(123,31,162,0.22)",text:"#6a1b9a"};
-    return {bar:"linear-gradient(90deg,#1976D2,#64B5F6)",chip:"rgba(25,118,210,0.09)",border:"rgba(25,118,210,0.22)",text:"#1565c0"};
+    // Soja 1° — verde intenso
+    if((l.includes("soja")||l.includes("soja 1")||l.includes("soja1"))&&!l.includes("2"))
+      return {bar:"linear-gradient(90deg,#2e7d32,#4CAF50)",chip:"rgba(46,125,50,0.14)",border:"rgba(46,125,50,0.35)",text:"#1b5e20",chipBg:"rgba(200,240,200,0.55)"};
+    // Soja 2° — celeste
+    if(l.includes("soja")&&l.includes("2"))
+      return {bar:"linear-gradient(90deg,#0288d1,#4fc3f7)",chip:"rgba(2,136,209,0.12)",border:"rgba(2,136,209,0.32)",text:"#01579b",chipBg:"rgba(190,230,255,0.55)"};
+    // Maíz 1° — amarillo maíz intenso
+    if((l.includes("maíz")||l.includes("maiz"))&&!l.includes("2"))
+      return {bar:"linear-gradient(90deg,#f9a825,#fdd835)",chip:"rgba(249,168,37,0.14)",border:"rgba(249,168,37,0.38)",text:"#e65100",chipBg:"rgba(255,240,180,0.60)"};
+    // Maíz 2° — amarillo más suave
+    if((l.includes("maíz")||l.includes("maiz"))&&l.includes("2"))
+      return {bar:"linear-gradient(90deg,#ffb300,#ffe082)",chip:"rgba(255,179,0,0.12)",border:"rgba(255,179,0,0.30)",text:"#ff6f00",chipBg:"rgba(255,248,210,0.60)"};
+    // Trigo — dorado trigo real
+    if(l.includes("trigo"))
+      return {bar:"linear-gradient(90deg,#c8860a,#e4a829)",chip:"rgba(200,134,10,0.13)",border:"rgba(200,134,10,0.35)",text:"#7d4e00",chipBg:"rgba(245,220,160,0.58)"};
+    // Girasol — naranja-rojo llamativo
+    if(l.includes("girasol"))
+      return {bar:"linear-gradient(90deg,#e53935,#ff7043)",chip:"rgba(229,57,53,0.12)",border:"rgba(229,57,53,0.32)",text:"#b71c1c",chipBg:"rgba(255,200,190,0.58)"};
+    // Sorgo 1° — marrón
+    if(l.includes("sorgo")&&!l.includes("2"))
+      return {bar:"linear-gradient(90deg,#6d4c41,#a1887f)",chip:"rgba(109,76,65,0.13)",border:"rgba(109,76,65,0.32)",text:"#4e342e",chipBg:"rgba(220,195,185,0.58)"};
+    // Sorgo 2° — marrón más suave
+    if(l.includes("sorgo")&&l.includes("2"))
+      return {bar:"linear-gradient(90deg,#a1887f,#d7ccc8)",chip:"rgba(161,136,127,0.12)",border:"rgba(161,136,127,0.28)",text:"#6d4c41",chipBg:"rgba(235,220,215,0.58)"};
+    // Cebada — violeta
+    if(l.includes("cebada"))
+      return {bar:"linear-gradient(90deg,#6a1b9a,#ab47bc)",chip:"rgba(106,27,154,0.11)",border:"rgba(106,27,154,0.28)",text:"#4a148c",chipBg:"rgba(220,190,240,0.55)"};
+    // Arveja — verde agua
+    if(l.includes("arveja"))
+      return {bar:"linear-gradient(90deg,#00796b,#4db6ac)",chip:"rgba(0,121,107,0.11)",border:"rgba(0,121,107,0.28)",text:"#004d40",chipBg:"rgba(180,235,230,0.55)"};
+    // Carinata/Camelina — azul pizarra
+    if(l.includes("carin")||l.includes("camel"))
+      return {bar:"linear-gradient(90deg,#37474f,#78909c)",chip:"rgba(55,71,79,0.11)",border:"rgba(55,71,79,0.25)",text:"#263238",chipBg:"rgba(200,215,220,0.55)"};
+    // Pastura — verde pasto
+    if(l.includes("pastura")||l.includes("alfalfa")||l.includes("festuca"))
+      return {bar:"linear-gradient(90deg,#33691e,#8bc34a)",chip:"rgba(51,105,30,0.12)",border:"rgba(51,105,30,0.28)",text:"#1b5e20",chipBg:"rgba(200,235,170,0.55)"};
+    // Otros — azul grisáceo
+    return {bar:"linear-gradient(90deg,#455a64,#90a4ae)",chip:"rgba(69,90,100,0.10)",border:"rgba(69,90,100,0.24)",text:"#263238",chipBg:"rgba(200,215,225,0.55)"};
   };
 
   return (
@@ -527,7 +558,7 @@ export default function IngenieroPanel() {
         /* Capa blanca encima para legibilidad */
         .card::before{
           content:"";position:absolute;inset:0;
-          background:rgba(255,255,255,0.72);
+          background:rgba(255,255,255,0.64);
           border-radius:20px;
           pointer-events:none;z-index:0;
         }
@@ -551,7 +582,7 @@ export default function IngenieroPanel() {
         }
         .card-sm::before{
           content:"";position:absolute;inset:0;
-          background:rgba(255,255,255,0.68);
+          background:rgba(255,255,255,0.60);
           border-radius:16px;pointer-events:none;z-index:0;
         }
         .card-sm::after{
@@ -566,20 +597,20 @@ export default function IngenieroPanel() {
           background-image: url('/FON.png');
           background-size: cover;
           background-position: top center;
-          border-bottom:1.5px solid rgba(255,255,255,0.90);
-          box-shadow:0 2px 16px rgba(20,80,160,0.10);
+          border-bottom:1.5px solid rgba(255,255,255,0.85);
+          box-shadow:0 2px 16px rgba(20,80,160,0.12);
           position:relative;
         }
         .topbar::before{
           content:"";position:absolute;inset:0;
-          background:rgba(255,255,255,0.80);
+          background:rgba(255,255,255,0.62);
           pointer-events:none;z-index:0;
         }
         .topbar>*{position:relative;z-index:1;}
 
         /* ── NAV TAB ── */
         .nav-tab{
-          padding:9px 18px;border-radius:12px;font-size:13px;font-weight:600;
+          padding:9px 18px;border-radius:12px;font-size:13px;font-weight:700;
           cursor:pointer;transition:all 0.18s ease;white-space:nowrap;
           background-image:url('/FON.png');
           background-size:cover;background-position:center;
@@ -589,7 +620,7 @@ export default function IngenieroPanel() {
         }
         .nav-tab::before{
           content:"";position:absolute;inset:0;
-          background:rgba(255,255,255,0.72);
+          background:rgba(255,255,255,0.58);
           border-radius:12px;pointer-events:none;z-index:0;
           transition:background 0.18s;
         }
@@ -621,7 +652,7 @@ export default function IngenieroPanel() {
         }
         .abtn::before{
           content:"";position:absolute;inset:0;
-          background:rgba(255,255,255,0.72);
+          background:rgba(255,255,255,0.62);
           border-radius:16px;pointer-events:none;z-index:0;
         }
         .abtn::after{
@@ -683,7 +714,7 @@ export default function IngenieroPanel() {
         }
         .kpi::before{
           content:"";position:absolute;inset:0;
-          background:rgba(255,255,255,0.74);
+          background:rgba(255,255,255,0.66);
           border-radius:16px;pointer-events:none;z-index:0;
         }
         .kpi::after{
@@ -712,11 +743,12 @@ export default function IngenieroPanel() {
 
         /* ── CHIP CULTIVO (imagen grande) ── */
         .cult-chip{
-          display:flex;align-items:center;gap:10px;
-          border-radius:14px;padding:12px 14px;
-          border:1px solid;cursor:default;
+          display:flex;align-items:center;gap:12px;
+          border-radius:16px;padding:14px 16px;
+          border:1.5px solid;cursor:default;
           position:relative;overflow:hidden;
           transition:all 0.18s ease;
+          box-shadow:0 3px 12px rgba(0,0,0,0.07),inset 0 1px 0 rgba(255,255,255,0.7);
         }
         .cult-chip::before{
           content:"";position:absolute;top:0;left:0;right:0;height:50%;
@@ -763,10 +795,10 @@ export default function IngenieroPanel() {
             <Image src="/logo.png" alt="Logo" width={34} height={34} style={{borderRadius:10,objectFit:"contain"}}/>
             <div>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
-                <span style={{fontSize:18,fontWeight:800,color:"#0d2137"}}>AgroGestión</span>
+                <span style={{fontSize:18,fontWeight:800,color:"#0a1a3a"}}>AgroGestión</span>
                 <span style={{fontSize:10,fontWeight:700,background:"linear-gradient(135deg,#1976d2,#0d47a1)",borderRadius:5,padding:"2px 7px",color:"white",letterSpacing:0.8}}>PRO</span>
               </div>
-              <div style={{fontSize:11,color:"#6b8aaa",marginTop:1,fontWeight:500}}>Gestión inteligente. Decisiones que rinden.</div>
+              <div style={{fontSize:11,color:"#3a5a7a",marginTop:1,fontWeight:600}}>Gestión inteligente. Decisiones que rinden.</div>
             </div>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -831,7 +863,7 @@ export default function IngenieroPanel() {
             {/* Distribución cultivos */}
             {haPorCultivo.length>0&&(
               <div className="card" style={{padding:16}}>
-                <div style={{fontSize:11,fontWeight:700,letterSpacing:1.2,color:"#6b8aaa",textTransform:"uppercase",marginBottom:14}}>Distribución de Cultivos</div>
+                <div style={{fontSize:11,fontWeight:800,color:"#4a6a8a",letterSpacing:1.2,textTransform:"uppercase",marginBottom:14}}>Distribución de Cultivos</div>
                 <div style={{display:"flex",flexDirection:"column",gap:11}}>
                   {haPorCultivo.map((d,i)=>{
                     const cc=cultivoColor(d.name);
@@ -1010,11 +1042,11 @@ export default function IngenieroPanel() {
                           {p.nombre.charAt(0)}
                         </div>
                         <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:16,fontWeight:800,color:"#0d2137",display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                          <div style={{fontSize:16,fontWeight:800,color:"#0d2137",letterSpacing:-0.3,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                             {p.nombre}
                             <span style={{fontSize:14,opacity:0.4,cursor:"pointer"}} onClick={()=>{setEditProd(p.id);setForm({nombre:p.nombre,telefono:p.telefono||"",email:p.email||"",localidad:p.localidad||"",provincia:p.provincia||"",honorario_tipo:p.honorario_tipo||"mensual",honorario_monto:String(p.honorario_monto||0),obs:p.observaciones||""});setShowForm(true);}}>✏️</span>
                           </div>
-                          <div style={{fontSize:12,color:"#6b8aaa",marginTop:2,display:"flex",alignItems:"center",gap:3}}>
+                          <div style={{fontSize:12,color:"#4a6a8a",marginTop:2,fontWeight:600,display:"flex",alignItems:"center",gap:3}}>
                             <span>📍</span>{p.localidad}{p.provincia&&p.provincia!==p.localidad?", "+p.provincia:""}
                           </div>
                           {p.tiene_cuenta&&<span style={{fontSize:11,color:"#16a34a",fontWeight:700,marginTop:4,background:"rgba(22,163,74,0.10)",padding:"2px 8px",borderRadius:6,display:"inline-block"}}>✓ Usa la app</span>}
@@ -1028,7 +1060,7 @@ export default function IngenieroPanel() {
                       <div style={{padding:"12px 14px",display:"flex",flexDirection:"column",gap:12}}>
                         {/* Campaña */}
                         <div>
-                          <div style={{fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>Campaña</div>
+                          <div style={{fontSize:10,fontWeight:800,color:"#4a6a8a",textTransform:"uppercase",letterSpacing:1.2,marginBottom:6}}>Campaña</div>
                           <div style={{display:"flex",gap:8}}>
                             {camps.length>0
                               ?<select value={campActiva??""} onChange={e=>cambiarCampana(eid,e.target.value,p.nombre)} className="sel" style={{flex:1,fontSize:13,fontWeight:600}}>
@@ -1045,18 +1077,18 @@ export default function IngenieroPanel() {
                               <button onClick={()=>{setNuevaCampProd(null);setNuevaCampNombre("");}} className="abtn" style={{padding:"7px 10px",fontSize:12}}>✕</button>
                             </div>
                           )}
-                          <div style={{fontSize:12,color:"#6b8aaa",marginTop:5,fontWeight:500}}>{lotesP.length} lotes · {haReales.toLocaleString("es-AR")} ha</div>
+                          <div style={{fontSize:12,color:"#4a6a8a",marginTop:5,fontWeight:700}}>{lotesP.length} lotes · {haReales.toLocaleString("es-AR")} ha</div>
                         </div>
 
                         {/* KPIs */}
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                           <div className="kpi">
-                            <div style={{fontSize:12,fontWeight:600,color:"#6b8aaa",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>🌿 Hectáreas</div>
+                            <div style={{fontSize:12,fontWeight:700,color:"#4a6a8a",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>🌿 Hectáreas</div>
                             <div className="num-big">{haReales.toLocaleString("es-AR")}</div>
                             <div style={{fontSize:11,color:"#6b8aaa",marginTop:2,fontWeight:600}}>ha</div>
                           </div>
                           <div className="kpi">
-                            <div style={{fontSize:12,fontWeight:600,color:"#6b8aaa",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>$ Honorario</div>
+                            <div style={{fontSize:12,fontWeight:700,color:"#4a6a8a",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>$ Honorario</div>
                             <div className="num-med">${Number(p.honorario_monto||0).toLocaleString("es-AR")}</div>
                             <div style={{fontSize:11,color:"#6b8aaa",marginTop:2,fontWeight:500}}>{p.honorario_tipo||"mensual"}</div>
                           </div>
@@ -1065,7 +1097,7 @@ export default function IngenieroPanel() {
                         {/* Distribución cultivos */}
                         {cultivosProd.length>0&&(
                           <div className="card-sm" style={{padding:"12px 12px"}}>
-                            <div style={{fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:1.1,marginBottom:10}}>Distribución de Cultivos</div>
+                            <div style={{fontSize:10,fontWeight:800,color:"#4a6a8a",textTransform:"uppercase",letterSpacing:1.2,marginBottom:10}}>Distribución de Cultivos</div>
                             <div style={{display:"flex",flexDirection:"column",gap:9}}>
                               {cultivosProd.slice(0,4).map(c=>{
                                 const info=getCultivoInfo(c);
@@ -1091,9 +1123,9 @@ export default function IngenieroPanel() {
                                 {cultivosProd.slice(0,4).map(c=>{
                                   const cc=cultivoColor(c);
                                   return(
-                                    <div key={c} className="cult-chip" style={{background:cc.chip,borderColor:cc.border}}>
-                                      <span style={{fontSize:22}}>{cultivoIcono(c)}</span>
-                                      <span style={{fontSize:12,fontWeight:700,color:"#1a2a4a"}}>{getCultivoInfo(c).label}</span>
+                                    <div key={c} className="cult-chip" style={{background:cc.chipBg||cc.chip,borderColor:cc.border}}>
+                                      <span style={{fontSize:28}}>{cultivoIcono(c)}</span>
+                                      <span style={{fontSize:13,fontWeight:800,color:cc.text}}>{getCultivoInfo(c).label}</span>
                                     </div>
                                   );
                                 })}
