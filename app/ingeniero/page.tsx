@@ -460,7 +460,7 @@ export default function IngenieroPanel() {
 
 
   if(loading) return (
-    <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#dff0fb 0%,#c8e8f7 50%,#b0d8f0 100%)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <div style={{minHeight:"100vh",background:"url('/FON.png') center/cover fixed",display:"flex",alignItems:"center",justifyContent:"center"}}>
       <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:12}}>
         <div style={{width:36,height:36,border:"3px solid #1976d2",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
         <span style={{color:"#1565c0",fontWeight:600,fontSize:14}}>Cargando...</span>
@@ -492,9 +492,15 @@ export default function IngenieroPanel() {
   };
 
   return (
-    <div style={{minHeight:"100vh",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",
-      background:"linear-gradient(160deg,#dff0fb 0%,#c5e4f5 40%,#aed4ee 100%)",
-      position:"relative"}}>
+    <div style={{
+        minHeight:"100vh",
+        fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",
+        position:"relative",
+        backgroundImage:"url('/FON.png')",
+        backgroundSize:"cover",
+        backgroundPosition:"center",
+        backgroundAttachment:"fixed"
+      }}>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
@@ -506,54 +512,64 @@ export default function IngenieroPanel() {
 
         /* ── CARD blanca pura ── */
         .card{
-          background:rgba(255,255,255,0.82);
-          backdrop-filter:blur(12px);
-          -webkit-backdrop-filter:blur(12px);
-          border:1px solid rgba(255,255,255,0.95);
-          border-radius:18px;
-          box-shadow:0 4px 20px rgba(20,80,160,0.08),0 1px 4px rgba(0,0,0,0.04);
+          background:rgba(255,255,255,0.88);
+          backdrop-filter:blur(18px) saturate(160%);
+          -webkit-backdrop-filter:blur(18px) saturate(160%);
+          border:1.5px solid rgba(255,255,255,0.98);
+          border-top:2px solid rgba(255,255,255,1);
+          border-radius:20px;
+          box-shadow:
+            0 8px 32px rgba(20,80,160,0.14),
+            0 2px 8px rgba(0,0,0,0.06),
+            inset 0 1px 0 rgba(255,255,255,1);
         }
         .card-sm{
-          background:rgba(255,255,255,0.75);
-          border:1px solid rgba(255,255,255,0.90);
-          border-radius:14px;
-          box-shadow:0 2px 12px rgba(20,80,160,0.07);
+          background:rgba(255,255,255,0.82);
+          backdrop-filter:blur(14px);
+          -webkit-backdrop-filter:blur(14px);
+          border:1.5px solid rgba(255,255,255,0.95);
+          border-top:2px solid rgba(255,255,255,1);
+          border-radius:16px;
+          box-shadow:0 4px 16px rgba(20,80,160,0.10),inset 0 1px 0 rgba(255,255,255,1);
         }
 
         /* ── TOPBAR ── */
         .topbar{
-          background:rgba(255,255,255,0.78);
-          backdrop-filter:blur(16px);
-          -webkit-backdrop-filter:blur(16px);
-          border-bottom:1px solid rgba(255,255,255,0.70);
-          box-shadow:0 2px 12px rgba(20,80,160,0.06);
+          background:rgba(255,255,255,0.85);
+          backdrop-filter:blur(20px) saturate(160%);
+          -webkit-backdrop-filter:blur(20px) saturate(160%);
+          border-bottom:1.5px solid rgba(255,255,255,0.90);
+          box-shadow:0 2px 16px rgba(20,80,160,0.10),inset 0 -1px 0 rgba(255,255,255,0.6);
         }
 
         /* ── NAV TAB ── */
         .nav-tab{
-          padding:9px 16px;border-radius:12px;font-size:13px;font-weight:600;
+          padding:9px 18px;border-radius:12px;font-size:13px;font-weight:600;
           cursor:pointer;transition:all 0.18s ease;white-space:nowrap;
-          background:rgba(255,255,255,0.70);
-          border:1px solid rgba(255,255,255,0.85);
+          background:rgba(255,255,255,0.82);
+          backdrop-filter:blur(10px);
+          border:1.5px solid rgba(255,255,255,0.98);
           color:#1e3a5f;
-          box-shadow:0 2px 8px rgba(20,80,160,0.06);
+          box-shadow:0 3px 12px rgba(20,80,160,0.10),inset 0 1px 0 rgba(255,255,255,1);
         }
-        .nav-tab:hover{background:rgba(255,255,255,0.92);color:#0d47a1;transform:translateY(-1px);}
+        .nav-tab:hover{background:rgba(255,255,255,0.96);color:#0d47a1;transform:translateY(-1px);}
         .nav-tab.active{
-          background:linear-gradient(145deg,#1565c0,#0d47a1);
-          border:1px solid rgba(100,160,255,0.35);
-          color:white;
-          box-shadow:0 4px 14px rgba(13,71,161,0.38),inset 0 1px 0 rgba(255,255,255,0.20);
+          background:linear-gradient(145deg,#1976d2,#0d47a1);
+          border:1.5px solid rgba(100,160,255,0.40);
+          color:white !important;
+          box-shadow:0 5px 18px rgba(13,71,161,0.45),inset 0 1px 0 rgba(255,255,255,0.25);
         }
 
         /* ── ACTION BTN ── */
         .abtn{
-          background:rgba(255,255,255,0.80);
-          border:1px solid rgba(255,255,255,0.90);
-          border-radius:14px;
+          background:rgba(255,255,255,0.88);
+          backdrop-filter:blur(10px);
+          border:1.5px solid rgba(255,255,255,1);
+          border-top:2px solid rgba(255,255,255,1);
+          border-radius:16px;
           color:#1e3a5f;font-weight:700;font-size:13px;
           cursor:pointer;
-          box-shadow:0 3px 12px rgba(20,80,160,0.07);
+          box-shadow:0 4px 16px rgba(20,80,160,0.12),inset 0 1px 0 rgba(255,255,255,1);
           transition:all 0.18s cubic-bezier(0.34,1.56,0.64,1);
           display:flex;align-items:center;justify-content:center;gap:7px;padding:12px 16px;
           position:relative;overflow:hidden;
@@ -604,10 +620,12 @@ export default function IngenieroPanel() {
 
         /* ── KPI CARD ── */
         .kpi{
-          background:rgba(255,255,255,0.80);
-          border:1px solid rgba(255,255,255,0.92);
-          border-radius:14px;
-          box-shadow:0 3px 14px rgba(20,80,160,0.07);
+          background:rgba(255,255,255,0.88);
+          backdrop-filter:blur(12px);
+          border:1.5px solid rgba(255,255,255,1);
+          border-top:2px solid rgba(255,255,255,1);
+          border-radius:16px;
+          box-shadow:0 4px 18px rgba(20,80,160,0.12),inset 0 1px 0 rgba(255,255,255,1);
           padding:16px;text-align:center;
           position:relative;overflow:hidden;
         }
