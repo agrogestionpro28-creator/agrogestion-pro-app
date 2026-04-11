@@ -895,8 +895,8 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
   const VOZ_ICON: Record<string,string>={idle:"🎤",escuchando:"🔴",procesando:"⚙️",respondiendo:"🔊",error:"❌"};
 
   // Estilos inputs
-  const iCls="w-full bg-[#0f1923] border border-[#1e2d3d] rounded-xl px-3 py-2.5 text-gray-100 text-sm focus:outline-none focus:border-green-500 transition-all placeholder:text-gray-600";
-  const lCls="block text-xs text-gray-400 font-medium mb-1.5 uppercase tracking-wide";
+  const iCls="inp w-full px-3 py-2.5 text-[#1a2a4a] text-sm";
+  const lCls="block text-[10px] font-bold uppercase tracking-wider text-[#4a6a8a] mb-1.5";
 
   const lotesPrincipales = (() => {
     const vistos: string[]=[];
@@ -934,102 +934,255 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
     return<text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontFamily="monospace" fontWeight="bold">{Math.round(percent*100)+"%"}</text>;
   };
 
+
   if (loading) return (
-    <div className="min-h-screen bg-[#080f17] flex items-center justify-center">
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 border-2 border-green-500 border-t-transparent rounded-full animate-spin"/>
-        <span className="text-gray-300">Cargando lotes...</span>
+    <div style={{minHeight:"100vh",backgroundImage:"url('/FON.png')",backgroundSize:"cover",backgroundPosition:"center",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:12,
+        background:"rgba(255,255,255,0.70)",backdropFilter:"blur(16px)",borderRadius:20,padding:"28px 36px",
+        border:"1.5px solid rgba(255,255,255,0.90)",boxShadow:"0 8px 32px rgba(20,80,160,0.15)"}}>
+        <div style={{width:36,height:36,border:"3px solid #1565c0",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+        <span style={{color:"#1e3a5f",fontWeight:700,fontSize:14}}>Cargando lotes...</span>
       </div>
     </div>
   );
 
   return (
-    <div className="relative min-h-screen bg-[#080f17] text-gray-100" style={{fontFamily:"'Inter','Segoe UI',sans-serif"}}>
+    <div style={{minHeight:"100vh",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",
+      backgroundImage:"url('/FON.png')",backgroundSize:"cover",backgroundPosition:"center",
+      backgroundAttachment:"fixed",position:"relative"}}>
+
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
         @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-        @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-        .fade-in{animation:fadeIn 0.18s ease}
-        .lote-card{cursor:pointer;transition:all 0.15s ease;background:#0f1923;border:1px solid #1e2d3d}
-        .lote-card:hover{border-color:#2d5a3d;transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.4)}
-        .card{background:#0f1923;border:1px solid #1e2d3d;border-radius:16px}
-        .btn-green{background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);color:#22c55e;transition:all 0.15s}
-        .btn-green:hover{background:rgba(34,197,94,0.25)}
-        .btn-amber{background:rgba(234,179,8,0.12);border:1px solid rgba(234,179,8,0.3);color:#eab308;transition:all 0.15s}
-        .btn-amber:hover{background:rgba(234,179,8,0.22)}
-        .btn-blue{background:rgba(96,165,250,0.12);border:1px solid rgba(96,165,250,0.3);color:#60a5fa;transition:all 0.15s}
-        .btn-blue:hover{background:rgba(96,165,250,0.22)}
-        .btn-solid-green{background:#16a34a;color:white;transition:all 0.15s}
-        .btn-solid-green:hover{background:#15803d}
-        .tag{display:inline-flex;align-items:center;border-radius:8px;font-size:11px;font-weight:600;padding:2px 8px}
-        ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:#080f17}::-webkit-scrollbar-thumb{background:#1e2d3d;border-radius:4px}
+        @keyframes shine{0%{left:-60%}100%{left:130%}}
+
+        /* ── CARD ── */
+        .card{
+          background-image:url('/FON.png');background-size:cover;background-position:center;
+          border:1.5px solid rgba(255,255,255,0.90);border-top:2px solid rgba(255,255,255,1);
+          border-radius:18px;
+          box-shadow:0 6px 24px rgba(20,80,160,0.14),inset 0 2px 0 rgba(255,255,255,0.95);
+          position:relative;overflow:hidden;
+        }
+        .card::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.68);border-radius:18px;pointer-events:none;z-index:0;}
+        .card::after{content:"";position:absolute;top:0;left:0;right:0;height:42%;background:linear-gradient(180deg,rgba(255,255,255,0.40) 0%,transparent 100%);border-radius:18px 18px 0 0;pointer-events:none;z-index:1;}
+        .card>*{position:relative;z-index:2;}
+
+        /* ── HEADER ── */
+        .page-header{
+          background-image:url('/FON.png');background-size:cover;background-position:top center;
+          border-bottom:1.5px solid rgba(255,255,255,0.75);
+          box-shadow:0 2px 16px rgba(20,80,160,0.12);
+          position:sticky;top:0;z-index:20;
+          position:relative;
+        }
+        .page-header::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.70);pointer-events:none;z-index:0;}
+        .page-header>*{position:relative;z-index:1;}
+
+        /* ── LOTE CARD ── */
+        .lote-card{
+          background-image:url('/FON.png');background-size:cover;background-position:center;
+          border:1.5px solid rgba(255,255,255,0.88);border-top:2px solid rgba(255,255,255,1);
+          border-radius:18px;cursor:pointer;
+          box-shadow:0 4px 18px rgba(20,80,160,0.10);
+          transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1);
+          position:relative;overflow:hidden;
+        }
+        .lote-card::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.68);border-radius:18px;pointer-events:none;z-index:0;}
+        .lote-card::after{content:"";position:absolute;top:0;left:0;right:0;height:42%;background:linear-gradient(180deg,rgba(255,255,255,0.38) 0%,transparent 100%);border-radius:18px 18px 0 0;pointer-events:none;z-index:1;}
+        .lote-card>*{position:relative;z-index:2;}
+        .lote-card:hover{transform:translateY(-3px);box-shadow:0 12px 32px rgba(20,80,160,0.18);}
+
+        /* ── INPUTS ── */
+        .inp{
+          width:100%;background:rgba(255,255,255,0.72);
+          border:1.5px solid rgba(180,210,240,0.55);border-top:1.5px solid rgba(255,255,255,0.90);
+          border-radius:11px;padding:9px 12px;
+          font-size:13px;font-family:'DM Sans',system-ui;color:#1a2a4a;
+          box-shadow:inset 0 1px 3px rgba(0,60,140,0.05);transition:all 0.18s;
+        }
+        .inp::placeholder{color:rgba(80,120,160,0.50);}
+        .inp:focus{background:rgba(255,255,255,0.95);border-color:rgba(25,118,210,0.42);outline:none;box-shadow:0 0 0 3px rgba(25,118,210,0.10);}
+        .inp option{background:white;color:#1a2a4a;}
+
+        /* ── BOTONES ── */
+        .btn-g{
+          background:rgba(255,255,255,0.75);border:1.5px solid rgba(255,255,255,0.95);
+          border-radius:12px;color:#166534;font-weight:700;font-size:12px;
+          padding:7px 14px;cursor:pointer;
+          box-shadow:0 2px 8px rgba(22,101,52,0.10);transition:all 0.18s ease;
+        }
+        .btn-g:hover{background:rgba(255,255,255,0.95);transform:translateY(-1px);}
+
+        .btn-a{
+          background:rgba(255,255,255,0.75);border:1.5px solid rgba(255,255,255,0.95);
+          border-radius:12px;color:#92400e;font-weight:700;font-size:12px;
+          padding:7px 14px;cursor:pointer;
+          box-shadow:0 2px 8px rgba(146,64,14,0.08);transition:all 0.18s ease;
+        }
+        .btn-a:hover{background:rgba(255,255,255,0.95);transform:translateY(-1px);}
+
+        .btn-b{
+          background:rgba(255,255,255,0.75);border:1.5px solid rgba(255,255,255,0.95);
+          border-radius:12px;color:#1e3a8a;font-weight:700;font-size:12px;
+          padding:7px 14px;cursor:pointer;
+          box-shadow:0 2px 8px rgba(30,58,138,0.08);transition:all 0.18s ease;
+        }
+        .btn-b:hover{background:rgba(255,255,255,0.95);transform:translateY(-1px);}
+
+        .btn-solid{
+          background-image:url('/AZUL.png');background-size:cover;background-position:center;
+          border:1.5px solid rgba(100,180,255,0.45);border-top:2px solid rgba(180,220,255,0.65);
+          border-radius:12px;color:white;font-weight:800;font-size:13px;
+          padding:9px 18px;cursor:pointer;
+          box-shadow:0 4px 14px rgba(25,118,210,0.38);transition:all 0.18s ease;
+          text-shadow:0 1px 3px rgba(0,40,120,0.35);position:relative;overflow:hidden;
+        }
+        .btn-solid::before{content:"";position:absolute;top:0;left:0;right:0;height:45%;background:linear-gradient(180deg,rgba(255,255,255,0.20) 0%,transparent 100%);border-radius:12px 12px 0 0;pointer-events:none;}
+        .btn-solid>*{position:relative;}
+        .btn-solid:hover{transform:translateY(-2px);box-shadow:0 7px 20px rgba(25,118,210,0.50);filter:brightness(1.08);}
+
+        .btn-cancel{
+          background:rgba(255,255,255,0.65);border:1.5px solid rgba(255,255,255,0.88);
+          border-radius:12px;color:#4a6a8a;font-weight:600;font-size:13px;
+          padding:9px 16px;cursor:pointer;transition:all 0.18s ease;
+        }
+        .btn-cancel:hover{background:rgba(255,255,255,0.92);}
+
+        /* ── TABS ── */
+        .tab-btn{
+          padding:8px 18px;border-radius:12px;font-size:13px;font-weight:700;
+          cursor:pointer;transition:all 0.18s ease;
+          background-image:url('/FON.png');background-size:cover;background-position:center;
+          border:1.5px solid rgba(255,255,255,0.88);
+          position:relative;overflow:hidden;
+        }
+        .tab-btn::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.62);border-radius:12px;pointer-events:none;transition:background 0.18s;}
+        .tab-btn>*,.tab-btn span{position:relative;z-index:1;}
+        .tab-btn-text{position:relative;z-index:1;color:#1e3a5f;}
+        .tab-btn:hover::before{background:rgba(255,255,255,0.82);}
+        .tab-active{border:1.5px solid rgba(100,180,255,0.42)!important;}
+        .tab-active::before{background:rgba(25,118,210,0.12)!important;}
+        .tab-active .tab-btn-text{color:#0d47a1!important;font-weight:800!important;}
+
+        /* ── VOZ BTN ── */
+        .voz-btn{
+          display:flex;align-items:center;gap:6px;
+          padding:8px 14px;border-radius:12px;font-weight:700;font-size:13px;
+          cursor:pointer;transition:all 0.18s ease;
+          background-image:url('/FON.png');background-size:cover;background-position:center;
+          border:1.5px solid rgba(255,255,255,0.88);
+          position:relative;overflow:hidden;
+        }
+        .voz-btn::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.55);border-radius:12px;pointer-events:none;}
+        .voz-btn>*{position:relative;z-index:1;}
+
+        /* ── TAG ── */
+        .tag{display:inline-flex;align-items:center;border-radius:8px;font-size:11px;font-weight:700;padding:3px 9px;}
+
+        /* ── DESCUENTO PANEL ── */
+        .descuento-panel{
+          background-image:url('/FON.png');background-size:cover;background-position:center;
+          border-radius:22px;overflow:hidden;
+          box-shadow:0 20px 60px rgba(20,80,160,0.25);
+          border:1.5px solid rgba(255,255,255,0.90);
+          position:relative;
+        }
+        .descuento-panel::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.88);pointer-events:none;z-index:0;}
+        .descuento-panel>*{position:relative;z-index:1;}
+
+        /* ── MISC ── */
+        .fade-in{animation:fadeIn 0.2s ease;}
+        ::-webkit-scrollbar{width:3px;height:3px}
+        ::-webkit-scrollbar-thumb{background:rgba(25,118,210,0.22);border-radius:3px}
+        input[type=date]::-webkit-calendar-picker-indicator{opacity:0.5}
+        select option{background:white;color:#1a2a4a;}
       `}</style>
 
-      {/* ── HEADER ── */}
-      <div className="bg-[#0c1520] border-b border-[#1e2d3d] px-4 py-3 flex items-center gap-3 sticky top-0 z-20">
-        <button onClick={()=>loteActivo?setLoteActivo(null):window.location.href="/ingeniero?s=productores"} className="text-gray-500 hover:text-green-400 text-sm font-medium transition-colors flex items-center gap-1.5">
-          ← {loteActivo?"Volver a lotes":"Mis Productores"}
-        </button>
-        <div className="flex-1"/>
-        <div className="text-right">
-          <div className="text-sm font-bold text-gray-100">{productorNombre}</div>
-          <div className="text-xs font-medium" style={{color:modoCompartido?"#22c55e":"#eab308"}}>
-            {modoCompartido?"🔗 Datos compartidos con productor":"📋 Datos propios del ingeniero"}
+      {/* ══ HEADER ══ */}
+      <div className="page-header">
+        <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px"}}>
+          <button onClick={()=>loteActivo?setLoteActivo(null):window.location.href="/ingeniero?s=productores"}
+            style={{color:"#1565c0",fontSize:13,fontWeight:700,background:"none",border:"none",cursor:"pointer",
+              display:"flex",alignItems:"center",gap:4}}>
+            ← {loteActivo?"Lotes":"Mis Productores"}
+          </button>
+          <div style={{flex:1}}/>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:14,fontWeight:800,color:"#0d2137"}}>{productorNombre}</div>
+            <div style={{fontSize:11,fontWeight:700,color:modoCompartido?"#16a34a":"#b45309",marginTop:1}}>
+              {modoCompartido?"🔗 Datos compartidos":"📋 Datos del ingeniero"}
+            </div>
           </div>
+          <select value={campanaActiva}
+            onChange={async e=>{setCampanaActiva(e.target.value);setLoteActivo(null);await fetchLotes(empresaId,e.target.value);}}
+            className="inp" style={{width:"auto",padding:"6px 10px",fontSize:12,fontWeight:700,color:"#1565c0",flexShrink:0}}>
+            {campanasSinDup.map(c=><option key={c.id} value={c.id}>{c.nombre}{c.activa?" ★":""}</option>)}
+          </select>
+          <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}}
+            className="voz-btn" style={{flexShrink:0,color:VOZ_COLOR[vozEstado]}}>
+            <span>{VOZ_ICON[vozEstado]}</span>
+            <span className="hidden sm:inline" style={{fontSize:12}}>VOZ</span>
+          </button>
         </div>
-        <select value={campanaActiva} onChange={async e=>{setCampanaActiva(e.target.value);setLoteActivo(null);await fetchLotes(empresaId,e.target.value);}}
-          className="bg-[#0f1923] border border-[#1e2d3d] rounded-lg px-3 py-1.5 text-green-400 text-xs font-bold focus:outline-none focus:border-green-600 flex-shrink-0">
-          {campanasSinDup.map(c=><option key={c.id} value={c.id}>{c.nombre}{c.activa?" ★":""}</option>)}
-        </select>
-        <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border font-bold text-sm flex-shrink-0"
-          style={{borderColor:VOZ_COLOR[vozEstado]+"60",color:VOZ_COLOR[vozEstado],background:VOZ_COLOR[vozEstado]+"12"}}>
-          {VOZ_ICON[vozEstado]} <span className="hidden sm:inline">VOZ</span>
-        </button>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-5">
-        {/* Toast */}
-        {msgExito&&<div className={`mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between fade-in ${msgExito.startsWith("✅")?"bg-green-500/10 text-green-400 border border-green-500/20":"bg-red-500/10 text-red-400 border border-red-500/20"}`}>{msgExito}<button onClick={()=>setMsgExito("")} className="ml-3 opacity-60 hover:opacity-100">✕</button></div>}
+      <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 14px 80px",position:"relative",zIndex:1}}>
 
-        {/* ══ PANEL DESCUENTO DE INSUMOS ══ */}
+        {/* Toast */}
+        {msgExito&&(
+          <div className="fade-in card" style={{marginBottom:12,padding:"10px 14px",fontSize:13,fontWeight:700,
+            display:"flex",justifyContent:"space-between",alignItems:"center",
+            color:msgExito.startsWith("✅")?"#166534":"#dc2626",
+            background:msgExito.startsWith("✅")?"rgba(220,252,231,0.85)":"rgba(254,226,226,0.85)",
+            borderColor:msgExito.startsWith("✅")?"rgba(22,163,74,0.25)":"rgba(220,38,38,0.20)"}}>
+            {msgExito}
+            <button onClick={()=>setMsgExito("")} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,opacity:0.5}}>✕</button>
+          </div>
+        )}
+
+        {/* ══ PANEL DESCUENTO ══ */}
         {showDescuento&&(
-          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4" style={{background:"rgba(2,8,16,0.85)"}}>
-            <div className="w-full max-w-2xl bg-[#0a1628] border border-[#4ADE80]/40 rounded-2xl overflow-hidden shadow-2xl">
-              <div className="px-5 py-4 border-b border-[#4ADE80]/20 flex items-center justify-between" style={{background:"rgba(74,222,128,0.05)"}}>
+          <div style={{position:"fixed",inset:0,zIndex:50,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:16,background:"rgba(180,210,240,0.40)",backdropFilter:"blur(8px)"}}>
+            <div className="descuento-panel" style={{width:"100%",maxWidth:640}}>
+              <div style={{padding:"14px 18px",borderBottom:"1px solid rgba(25,118,210,0.12)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                 <div>
-                  <h3 className="font-bold text-sm" style={{color:"#4ADE80"}}>🧪 DESCONTAR INSUMOS DEL STOCK</h3>
-                  <p className="text-xs font-mono mt-0.5" style={{color:"#4B5563"}}>Labor: {laborPendiente?.tipo} — {laborPendiente?.descripcion?.substring(0,40)}</p>
+                  <h3 style={{fontSize:13,fontWeight:800,color:"#1565c0",margin:0}}>🧪 DESCONTAR INSUMOS DEL STOCK</h3>
+                  <p style={{fontSize:11,color:"#4a6a8a",marginTop:2}}>Labor: {laborPendiente?.tipo} — {laborPendiente?.descripcion?.substring(0,40)}</p>
                 </div>
-                <button onClick={()=>{setShowDescuento(false);setLaborPendiente(null);setDescuentoItems([]);}} className="text-gray-500 hover:text-white text-lg">✕</button>
+                <button onClick={()=>{setShowDescuento(false);setLaborPendiente(null);setDescuentoItems([]);}} style={{background:"none",border:"none",color:"#6b8aaa",cursor:"pointer",fontSize:20}}>✕</button>
               </div>
-              <div className="p-4 max-h-80 overflow-y-auto">
+              <div style={{padding:16,maxHeight:300,overflowY:"auto"}}>
                 {descuentoItems.length===0?(
-                  <p className="text-center text-gray-500 text-sm py-6 font-mono">Sin insumos en stock para este productor</p>
+                  <p style={{textAlign:"center",color:"#6b8aaa",fontSize:13,padding:"24px 0"}}>Sin insumos en stock para este productor</p>
                 ):(
-                  <table className="w-full text-xs">
-                    <thead><tr className="border-b border-green-500/15">
+                  <table style={{width:"100%",fontSize:12,borderCollapse:"collapse"}}>
+                    <thead><tr style={{borderBottom:"1px solid rgba(25,118,210,0.10)"}}>
                       {["✓","INSUMO","CANTIDAD","UNIDAD","PPP","COSTO"].map(h=>(
-                        <th key={h} className={`px-2 py-2 font-mono text-gray-500 ${h==="CANTIDAD"||h==="PPP"||h==="COSTO"?"text-right":"text-left"}`}>{h}</th>
+                        <th key={h} style={{textAlign:h==="CANTIDAD"||h==="PPP"||h==="COSTO"?"right":"left",padding:"6px 10px",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8}}>{h}</th>
                       ))}
                     </tr></thead>
                     <tbody>{descuentoItems.map((item,i)=>(
-                      <tr key={item.insumo_id} className={`border-b border-green-500/10 transition-colors ${item.seleccionado?"bg-green-500/5":"opacity-50"}`}>
-                        <td className="px-2 py-2.5">
+                      <tr key={item.insumo_id} style={{borderBottom:"1px solid rgba(25,118,210,0.07)",opacity:item.seleccionado?1:0.5}}>
+                        <td style={{padding:"8px 10px"}}>
                           <button onClick={()=>{const u=[...descuentoItems];u[i]={...u[i],seleccionado:!u[i].seleccionado};setDescuentoItems(u);}}
-                            className={`w-4 h-4 rounded border flex items-center justify-center text-xs ${item.seleccionado?"bg-green-400 border-green-400 text-black":"border-gray-600"}`}>
+                            style={{width:18,height:18,borderRadius:5,border:`1.5px solid ${item.seleccionado?"#1565c0":"#aab8c8"}`,
+                              background:item.seleccionado?"#1565c0":"transparent",color:"white",fontSize:11,
+                              display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
                             {item.seleccionado?"✓":""}
                           </button>
                         </td>
-                        <td className="px-2 py-2.5 font-bold text-gray-200 font-mono">{item.nombre}</td>
-                        <td className="px-2 py-2.5 text-right">
+                        <td style={{padding:"8px 10px",fontWeight:700,color:"#0d2137"}}>{item.nombre}</td>
+                        <td style={{padding:"8px 10px",textAlign:"right"}}>
                           <input type="number" value={item.cantidad_ajustada||""}
                             onChange={e=>{const c=parseFloat(e.target.value)||0;const u=[...descuentoItems];u[i]={...u[i],cantidad_ajustada:c,costo_total:c*u[i].precio_ppp,seleccionado:c>0};setDescuentoItems(u);}}
-                            className="w-20 bg-black/40 border border-green-500/30 rounded px-2 py-1 text-gray-200 text-xs font-mono text-right focus:outline-none focus:border-green-400"
-                            placeholder="0"/>
+                            className="inp" style={{width:80,padding:"5px 8px",textAlign:"right",fontSize:12}} placeholder="0"/>
                         </td>
-                        <td className="px-2 py-2.5 text-gray-400 font-mono">{item.unidad}</td>
-                        <td className="px-2 py-2.5 text-right font-bold font-mono text-amber-400">{item.precio_ppp>0?`$${item.precio_ppp.toFixed(2)}`:"—"}</td>
-                        <td className="px-2 py-2.5 text-right font-bold font-mono" style={{color:item.costo_total>0?"#4ADE80":"#4B5563"}}>
+                        <td style={{padding:"8px 10px",color:"#6b8aaa"}}>{item.unidad}</td>
+                        <td style={{padding:"8px 10px",textAlign:"right",fontWeight:700,color:"#b45309"}}>{item.precio_ppp>0?`$${item.precio_ppp.toFixed(2)}`:"—"}</td>
+                        <td style={{padding:"8px 10px",textAlign:"right",fontWeight:700,color:item.costo_total>0?"#0D47A1":"#aab8c8"}}>
                           {item.costo_total>0?`$${Math.round(item.costo_total).toLocaleString("es-AR")}`:"—"}
                         </td>
                       </tr>
@@ -1037,303 +1190,283 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
                   </table>
                 )}
               </div>
-              <div className="px-5 py-4 border-t border-green-500/20 bg-black/40">
+              <div style={{padding:"12px 18px",borderTop:"1px solid rgba(25,118,210,0.10)",background:"rgba(240,248,255,0.50)"}}>
                 {descuentoItems.filter(d=>d.seleccionado&&d.cantidad_ajustada>0).length>0&&(
-                  <div className="flex items-center justify-between mb-3 px-3 py-2 rounded-xl bg-green-500/10">
-                    <span className="text-xs text-gray-500 font-mono">{descuentoItems.filter(d=>d.seleccionado).length} insumos seleccionados</span>
-                    <span className="font-bold text-green-400 font-mono">Total: ${Math.round(descuentoItems.filter(d=>d.seleccionado).reduce((a,d)=>a+d.costo_total,0)).toLocaleString("es-AR")}</span>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+                    marginBottom:12,padding:"8px 12px",borderRadius:10,background:"rgba(25,118,210,0.08)",
+                    border:"1px solid rgba(25,118,210,0.15)"}}>
+                    <span style={{fontSize:12,color:"#4a6a8a",fontWeight:600}}>{descuentoItems.filter(d=>d.seleccionado).length} insumos seleccionados</span>
+                    <span style={{fontSize:13,fontWeight:800,color:"#0D47A1"}}>Total: ${Math.round(descuentoItems.filter(d=>d.seleccionado).reduce((a,d)=>a+d.costo_total,0)).toLocaleString("es-AR")}</span>
                   </div>
                 )}
-                <div className="flex gap-3">
-                  <button onClick={confirmarDescuento} className="flex-1 py-2.5 rounded-xl font-bold text-sm transition-colors" style={{background:"rgba(74,222,128,0.15)",border:"1px solid rgba(74,222,128,0.4)",color:"#4ADE80"}}>
-                    ✓ Confirmar y descontar
-                  </button>
-                  <button onClick={()=>{setShowDescuento(false);setLaborPendiente(null);setDescuentoItems([]);}} className="px-5 py-2.5 rounded-xl border border-gray-800 text-gray-500 text-sm hover:text-gray-300 transition-colors">
-                    Omitir
-                  </button>
+                <div style={{display:"flex",gap:10}}>
+                  <button onClick={confirmarDescuento} className="btn-solid" style={{flex:1,padding:"11px 16px"}}>✓ Confirmar y descontar</button>
+                  <button onClick={()=>{setShowDescuento(false);setLaborPendiente(null);setDescuentoItems([]);}} className="btn-cancel" style={{padding:"11px 18px"}}>Omitir</button>
                 </div>
-                <p className="text-xs text-gray-600 font-mono text-center mt-2">El costo PPP se sumará al Margen Bruto del lote</p>
+                <p style={{fontSize:11,color:"#6b8aaa",textAlign:"center",marginTop:8}}>El costo PPP se sumará al Margen Bruto del lote</p>
               </div>
             </div>
           </div>
         )}
-        {/* ══ FIN PANEL DESCUENTO ══ */}
 
-        {/* ══════════════════════════════════
-            DETALLE LOTE — CUADERNO DE CAMPO
-        ══════════════════════════════════ */}
+        {/* ══ DETALLE LOTE ══ */}
         {loteActivo&&(
-          <div className="space-y-4 fade-in">
+          <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:12}}>
+
             {/* Header lote */}
-            <div className="card p-4">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-3">
-                  <div className="w-1.5 self-stretch rounded-full flex-shrink-0" style={{background:cultivoActivoInfo?.color}}/>
-                  <span className="text-2xl">{(cultivoActivoInfo as any)?.icon}</span>
+            <div className="card" style={{padding:16}}>
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+                <div style={{display:"flex",alignItems:"center",gap:12}}>
+                  <div style={{width:4,alignSelf:"stretch",borderRadius:4,background:cultivoActivoInfo?.color,flexShrink:0}}/>
+                  <span style={{fontSize:28}}>{(cultivoActivoInfo as any)?.icon}</span>
                   <div>
-                    <h2 className="text-xl font-bold text-white">{loteActivo.nombre}</h2>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className="font-bold text-sm" style={{color:"#eab308"}}>{loteActivo.hectareas} ha</span>
-                      <span className="tag" style={{background:(cultivoActivoInfo?.color??"#6b7280")+"20",color:cultivoActivoInfo?.color??"#6b7280"}}>{cultivoActivoInfo?.label||"Sin cultivo"}</span>
-                      {(()=>{const e=ESTADOS.find(x=>x.v===loteActivo.estado);return e?<span className="tag" style={{background:e.c+"20",color:e.c}}>{e.l}</span>:null;})()}
+                    <h2 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>{loteActivo.nombre}</h2>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,flexWrap:"wrap"}}>
+                      <span style={{fontWeight:800,fontSize:14,color:"#b45309"}}>{loteActivo.hectareas} ha</span>
+                      <span className="tag" style={{background:(cultivoActivoInfo?.color??"#6b7280")+"18",color:cultivoActivoInfo?.color??"#6b7280",border:`1px solid ${cultivoActivoInfo?.color??"#6b7280"}30`}}>{cultivoActivoInfo?.label||"Sin cultivo"}</span>
+                      {(()=>{const e=ESTADOS.find(x=>x.v===loteActivo.estado);return e?<span className="tag" style={{background:e.c+"18",color:e.c,border:`1px solid ${e.c}30`}}>{e.l}</span>:null;})()}
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-2 flex-wrap">
-                  <button onClick={()=>{const ci3=CULTIVOS_LISTA.find(c=>c.cultivo===loteActivo.cultivo&&c.orden===loteActivo.cultivo_orden);setEditandoLote(loteActivo.id);setForm({nombre:loteActivo.nombre,hectareas:String(loteActivo.hectareas),tipo_tenencia:loteActivo.tipo_tenencia||"Propio",partido:loteActivo.partido||"",cultivo_key:ci3?ci3.cultivo+"|"+ci3.orden:"soja|1ra",fecha_siembra:loteActivo.fecha_siembra||"",fecha_cosecha:loteActivo.fecha_cosecha||"",variedad:loteActivo.variedad||loteActivo.hibrido||"",rendimiento_esperado:String(loteActivo.rendimiento_esperado||""),estado:loteActivo.estado||"planificado",observaciones:loteActivo.observaciones||""});setShowFormLote(true);}} className="btn-amber px-3 py-2 rounded-xl text-xs font-bold">✏️ Editar</button>
-                  <button onClick={()=>{setShowFormLabor(true);setEditandoLabor(null);setForm({operario:ingenieroNombre,superficie_ha:String(loteActivo.hectareas),fecha_lab:new Date().toISOString().split("T")[0],tipo_lab:"Aplicación"});}} className="btn-green px-3 py-2 rounded-xl text-xs font-bold">+ Labor</button>
-                  <button onClick={()=>{const mg=margenes.find(m=>m.lote_id===loteActivo.id);const labsTotal=labores.filter(l=>l.lote_id===loteActivo.id).reduce((a,l)=>a+(l.costo_total||0),0);if(mg)setForm({mg_rend_esp:String(mg.rendimiento_esperado),mg_rend_real:String(mg.rendimiento_real),mg_precio:String(mg.precio_tn),mg_semilla:String(mg.costo_semilla),mg_fertilizante:String(mg.costo_fertilizante),mg_agroquimicos:String(mg.costo_agroquimicos),mg_labores:String(Math.max(mg.costo_labores,labsTotal)),mg_alquiler:String(mg.costo_alquiler),mg_flete:String(mg.costo_flete),mg_comercializacion:String(mg.costo_comercializacion),mg_otros:String(mg.otros_costos)});else setForm({mg_labores:String(labsTotal)});setShowFormMargen(true);}} className="btn-blue px-3 py-2 rounded-xl text-xs font-bold">📊 Margen</button>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  <button onClick={()=>{const ci3=CULTIVOS_LISTA.find(c=>c.cultivo===loteActivo.cultivo&&c.orden===loteActivo.cultivo_orden);setEditandoLote(loteActivo.id);setForm({nombre:loteActivo.nombre,hectareas:String(loteActivo.hectareas),tipo_tenencia:loteActivo.tipo_tenencia||"Propio",partido:loteActivo.partido||"",cultivo_key:ci3?ci3.cultivo+"|"+ci3.orden:"soja|1ra",fecha_siembra:loteActivo.fecha_siembra||"",fecha_cosecha:loteActivo.fecha_cosecha||"",variedad:loteActivo.variedad||loteActivo.hibrido||"",rendimiento_esperado:String(loteActivo.rendimiento_esperado||""),estado:loteActivo.estado||"planificado",observaciones:loteActivo.observaciones||""});setShowFormLote(true);}} className="btn-a">✏️ Editar</button>
+                  <button onClick={()=>{setShowFormLabor(true);setEditandoLabor(null);setForm({operario:ingenieroNombre,superficie_ha:String(loteActivo.hectareas),fecha_lab:new Date().toISOString().split("T")[0],tipo_lab:"Aplicación"});}} className="btn-g">+ Labor</button>
+                  <button onClick={()=>{const mg=margenes.find(m=>m.lote_id===loteActivo.id);const labsTotal=labores.filter(l=>l.lote_id===loteActivo.id).reduce((a,l)=>a+(l.costo_total||0),0);if(mg)setForm({mg_rend_esp:String(mg.rendimiento_esperado),mg_rend_real:String(mg.rendimiento_real),mg_precio:String(mg.precio_tn),mg_semilla:String(mg.costo_semilla),mg_fertilizante:String(mg.costo_fertilizante),mg_agroquimicos:String(mg.costo_agroquimicos),mg_labores:String(Math.max(mg.costo_labores,labsTotal)),mg_alquiler:String(mg.costo_alquiler),mg_flete:String(mg.costo_flete),mg_comercializacion:String(mg.costo_comercializacion),mg_otros:String(mg.otros_costos)});else setForm({mg_labores:String(labsTotal)});setShowFormMargen(true);}} className="btn-b">📊 Margen</button>
                   {(loteActivo.estado==="cosechado"||!!loteActivo.fecha_cosecha||loteActivo.rendimiento_real>0)&&admite2do&&segundosCultivos.length===0&&(
-                    <button onClick={()=>{setForm({es_segundo_cultivo:"true",lote_base_id:loteActivo.id,nombre:loteActivo.nombre+" 2DO",hectareas:String(loteActivo.hectareas),tipo_tenencia:loteActivo.tipo_tenencia||"Propio",partido:loteActivo.partido||"",estado:"planificado",cultivo_key:"soja|2da"});setEditandoLote(null);setShowFormLote(true);}} className="btn-green px-3 py-2 rounded-xl text-xs font-bold">🔄 2º Cultivo</button>
+                    <button onClick={()=>{setForm({es_segundo_cultivo:"true",lote_base_id:loteActivo.id,nombre:loteActivo.nombre+" 2DO",hectareas:String(loteActivo.hectareas),tipo_tenencia:loteActivo.tipo_tenencia||"Propio",partido:loteActivo.partido||"",estado:"planificado",cultivo_key:"soja|2da"});setEditandoLote(null);setShowFormLote(true);}} className="btn-g">🔄 2º Cultivo</button>
                   )}
-                  <button onClick={()=>eliminarLote(loteActivo.id)} className="px-3 py-2 rounded-xl border border-red-500/20 text-red-400 text-xs hover:bg-red-500/10 transition-colors">🗑</button>
+                  <button onClick={()=>eliminarLote(loteActivo.id)} style={{background:"none",border:"1px solid rgba(220,38,38,0.22)",borderRadius:10,color:"#dc2626",fontSize:13,padding:"7px 12px",cursor:"pointer"}}>🗑</button>
                 </div>
               </div>
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {/* Stats 2x4 */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8}}>
               {[
-                {l:"Tenencia",v:loteActivo.tipo_tenencia||"—",c:"#eab308"},
-                {l:"Partido",v:loteActivo.partido||"—",c:"#9ca3af"},
-                {l:usaHibrido?"Híbrido":"Variedad",v:loteActivo.variedad||loteActivo.hibrido||"—",c:"#22c55e"},
-                {l:"F. Siembra",v:loteActivo.fecha_siembra||"Sin fecha",c:"#60a5fa"},
-                {l:"F. Cosecha",v:loteActivo.fecha_cosecha||"—",c:"#a78bfa"},
-                {l:"Rend. Esp.",v:loteActivo.rendimiento_esperado?loteActivo.rendimiento_esperado+" tn/ha":"—",c:"#eab308"},
-                {l:"Margen Bruto",v:margenLote?"$"+Math.round(margenLote.margen_bruto).toLocaleString("es-AR"):"—",c:margenLote&&margenLote.margen_bruto>=0?"#22c55e":"#ef4444"},
-                {l:"MB/ha",v:margenLote?"$"+Math.round(margenLote.margen_bruto_ha).toLocaleString("es-AR")+"/ha":"—",c:"#eab308"},
+                {l:"Tenencia",v:loteActivo.tipo_tenencia||"—",c:"#b45309"},
+                {l:"Partido",v:loteActivo.partido||"—",c:"#4a6a8a"},
+                {l:usaHibrido?"Híbrido":"Variedad",v:loteActivo.variedad||loteActivo.hibrido||"—",c:"#166534"},
+                {l:"F. Siembra",v:loteActivo.fecha_siembra||"Sin fecha",c:"#1565c0"},
+                {l:"F. Cosecha",v:loteActivo.fecha_cosecha||"—",c:"#7c3aed"},
+                {l:"Rend. Esp.",v:loteActivo.rendimiento_esperado?loteActivo.rendimiento_esperado+" tn/ha":"—",c:"#b45309"},
+                {l:"Margen Bruto",v:margenLote?"$"+Math.round(margenLote.margen_bruto).toLocaleString("es-AR"):"—",c:margenLote&&margenLote.margen_bruto>=0?"#166534":"#dc2626"},
+                {l:"MB/ha",v:margenLote?"$"+Math.round(margenLote.margen_bruto_ha).toLocaleString("es-AR")+"/ha":"—",c:"#b45309"},
               ].map(s=>(
-                <div key={s.l} className="card p-3">
-                  <div className="text-xs text-gray-500 uppercase tracking-wide">{s.l}</div>
-                  <div className="text-sm font-bold mt-1 uppercase" style={{color:s.c}}>{s.v}</div>
+                <div key={s.l} className="card" style={{padding:"10px 12px"}}>
+                  <div style={{fontSize:10,color:"#6b8aaa",textTransform:"uppercase",fontWeight:700,letterSpacing:0.8}}>{s.l}</div>
+                  <div style={{fontSize:13,fontWeight:800,marginTop:3,color:s.c}}>{s.v}</div>
                 </div>
               ))}
             </div>
 
             {/* Form editar lote */}
             {showFormLote&&editandoLote&&(
-              <div className="card p-5 fade-in">
-                <h3 className="text-amber-400 font-bold text-sm mb-4 uppercase">✏️ Editar Lote</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div><label className={lCls}>Nombre</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Hectáreas</label><input type="number" value={form.hectareas??""} onChange={e=>setForm({...form,hectareas:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Tenencia</label><select value={form.tipo_tenencia??"Propio"} onChange={e=>setForm({...form,tipo_tenencia:e.target.value})} className={iCls}>{["Propio","Arrendado","Contrato accidental","Aparcería","Otro"].map(t=><option key={t} value={t}>{t}</option>)}</select></div>
-                  <div><label className={lCls}>Partido</label><input type="text" value={form.partido??""} onChange={e=>setForm({...form,partido:e.target.value})} className={iCls}/></div>
-                  <div className="md:col-span-2"><label className={lCls}>Cultivo</label>
-                    <select value={form.cultivo_key??"soja|1ra"} onChange={e=>setForm({...form,cultivo_key:e.target.value})} className={iCls}>
+              <div className="card fade-in" style={{padding:16}}>
+                <h3 style={{fontSize:13,fontWeight:800,color:"#b45309",marginBottom:14,textTransform:"uppercase"}}>✏️ Editar Lote</h3>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                  <div><label className={lCls}>Nombre</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className="inp" style={{padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Hectáreas</label><input type="number" value={form.hectareas??""} onChange={e=>setForm({...form,hectareas:e.target.value})} className="inp" style={{padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Tenencia</label><select value={form.tipo_tenencia??"Propio"} onChange={e=>setForm({...form,tipo_tenencia:e.target.value})} className="inp" style={{padding:"8px 12px"}}>{["Propio","Arrendado","Contrato accidental","Aparcería","Otro"].map(t=><option key={t} value={t}>{t}</option>)}</select></div>
+                  <div><label className={lCls}>Partido</label><input type="text" value={form.partido??""} onChange={e=>setForm({...form,partido:e.target.value})} className="inp" style={{padding:"8px 12px"}}/></div>
+                  <div style={{gridColumn:"1/-1"}}><label className={lCls}>Cultivo</label>
+                    <select value={form.cultivo_key??"soja|1ra"} onChange={e=>setForm({...form,cultivo_key:e.target.value})} className="inp" style={{padding:"8px 12px"}}>
                       <optgroup label="Verano"><option value="soja|1ra">🌱 Soja 1º</option><option value="soja|2da">🌿 Soja 2º</option><option value="maiz|1ro_temprano">🌽 Maíz 1º</option><option value="maiz|1ro_tardio">🌽 Maíz 1º Tardío</option><option value="maiz|2do">🌽 Maíz 2º</option><option value="girasol|1ro">🌻 Girasol</option><option value="sorgo|1ro">🌿 Sorgo 1º</option><option value="sorgo|2do">🌿 Sorgo 2º</option></optgroup>
                       <optgroup label="Invierno"><option value="trigo|1ro">🌾 Trigo</option><option value="cebada|1ra">🍃 Cebada</option><option value="arveja|1ra">🫛 Arveja</option><option value="carinata|1ra">🌱 Carinata</option><option value="camelina|1ra">🌱 Camelina</option></optgroup>
                       <optgroup label="Otros"><option value="pastura|libre">🌾 Pastura</option><option value="otros|libre">🌱 Otros</option></optgroup>
                     </select>
                   </div>
-                  <div><label className={lCls}>{usaHibrido?"Híbrido":"Variedad"}</label><input type="text" value={form.variedad??""} onChange={e=>setForm({...form,variedad:e.target.value})} className={iCls} placeholder="DM4612, NK..."/></div>
-                  <div><label className={lCls}>Estado</label><select value={form.estado??"planificado"} onChange={e=>setForm({...form,estado:e.target.value})} className={iCls}>{ESTADOS.map(e=><option key={e.v} value={e.v}>{e.l}</option>)}</select></div>
-                  <div><label className={lCls}>F. Siembra</label><input type="date" value={form.fecha_siembra??""} onChange={e=>setForm({...form,fecha_siembra:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>F. Cosecha</label><input type="date" value={form.fecha_cosecha??""} onChange={e=>setForm({...form,fecha_cosecha:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Rend. Esp. tn/ha</label><input type="number" value={form.rendimiento_esperado??""} onChange={e=>setForm({...form,rendimiento_esperado:e.target.value})} className={iCls}/></div>
-                  <div className="md:col-span-2"><label className={lCls}>Observaciones</label><input type="text" value={form.observaciones??""} onChange={e=>setForm({...form,observaciones:e.target.value})} className={iCls}/></div>
+                  <div><label className={lCls}>{usaHibrido?"Híbrido":"Variedad"}</label><input type="text" value={form.variedad??""} onChange={e=>setForm({...form,variedad:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="DM4612, NK..."/></div>
+                  <div><label className={lCls}>Estado</label><select value={form.estado??"planificado"} onChange={e=>setForm({...form,estado:e.target.value})} className="inp" style={{padding:"8px 12px"}}>{ESTADOS.map(e=><option key={e.v} value={e.v}>{e.l}</option>)}</select></div>
+                  <div><label className={lCls}>F. Siembra</label><input type="date" value={form.fecha_siembra??""} onChange={e=>setForm({...form,fecha_siembra:e.target.value})} className="inp" style={{padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>F. Cosecha</label><input type="date" value={form.fecha_cosecha??""} onChange={e=>setForm({...form,fecha_cosecha:e.target.value})} className="inp" style={{padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Rend. Esp.</label><input type="number" value={form.rendimiento_esperado??""} onChange={e=>setForm({...form,rendimiento_esperado:e.target.value})} className="inp" style={{padding:"8px 12px"}}/></div>
+                  <div style={{gridColumn:"1/-1"}}><label className={lCls}>Observaciones</label><input type="text" value={form.observaciones??""} onChange={e=>setForm({...form,observaciones:e.target.value})} className="inp" style={{padding:"8px 12px"}}/></div>
                 </div>
-                <div className="mt-4 pt-4 border-t border-[#1e2d3d]">
-                  <span className="text-xs text-gray-500 uppercase tracking-wide">Estado rápido:</span>
-                  <div className="flex gap-2 mt-2 flex-wrap">{ESTADOS.map(e=><button key={e.v} onClick={()=>setForm({...form,estado:e.v})} className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-all" style={{borderColor:form.estado===e.v?e.c:e.c+"30",background:form.estado===e.v?e.c+"20":"transparent",color:e.c}}>{e.l}</button>)}</div>
+                {/* Estado rápido */}
+                <div style={{borderTop:"1px solid rgba(0,60,140,0.08)",paddingTop:12,marginBottom:12}}>
+                  <span style={{fontSize:10,color:"#6b8aaa",textTransform:"uppercase",fontWeight:700,letterSpacing:0.8}}>Estado rápido:</span>
+                  <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
+                    {ESTADOS.map(e=><button key={e.v} onClick={()=>setForm({...form,estado:e.v})}
+                      style={{padding:"6px 12px",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",
+                        borderColor:form.estado===e.v?e.c:e.c+"30",border:`1.5px solid`,
+                        background:form.estado===e.v?e.c+"18":"transparent",color:e.c,transition:"all 0.15s"}}>{e.l}</button>)}
+                  </div>
                 </div>
-                <div className="mt-4 pt-4 border-t border-[#1e2d3d]">
-                  <span className="text-xs text-gray-500 uppercase tracking-wide">Adjuntos:</span>
-                  <input ref={adjuntoRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.xlsx" className="hidden" onChange={async e=>{const f=e.target.files?.[0];if(f)await subirAdjunto(f,form.adjunto_tipo||"suelo");}}/>
-                  <div className="flex gap-2 mt-2">{[["suelo","🌍 Suelo"],["agua","💧 Agua"],["otro","📎 Otro"]].map(([tipo,label])=><button key={tipo} onClick={()=>{setForm({...form,adjunto_tipo:tipo});adjuntoRef.current?.click();}} className="btn-amber px-3 py-2 rounded-lg text-xs font-bold">{label}</button>)}</div>
+                {/* Adjuntos */}
+                <div style={{borderTop:"1px solid rgba(0,60,140,0.08)",paddingTop:12,marginBottom:12}}>
+                  <span style={{fontSize:10,color:"#6b8aaa",textTransform:"uppercase",fontWeight:700,letterSpacing:0.8}}>Adjuntos:</span>
+                  <input ref={adjuntoRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.xlsx" style={{display:"none"}} onChange={async e=>{const f=e.target.files?.[0];if(f)await subirAdjunto(f,form.adjunto_tipo||"suelo");}}/>
+                  <div style={{display:"flex",gap:8,marginTop:8}}>
+                    {[["suelo","🌍 Suelo"],["agua","💧 Agua"],["otro","📎 Otro"]].map(([tipo,label])=>(
+                      <button key={tipo} onClick={()=>{setForm({...form,adjunto_tipo:tipo});adjuntoRef.current?.click();}} className="btn-a" style={{fontSize:12}}>{label}</button>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex gap-2 mt-4">
-                  <button onClick={guardarLote} className="btn-solid-green px-5 py-2.5 rounded-xl text-sm font-bold">Guardar</button>
-                  <button onClick={()=>{setShowFormLote(false);setEditandoLote(null);setForm({});}} className="bg-[#1e2a3a] text-gray-400 px-5 py-2.5 rounded-xl text-sm hover:bg-[#253447] transition-colors">Cancelar</button>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={guardarLote} className="btn-solid">Guardar</button>
+                  <button onClick={()=>{setShowFormLote(false);setEditandoLote(null);setForm({});}} className="btn-cancel">Cancelar</button>
                 </div>
               </div>
             )}
 
             {/* Form margen */}
             {showFormMargen&&(
-              <div className="card p-5 fade-in">
-                <h3 className="text-blue-400 font-bold text-sm mb-1 uppercase">📊 Margen Bruto — {loteActivo.nombre}</h3>
-                <p className="text-xs text-gray-500 mb-4">{cultivoActivoInfo?.label} · {loteActivo.hectareas} ha · USD ${usdUsado} · Costos de labores cargados: ${labores.filter(l=>l.lote_id===loteActivo.id).reduce((a,l)=>a+(l.costo_total||0),0).toLocaleString("es-AR")}</p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-                  <div><label className={lCls}>Rend. Esperado tn/ha</label><input type="number" value={form.mg_rend_esp??""} onChange={e=>setForm({...form,mg_rend_esp:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Rend. Real tn/ha</label><input type="number" value={form.mg_rend_real??""} onChange={e=>setForm({...form,mg_rend_real:e.target.value})} className={iCls} placeholder="Al cosechar"/></div>
-                  <div><label className={lCls}>Precio $/tn</label><input type="number" value={form.mg_precio??""} onChange={e=>setForm({...form,mg_precio:e.target.value})} className={iCls}/></div>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              <div className="card fade-in" style={{padding:16}}>
+                <h3 style={{fontSize:13,fontWeight:800,color:"#1565c0",marginBottom:4,textTransform:"uppercase"}}>📊 Margen Bruto — {loteActivo.nombre}</h3>
+                <p style={{fontSize:12,color:"#6b8aaa",marginBottom:14}}>{cultivoActivoInfo?.label} · {loteActivo.hectareas} ha · Labores: ${labores.filter(l=>l.lote_id===loteActivo.id).reduce((a,l)=>a+(l.costo_total||0),0).toLocaleString("es-AR")}</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+                  <div><label className={lCls}>Rend. Esp. tn/ha</label><input type="number" value={form.mg_rend_esp??""} onChange={e=>setForm({...form,mg_rend_esp:e.target.value})} className="inp" style={{padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Rend. Real tn/ha</label><input type="number" value={form.mg_rend_real??""} onChange={e=>setForm({...form,mg_rend_real:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="Al cosechar"/></div>
+                  <div style={{gridColumn:"1/-1"}}><label className={lCls}>Precio $/tn</label><input type="number" value={form.mg_precio??""} onChange={e=>setForm({...form,mg_precio:e.target.value})} className="inp" style={{padding:"8px 12px"}}/></div>
                   {[["mg_semilla","Semillas"],["mg_fertilizante","Fertilizantes"],["mg_agroquimicos","Agroquímicos"],["mg_labores","Labores (auto)"],["mg_alquiler","Alquiler"],["mg_flete","Flete"],["mg_comercializacion","Comercialización"],["mg_otros","Otros"]].map(([k,l])=>(
-                    <div key={k}><label className={lCls}>{l}</label><input type="number" value={form[k]??""} onChange={e=>setForm({...form,[k]:e.target.value})} className={iCls} placeholder="0"/></div>
+                    <div key={k}><label className={lCls}>{l}</label><input type="number" value={form[k]??""} onChange={e=>setForm({...form,[k]:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="0"/></div>
                   ))}
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={guardarMargen} className="btn-solid-green px-5 py-2.5 rounded-xl text-sm font-bold">Guardar</button>
-                  <button onClick={()=>{setShowFormMargen(false);setForm({});}} className="bg-[#1e2a3a] text-gray-400 px-5 py-2.5 rounded-xl text-sm hover:bg-[#253447] transition-colors">Cancelar</button>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={guardarMargen} className="btn-solid">Guardar</button>
+                  <button onClick={()=>{setShowFormMargen(false);setForm({});}} className="btn-cancel">Cancelar</button>
                 </div>
               </div>
             )}
 
-            {/* ══ FORM LABOR — CUADERNO MEJORADO ══ */}
+            {/* ══ FORM LABOR ══ */}
             {showFormLabor&&(
-              <div className="card p-5 fade-in">
-                <h3 className="text-green-400 font-bold text-sm mb-4 uppercase">{editandoLabor?"✏️ Editar Labor":"+ Nueva Labor"} — {loteActivo.nombre}</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {/* Fila 1 */}
-                  <div>
-                    <label className={lCls}>Tipo</label>
-                    <select value={form.tipo_lab??"Aplicación"} onChange={e=>setForm({...form,tipo_lab:e.target.value})} className={iCls}>
+              <div className="card fade-in" style={{padding:16}}>
+                <h3 style={{fontSize:13,fontWeight:800,color:"#166534",marginBottom:14,textTransform:"uppercase"}}>{editandoLabor?"✏️ Editar Labor":"+ Nueva Labor"} — {loteActivo.nombre}</h3>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                  <div><label className={lCls}>Tipo</label>
+                    <select value={form.tipo_lab??"Aplicación"} onChange={e=>setForm({...form,tipo_lab:e.target.value})} className="inp" style={{padding:"8px 12px"}}>
                       {TIPOS_LABOR.map(t=><option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
-                  <div>
-                    <label className={lCls}>Fecha</label>
-                    <input type="date" value={form.fecha_lab??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_lab:e.target.value})} className={iCls}/>
-                  </div>
-                  <div>
-                    <label className={lCls}>Superficie ha</label>
-                    <input type="number" value={form.superficie_ha??String(loteActivo.hectareas)} onChange={e=>setForm({...form,superficie_ha:e.target.value})} className={iCls}/>
-                  </div>
-                  <div>
-                    <label className={lCls}>Operario</label>
-                    <input type="text" value={form.operario??ingenieroNombre} onChange={e=>setForm({...form,operario:e.target.value})} className={iCls}/>
-                  </div>
-                  {/* Fila 2 */}
-                  <div className="md:col-span-2">
-                    <label className={lCls}>Producto / Dosis</label>
-                    <input type="text" value={form.producto_dosis??""} onChange={e=>setForm({...form,producto_dosis:e.target.value,descripcion_lab:e.target.value})} className={iCls} placeholder="Ej: Glifosato 4L/ha + Flumioxazine 60g/ha"/>
-                  </div>
-                  <div>
-                    <label className={lCls}>Aplicador</label>
-                    <select value={form.aplicador??""} onChange={e=>setForm({...form,aplicador:e.target.value})} className={iCls}>
+                  <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_lab??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_lab:e.target.value})} className="inp" style={{padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Superficie ha</label><input type="number" value={form.superficie_ha??String(loteActivo.hectareas)} onChange={e=>setForm({...form,superficie_ha:e.target.value})} className="inp" style={{padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Operario</label><input type="text" value={form.operario??ingenieroNombre} onChange={e=>setForm({...form,operario:e.target.value})} className="inp" style={{padding:"8px 12px"}}/></div>
+                  <div style={{gridColumn:"1/-1"}}><label className={lCls}>Producto / Dosis</label><input type="text" value={form.producto_dosis??""} onChange={e=>setForm({...form,producto_dosis:e.target.value,descripcion_lab:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="Ej: Glifosato 4L/ha + Flumioxazine 60g/ha"/></div>
+                  <div><label className={lCls}>Aplicador</label>
+                    <select value={form.aplicador??""} onChange={e=>setForm({...form,aplicador:e.target.value})} className="inp" style={{padding:"8px 12px"}}>
                       {APLICADORES.map(a=><option key={a} value={a}>{APLIC_ICON[a]||""} {a}</option>)}
                     </select>
                   </div>
                   <div/>
-                  {/* Fila 3 - Costos */}
-                  <div>
-                    <label className={lCls}>Costo aplicación $/ha</label>
-                    <input type="number" value={form.costo_aplicacion_ha??""} onChange={e=>{const ha=Number(form.superficie_ha||loteActivo.hectareas||0);setForm({...form,costo_aplicacion_ha:e.target.value,costo_total_lab:String(Number(e.target.value)*ha)});}} className={iCls} placeholder="0"/>
-                  </div>
-                  <div>
-                    <label className={lCls}>Costo total $</label>
-                    <input type="number" value={form.costo_total_lab??""} onChange={e=>setForm({...form,costo_total_lab:e.target.value})} className={iCls} placeholder="0"/>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className={lCls}>Comentario libre</label>
-                    <input type="text" value={form.comentario??""} onChange={e=>setForm({...form,comentario:e.target.value})} className={iCls} placeholder="Ej: Faltan plantas en sector norte, lote con presión de malezas..."/>
-                  </div>
+                  <div><label className={lCls}>Costo aplic. $/ha</label><input type="number" value={form.costo_aplicacion_ha??""} onChange={e=>{const ha=Number(form.superficie_ha||loteActivo.hectareas||0);setForm({...form,costo_aplicacion_ha:e.target.value,costo_total_lab:String(Number(e.target.value)*ha)});}} className="inp" style={{padding:"8px 12px"}} placeholder="0"/></div>
+                  <div><label className={lCls}>Costo total $</label><input type="number" value={form.costo_total_lab??""} onChange={e=>setForm({...form,costo_total_lab:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="0"/></div>
+                  <div style={{gridColumn:"1/-1"}}><label className={lCls}>Comentario</label><input type="text" value={form.comentario??""} onChange={e=>setForm({...form,comentario:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="Observaciones, presión de malezas..."/></div>
                 </div>
                 {/* Preview costo */}
-                {(form.costo_total_lab||form.costo_aplicacion_ha)&&(
-                  <div className="mt-3 p-3 bg-amber-500/8 border border-amber-500/20 rounded-xl flex items-center gap-3 text-sm">
-                    <span className="text-amber-400">💰</span>
-                    <span className="text-gray-300">Costo total: <strong className="text-amber-400">${Number(form.costo_total_lab||0).toLocaleString("es-AR")}</strong></span>
-                    {margenLote&&<span className="text-gray-500 text-xs">· Se sumará automáticamente al margen bruto</span>}
+                {(form.costo_total_lab||form.costo_aplicacion_ha)&&Number(form.costo_total_lab||0)>0&&(
+                  <div style={{marginBottom:12,padding:"10px 14px",borderRadius:12,background:"rgba(180,140,0,0.08)",border:"1px solid rgba(180,140,0,0.18)",display:"flex",alignItems:"center",gap:8,fontSize:13}}>
+                    <span>💰</span>
+                    <span style={{color:"#4a6a8a"}}>Costo total: <strong style={{color:"#b45309"}}>${Number(form.costo_total_lab||0).toLocaleString("es-AR")}</strong></span>
+                    {margenLote&&<span style={{fontSize:11,color:"#6b8aaa"}}>· Se sumará al margen bruto</span>}
                   </div>
                 )}
-                {/* Selección rápida tipo */}
-                <div className="mt-3 pt-3 border-t border-[#1e2d3d]">
-                  <span className="text-xs text-gray-500 uppercase tracking-wide">Tipo rápido:</span>
-                  <div className="flex gap-2 mt-2 flex-wrap">
-                    {TIPOS_LABOR.map(t=><button key={t} onClick={()=>setForm({...form,tipo_lab:t})} className="px-3 py-1.5 rounded-lg text-xs font-medium border transition-all" style={{borderColor:form.tipo_lab===t?laborColor(t):laborColor(t)+"30",background:form.tipo_lab===t?laborColor(t)+"20":"transparent",color:form.tipo_lab===t?laborColor(t):laborColor(t)+"80"}}>{t}</button>)}
+                {/* Tipo rápido */}
+                <div style={{borderTop:"1px solid rgba(0,60,140,0.08)",paddingTop:12,marginBottom:12}}>
+                  <span style={{fontSize:10,color:"#6b8aaa",textTransform:"uppercase",fontWeight:700,letterSpacing:0.8}}>Tipo rápido:</span>
+                  <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
+                    {TIPOS_LABOR.map(t=>(
+                      <button key={t} onClick={()=>setForm({...form,tipo_lab:t})}
+                        style={{padding:"6px 12px",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",
+                          border:`1.5px solid ${form.tipo_lab===t?laborColor(t):laborColor(t)+"35"}`,
+                          background:form.tipo_lab===t?laborColor(t)+"18":"transparent",
+                          color:form.tipo_lab===t?laborColor(t):laborColor(t)+"80",transition:"all 0.15s"}}>{t}</button>
+                    ))}
                   </div>
                 </div>
-                <div className="flex gap-2 mt-4">
-                  <button onClick={guardarLabor} className="btn-solid-green px-5 py-2.5 rounded-xl text-sm font-bold">Guardar Labor</button>
-                  <button onClick={()=>{setShowFormLabor(false);setEditandoLabor(null);setForm({});}} className="bg-[#1e2a3a] text-gray-400 px-5 py-2.5 rounded-xl text-sm hover:bg-[#253447] transition-colors">Cancelar</button>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={guardarLabor} className="btn-solid">Guardar Labor</button>
+                  <button onClick={()=>{setShowFormLabor(false);setEditandoLabor(null);setForm({});}} className="btn-cancel">Cancelar</button>
                 </div>
               </div>
             )}
 
-            {/* ══ HISTORIAL LABORES / CUADERNO ══ */}
-            <div className="card overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-[#1e2d3d] flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-3">
-                  <span className="font-bold text-gray-100 text-sm">📋 Cuaderno de Campo</span>
-                  <span className="text-xs text-gray-500">{laboresLote.length} registros</span>
-                  {laboresLote.length>0&&<span className="text-xs text-amber-400">Total costos: ${laboresLote.reduce((a,l)=>a+(l.costo_total||0),0).toLocaleString("es-AR")}</span>}
+            {/* ══ CUADERNO DE CAMPO ══ */}
+            <div className="card" style={{padding:0}}>
+              <div style={{padding:"12px 16px",borderBottom:"1px solid rgba(0,60,140,0.08)",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:14,fontWeight:800,color:"#0d2137"}}>📋 Cuaderno de Campo</span>
+                  <span style={{fontSize:12,color:"#6b8aaa"}}>{laboresLote.length} registros</span>
+                  {laboresLote.length>0&&<span style={{fontSize:12,fontWeight:700,color:"#b45309"}}>Total: ${laboresLote.reduce((a,l)=>a+(l.costo_total||0),0).toLocaleString("es-AR")}</span>}
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={exportarCuaderno} className="btn-green px-3 py-1.5 rounded-lg text-xs font-bold">📤 Exportar</button>
-                  <button onClick={()=>{setShowImportCuaderno(!showImportCuaderno);setCuadernoPreview([]);setCuadernoMsg("");}} className="btn-amber px-3 py-1.5 rounded-lg text-xs font-bold">📥 Importar multi-lote</button>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={exportarCuaderno} className="btn-g">📤 Exportar</button>
+                  <button onClick={()=>{setShowImportCuaderno(!showImportCuaderno);setCuadernoPreview([]);setCuadernoMsg("");}} className="btn-a">📥 Multi-lote</button>
                 </div>
               </div>
 
               {/* Import cuaderno */}
               {showImportCuaderno&&(
-                <div className="border-b border-[#1e2d3d] bg-[#0a1628]/50 p-4 fade-in">
-                  <div className="text-xs text-gray-500 mb-2">Columnas Excel: <span className="text-amber-400 font-mono">LOTE | FECHA | TIPO | PRODUCTO/DOSIS | APLICADOR | COSTO_HA | COSTO_TOTAL | COMENTARIO</span></div>
-                  <input ref={importCuadernoRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)leerExcelCuaderno(f);}}/>
+                <div style={{borderBottom:"1px solid rgba(0,60,140,0.08)",background:"rgba(240,248,255,0.50)",padding:14}} className="fade-in">
+                  <div style={{fontSize:11,color:"#6b8aaa",marginBottom:8}}>Columnas: <span style={{color:"#b45309",fontWeight:700}}>LOTE | FECHA | TIPO | PRODUCTO/DOSIS | APLICADOR | COSTO_HA | COSTO_TOTAL | COMENTARIO</span></div>
+                  <input ref={importCuadernoRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f)leerExcelCuaderno(f);}}/>
                   {cuadernoPreview.length===0
-                    ?<button onClick={()=>importCuadernoRef.current?.click()} className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-[#1e2d3d] rounded-xl text-gray-500 text-sm w-full justify-center hover:border-green-600/50 hover:text-green-400 transition-colors">📁 Seleccionar Excel multi-lote</button>
+                    ?<button onClick={()=>importCuadernoRef.current?.click()} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 16px",border:"2px dashed rgba(25,118,210,0.25)",borderRadius:12,color:"#1565c0",fontSize:13,fontWeight:600,background:"none",cursor:"pointer",width:"100%",justifyContent:"center"}}>📁 Seleccionar Excel</button>
                     :<div>
-                      <div className="max-h-40 overflow-y-auto mb-3 rounded-xl border border-[#1e2d3d]">
-                        <table className="w-full text-xs">
-                          <thead className="bg-[#1a2535]"><tr>{["Lote","En sistema","Fecha","Ha","Tipo","Dosis / Producto","Aplic.","$/ha","Total"].map(h=><th key={h} className="text-left px-3 py-2 text-gray-400 font-medium">{h}</th>)}</tr></thead>
+                      <div style={{maxHeight:160,overflowY:"auto",marginBottom:10,borderRadius:10,border:"1px solid rgba(0,60,140,0.10)"}}>
+                        <table style={{width:"100%",fontSize:11,borderCollapse:"collapse"}}>
+                          <thead style={{background:"rgba(240,248,255,0.80)"}}><tr>{["Lote","Match","Fecha","Ha","Tipo","Producto","$/ha","Total"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 10px",color:"#6b8aaa",fontWeight:600}}>{h}</th>)}</tr></thead>
                           <tbody>{cuadernoPreview.map((r,i)=>(
-                            <tr key={i} className="border-t border-[#1a2535]">
-                              <td className="px-3 py-2 font-bold text-amber-400 text-xs">{r.lote_nombre}</td>
-                              <td className="px-3 py-2 text-xs">{r.lote_match?<span className="text-green-400 font-medium">✓ {r.lote_match}</span>:<span className="text-red-400">✗ No match</span>}</td>
-                              <td className="px-3 py-2 text-gray-400 text-xs">{r.fecha||"—"}</td>
-                              <td className="px-3 py-2 text-gray-200 font-bold text-xs">{r.hectareas>0?r.hectareas:"—"}</td>
-                              <td className="px-3 py-2 text-xs"><span className="px-1.5 py-0.5 rounded font-bold" style={{background:laborColor(r.tipo)+"20",color:laborColor(r.tipo)}}>{r.tipo}</span></td>
-                              <td className="px-3 py-2 text-gray-200 max-w-[160px] truncate text-xs">{r.producto_dosis||"—"}</td>
-                              <td className="px-3 py-2 text-gray-400 text-xs">{r.aplicador||"—"}</td>
-                              <td className="px-3 py-2 text-amber-400 text-xs">{r.costo_aplicacion_ha>0?`$${r.costo_aplicacion_ha}`:"—"}</td>
-                              <td className="px-3 py-2 text-amber-300 font-bold text-xs">{r.costo_total>0?`$${Number(r.costo_total).toLocaleString("es-AR")}`:"—"}</td>
+                            <tr key={i} style={{borderBottom:"1px solid rgba(0,60,140,0.05)"}}>
+                              <td style={{padding:"6px 10px",fontWeight:700,color:"#b45309"}}>{r.lote_nombre}</td>
+                              <td style={{padding:"6px 10px"}}>{r.lote_match?<span style={{color:"#166534",fontWeight:700}}>✓ {r.lote_match}</span>:<span style={{color:"#dc2626"}}>✗</span>}</td>
+                              <td style={{padding:"6px 10px",color:"#6b8aaa"}}>{r.fecha||"—"}</td>
+                              <td style={{padding:"6px 10px",fontWeight:700,color:"#0d2137"}}>{r.hectareas>0?r.hectareas:"—"}</td>
+                              <td style={{padding:"6px 10px"}}><span className="tag" style={{background:laborColor(r.tipo)+"18",color:laborColor(r.tipo),border:`1px solid ${laborColor(r.tipo)}30`}}>{r.tipo}</span></td>
+                              <td style={{padding:"6px 10px",color:"#1e3a5f",maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.producto_dosis||"—"}</td>
+                              <td style={{padding:"6px 10px",color:"#b45309",fontWeight:700}}>{r.costo_aplicacion_ha>0?`$${r.costo_aplicacion_ha}`:"—"}</td>
+                              <td style={{padding:"6px 10px",fontWeight:800,color:"#0D47A1"}}>{r.costo_total>0?`$${Number(r.costo_total).toLocaleString("es-AR")}`:"—"}</td>
                             </tr>
                           ))}</tbody>
                         </table>
                       </div>
-                      <div className="flex gap-2">
-                        <button onClick={confirmarImportCuaderno} className="btn-solid-green px-4 py-2 rounded-xl text-sm font-bold">▶ Importar {cuadernoPreview.filter(r=>r.lote_id).length} labores</button>
-                        <button onClick={()=>setCuadernoPreview([])} className="bg-[#1e2a3a] text-gray-400 px-4 py-2 rounded-xl text-sm transition-colors">Cancelar</button>
+                      <div style={{display:"flex",gap:8}}>
+                        <button onClick={confirmarImportCuaderno} className="btn-solid">▶ Importar {cuadernoPreview.filter(r=>r.lote_id).length} labores</button>
+                        <button onClick={()=>setCuadernoPreview([])} className="btn-cancel">Cancelar</button>
                       </div>
                     </div>
                   }
-                  {cuadernoMsg&&<p className={`mt-2 text-xs font-medium ${cuadernoMsg.startsWith("✅")?"text-green-400":"cuadernoMsg".startsWith("❌")?"text-red-400":"text-amber-400"}`}>{cuadernoMsg}</p>}
+                  {cuadernoMsg&&<p style={{marginTop:8,fontSize:12,fontWeight:700,color:cuadernoMsg.startsWith("✅")?"#166534":"#dc2626"}}>{cuadernoMsg}</p>}
                 </div>
               )}
 
               {/* Lista labores */}
-              {laboresLote.length===0
-                ?<div className="text-center py-12 text-gray-600">
-                  <div className="text-4xl mb-3 opacity-30">📋</div>
-                  <p className="text-sm">Sin labores registradas</p>
-                  <button onClick={()=>{setShowFormLabor(true);setEditandoLabor(null);setForm({operario:ingenieroNombre,superficie_ha:String(loteActivo.hectareas),fecha_lab:new Date().toISOString().split("T")[0],tipo_lab:"Aplicación"});}} className="mt-3 btn-green px-4 py-2 rounded-xl text-sm font-bold">+ Agregar primera labor</button>
+              {laboresLote.length===0?(
+                <div style={{textAlign:"center",padding:"48px 20px"}}>
+                  <div style={{fontSize:40,opacity:0.15,marginBottom:12}}>📋</div>
+                  <p style={{color:"#6b8aaa",fontSize:14}}>Sin labores registradas</p>
+                  <button onClick={()=>{setShowFormLabor(true);setEditandoLabor(null);setForm({operario:ingenieroNombre,superficie_ha:String(loteActivo.hectareas),fecha_lab:new Date().toISOString().split("T")[0],tipo_lab:"Aplicación"});}} className="btn-g" style={{marginTop:12}}>+ Primera labor</button>
                 </div>
-                :<div>
+              ):(
+                <div>
                   {laboresLote.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(l=>{
-                    const color = laborColor(l.tipo);
-                    const aplic = (l as any).aplicador;
-                    const prod = (l as any).producto_dosis;
-                    const coment = (l as any).comentario;
-                    const costoHa = (l as any).costo_aplicacion_ha;
+                    const color=laborColor(l.tipo);
+                    const aplic=(l as any).aplicador;
+                    const prod=(l as any).producto_dosis;
+                    const coment=(l as any).comentario;
+                    const costoHa=(l as any).costo_aplicacion_ha;
                     return(
-                      <div key={l.id} className="border-b border-[#1a2535] px-4 py-3.5 hover:bg-[#0f1923]/70 transition-colors">
-                        <div className="flex items-start gap-3">
-                          {/* Indicador color tipo */}
-                          <div className="w-1 self-stretch rounded-full flex-shrink-0 mt-1" style={{background:color}}/>
-                          <div className="flex-1 min-w-0">
-                            {/* Fila principal */}
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="tag" style={{background:color+"20",color}}>{l.tipo}</span>
-                              <span className="text-xs text-gray-500">{l.fecha}</span>
-                              {aplic&&aplic!=="—"&&<span className="text-xs text-gray-400">{APLIC_ICON[aplic]||""} {aplic}</span>}
-                              {l.superficie_ha&&<span className="text-xs text-gray-500">{l.superficie_ha} ha</span>}
+                      <div key={l.id} style={{borderBottom:"1px solid rgba(0,60,140,0.07)",padding:"12px 16px",transition:"background 0.15s"}}
+                        onMouseOver={e=>(e.currentTarget.style.background="rgba(240,248,255,0.50)")}
+                        onMouseOut={e=>(e.currentTarget.style.background="transparent")}>
+                        <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
+                          <div style={{width:3,alignSelf:"stretch",borderRadius:3,background:color,flexShrink:0}}/>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                              <span className="tag" style={{background:color+"18",color,border:`1px solid ${color}28`}}>{l.tipo}</span>
+                              <span style={{fontSize:12,color:"#6b8aaa"}}>{l.fecha}</span>
+                              {aplic&&aplic!=="—"&&<span style={{fontSize:12,color:"#4a6a8a"}}>{APLIC_ICON[aplic]||""} {aplic}</span>}
+                              {l.superficie_ha&&<span style={{fontSize:12,color:"#6b8aaa"}}>{l.superficie_ha} ha</span>}
                             </div>
-                            {/* Producto/Dosis */}
-                            {(prod||l.descripcion)&&<div className="text-sm text-gray-200 mt-1.5 font-medium">{prod||l.descripcion}</div>}
-                            {/* Comentario */}
-                            {coment&&<div className="text-xs text-amber-300/80 mt-1 flex items-start gap-1.5"><span className="flex-shrink-0 mt-0.5">💬</span><span>{coment}</span></div>}
-                            {/* Operario */}
-                            {(l as any).operario&&(l as any).operario!==ingenieroNombre&&<div className="text-xs text-gray-600 mt-0.5">👤 {(l as any).operario}</div>}
+                            {(prod||l.descripcion)&&<div style={{fontSize:13,fontWeight:700,color:"#0d2137",marginTop:5}}>{prod||l.descripcion}</div>}
+                            {coment&&<div style={{fontSize:12,color:"#b45309",marginTop:4,display:"flex",alignItems:"flex-start",gap:5}}><span>💬</span><span>{coment}</span></div>}
                           </div>
-                          {/* Costos */}
-                          <div className="text-right flex-shrink-0">
-                            {l.costo_total>0&&<div className="text-sm font-bold text-amber-400">${Number(l.costo_total).toLocaleString("es-AR")}</div>}
-                            {costoHa>0&&<div className="text-xs text-amber-600">${costoHa}/ha</div>}
-                            <div className="flex gap-1.5 mt-1.5 justify-end">
-                              <button onClick={()=>{setEditandoLabor(l.id);setForm({tipo_lab:l.tipo,fecha_lab:l.fecha,descripcion_lab:l.descripcion,producto_dosis:(l as any).producto_dosis||l.descripcion||"",aplicador:(l as any).aplicador||"",superficie_ha:String(l.superficie_ha),operario:l.operario,costo_aplicacion_ha:String((l as any).costo_aplicacion_ha||""),costo_total_lab:String(l.costo_total||""),comentario:(l as any).comentario||""});setShowFormLabor(true);}} className="text-amber-400 hover:text-amber-300 text-xs transition-colors">✏️</button>
-                              <button onClick={()=>eliminarLabor(l.id)} className="text-gray-600 hover:text-red-400 text-xs transition-colors">✕</button>
+                          <div style={{textAlign:"right",flexShrink:0}}>
+                            {l.costo_total>0&&<div style={{fontSize:13,fontWeight:800,color:"#0D47A1"}}>${Number(l.costo_total).toLocaleString("es-AR")}</div>}
+                            {costoHa>0&&<div style={{fontSize:11,color:"#b45309",fontWeight:600}}>${costoHa}/ha</div>}
+                            <div style={{display:"flex",gap:8,marginTop:6,justifyContent:"flex-end"}}>
+                              <button onClick={()=>{setEditandoLabor(l.id);setForm({tipo_lab:l.tipo,fecha_lab:l.fecha,descripcion_lab:l.descripcion,producto_dosis:(l as any).producto_dosis||l.descripcion||"",aplicador:(l as any).aplicador||"",superficie_ha:String(l.superficie_ha),operario:l.operario,costo_aplicacion_ha:String((l as any).costo_aplicacion_ha||""),costo_total_lab:String(l.costo_total||""),comentario:(l as any).comentario||""});setShowFormLabor(true);}} style={{fontSize:13,color:"#b45309",background:"none",border:"none",cursor:"pointer"}}>✏️</button>
+                              <button onClick={()=>eliminarLabor(l.id)} style={{fontSize:13,color:"#aab8c8",background:"none",border:"none",cursor:"pointer"}}>✕</button>
                             </div>
                           </div>
                         </div>
@@ -1341,156 +1474,187 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
                     );
                   })}
                 </div>
-              }
+              )}
             </div>
           </div>
         )}
 
-        {/* ══════════════════════════════════
-            VISTA PRINCIPAL — LISTA LOTES
-        ══════════════════════════════════ */}
+        {/* ══ VISTA PRINCIPAL ══ */}
         {!loteActivo&&(
           <div>
             {/* Tabs + acciones */}
-            <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14,flexWrap:"wrap"}}>
               {[{k:"lotes",l:"📋 Lotes"},{k:"margen",l:"📊 Margen"}].map(t=>(
-                <button key={t.k} onClick={()=>setTab(t.k as "lotes"|"margen")} className="px-4 py-2 rounded-xl text-xs font-bold border transition-all" style={{borderColor:tab===t.k?"#22c55e":"#1e2d3d",color:tab===t.k?"#22c55e":"#6b7280",background:tab===t.k?"rgba(34,197,94,0.1)":"transparent"}}>{t.l}</button>
+                <button key={t.k} onClick={()=>setTab(t.k as "lotes"|"margen")}
+                  className={`tab-btn${tab===t.k?" tab-active":""}`}>
+                  <span className="tab-btn-text">{t.l}</span>
+                </button>
               ))}
-              <div className="flex-1"/>
-              {/* Import multi-lote cuaderno desde vista principal */}
-              <button onClick={()=>{setShowImportCuaderno(!showImportCuaderno);setCuadernoPreview([]);setCuadernoMsg("");setLoteActivo(null);}} className="btn-amber px-3 py-2 rounded-xl text-xs font-bold">📥 Cuaderno multi-lote</button>
-              <button onClick={()=>setShowImport(!showImport)} className="btn-amber px-3 py-2 rounded-xl text-xs font-bold">📥 Importar lotes</button>
-              <button onClick={exportarLotes} className="btn-green px-3 py-2 rounded-xl text-xs font-bold">📤 Exportar</button>
-              <button onClick={()=>{setEditandoLote(null);setForm({estado:"planificado",tipo_tenencia:"Propio",cultivo_key:"soja|1ra"});setShowFormLote(!showFormLote);}} className="btn-green px-4 py-2 rounded-xl text-xs font-bold">+ Nuevo lote</button>
+              <div style={{flex:1}}/>
+              <button onClick={()=>{setShowImportCuaderno(!showImportCuaderno);setCuadernoPreview([]);setCuadernoMsg("");setLoteActivo(null);}} className="btn-a">📥 Cuaderno multi-lote</button>
+              <button onClick={()=>setShowImport(!showImport)} className="btn-a">📥 Importar lotes</button>
+              <button onClick={exportarLotes} className="btn-g">📤 Exportar</button>
+              <button onClick={()=>{setEditandoLote(null);setForm({estado:"planificado",tipo_tenencia:"Propio",cultivo_key:"soja|1ra"});setShowFormLote(!showFormLote);}} className="btn-solid">+ Nuevo lote</button>
             </div>
 
-            {/* Import cuaderno multi-lote desde vista principal */}
+            {/* Import cuaderno multi-lote */}
             {showImportCuaderno&&!loteActivo&&(
-              <div className="card p-4 mb-4 fade-in">
-                <div className="flex items-center justify-between mb-3">
+              <div className="card fade-in" style={{padding:16,marginBottom:12}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
                   <div>
-                    <h3 className="font-bold text-amber-400 text-sm">📥 Importar Cuaderno Multi-Lote</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">Cargá labores de varios lotes en un solo Excel</p>
+                    <h3 style={{fontSize:13,fontWeight:800,color:"#b45309",margin:0}}>📥 Cuaderno Multi-Lote</h3>
+                    <p style={{fontSize:11,color:"#6b8aaa",marginTop:2}}>Cargá labores de varios lotes en un solo Excel</p>
                   </div>
-                  <button onClick={()=>{setShowImportCuaderno(false);setCuadernoPreview([]);setCuadernoMsg("");}} className="text-gray-500 hover:text-gray-300">✕</button>
+                  <button onClick={()=>{setShowImportCuaderno(false);setCuadernoPreview([]);setCuadernoMsg("");}} style={{background:"none",border:"none",color:"#6b8aaa",cursor:"pointer",fontSize:18}}>✕</button>
                 </div>
-                <div className="bg-[#1a2535] rounded-xl p-3 mb-3 text-xs text-gray-400">
-                  <div className="font-bold text-gray-300 mb-1">Formato esperado:</div>
-                  <div className="font-mono text-amber-400/80">LOTE | FECHA | TIPO | PRODUCTO/DOSIS | APLICADOR | COSTO_HA | COSTO_TOTAL | COMENTARIO</div>
-                  <div className="mt-1 text-gray-600">Tipos: Siembra / Aplicación / Fertilización / Cosecha / Labranza / Control malezas / Recorrida</div>
-                  <div className="text-gray-600">Aplicadores: Mosquito / Drone / Avión / Tractor / Manual</div>
+                <div style={{background:"rgba(240,248,255,0.60)",borderRadius:12,padding:"10px 14px",marginBottom:12,fontSize:11,color:"#4a6a8a"}}>
+                  <div style={{fontWeight:700,marginBottom:4}}>Formato Excel:</div>
+                  <div style={{color:"#b45309",fontWeight:700}}>LOTE | FECHA | TIPO | PRODUCTO/DOSIS | APLICADOR | COSTO_HA | COSTO_TOTAL | COMENTARIO</div>
                 </div>
-                {/* Ref SEPARADO para vista principal — no comparte con el del detalle de lote */}
-                <input ref={importCuadernoMultiRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f){setCuadernoPreview([]);setCuadernoMsg("");leerExcelCuaderno(f);}}}/>
+                <input ref={importCuadernoMultiRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f){setCuadernoPreview([]);setCuadernoMsg("");leerExcelCuaderno(f);}}}/>
                 {cuadernoPreview.length===0
-                  ?<button onClick={()=>importCuadernoMultiRef.current?.click()} className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-[#1e2d3d] rounded-xl text-gray-500 text-sm w-full justify-center hover:border-amber-600/50 hover:text-amber-400 transition-colors">📁 Seleccionar archivo Excel</button>
+                  ?<button onClick={()=>importCuadernoMultiRef.current?.click()} style={{display:"flex",alignItems:"center",gap:8,padding:"12px 16px",border:"2px dashed rgba(25,118,210,0.25)",borderRadius:12,color:"#1565c0",fontSize:13,fontWeight:700,background:"none",cursor:"pointer",width:"100%",justifyContent:"center"}}>📁 Seleccionar Excel</button>
                   :<div>
-                    <div className="max-h-48 overflow-y-auto mb-3 rounded-xl border border-[#1e2d3d]">
-                      <table className="w-full text-xs">
-                        <thead className="bg-[#1a2535]"><tr>{["Lote","En sistema","Fecha","Ha","Tipo","Dosis / Producto","Aplic.","$/ha","Total"].map(h=><th key={h} className="text-left px-3 py-2 text-gray-400 font-medium">{h}</th>)}</tr></thead>
+                    <div style={{maxHeight:200,overflowY:"auto",marginBottom:10,borderRadius:10,border:"1px solid rgba(0,60,140,0.10)"}}>
+                      <table style={{width:"100%",fontSize:11,borderCollapse:"collapse"}}>
+                        <thead style={{background:"rgba(240,248,255,0.80)"}}><tr>{["Lote","Match","Fecha","Ha","Tipo","Producto","$/ha","Total"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 10px",color:"#6b8aaa",fontWeight:600}}>{h}</th>)}</tr></thead>
                         <tbody>{cuadernoPreview.map((r,i)=>(
-                          <tr key={i} className={`border-t border-[#1a2535] ${!r.lote_id?"opacity-40":""}`}>
-                            <td className="px-3 py-2 font-bold text-amber-400 text-xs">{r.lote_nombre}</td>
-                            <td className="px-3 py-2 text-xs">{r.lote_match?<span className="text-green-400 font-medium">✓ {r.lote_match}</span>:<span className="text-red-400">✗ No match</span>}</td>
-                            <td className="px-3 py-2 text-gray-400 text-xs">{r.fecha||"—"}</td>
-                            <td className="px-3 py-2 text-gray-200 font-bold text-xs">{r.hectareas>0?r.hectareas:"—"}</td>
-                            <td className="px-3 py-2 text-xs"><span className="px-1.5 py-0.5 rounded font-bold" style={{background:laborColor(r.tipo)+"20",color:laborColor(r.tipo)}}>{r.tipo}</span></td>
-                            <td className="px-3 py-2 text-gray-200 max-w-[120px] truncate text-xs">{r.producto_dosis||"—"}</td>
-                            <td className="px-3 py-2 text-gray-400 text-xs">{r.aplicador||"—"}</td>
-                            <td className="px-3 py-2 text-amber-400 text-xs">{r.costo_aplicacion_ha>0?`$${r.costo_aplicacion_ha}`:"—"}</td>
-                            <td className="px-3 py-2 text-amber-300 font-bold text-xs">{r.costo_total>0?`$${Number(r.costo_total).toLocaleString("es-AR")}`:"—"}</td>
+                          <tr key={i} style={{borderBottom:"1px solid rgba(0,60,140,0.05)",opacity:r.lote_id?1:0.45}}>
+                            <td style={{padding:"6px 10px",fontWeight:700,color:"#b45309"}}>{r.lote_nombre}</td>
+                            <td style={{padding:"6px 10px"}}>{r.lote_match?<span style={{color:"#166534",fontWeight:700}}>✓ {r.lote_match}</span>:<span style={{color:"#dc2626"}}>✗</span>}</td>
+                            <td style={{padding:"6px 10px",color:"#6b8aaa"}}>{r.fecha||"—"}</td>
+                            <td style={{padding:"6px 10px",fontWeight:700,color:"#0d2137"}}>{r.hectareas>0?r.hectareas:"—"}</td>
+                            <td style={{padding:"6px 10px"}}><span className="tag" style={{background:laborColor(r.tipo)+"18",color:laborColor(r.tipo)}}>{r.tipo}</span></td>
+                            <td style={{padding:"6px 10px",color:"#1e3a5f",maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.producto_dosis||"—"}</td>
+                            <td style={{padding:"6px 10px",color:"#b45309",fontWeight:700}}>{r.costo_aplicacion_ha>0?`$${r.costo_aplicacion_ha}`:"—"}</td>
+                            <td style={{padding:"6px 10px",fontWeight:800,color:"#0D47A1"}}>{r.costo_total>0?`$${Number(r.costo_total).toLocaleString("es-AR")}`:"—"}</td>
                           </tr>
                         ))}</tbody>
                       </table>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <button onClick={confirmarImportCuaderno} className="btn-solid-green px-5 py-2.5 rounded-xl text-sm font-bold">▶ Importar {cuadernoPreview.filter(r=>r.lote_id).length} labores</button>
-                      <button onClick={()=>{setCuadernoPreview([]);setCuadernoMsg("");importCuadernoMultiRef.current?.click();}} className="bg-[#1e2a3a] text-gray-400 px-4 py-2.5 rounded-xl text-sm transition-colors">Cambiar archivo</button>
-                      {cuadernoPreview.filter(r=>!r.lote_id).length>0&&<span className="text-xs text-amber-500">⚠ {cuadernoPreview.filter(r=>!r.lote_id).length} sin match</span>}
+                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                      <button onClick={confirmarImportCuaderno} className="btn-solid">▶ Importar {cuadernoPreview.filter(r=>r.lote_id).length} labores</button>
+                      <button onClick={()=>{setCuadernoPreview([]);setCuadernoMsg("");importCuadernoMultiRef.current?.click();}} className="btn-cancel">Cambiar</button>
+                      {cuadernoPreview.filter(r=>!r.lote_id).length>0&&<span style={{fontSize:11,color:"#b45309",fontWeight:700}}>⚠ {cuadernoPreview.filter(r=>!r.lote_id).length} sin match</span>}
                     </div>
                   </div>
                 }
-                {cuadernoMsg&&<p className={`mt-2 text-xs font-medium ${cuadernoMsg.startsWith("✅")?"text-green-400":cuadernoMsg.startsWith("❌")?"text-red-400":"text-amber-400"}`}>{cuadernoMsg}</p>}
+                {cuadernoMsg&&<p style={{marginTop:8,fontSize:12,fontWeight:700,color:cuadernoMsg.startsWith("✅")?"#166634":cuadernoMsg.startsWith("❌")?"#dc2626":"#b45309"}}>{cuadernoMsg}</p>}
               </div>
             )}
 
             {/* Import lotes */}
             {showImport&&(
-              <div className="card p-4 mb-4 fade-in">
-                <div className="flex items-center justify-between mb-3"><h3 className="font-bold text-amber-400 text-sm">📥 Importar Lotes</h3><button onClick={()=>{setShowImport(false);setImportPreview([]);setImportMsg("");}} className="text-gray-500 hover:text-gray-300">✕</button></div>
-                <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)leerExcelLotes(f);}}/>
+              <div className="card fade-in" style={{padding:16,marginBottom:12}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                  <h3 style={{fontSize:13,fontWeight:800,color:"#b45309",margin:0}}>📥 Importar Lotes</h3>
+                  <button onClick={()=>{setShowImport(false);setImportPreview([]);setImportMsg("");}} style={{background:"none",border:"none",color:"#6b8aaa",cursor:"pointer",fontSize:18}}>✕</button>
+                </div>
+                <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f)leerExcelLotes(f);}}/>
                 {importPreview.length===0
-                  ?<button onClick={()=>importRef.current?.click()} className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-[#1e2d3d] rounded-xl text-gray-500 text-sm w-full justify-center hover:border-amber-600/50 hover:text-amber-400 transition-colors">📁 Seleccionar Excel</button>
+                  ?<button onClick={()=>importRef.current?.click()} style={{display:"flex",alignItems:"center",gap:8,padding:"12px 16px",border:"2px dashed rgba(25,118,210,0.25)",borderRadius:12,color:"#1565c0",fontSize:13,fontWeight:700,background:"none",cursor:"pointer",width:"100%",justifyContent:"center"}}>📁 Seleccionar Excel</button>
                   :<div>
-                    <div className="max-h-40 overflow-y-auto mb-3 rounded-xl border border-[#1e2d3d]">
-                      <table className="w-full text-xs"><thead className="bg-[#1a2535]"><tr>{["Lote","Ha","Cultivo","Variedad","Acción"].map(h=><th key={h} className="text-left px-3 py-2 text-gray-400 font-medium">{h}</th>)}</tr></thead>
-                        <tbody>{importPreview.map((r,i)=><tr key={i} className="border-t border-[#1a2535]"><td className="px-3 py-2 text-gray-200 font-bold">{r.nombre}</td><td className="px-3 py-2 text-amber-400">{r.hectareas||"—"}</td><td className="px-3 py-2 text-green-400">{r.cultivo_completo||"—"}</td><td className="px-3 py-2 text-blue-400">{r.variedad||"—"}</td><td className="px-3 py-2"><span className={`px-2 py-0.5 rounded text-xs font-bold ${r.accion==="crear"?"bg-green-500/15 text-green-400":"bg-blue-500/15 text-blue-400"}`}>{r.accion==="crear"?"+ Crear":"✎ Actualizar"}</span></td></tr>)}</tbody>
+                    <div style={{maxHeight:160,overflowY:"auto",marginBottom:10,borderRadius:10,border:"1px solid rgba(0,60,140,0.10)"}}>
+                      <table style={{width:"100%",fontSize:11,borderCollapse:"collapse"}}>
+                        <thead style={{background:"rgba(240,248,255,0.80)"}}><tr>{["Lote","Ha","Cultivo","Variedad","Acción"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 10px",color:"#6b8aaa",fontWeight:600}}>{h}</th>)}</tr></thead>
+                        <tbody>{importPreview.map((r,i)=>(
+                          <tr key={i} style={{borderBottom:"1px solid rgba(0,60,140,0.05)"}}>
+                            <td style={{padding:"6px 10px",fontWeight:700,color:"#0d2137"}}>{r.nombre}</td>
+                            <td style={{padding:"6px 10px",fontWeight:700,color:"#b45309"}}>{r.hectareas||"—"}</td>
+                            <td style={{padding:"6px 10px",color:"#166534",fontWeight:600}}>{r.cultivo_completo||"—"}</td>
+                            <td style={{padding:"6px 10px",color:"#1565c0"}}>{r.variedad||"—"}</td>
+                            <td style={{padding:"6px 10px"}}><span style={{fontSize:10,padding:"2px 8px",borderRadius:6,fontWeight:700,background:r.accion==="crear"?"rgba(22,163,74,0.10)":"rgba(25,118,210,0.10)",color:r.accion==="crear"?"#166534":"#1565c0"}}>{r.accion==="crear"?"+ Crear":"✎ Actualizar"}</span></td>
+                          </tr>
+                        ))}</tbody>
                       </table>
                     </div>
-                    <div className="flex gap-2">
-                      <button onClick={confirmarImportLotes} className="btn-solid-green px-4 py-2 rounded-xl text-sm font-bold">▶ Confirmar {importPreview.length} lotes</button>
-                      <button onClick={()=>{setImportPreview([]);importRef.current?.click();}} className="bg-[#1e2a3a] text-gray-400 px-4 py-2 rounded-xl text-sm transition-colors">Cambiar</button>
+                    <div style={{display:"flex",gap:8}}>
+                      <button onClick={confirmarImportLotes} className="btn-solid">▶ Confirmar {importPreview.length} lotes</button>
+                      <button onClick={()=>{setImportPreview([]);importRef.current?.click();}} className="btn-cancel">Cambiar</button>
                     </div>
                   </div>
                 }
-                {importMsg&&<p className={`mt-2 text-xs font-medium ${importMsg.startsWith("✅")?"text-green-400":"text-red-400"}`}>{importMsg}</p>}
+                {importMsg&&<p style={{marginTop:8,fontSize:12,fontWeight:700,color:importMsg.startsWith("✅")?"#166634":"#dc2626"}}>{importMsg}</p>}
               </div>
             )}
 
             {/* Form nuevo lote */}
             {showFormLote&&!editandoLote&&(
-              <div className="card p-4 mb-4 fade-in">
-                <h3 className="font-bold text-green-400 text-sm mb-4">+ Nuevo Lote</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div><label className={lCls}>Nombre *</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls} placeholder="El Norte..."/></div>
-                  <div><label className={lCls}>Hectáreas *</label><input type="number" value={form.hectareas??""} onChange={e=>setForm({...form,hectareas:e.target.value})} className={iCls}/></div>
-                  <div className="md:col-span-2"><label className={lCls}>Cultivo</label>
-                    <select value={form.cultivo_key??"soja|1ra"} onChange={e=>setForm({...form,cultivo_key:e.target.value})} className={iCls}>
+              <div className="card fade-in" style={{padding:16,marginBottom:12}}>
+                <h3 style={{fontSize:13,fontWeight:800,color:"#166534",marginBottom:14,textTransform:"uppercase"}}>+ Nuevo Lote</h3>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                  <div><label className={lCls}>Nombre *</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="El Norte..."/></div>
+                  <div><label className={lCls}>Hectáreas *</label><input type="number" value={form.hectareas??""} onChange={e=>setForm({...form,hectareas:e.target.value})} className="inp" style={{padding:"8px 12px"}}/></div>
+                  <div style={{gridColumn:"1/-1"}}><label className={lCls}>Cultivo</label>
+                    <select value={form.cultivo_key??"soja|1ra"} onChange={e=>setForm({...form,cultivo_key:e.target.value})} className="inp" style={{padding:"8px 12px"}}>
                       <optgroup label="Verano"><option value="soja|1ra">🌱 Soja 1º</option><option value="soja|2da">🌿 Soja 2º</option><option value="maiz|1ro_temprano">🌽 Maíz 1º</option><option value="maiz|1ro_tardio">🌽 Maíz 1º Tardío</option><option value="maiz|2do">🌽 Maíz 2º</option><option value="girasol|1ro">🌻 Girasol</option><option value="sorgo|1ro">🌿 Sorgo 1º</option><option value="sorgo|2do">🌿 Sorgo 2º</option></optgroup>
                       <optgroup label="Invierno"><option value="trigo|1ro">🌾 Trigo</option><option value="cebada|1ra">🍃 Cebada</option><option value="arveja|1ra">🫛 Arveja</option><option value="carinata|1ra">🌱 Carinata</option><option value="camelina|1ra">🌱 Camelina</option></optgroup>
                       <optgroup label="Otros"><option value="pastura|libre">🌾 Pastura</option><option value="otros|libre">🌱 Otros</option></optgroup>
                     </select>
                   </div>
-                  <div><label className={lCls}>F. Siembra</label><input type="date" value={form.fecha_siembra??""} onChange={e=>setForm({...form,fecha_siembra:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Tenencia</label><select value={form.tipo_tenencia??"Propio"} onChange={e=>setForm({...form,tipo_tenencia:e.target.value})} className={iCls}>{["Propio","Arrendado","Contrato accidental","Aparcería","Otro"].map(t=><option key={t} value={t}>{t}</option>)}</select></div>
-                  <div><label className={lCls}>Partido</label><input type="text" value={form.partido??""} onChange={e=>setForm({...form,partido:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Estado</label><select value={form.estado??"planificado"} onChange={e=>setForm({...form,estado:e.target.value})} className={iCls}>{ESTADOS.map(e=><option key={e.v} value={e.v}>{e.l}</option>)}</select></div>
+                  <div><label className={lCls}>F. Siembra</label><input type="date" value={form.fecha_siembra??""} onChange={e=>setForm({...form,fecha_siembra:e.target.value})} className="inp" style={{padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Tenencia</label><select value={form.tipo_tenencia??"Propio"} onChange={e=>setForm({...form,tipo_tenencia:e.target.value})} className="inp" style={{padding:"8px 12px"}}>{["Propio","Arrendado","Contrato accidental","Aparcería","Otro"].map(t=><option key={t} value={t}>{t}</option>)}</select></div>
+                  <div><label className={lCls}>Partido</label><input type="text" value={form.partido??""} onChange={e=>setForm({...form,partido:e.target.value})} className="inp" style={{padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Estado</label><select value={form.estado??"planificado"} onChange={e=>setForm({...form,estado:e.target.value})} className="inp" style={{padding:"8px 12px"}}>{ESTADOS.map(e=><option key={e.v} value={e.v}>{e.l}</option>)}</select></div>
                 </div>
-                <div className="flex gap-2 mt-4">
-                  <button onClick={guardarLote} className="btn-solid-green px-5 py-2.5 rounded-xl text-sm font-bold">Guardar</button>
-                  <button onClick={()=>{setShowFormLote(false);setForm({});}} className="bg-[#1e2a3a] text-gray-400 px-5 py-2.5 rounded-xl text-sm transition-colors">Cancelar</button>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={guardarLote} className="btn-solid">Guardar</button>
+                  <button onClick={()=>{setShowFormLote(false);setForm({});}} className="btn-cancel">Cancelar</button>
                 </div>
               </div>
             )}
 
             {/* KPIs + filtros + gráfico */}
-            <div className="flex items-start gap-3 mb-4 flex-wrap">
-              <div className="flex gap-2 flex-shrink-0">
-                {[{l:"Lotes",v:String(lotesPrincipales.length),c:"#e5e7eb"},{l:"Ha",v:totalHa.toLocaleString("es-AR"),c:"#eab308"},{l:"MB Est.",v:"$"+Math.round(margenes.filter(m=>m.estado==="estimado").reduce((a: number,m: any)=>a+m.margen_bruto,0)/1000)+"K",c:"#22c55e"},{l:"MB Real",v:"$"+Math.round(margenes.filter(m=>m.estado==="real").reduce((a: number,m: any)=>a+m.margen_bruto,0)/1000)+"K",c:"#60a5fa"}].map(s=>(
-                  <div key={s.l} className="card px-3 py-2.5 text-center" style={{minWidth:66}}><div className="text-xs text-gray-500">{s.l}</div><div className="text-sm font-bold mt-0.5" style={{color:s.c}}>{s.v}</div></div>
+            <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+              <div style={{display:"flex",gap:8,flexShrink:0}}>
+                {[
+                  {l:"Lotes",v:String(lotesPrincipales.length),c:"#0d2137"},
+                  {l:"Ha",v:totalHa.toLocaleString("es-AR"),c:"#b45309"},
+                  {l:"MB Est.",v:"$"+Math.round(margenes.filter((m:any)=>m.estado==="estimado").reduce((a:number,m:any)=>a+m.margen_bruto,0)/1000)+"K",c:"#166534"},
+                  {l:"MB Real",v:"$"+Math.round(margenes.filter((m:any)=>m.estado==="real").reduce((a:number,m:any)=>a+m.margen_bruto,0)/1000)+"K",c:"#1565c0"},
+                ].map(s=>(
+                  <div key={s.l} className="card" style={{padding:"10px 14px",textAlign:"center",minWidth:60}}>
+                    <div style={{fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase"}}>{s.l}</div>
+                    <div style={{fontSize:15,fontWeight:800,marginTop:3,color:s.c}}>{s.v}</div>
+                  </div>
                 ))}
               </div>
-              <div className="flex gap-1.5 flex-wrap items-center flex-1">
-                <button onClick={()=>setFilterCultivo("todos")} className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-all" style={{borderColor:filterCultivo==="todos"?"#22c55e":"#1e2d3d",color:filterCultivo==="todos"?"#22c55e":"#6b7280",background:filterCultivo==="todos"?"rgba(34,197,94,0.1)":"transparent"}}>Todos ({lotesPrincipales.length})</button>
+
+              {/* Filtros cultivo */}
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",flex:1}}>
+                <button onClick={()=>setFilterCultivo("todos")}
+                  style={{padding:"7px 14px",borderRadius:10,fontSize:12,fontWeight:700,cursor:"pointer",border:`1.5px solid ${filterCultivo==="todos"?"rgba(25,118,210,0.40)":"rgba(255,255,255,0.70)"}`,background:filterCultivo==="todos"?"rgba(25,118,210,0.10)":"rgba(255,255,255,0.60)",color:filterCultivo==="todos"?"#0d47a1":"#4a6a8a",transition:"all 0.15s"}}>
+                  Todos ({lotesPrincipales.length})
+                </button>
                 {datosGrafico.map(d=>(
-                  <button key={d.name} onClick={()=>setFilterCultivo(filterCultivo===d.name?"todos":d.name)} className="px-3 py-1.5 rounded-lg text-xs font-bold border transition-all" style={{borderColor:filterCultivo===d.name?d.color:d.color+"40",background:filterCultivo===d.name?d.color+"20":"transparent",color:filterCultivo===d.name?d.color:d.color+"70"}}>{d.name} · {d.value}ha</button>
+                  <button key={d.name} onClick={()=>setFilterCultivo(filterCultivo===d.name?"todos":d.name)}
+                    style={{padding:"7px 14px",borderRadius:10,fontSize:12,fontWeight:700,cursor:"pointer",
+                      border:`1.5px solid ${filterCultivo===d.name?d.color:d.color+"45"}`,
+                      background:filterCultivo===d.name?d.color+"18":"rgba(255,255,255,0.60)",
+                      color:filterCultivo===d.name?d.color:d.color+"90",transition:"all 0.15s"}}>
+                    {d.name} · {d.value}ha
+                  </button>
                 ))}
               </div>
+
+              {/* Gráfico torta */}
               {datosGrafico.length>0&&(
-                <div className="card p-3 flex items-center gap-3 flex-shrink-0">
+                <div className="card" style={{padding:12,display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
                   <div style={{width:80,height:80}}>
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart><Pie data={datosGrafico} cx="50%" cy="50%" outerRadius={36} innerRadius={16} dataKey="value" labelLine={false} label={renderPieLabel} paddingAngle={2}>
-                        {datosGrafico.map((e,i)=><Cell key={i} fill={e.color} stroke="rgba(8,15,23,0.5)" strokeWidth={2}/>)}
-                      </Pie><Tooltip formatter={(v: any,n: string)=>[String(v)+" ha",n]} contentStyle={{background:"#0f1923",border:"1px solid #1e2d3d",borderRadius:"8px",fontFamily:"sans-serif",fontSize:"11px",color:"#e5e7eb"}}/></PieChart>
+                        {datosGrafico.map((e,i)=><Cell key={i} fill={e.color} strokeWidth={2}/>)}
+                      </Pie>
+                      <Tooltip formatter={(v:any,n:string)=>[String(v)+" ha",n]} contentStyle={{background:"rgba(255,255,255,0.95)",border:"1px solid rgba(25,118,210,0.20)",borderRadius:10,fontSize:11}}/>
+                      </PieChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="space-y-1.5" style={{minWidth:110}}>
+                  <div style={{display:"flex",flexDirection:"column",gap:5,minWidth:100}}>
                     {datosGrafico.map((d,i)=>(
-                      <div key={i} className="flex items-center gap-1.5 cursor-pointer" onClick={()=>setFilterCultivo(filterCultivo===d.name?"todos":d.name)}>
-                        <div className="w-2 h-2 rounded-full" style={{background:d.color}}/>
-                        <span className="text-xs flex-1 truncate" style={{color:d.color,maxWidth:72}}>{d.name}</span>
-                        <span className="text-xs text-gray-500">{d.value}ha</span>
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer"}} onClick={()=>setFilterCultivo(filterCultivo===d.name?"todos":d.name)}>
+                        <div style={{width:8,height:8,borderRadius:"50%",background:d.color,flexShrink:0}}/>
+                        <span style={{fontSize:11,color:d.color,fontWeight:700,flex:1,maxWidth:70,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.name}</span>
+                        <span style={{fontSize:11,color:"#6b8aaa"}}>{d.value}ha</span>
                       </div>
                     ))}
                   </div>
@@ -1498,54 +1662,61 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
               )}
             </div>
 
-            {/* Lista lotes */}
+            {/* Grid lotes */}
             {tab==="lotes"&&(
               lotesPrincipales.length===0?(
-                <div className="text-center py-20 card">
-                  <div className="text-5xl mb-4 opacity-20">🌾</div>
-                  <p className="text-gray-600 mb-4">Sin lotes — agregá el primero</p>
-                  <button onClick={()=>setShowFormLote(true)} className="btn-green px-4 py-2 rounded-xl text-sm font-bold">+ Agregar primer lote</button>
+                <div className="card" style={{padding:"48px 20px",textAlign:"center"}}>
+                  <div style={{fontSize:48,opacity:0.12,marginBottom:12}}>🌾</div>
+                  <p style={{color:"#6b8aaa",fontSize:14,marginBottom:12}}>Sin lotes — agregá el primero</p>
+                  <button onClick={()=>setShowFormLote(true)} className="btn-g">+ Agregar primer lote</button>
                 </div>
               ):(
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                  {lotesPrincipales.filter(lote=>filterCultivo==="todos"||(getCultivoInfo(lote.cultivo,lote.cultivo_orden).label)===filterCultivo).map(lote=>{
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
+                  {lotesPrincipales
+                    .filter(lote=>filterCultivo==="todos"||(getCultivoInfo(lote.cultivo,lote.cultivo_orden).label)===filterCultivo)
+                    .map(lote=>{
                     const ci=getCultivoInfo(lote.cultivo||"",lote.cultivo_orden||"");
-                    const mg=margenes.find(m=>m.lote_id===lote.id);
+                    const mg=margenes.find((m:any)=>m.lote_id===lote.id);
                     const labsCount=labores.filter(l=>l.lote_id===lote.id).length;
                     const labsCosto=labores.filter(l=>l.lote_id===lote.id).reduce((a,l)=>a+(l.costo_total||0),0);
                     const est=ESTADOS.find(e=>e.v===lote.estado);
                     const ultimaLabor=labores.filter(l=>l.lote_id===lote.id).sort((a,b)=>b.fecha.localeCompare(a.fecha))[0];
                     return(
-                      <div key={lote.id} className="lote-card rounded-2xl overflow-hidden" onClick={()=>setLoteActivo(lote)}>
-                        <div className="flex items-center gap-3 p-4 border-b border-[#1a2535]">
-                          <div className="w-1 self-stretch rounded-full" style={{background:ci.color}}/>
-                          <span className="text-xl">{(ci as any).icon}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-bold text-gray-100 uppercase truncate">{lote.nombre}</div>
-                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                              <span className="text-xs font-bold" style={{color:ci.color}}>{ci.label}</span>
-                              {est&&<span className="tag" style={{background:est.c+"20",color:est.c}}>{est.l}</span>}
+                      <div key={lote.id} className="lote-card" onClick={()=>setLoteActivo(lote)}>
+                        {/* Header */}
+                        <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",borderBottom:"1px solid rgba(0,60,140,0.08)"}}>
+                          <div style={{width:3,alignSelf:"stretch",borderRadius:3,background:ci.color,flexShrink:0}}/>
+                          <span style={{fontSize:22}}>{(ci as any).icon}</span>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontWeight:800,color:"#0d2137",textTransform:"uppercase",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:14}}>{lote.nombre}</div>
+                            <div style={{display:"flex",alignItems:"center",gap:6,marginTop:3,flexWrap:"wrap"}}>
+                              <span style={{fontSize:11,fontWeight:700,color:ci.color}}>{ci.label}</span>
+                              {est&&<span className="tag" style={{background:est.c+"15",color:est.c,border:`1px solid ${est.c}28`}}>{est.l}</span>}
                             </div>
                           </div>
-                          <button onClick={e=>{e.stopPropagation();eliminarLote(lote.id);}} className="text-gray-600 hover:text-red-400 text-xs transition-colors flex-shrink-0">✕</button>
+                          <button onClick={e=>{e.stopPropagation();eliminarLote(lote.id);}} style={{background:"none",border:"none",color:"#aab8c8",cursor:"pointer",fontSize:14,padding:4}}>✕</button>
                         </div>
-                        <div className="px-4 py-3 grid grid-cols-3 gap-2 text-xs">
-                          <div className="text-center"><div className="text-gray-500">Ha</div><div className="font-bold text-amber-400 mt-0.5">{lote.hectareas}</div></div>
-                          <div className="text-center"><div className="text-gray-500">Labores</div><div className="font-bold text-gray-200 mt-0.5">{labsCount}</div></div>
-                          <div className="text-center"><div className="text-gray-500">MB/ha</div><div className="font-bold mt-0.5" style={{color:mg?(mg.margen_bruto_ha>=0?"#22c55e":"#ef4444"):"#4b5563"}}>{mg?"$"+Math.round(mg.margen_bruto_ha).toLocaleString("es-AR"):"—"}</div></div>
+                        {/* Stats */}
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",padding:"10px 14px",gap:4}}>
+                          <div style={{textAlign:"center"}}>
+                            <div style={{fontSize:10,color:"#6b8aaa",fontWeight:600}}>Ha</div>
+                            <div style={{fontSize:15,fontWeight:800,color:"#b45309",marginTop:2}}>{lote.hectareas}</div>
+                          </div>
+                          <div style={{textAlign:"center"}}>
+                            <div style={{fontSize:10,color:"#6b8aaa",fontWeight:600}}>Labores</div>
+                            <div style={{fontSize:15,fontWeight:800,color:"#0d2137",marginTop:2}}>{labsCount}</div>
+                          </div>
+                          <div style={{textAlign:"center"}}>
+                            <div style={{fontSize:10,color:"#6b8aaa",fontWeight:600}}>MB/ha</div>
+                            <div style={{fontSize:14,fontWeight:800,marginTop:2,color:mg?(mg.margen_bruto_ha>=0?"#166534":"#dc2626"):"#aab8c8"}}>{mg?"$"+Math.round(mg.margen_bruto_ha).toLocaleString("es-AR"):"—"}</div>
+                          </div>
                         </div>
                         {/* Última labor */}
                         {ultimaLabor&&(
-                          <div className="px-4 pb-3 flex items-center gap-2 text-xs">
-                            <span className="tag" style={{background:laborColor(ultimaLabor.tipo)+"20",color:laborColor(ultimaLabor.tipo)}}>{ultimaLabor.tipo}</span>
-                            <span className="text-gray-600">{ultimaLabor.fecha}</span>
-                            {labsCosto>0&&<span className="ml-auto text-amber-600/80">${labsCosto.toLocaleString("es-AR")}</span>}
-                          </div>
-                        )}
-                        {(lote.fecha_siembra||(lote.variedad||lote.hibrido))&&!ultimaLabor&&(
-                          <div className="px-4 pb-3 flex gap-3 text-xs text-gray-600">
-                            {lote.fecha_siembra&&<span>🗓 {lote.fecha_siembra}</span>}
-                            {(lote.variedad||lote.hibrido)&&<span>🌱 {lote.variedad||lote.hibrido}</span>}
+                          <div style={{padding:"0 14px 10px",display:"flex",alignItems:"center",gap:8}}>
+                            <span className="tag" style={{background:laborColor(ultimaLabor.tipo)+"18",color:laborColor(ultimaLabor.tipo),border:`1px solid ${laborColor(ultimaLabor.tipo)}28`}}>{ultimaLabor.tipo}</span>
+                            <span style={{fontSize:11,color:"#6b8aaa"}}>{ultimaLabor.fecha}</span>
+                            {labsCosto>0&&<span style={{marginLeft:"auto",fontSize:11,fontWeight:700,color:"#b45309"}}>${labsCosto.toLocaleString("es-AR")}</span>}
                           </div>
                         )}
                       </div>
@@ -1555,32 +1726,43 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
               )
             )}
 
-            {/* Margen general */}
+            {/* Tab Margen */}
             {tab==="margen"&&(
-              <div className="card overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-[#1e2d3d] flex items-center justify-between">
-                  <span className="font-bold text-gray-100">Margen Bruto por Lote</span>
-                  <span className="text-xs text-gray-500">USD ${usdUsado}</span>
+              <div className="card" style={{padding:0,overflow:"hidden"}}>
+                <div style={{padding:"12px 16px",borderBottom:"1px solid rgba(0,60,140,0.08)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <span style={{fontSize:14,fontWeight:800,color:"#0d2137"}}>Margen Bruto por Lote</span>
+                  <span style={{fontSize:12,color:"#6b8aaa"}}>USD ${usdUsado}</span>
                 </div>
-                {margenes.length===0?<div className="text-center py-12 text-gray-600">Sin márgenes — entrá a un lote y cargá el margen</div>:(
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm min-w-[700px]">
-                      <thead><tr className="border-b border-[#1e2d3d]">{["Lote","Cultivo","Ha","Rend.","Ingreso","Costo","Margen","MB/ha","Estado"].map(h=><th key={h} className="text-left px-4 py-3 text-xs text-gray-500 font-semibold">{h}</th>)}</tr></thead>
-                      <tbody className="divide-y divide-[#1a2535]">
-                        {margenes.map((m: any)=>{
+                {margenes.length===0?(
+                  <div style={{textAlign:"center",padding:"48px 20px",color:"#6b8aaa",fontSize:14}}>Sin márgenes — entrá a un lote y cargá los datos</div>
+                ):(
+                  <div style={{overflowX:"auto"}}>
+                    <table style={{width:"100%",fontSize:12,minWidth:700,borderCollapse:"collapse"}}>
+                      <thead><tr style={{borderBottom:"1px solid rgba(0,60,140,0.08)",background:"rgba(240,248,255,0.50)"}}>
+                        {["Lote","Cultivo","Ha","Rend.","Ingreso","Costo","Margen","MB/ha","Estado"].map(h=>(
+                          <th key={h} style={{textAlign:"left",padding:"10px 14px",fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase",letterSpacing:0.8}}>{h}</th>
+                        ))}
+                      </tr></thead>
+                      <tbody>
+                        {margenes.map((m:any)=>{
                           const lote=lotes.find(l=>l.id===m.lote_id);
                           const ci=getCultivoInfo(m.cultivo||"",m.cultivo_orden||"");
-                          return(<tr key={m.id} className="hover:bg-[#0f1923]/60 cursor-pointer transition-colors" onClick={()=>{const l=lotes.find(x=>x.id===m.lote_id);if(l)setLoteActivo(l);}}>
-                            <td className="px-4 py-3 font-bold text-gray-100">{lote?.nombre||"—"}</td>
-                            <td className="px-4 py-3"><span className="tag" style={{background:ci.color+"20",color:ci.color}}>{(ci as any).icon} {ci.label}</span></td>
-                            <td className="px-4 py-3 text-gray-400">{m.hectareas}</td>
-                            <td className="px-4 py-3 text-amber-400">{m.rendimiento_real||m.rendimiento_esperado} tn/ha</td>
-                            <td className="px-4 py-3 text-gray-200">${Math.round(m.ingreso_bruto).toLocaleString("es-AR")}</td>
-                            <td className="px-4 py-3 text-red-400">${Math.round(m.costo_directo_total).toLocaleString("es-AR")}</td>
-                            <td className="px-4 py-3 font-bold" style={{color:m.margen_bruto>=0?"#22c55e":"#ef4444"}}>${Math.round(m.margen_bruto).toLocaleString("es-AR")}</td>
-                            <td className="px-4 py-3 text-amber-400">${Math.round(m.margen_bruto_ha).toLocaleString("es-AR")}</td>
-                            <td className="px-4 py-3"><span className="tag" style={{background:m.estado==="real"?"rgba(34,197,94,0.15)":"rgba(234,179,8,0.15)",color:m.estado==="real"?"#22c55e":"#eab308"}}>{m.estado==="real"?"✅ Real":"📋 Est."}</span></td>
-                          </tr>);
+                          return(
+                            <tr key={m.id} style={{borderBottom:"1px solid rgba(0,60,140,0.06)",cursor:"pointer",transition:"background 0.15s"}}
+                              onMouseOver={e=>(e.currentTarget.style.background="rgba(240,248,255,0.50)")}
+                              onMouseOut={e=>(e.currentTarget.style.background="transparent")}
+                              onClick={()=>{const l=lotes.find(x=>x.id===m.lote_id);if(l)setLoteActivo(l);}}>
+                              <td style={{padding:"10px 14px",fontWeight:800,color:"#0d2137"}}>{lote?.nombre||"—"}</td>
+                              <td style={{padding:"10px 14px"}}><span className="tag" style={{background:ci.color+"18",color:ci.color,border:`1px solid ${ci.color}28`}}>{(ci as any).icon} {ci.label}</span></td>
+                              <td style={{padding:"10px 14px",color:"#4a6a8a"}}>{m.hectareas}</td>
+                              <td style={{padding:"10px 14px",color:"#b45309",fontWeight:700}}>{m.rendimiento_real||m.rendimiento_esperado} tn/ha</td>
+                              <td style={{padding:"10px 14px",color:"#0d2137",fontWeight:600}}>${Math.round(m.ingreso_bruto).toLocaleString("es-AR")}</td>
+                              <td style={{padding:"10px 14px",color:"#dc2626",fontWeight:600}}>${Math.round(m.costo_directo_total).toLocaleString("es-AR")}</td>
+                              <td style={{padding:"10px 14px",fontWeight:800,color:m.margen_bruto>=0?"#166534":"#dc2626"}}>${Math.round(m.margen_bruto).toLocaleString("es-AR")}</td>
+                              <td style={{padding:"10px 14px",fontWeight:700,color:"#b45309"}}>${Math.round(m.margen_bruto_ha).toLocaleString("es-AR")}</td>
+                              <td style={{padding:"10px 14px"}}><span className="tag" style={{background:m.estado==="real"?"rgba(22,163,74,0.10)":"rgba(180,130,0,0.10)",color:m.estado==="real"?"#166534":"#b45309",border:`1px solid ${m.estado==="real"?"rgba(22,163,74,0.20)":"rgba(180,130,0,0.18)"}`}}>{m.estado==="real"?"✅ Real":"📋 Est."}</span></td>
+                            </tr>
+                          );
                         })}
                       </tbody>
                     </table>
@@ -1594,40 +1776,66 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
 
       {/* ══ PANEL VOZ ══ */}
       {vozPanel&&(
-        <div className="fixed bottom-24 right-4 z-50 w-80 bg-[#0c1520] border border-[#1e2d3d] rounded-2xl shadow-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#1e2d3d]">
-            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{background:VOZ_COLOR[vozEstado]}}/><span className="text-green-400 text-xs font-bold">🎤 ASISTENTE DE CAMPO</span></div>
-            <button onClick={()=>{setVozPanel(false);window.speechSynthesis?.cancel();recRef.current?.stop();setVozEstado("idle");}} className="text-gray-500 hover:text-gray-300 transition-colors">✕</button>
+        <div style={{position:"fixed",bottom:88,right:16,zIndex:50,width:300,
+          background:"rgba(255,255,255,0.88)",backdropFilter:"blur(16px)",
+          border:"1.5px solid rgba(255,255,255,0.92)",borderRadius:20,
+          boxShadow:"0 12px 36px rgba(20,80,160,0.18)",overflow:"hidden"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:"1px solid rgba(0,60,140,0.08)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:7}}>
+              <div style={{width:7,height:7,borderRadius:"50%",background:VOZ_COLOR[vozEstado]}}/>
+              <span style={{color:"#0d2137",fontSize:12,fontWeight:800}}>🎤 ASISTENTE</span>
+            </div>
+            <button onClick={()=>{setVozPanel(false);window.speechSynthesis?.cancel();recRef.current?.stop();setVozEstado("idle");}} style={{background:"none",border:"none",color:"#6b8aaa",cursor:"pointer",fontSize:18}}>✕</button>
           </div>
-          <div className="px-4 pt-3 pb-2 min-h-20">
-            {vozEstado==="escuchando"&&<div className="flex items-center gap-3 py-2"><div className="flex gap-1 items-end h-6">{[1,2,3,4,5].map(i=><div key={i} className="w-1 rounded-full bg-red-400 animate-bounce" style={{height:(6+i*4)+"px",animationDelay:i*0.1+"s"}}/>)}</div><span className="text-red-400 text-sm">Escuchando...</span></div>}
-            {vozEstado==="procesando"&&<p className="text-amber-400 text-sm animate-pulse">⚙️ Procesando...</p>}
-            {vozRespuesta&&<div className="bg-green-500/8 border border-green-500/20 rounded-xl px-3 py-2.5 mb-2"><p className="text-gray-100 text-sm leading-relaxed">{vozRespuesta}</p></div>}
-            {vozTranscripcion&&!vozRespuesta&&<p className="text-gray-500 text-xs italic">"{vozTranscripcion}"</p>}
+          <div style={{padding:12,minHeight:60}}>
+            {vozEstado==="escuchando"&&<p style={{color:"#dc2626",fontSize:13,fontWeight:700,margin:0}}>🔴 Escuchando...</p>}
+            {vozEstado==="procesando"&&<p style={{color:"#b45309",fontSize:13,fontWeight:700,margin:0}}>⚙️ Procesando...</p>}
+            {vozRespuesta&&<div style={{background:"rgba(22,163,74,0.07)",border:"1px solid rgba(22,163,74,0.18)",borderRadius:12,padding:"10px 12px",marginBottom:8}}>
+              <p style={{color:"#0d2137",fontSize:13,margin:0,lineHeight:1.5}}>{vozRespuesta}</p>
+            </div>}
+            {vozTranscripcion&&!vozRespuesta&&<p style={{color:"#6b8aaa",fontSize:12,fontStyle:"italic",margin:0}}>"{vozTranscripcion}"</p>}
             {vozEstado==="idle"&&!vozRespuesta&&!vozTranscripcion&&(
-              <div className="space-y-1.5 py-1">
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
                 {["Hoy siembra lote Grande N Coggiola","Aplicación glifosato lote Casa Sur","Cosecha lote 3 rendimiento 35 quintales"].map(q=>(
-                  <button key={q} onClick={()=>{setVozTranscripcion(q);interpretarVoz(q);}} className="w-full text-left text-xs text-gray-600 hover:text-green-400 border border-[#1e2d3d] hover:border-green-800/50 px-3 py-2 rounded-lg transition-all">💬 {q}</button>
+                  <button key={q} onClick={()=>{setVozTranscripcion(q);interpretarVoz(q);}}
+                    style={{textAlign:"left",fontSize:11,color:"#4a6a8a",padding:"7px 11px",borderRadius:10,
+                      background:"rgba(240,248,255,0.60)",border:"1px solid rgba(25,118,210,0.12)",cursor:"pointer"}}>
+                    💬 {q}
+                  </button>
                 ))}
               </div>
             )}
           </div>
-          <div className="px-3 pb-3 flex gap-2 border-t border-[#1e2d3d] pt-3">
-            <input value={vozInput} onChange={e=>setVozInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&vozInput.trim()){setVozTranscripcion(vozInput);interpretarVoz(vozInput);setVozInput("");}}} placeholder="Escribí o hablá..." className={`${iCls} flex-1 text-xs py-2`}/>
-            <button onClick={()=>{if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else escucharVoz();}} className="px-3 py-2 rounded-xl text-sm" style={{background:VOZ_COLOR[vozEstado]+"18",border:"1px solid "+VOZ_COLOR[vozEstado]+"50",color:VOZ_COLOR[vozEstado]}}>{VOZ_ICON[vozEstado]}</button>
-            {vozInput&&<button onClick={()=>{setVozTranscripcion(vozInput);interpretarVoz(vozInput);setVozInput("");}} className="px-3 py-2 rounded-xl bg-green-600/15 border border-green-600/30 text-green-400 text-xs font-bold">→</button>}
+          <div style={{padding:"0 12px 12px",display:"flex",gap:8,borderTop:"1px solid rgba(0,60,140,0.08)",paddingTop:10}}>
+            <input value={vozInput} onChange={e=>setVozInput(e.target.value)}
+              onKeyDown={e=>{if(e.key==="Enter"&&vozInput.trim()){setVozTranscripcion(vozInput);interpretarVoz(vozInput);setVozInput("");}}}
+              placeholder="Escribí..." className="inp" style={{flex:1,padding:"8px 12px",fontSize:12}}/>
+            <button onClick={()=>{if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else escucharVoz();}}
+              style={{padding:"8px 12px",borderRadius:11,fontSize:14,cursor:"pointer",
+                background:VOZ_COLOR[vozEstado]+"18",border:`1px solid ${VOZ_COLOR[vozEstado]}45`,color:VOZ_COLOR[vozEstado]}}>
+              {VOZ_ICON[vozEstado]}
+            </button>
+            {vozInput&&<button onClick={()=>{setVozTranscripcion(vozInput);interpretarVoz(vozInput);setVozInput("");}} className="btn-solid" style={{padding:"8px 12px",fontSize:13}}>→</button>}
           </div>
         </div>
       )}
 
-      {/* Botón flotante voz */}
+      {/* Botón flotante VOZ */}
       <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}}
-        className="fixed bottom-6 right-4 z-40 w-14 h-14 rounded-full flex items-center justify-center text-xl shadow-2xl transition-all"
-        style={{background:VOZ_COLOR[vozEstado]+"18",border:"2px solid "+VOZ_COLOR[vozEstado]+"80",color:VOZ_COLOR[vozEstado],animation:vozEstado==="idle"?"float 3s ease-in-out infinite":"none",boxShadow:"0 4px 24px "+VOZ_COLOR[vozEstado]+"35"}}>
+        style={{position:"fixed",bottom:20,right:16,zIndex:40,width:54,height:54,borderRadius:"50%",
+          display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",
+          backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",backgroundPosition:"center",
+          color:"white",border:"2px solid rgba(180,220,255,0.70)",
+          boxShadow:"0 4px 20px rgba(33,150,243,0.45)",
+          animation:vozEstado==="idle"?"float 3s ease-in-out infinite":"none",
+          textShadow:"0 1px 3px rgba(0,40,120,0.40)",
+          transition:"all 0.2s ease"}}>
         {VOZ_ICON[vozEstado]}
       </button>
 
-      <p className="text-center text-[#0a2a1a] text-xs pb-4 pt-2">AgroGestión PRO · {productorNombre.toUpperCase()} · {modoCompartido?"Compartido":"Ingeniero"}</p>
+      <p style={{textAlign:"center",color:"rgba(30,58,90,0.45)",fontSize:11,paddingBottom:12,paddingTop:8}}>
+        AgroGestión PRO · {productorNombre.toUpperCase()}
+      </p>
       {ingenieroId&&<EscanerIA empresaId={ingenieroId}/>}
     </div>
   );
