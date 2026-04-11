@@ -161,11 +161,7 @@ export default function Login() {
         .btn-login:active{transform:scale(0.98);}
         .btn-login:disabled{opacity:0.65;cursor:not-allowed;}
 
-        .star{position:fixed;border-radius:50%;background:white;pointer-events:none;
-          animation:twinkle var(--d,3s) ease-in-out infinite;
-          animation-delay:var(--delay,0s);}
-
-        .hint-box{
+.hint-box{
           background:rgba(255,255,255,0.55);
           border:1px solid rgba(180,210,240,0.50);
           border-radius:12px;
@@ -183,13 +179,16 @@ export default function Login() {
       `}</style>
 
       {/* Estrellas de fondo */}
-      {[[8,12,4,2.5,0],[22,45,3,3.5,0.5],[65,8,5,4,0.8],[80,30,3,2.8,1.2],
+      {([[8,12,4,2.5,0],[22,45,3,3.5,0.5],[65,8,5,4,0.8],[80,30,3,2.8,1.2],
         [15,70,4,3.2,0.3],[50,55,3,4.5,1.5],[90,65,5,3,0.7],[35,85,3,2.5,2],
         [72,20,4,3.8,1],[5,40,3,4.2,0.4],[45,15,5,3.5,1.8],[88,80,3,2.8,0.6]
-      ].map(([x,y,r,d,delay],i)=>(
-        <div key={i} className="star" style={{
+      ] as number[][]).map(([x,y,r,d,delay],i)=>(
+        <div key={i} style={{
+          position:"fixed",borderRadius:"50%",background:"white",pointerEvents:"none",
           left:x+"%",top:y+"%",width:r+"px",height:r+"px",
-          opacity:0.35,(["--d"] as any):d+"s",(["--delay"] as any):delay+"s"
+          opacity:0.35,
+          animation:`twinkle ${d}s ease-in-out infinite`,
+          animationDelay:delay+"s"
         }}/>
       ))}
 
