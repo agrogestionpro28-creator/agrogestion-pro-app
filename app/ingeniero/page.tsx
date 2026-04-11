@@ -425,9 +425,9 @@ export default function IngenieroPanel() {
   })();
 
   // Inputs
-  const iCls = "gi w-full px-3 py-2.5 text-gray-800 text-sm";
-  const lCls = "gi-label";
-  const cardCls = "gc";
+  const iCls = "inp w-full px-3 py-2.5 text-[#1a2a4a] text-sm";
+  const lCls = "block text-[10px] font-bold uppercase tracking-wider text-[#6b8aaa] mb-1.5";
+  const cardCls = "card";
 
   // Selector cultivo con libre
   const SelectorCultivo = ({value, onChange}:{value:string,onChange:(v:string)=>void}) => {
@@ -458,16 +458,16 @@ export default function IngenieroPanel() {
 
 
 
+
   if(loading) return (
-    <div style={{minHeight:"100vh",background:"radial-gradient(ellipse at 30% 20%,#1a6fcf 0%,#0d47a1 40%,#063080 100%)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#dff0fb 0%,#c8e8f7 50%,#b0d8f0 100%)",display:"flex",alignItems:"center",justifyContent:"center"}}>
       <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:12}}>
-        <div style={{width:40,height:40,border:"3px solid rgba(255,255,255,0.8)",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
-        <span style={{color:"rgba(255,255,255,0.8)",fontWeight:600,fontSize:14}}>Cargando AgroGestión PRO...</span>
+        <div style={{width:36,height:36,border:"3px solid #1976d2",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+        <span style={{color:"#1565c0",fontWeight:600,fontSize:14}}>Cargando...</span>
       </div>
     </div>
   );
 
-  // Ícono por cultivo para la sección distribución
   const cultivoIcono = (label:string) => {
     const l = label.toLowerCase();
     if(l.includes("soja")) return "🌱";
@@ -480,904 +480,808 @@ export default function IngenieroPanel() {
     return "🌱";
   };
 
-  const cultivoBarClass = (label:string) => {
+  const cultivoColor = (label:string) => {
     const l = label.toLowerCase();
-    if(l.includes("soja")) return "bar-fill bar-soja";
-    if(l.includes("maíz")||l.includes("maiz")) return "bar-fill bar-maiz";
-    if(l.includes("trigo")) return "bar-fill bar-trigo";
-    if(l.includes("girasol")) return "bar-fill bar-girasol";
-    if(l.includes("sorgo")) return "bar-fill bar-sorgo";
-    if(l.includes("cebada")) return "bar-fill bar-cebada";
-    if(l.includes("arveja")) return "bar-fill bar-arveja";
-    return "bar-fill bar-default";
+    if(l.includes("soja")) return {bar:"linear-gradient(90deg,#4CAF50,#81C784)",chip:"rgba(76,175,80,0.10)",border:"rgba(76,175,80,0.25)",text:"#2e7d32"};
+    if(l.includes("maíz")||l.includes("maiz")) return {bar:"linear-gradient(90deg,#FB8C00,#FFB74D)",chip:"rgba(251,140,0,0.10)",border:"rgba(251,140,0,0.25)",text:"#e65100"};
+    if(l.includes("trigo")) return {bar:"linear-gradient(90deg,#D4A373,#E6C79C)",chip:"rgba(212,163,115,0.12)",border:"rgba(212,163,115,0.30)",text:"#795548"};
+    if(l.includes("girasol")) return {bar:"linear-gradient(90deg,#FBC02D,#FFE082)",chip:"rgba(251,192,45,0.10)",border:"rgba(251,192,45,0.28)",text:"#f57f17"};
+    if(l.includes("sorgo")) return {bar:"linear-gradient(90deg,#E53935,#EF9A9A)",chip:"rgba(229,57,53,0.09)",border:"rgba(229,57,53,0.22)",text:"#c62828"};
+    if(l.includes("cebada")) return {bar:"linear-gradient(90deg,#7B1FA2,#CE93D8)",chip:"rgba(123,31,162,0.09)",border:"rgba(123,31,162,0.22)",text:"#6a1b9a"};
+    return {bar:"linear-gradient(90deg,#1976D2,#64B5F6)",chip:"rgba(25,118,210,0.09)",border:"rgba(25,118,210,0.22)",text:"#1565c0"};
   };
 
   return (
-    <div style={{minHeight:"100vh",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",position:"relative",overflow:"hidden",
-      background:"#c8e8f8"}}>
+    <div style={{minHeight:"100vh",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",
+      background:"linear-gradient(160deg,#dff0fb 0%,#c5e4f5 40%,#aed4ee 100%)",
+      position:"relative"}}>
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
         @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes fadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-        @keyframes sweep{0%{left:-60%}100%{left:150%}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+        @keyframes shine{0%{left:-50%}100%{left:120%}}
+        @keyframes twinkle{0%,100%{opacity:0.3;transform:scale(0.8)}50%{opacity:1;transform:scale(1.1)}}
 
-        /* ── CRISTAL CLARO (fondo blanco translúcido) ── */
-        .gc{
-          position:relative;overflow:hidden;
-          background:linear-gradient(160deg,rgba(255,255,255,0.72) 0%,rgba(255,255,255,0.50) 55%,rgba(220,240,255,0.55) 100%);
-          backdrop-filter:blur(20px) saturate(140%);
-          -webkit-backdrop-filter:blur(20px) saturate(140%);
-          border:1px solid rgba(255,255,255,0.80);
-          border-top:1.5px solid rgba(255,255,255,0.95);
-          box-shadow:
-            0 8px 32px rgba(30,100,180,0.12),
-            0 2px 8px rgba(0,0,0,0.06),
-            inset 0 2px 0 rgba(255,255,255,0.95),
-            inset 0 -1px 0 rgba(255,255,255,0.40);
+        /* ── CARD blanca pura ── */
+        .card{
+          background:rgba(255,255,255,0.82);
+          backdrop-filter:blur(12px);
+          -webkit-backdrop-filter:blur(12px);
+          border:1px solid rgba(255,255,255,0.95);
           border-radius:18px;
-          color:#1a2a4a;
+          box-shadow:0 4px 20px rgba(20,80,160,0.08),0 1px 4px rgba(0,0,0,0.04);
         }
-        .gc::before{
-          content:"";position:absolute;top:0;left:0;right:0;height:50%;
-          background:linear-gradient(180deg,rgba(255,255,255,0.45) 0%,transparent 100%);
-          border-radius:18px 18px 0 0;pointer-events:none;z-index:0;
-        }
-        .gc::after{
-          content:"";position:absolute;top:-40%;left:-60%;width:30%;height:180%;
-          background:linear-gradient(90deg,transparent,rgba(255,255,255,0.25),transparent);
-          transform:skewX(-15deg);animation:sweep 9s ease-in-out infinite;
-          pointer-events:none;z-index:0;
-        }
-        .gc>*{position:relative;z-index:1;}
-
-        /* Cristal interior — aún más blanco */
-        .gc-inner{
-          position:relative;overflow:hidden;
-          background:linear-gradient(155deg,rgba(255,255,255,0.65) 0%,rgba(230,245,255,0.50) 100%);
-          backdrop-filter:blur(14px);
-          -webkit-backdrop-filter:blur(14px);
-          border:1px solid rgba(255,255,255,0.75);
-          border-top:1.5px solid rgba(255,255,255,0.95);
-          box-shadow:0 4px 16px rgba(30,100,180,0.10),inset 0 2px 0 rgba(255,255,255,0.90);
+        .card-sm{
+          background:rgba(255,255,255,0.75);
+          border:1px solid rgba(255,255,255,0.90);
           border-radius:14px;
-          color:#1a2a4a;
+          box-shadow:0 2px 12px rgba(20,80,160,0.07);
         }
-        .gc-inner::before{
-          content:"";position:absolute;top:0;left:0;right:0;height:50%;
-          background:linear-gradient(180deg,rgba(255,255,255,0.40) 0%,transparent 100%);
-          border-radius:14px 14px 0 0;pointer-events:none;
-        }
-        .gc-inner>*{position:relative;}
-
-        /* ── MARCO PRINCIPAL ── */
-        .main-frame{
-          background:linear-gradient(155deg,rgba(255,255,255,0.60) 0%,rgba(210,235,255,0.42) 100%);
-          backdrop-filter:blur(24px) saturate(150%);
-          -webkit-backdrop-filter:blur(24px) saturate(150%);
-          border:1.5px solid rgba(255,255,255,0.75);
-          border-top:2px solid rgba(255,255,255,0.95);
-          border-radius:26px;
-          box-shadow:
-            0 20px 60px rgba(20,80,160,0.18),
-            0 1px 0 rgba(255,255,255,0.95) inset,
-            inset 0 0 40px rgba(200,230,255,0.15);
-          overflow:hidden;position:relative;
-        }
-        .main-frame::before{
-          content:"";position:absolute;top:0;left:0;right:0;height:35%;
-          background:linear-gradient(180deg,rgba(255,255,255,0.30) 0%,transparent 100%);
-          pointer-events:none;z-index:0;
-        }
-        .main-frame>*{position:relative;z-index:1;}
 
         /* ── TOPBAR ── */
-        .topbar-frame{
-          background:linear-gradient(180deg,rgba(255,255,255,0.65) 0%,rgba(255,255,255,0.45) 100%);
-          border-bottom:1px solid rgba(255,255,255,0.55);
-          padding:14px 18px;
-          display:flex;align-items:center;justify-content:space-between;
+        .topbar{
+          background:rgba(255,255,255,0.78);
+          backdrop-filter:blur(16px);
+          -webkit-backdrop-filter:blur(16px);
+          border-bottom:1px solid rgba(255,255,255,0.70);
+          box-shadow:0 2px 12px rgba(20,80,160,0.06);
         }
 
-        /* ── NAV TABS ── */
+        /* ── NAV TAB ── */
         .nav-tab{
-          position:relative;overflow:hidden;
-          padding:9px 16px;border-radius:12px;
-          font-size:13px;font-weight:600;
-          cursor:pointer;transition:all 0.2s ease;
-          border:1px solid rgba(255,255,255,0.65);
-          background:rgba(255,255,255,0.50);
+          padding:9px 16px;border-radius:12px;font-size:13px;font-weight:600;
+          cursor:pointer;transition:all 0.18s ease;white-space:nowrap;
+          background:rgba(255,255,255,0.70);
+          border:1px solid rgba(255,255,255,0.85);
           color:#1e3a5f;
-          white-space:nowrap;
-          box-shadow:0 2px 8px rgba(0,60,140,0.08),inset 0 1px 0 rgba(255,255,255,0.9);
+          box-shadow:0 2px 8px rgba(20,80,160,0.06);
         }
-        .nav-tab:hover{background:rgba(255,255,255,0.72);color:#0d47a1;}
+        .nav-tab:hover{background:rgba(255,255,255,0.92);color:#0d47a1;transform:translateY(-1px);}
         .nav-tab.active{
           background:linear-gradient(145deg,#1565c0,#0d47a1);
-          border:1px solid rgba(100,160,255,0.45);
-          border-top:1px solid rgba(150,200,255,0.55);
-          color:white !important;
-          box-shadow:0 4px 16px rgba(13,71,161,0.40),inset 0 1px 0 rgba(255,255,255,0.22);
+          border:1px solid rgba(100,160,255,0.35);
+          color:white;
+          box-shadow:0 4px 14px rgba(13,71,161,0.38),inset 0 1px 0 rgba(255,255,255,0.20);
         }
 
-        /* ── BOTONES ACCION ── */
-        .action-btn{
-          position:relative;overflow:hidden;
-          background:linear-gradient(155deg,rgba(255,255,255,0.72) 0%,rgba(225,242,255,0.55) 100%);
-          border:1px solid rgba(255,255,255,0.80);
-          border-top:1.5px solid rgba(255,255,255,0.98);
+        /* ── ACTION BTN ── */
+        .abtn{
+          background:rgba(255,255,255,0.80);
+          border:1px solid rgba(255,255,255,0.90);
           border-radius:14px;
-          padding:12px 16px;
           color:#1e3a5f;font-weight:700;font-size:13px;
           cursor:pointer;
-          box-shadow:0 4px 14px rgba(20,80,160,0.10),inset 0 2px 0 rgba(255,255,255,0.95);
-          transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1);
-          display:flex;align-items:center;justify-content:center;gap:7px;
+          box-shadow:0 3px 12px rgba(20,80,160,0.07);
+          transition:all 0.18s cubic-bezier(0.34,1.56,0.64,1);
+          display:flex;align-items:center;justify-content:center;gap:7px;padding:12px 16px;
+          position:relative;overflow:hidden;
         }
-        .action-btn::after{
+        .abtn::after{
           content:"";position:absolute;top:-30%;left:-70%;width:40%;height:160%;
-          background:linear-gradient(90deg,transparent,rgba(255,255,255,0.35),transparent);
-          transform:skewX(-20deg);transition:left 0.5s ease;
+          background:linear-gradient(90deg,transparent,rgba(255,255,255,0.6),transparent);
+          transform:skewX(-20deg);transition:left 0.45s ease;
         }
-        .action-btn:hover{transform:translateY(-2px);background:rgba(255,255,255,0.90);box-shadow:0 8px 24px rgba(20,80,160,0.16);}
-        .action-btn:hover::after{left:150%;}
-        .action-btn:active{transform:scale(0.97);}
+        .abtn:hover{background:rgba(255,255,255,0.97);transform:translateY(-2px);box-shadow:0 6px 20px rgba(20,80,160,0.13);}
+        .abtn:hover::after{left:150%;}
+        .abtn:active{transform:scale(0.97);}
 
-        /* ── BOTÓN AZUL SÓLIDO ── */
-        .btn-solid{
+        /* ── BTN AZUL ── */
+        .bbtn{
           background:linear-gradient(145deg,#2196f3,#1565c0);
-          border:1px solid rgba(100,160,255,0.4);
-          border-top:1px solid rgba(160,210,255,0.6);
-          border-radius:14px;
-          color:white;font-weight:700;font-size:13px;
-          padding:10px 18px;cursor:pointer;
-          box-shadow:0 4px 16px rgba(21,101,192,0.40),inset 0 1px 0 rgba(255,255,255,0.25);
-          transition:all 0.2s ease;
+          border:none;border-radius:12px;color:white;
+          font-weight:700;font-size:13px;cursor:pointer;
+          box-shadow:0 4px 14px rgba(25,118,210,0.38),inset 0 1px 0 rgba(255,255,255,0.22);
+          transition:all 0.18s ease;padding:10px 18px;
         }
-        .btn-solid:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(21,101,192,0.55);}
-        .btn-solid:active{transform:scale(0.97);}
+        .bbtn:hover{transform:translateY(-2px);box-shadow:0 7px 20px rgba(25,118,210,0.50);}
+        .bbtn:active{transform:scale(0.97);}
 
         /* ── INPUT ── */
-        .gi{
-          background:rgba(255,255,255,0.65);
-          border:1px solid rgba(180,210,240,0.60);
-          border-top:1px solid rgba(255,255,255,0.90);
-          border-radius:12px;color:#1e3a5f;
-          box-shadow:inset 0 2px 4px rgba(0,60,140,0.05),inset 0 1px 0 rgba(255,255,255,0.8);
-          transition:all 0.2s ease;
+        .inp{
+          background:rgba(255,255,255,0.75);
+          border:1px solid rgba(180,210,240,0.55);
+          border-radius:11px;
+          box-shadow:inset 0 1px 3px rgba(0,60,140,0.04);
+          transition:all 0.18s;
+          color:#1a2a4a;
         }
-        .gi::placeholder{color:rgba(80,120,160,0.55);}
-        .gi:focus{background:rgba(255,255,255,0.90);border-color:rgba(25,118,210,0.45);outline:none;box-shadow:0 0 0 3px rgba(25,118,210,0.12);}
-        .gi option{background:white;color:#1e3a5f;}
+        .inp::placeholder{color:rgba(80,120,160,0.50);}
+        .inp:focus{background:rgba(255,255,255,0.97);border-color:rgba(25,118,210,0.40);outline:none;box-shadow:0 0 0 3px rgba(25,118,210,0.10);}
+        .inp option{background:white;color:#1a2a4a;}
+
+        /* ── SEL ── */
+        .sel{
+          background:rgba(255,255,255,0.75);
+          border:1px solid rgba(180,210,240,0.55);
+          border-radius:11px;color:#1a2a4a;
+          padding:8px 12px;font-size:13px;font-weight:500;
+          -webkit-appearance:none;cursor:pointer;
+          box-shadow:inset 0 1px 3px rgba(0,60,140,0.04);
+        }
+        .sel option{background:white;color:#1a2a4a;}
 
         /* ── KPI CARD ── */
-        .kpi-card{
-          position:relative;overflow:hidden;
-          background:linear-gradient(155deg,rgba(255,255,255,0.75) 0%,rgba(220,240,255,0.55) 100%);
-          border:1px solid rgba(255,255,255,0.80);
-          border-top:1.5px solid rgba(255,255,255,0.98);
+        .kpi{
+          background:rgba(255,255,255,0.80);
+          border:1px solid rgba(255,255,255,0.92);
           border-radius:14px;
-          box-shadow:0 4px 16px rgba(20,80,160,0.10),inset 0 2px 0 rgba(255,255,255,0.95);
-          padding:16px;text-align:center;color:#1a2a4a;
+          box-shadow:0 3px 14px rgba(20,80,160,0.07);
+          padding:16px;text-align:center;
+          position:relative;overflow:hidden;
         }
-        .kpi-card::before{
-          content:"";position:absolute;top:0;left:0;right:0;height:50%;
-          background:linear-gradient(180deg,rgba(255,255,255,0.50) 0%,transparent 100%);
+        .kpi::before{
+          content:"";position:absolute;top:0;left:0;right:0;height:45%;
+          background:linear-gradient(180deg,rgba(255,255,255,0.60) 0%,transparent 100%);
           border-radius:14px 14px 0 0;pointer-events:none;
         }
-        .kpi-card>*{position:relative;}
+        .kpi>*{position:relative;}
 
-        /* ── CHIP CULTIVO ── */
-        .cult-chip{
-          display:flex;align-items:center;justify-content:center;gap:6px;
-          border-radius:14px;padding:10px 14px;font-size:13px;font-weight:700;
-          border:1px solid rgba(255,255,255,0.65);
-          box-shadow:inset 0 1px 0 rgba(255,255,255,0.80),0 2px 8px rgba(0,0,0,0.06);
-          position:relative;overflow:hidden;color:#1a2a4a;
+        /* ── BARRA CULTIVO ── */
+        .bar-track{
+          flex:1;height:9px;border-radius:10px;
+          background:rgba(0,60,140,0.07);overflow:hidden;
+          box-shadow:inset 0 1px 2px rgba(0,60,140,0.08);
         }
-        .cult-chip::before{
-          content:"";position:absolute;top:0;left:0;right:0;height:50%;
-          background:linear-gradient(180deg,rgba(255,255,255,0.45) 0%,transparent 100%);
-          border-radius:14px 14px 0 0;
-        }
-
-        /* ── BTN MIS LOTES ── */
-        .btn-mislotes{
-          width:100%;padding:14px 20px;
-          background:linear-gradient(155deg,rgba(255,255,255,0.68) 0%,rgba(210,235,255,0.50) 100%);
-          border:1px solid rgba(255,255,255,0.80);
-          border-top:1.5px solid rgba(255,255,255,0.98);
-          border-radius:16px;color:#0d47a1;
-          font-size:15px;font-weight:700;
-          display:flex;align-items:center;justify-content:center;gap:10px;
-          cursor:pointer;
-          box-shadow:0 4px 16px rgba(20,80,160,0.12),inset 0 2px 0 rgba(255,255,255,0.95);
-          transition:all 0.22s cubic-bezier(0.34,1.56,0.64,1);
-          position:relative;overflow:hidden;
-        }
-        .btn-mislotes::before{
-          content:"";position:absolute;top:0;left:0;right:0;height:50%;
-          background:linear-gradient(180deg,rgba(255,255,255,0.40) 0%,transparent 100%);
-          border-radius:16px 16px 0 0;
-        }
-        .btn-mislotes:hover{transform:translateY(-2px);background:rgba(255,255,255,0.88);box-shadow:0 8px 24px rgba(20,80,160,0.18);}
-        .btn-mislotes>*{position:relative;}
-
-        /* ── PROD CARD ── */
-        .prod-card{transition:all 0.22s cubic-bezier(0.34,1.56,0.64,1);}
-        .prod-card:hover{transform:translateY(-3px);box-shadow:0 16px 40px rgba(20,80,160,0.16) !important;}
-
-        /* ── MISC ── */
-        .fade-in{animation:fadeIn 0.25s ease;}
-        ::-webkit-scrollbar{width:3px}
-        ::-webkit-scrollbar-thumb{background:rgba(25,118,210,0.25);border-radius:3px}
-        input[type=date]::-webkit-calendar-picker-indicator{opacity:0.5}
-        select option{background:white;color:#1e3a5f;}
-
-        /* ── COLORES CULTIVOS PRO ── */
-        .bar-soja{background:linear-gradient(90deg,#4CAF50,#81C784);}
-        .bar-maiz{background:linear-gradient(90deg,#FB8C00,#FFB74D);}
-        .bar-trigo{background:linear-gradient(90deg,#D4A373,#E6C79C);}
-        .bar-girasol{background:linear-gradient(90deg,#FBC02D,#FFE082);}
-        .bar-sorgo{background:linear-gradient(90deg,#E53935,#EF9A9A);}
-        .bar-cebada{background:linear-gradient(90deg,#7B1FA2,#CE93D8);}
-        .bar-arveja{background:linear-gradient(90deg,#00897B,#80CBC4);}
-        .bar-default{background:linear-gradient(90deg,#1976D2,#64B5F6);}
-
-        /* ── BRILLO CORRIENDO EN BARRAS ── */
-        @keyframes shine{0%{left:-40%}100%{left:120%}}
         .bar-fill{
           height:100%;border-radius:10px;
-          position:relative;overflow:hidden;
+          position:relative;overflow:hidden;transition:width 0.7s ease;
         }
         .bar-fill::after{
           content:"";position:absolute;
-          width:40%;height:100%;left:-40%;top:0;
-          background:linear-gradient(90deg,transparent,rgba(255,255,255,0.52),transparent);
+          width:40%;height:100%;left:-50%;top:0;
+          background:linear-gradient(90deg,transparent,rgba(255,255,255,0.55),transparent);
           animation:shine 2.5s ease-in-out infinite;
         }
 
-        /* ── NÚMERO GRANDE ESTILO PRO ── */
-        .num-pro{
-          font-size:32px;font-weight:700;color:#0D47A1;line-height:1;
+        /* ── CHIP CULTIVO (imagen grande) ── */
+        .cult-chip{
+          display:flex;align-items:center;gap:10px;
+          border-radius:14px;padding:12px 14px;
+          border:1px solid;cursor:default;
+          position:relative;overflow:hidden;
+          transition:all 0.18s ease;
         }
-        .num-med{
-          font-size:22px;font-weight:700;color:#0D47A1;line-height:1;
+        .cult-chip::before{
+          content:"";position:absolute;top:0;left:0;right:0;height:50%;
+          background:linear-gradient(180deg,rgba(255,255,255,0.40) 0%,transparent 100%);
+          border-radius:14px 14px 0 0;pointer-events:none;
         }
-`}</style>
+        .cult-chip:hover{transform:translateY(-2px);}
+        .cult-chip>*{position:relative;}
 
-      {/* FONDO CELESTE CON DESTELLOS CRISTAL */}
-      <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0,overflow:"hidden"}}>
-        {/* Gradiente base celeste */}
-        <div style={{position:"absolute",inset:0,background:"linear-gradient(160deg,#e0f4ff 0%,#b8e0f7 25%,#7ec8e3 55%,#4aa8d4 80%,#2980b9 100%)"}}/>
-        {/* Imagen de fondo si existe */}
-        <div style={{position:"absolute",inset:0,backgroundImage:"url('/bg-ingeniero.jpg')",backgroundSize:"cover",backgroundPosition:"center",opacity:0.4}}/>
-        {/* Destello central brillante */}
-        <div style={{position:"absolute",top:"15%",left:"50%",transform:"translateX(-50%)",width:"70%",height:"55%",background:"radial-gradient(ellipse,rgba(255,255,255,0.55) 0%,rgba(200,235,255,0.25) 40%,transparent 70%)",filter:"blur(18px)"}}/>
-        {/* Destello superior izquierdo */}
-        <div style={{position:"absolute",top:"-5%",left:"-5%",width:"50%",height:"45%",background:"radial-gradient(ellipse,rgba(255,255,255,0.40) 0%,rgba(174,214,241,0.20) 50%,transparent 75%)",filter:"blur(24px)"}}/>
-        {/* Destello inferior derecho */}
-        <div style={{position:"absolute",bottom:"5%",right:"-5%",width:"45%",height:"45%",background:"radial-gradient(ellipse,rgba(255,255,255,0.30) 0%,rgba(133,193,233,0.20) 50%,transparent 75%)",filter:"blur(28px)"}}/>
-        {/* Rayos de luz diagonales */}
-        <div style={{position:"absolute",inset:0,background:"linear-gradient(120deg,transparent 30%,rgba(255,255,255,0.18) 45%,rgba(255,255,255,0.08) 50%,transparent 65%)"}}/>
-        <div style={{position:"absolute",inset:0,background:"linear-gradient(240deg,transparent 35%,rgba(255,255,255,0.12) 48%,transparent 60%)"}}/>
-        {/* Partículas de luz (destellos) */}
-        {[[12,18,8],[80,35,5],[45,65,7],[70,20,4],[25,45,6],[90,70,5],[55,85,7],[15,75,4],[85,50,6]].map(([x,y,r],i)=>(
-          <div key={i} style={{position:"absolute",left:x+"%",top:y+"%",width:r*2+"px",height:r*2+"px",borderRadius:"50%",background:"radial-gradient(circle,rgba(255,255,255,0.9) 0%,rgba(255,255,255,0) 70%)",filter:"blur(1px)"}}/>
-        ))}
+        /* ── PARTÍCULAS ── */
+        .star{
+          position:fixed;border-radius:50%;
+          background:white;pointer-events:none;
+          animation:twinkle var(--d,3s) ease-in-out infinite;
+          animation-delay:var(--delay,0s);
+        }
+
+        /* ── MISC ── */
+        .fade-in{animation:fadeIn 0.22s ease;}
+        ::-webkit-scrollbar{width:3px}
+        ::-webkit-scrollbar-thumb{background:rgba(25,118,210,0.20);border-radius:3px}
+        input[type=date]::-webkit-calendar-picker-indicator{opacity:0.4}
+
+        /* ── NUM PRO ── */
+        .num-big{font-size:36px;font-weight:800;color:#0D47A1;line-height:1;}
+        .num-med{font-size:24px;font-weight:700;color:#0D47A1;line-height:1;}
+      `}</style>
+
+      {/* ESTRELLAS/PARTÍCULAS de fondo */}
+      {[[8,12,4,2.5,0],[22,45,3,3.5,0.5],[65,8,5,4,0.8],[80,30,3,2.8,1.2],
+        [15,70,4,3.2,0.3],[50,55,3,4.5,1.5],[90,65,5,3,0.7],[35,85,3,2.5,2],
+        [72,20,4,3.8,1],[5,40,3,4.2,0.4],[45,15,5,3.5,1.8],[88,80,3,2.8,0.6]
+      ].map(([x,y,r,d,delay],i)=>(
+        <div key={i} className="star" style={{
+          left:x+"%",top:y+"%",width:r+"px",height:r+"px",
+          opacity:0.4,["--d" as any]:d+"s",["--delay" as any]:delay+"s"
+        }}/>
+      ))}
+
+      {/* ══ TOPBAR ══ */}
+      <div className="topbar" style={{position:"sticky",top:0,zIndex:20}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <Image src="/logo.png" alt="Logo" width={34} height={34} style={{borderRadius:10,objectFit:"contain"}}/>
+            <div>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <span style={{fontSize:18,fontWeight:800,color:"#0d2137"}}>AgroGestión</span>
+                <span style={{fontSize:10,fontWeight:700,background:"linear-gradient(135deg,#1976d2,#0d47a1)",borderRadius:5,padding:"2px 7px",color:"white",letterSpacing:0.8}}>PRO</span>
+              </div>
+              <div style={{fontSize:11,color:"#6b8aaa",marginTop:1,fontWeight:500}}>Gestión inteligente. Decisiones que rinden.</div>
+            </div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            {alertas.length>0&&(
+              <div style={{width:24,height:24,borderRadius:"50%",background:"rgba(239,68,68,0.12)",border:"1px solid rgba(239,68,68,0.25)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#dc2626"}}>
+                {alertas.length}
+              </div>
+            )}
+            <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#1976d2,#0d47a1)",border:"2px solid white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,color:"white",boxShadow:"0 2px 8px rgba(25,118,210,0.30)"}}>
+              {ingNombre.charAt(0)||"M"}
+            </div>
+            <button onClick={async()=>{const sb=await getSB();await sb.auth.signOut();window.location.href="/login";}}
+              style={{display:"flex",alignItems:"center",gap:5,color:"#4a6a8a",fontSize:13,fontWeight:600,background:"none",border:"none",cursor:"pointer"}}>
+              Salir <span>⎋</span>
+            </button>
+          </div>
+        </div>
+        {/* NAV */}
+        <div style={{display:"flex",gap:6,padding:"0 12px 10px",overflowX:"auto",scrollbarWidth:"none"}}>
+          {NAV.map(item=>(
+            <button key={item.k}
+              onClick={()=>{setSeccion(item.k as Seccion);setShowForm(false);setForm({});setVehiculoSel(null);}}
+              className={`nav-tab${seccion===item.k?" active":""}`}>
+              <span>{item.icon}</span> <span>{item.label}</span>
+              {seccion===item.k&&<span style={{width:5,height:5,borderRadius:"50%",background:"rgba(255,255,255,0.8)",display:"inline-block",marginLeft:2}}/>}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div style={{position:"relative",zIndex:1,maxWidth:520,margin:"0 auto",padding:"16px 14px 80px"}}>
+      {/* ══ CONTENIDO ══ */}
+      <div style={{maxWidth:540,margin:"0 auto",padding:"14px 14px 100px",position:"relative",zIndex:1}}>
 
-        {/* ══ MARCO PRINCIPAL ══ */}
-        <div className="main-frame">
+        {/* Toast */}
+        {msj&&<div className="fade-in card-sm" style={{marginBottom:12,padding:"10px 14px",fontSize:13,fontWeight:600,
+          color:msj.startsWith("✅")?"#16a34a":"#dc2626",
+          background:msj.startsWith("✅")?"rgba(220,252,231,0.90)":"rgba(254,226,226,0.90)",
+          border:`1px solid ${msj.startsWith("✅")?"rgba(22,163,74,0.25)":"rgba(220,38,38,0.20)"}`,
+          display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          {msj}<button onClick={()=>setMsj("")} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,opacity:0.5}}>✕</button>
+        </div>}
 
-          {/* TOPBAR */}
-          <div className="topbar-frame">
-            <div style={{display:"flex",alignItems:"center",gap:10}}>
-              <Image src="/logo.png" alt="AgroGestión PRO" width={36} height={36} className="object-contain" style={{borderRadius:10}}/>
-              <div>
-                <div style={{display:"flex",alignItems:"center",gap:6}}>
-                  <span style={{fontSize:18,fontWeight:800,color:"#1a2a4a"}}>AgroGestión</span>
-                  <span style={{fontSize:10,fontWeight:700,background:"linear-gradient(135deg,#42a5f5,#1565c0)",borderRadius:5,padding:"2px 7px",color:"white",letterSpacing:1}}>PRO</span>
+        {/* ══ GENERAL ══ */}
+        {seccion==="general"&&(
+          <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:12}}>
+            {/* KPIs 2x2 */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              {[
+                {l:"Productores",v:productores.length,icon:"👨‍🌾",color:"#1976d2"},
+                {l:"Hectáreas",v:totalHa.toLocaleString("es-AR")+" ha",icon:"🌿",color:"#2e7d32"},
+                {l:"Lotes",v:lotes.length,icon:"🗺️",color:"#0288d1"},
+                {l:"Con App",v:productores.filter(p=>p.tiene_cuenta).length,icon:"📱",color:"#7b1fa2"},
+              ].map(s=>(
+                <div key={s.l} className="kpi">
+                  <div style={{fontSize:22,marginBottom:4}}>{s.icon}</div>
+                  <div className="num-big" style={{color:s.color,fontSize:28}}>{s.v}</div>
+                  <div style={{fontSize:11,color:"#6b8aaa",marginTop:3,fontWeight:600}}>{s.l}</div>
                 </div>
-                <div style={{fontSize:11,color:"#4a6a8a",marginTop:1,fontWeight:500}}>Gestión inteligente. Decisiones que rinden.</div>
-              </div>
+              ))}
             </div>
-            <div style={{display:"flex",alignItems:"center",gap:10}}>
-              <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#1976d2,#0d47a1)",border:"2px solid rgba(255,255,255,0.9)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,color:"white",boxShadow:"0 2px 10px rgba(21,101,192,0.4)"}}>
-                {ingNombre.charAt(0)||"M"}
-              </div>
-              <button onClick={async()=>{const sb=await getSB();await sb.auth.signOut();window.location.href="/login";}}
-                style={{display:"flex",alignItems:"center",gap:5,color:"#1e3a5f",fontSize:13,fontWeight:600,background:"none",border:"none",cursor:"pointer"}}>
-                Salir <span style={{fontSize:16}}>⎋</span>
-              </button>
-            </div>
-          </div>
 
-          {/* NAV TABS */}
-          <div style={{display:"flex",gap:6,padding:"10px 14px",overflowX:"auto",scrollbarWidth:"none"}}>
-            {NAV.map(item=>(
-              <button key={item.k}
-                onClick={()=>{setSeccion(item.k as Seccion);setShowForm(false);setForm({});setVehiculoSel(null);}}
-                className={`nav-tab${seccion===item.k?" active":""}`}
-                style={{display:"flex",alignItems:"center",gap:5}}>
-                <span>{item.icon}</span>
-                <span>{item.label}</span>
-                {seccion===item.k&&<span style={{width:5,height:5,borderRadius:"50%",background:"white",opacity:0.8,marginLeft:2}}/>}
-              </button>
-            ))}
-          </div>
-
-          {/* CONTENIDO */}
-          <div style={{padding:"0 14px 14px"}}>
-
-            {/* Toast */}
-            {msj&&<div className="fade-in gc-inner" style={{marginBottom:12,padding:"10px 14px",fontSize:13,fontWeight:600,color:msj.startsWith("✅")?"#a5f3a5":"#fca5a5",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              {msj}<button onClick={()=>setMsj("")} style={{background:"none",border:"none",color:"rgba(255,255,255,0.5)",cursor:"pointer",fontSize:16}}>✕</button>
-            </div>}
-
-            {/* ══ GENERAL ══ */}
-            {seccion==="general"&&(
-              <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:10}}>
-                {/* KPIs 2x2 */}
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                  {[
-                    {l:"Productores",v:productores.length,icon:"👨‍🌾"},
-                    {l:"Hectáreas",v:totalHa.toLocaleString("es-AR")+" ha",icon:"🌿"},
-                    {l:"Lotes",v:lotes.length,icon:"🗺️"},
-                    {l:"Con App",v:productores.filter(p=>p.tiene_cuenta).length,icon:"📱"},
-                  ].map(s=>(
-                    <div key={s.l} className="kpi-card">
-                      <div style={{fontSize:20,marginBottom:4}}>{s.icon}</div>
-                      <div className="num-pro">{s.v}</div>
-                      <div style={{fontSize:11,color:"#4a6a8a",marginTop:3,fontWeight:600}}>{s.l}</div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Distribución de cultivos */}
-                {haPorCultivo.length>0&&(
-                  <div className="gc" style={{padding:16}}>
-                    <div style={{fontSize:11,fontWeight:700,letterSpacing:1.2,color:"#4a6a8a",textTransform:"uppercase",marginBottom:12}}>Distribución de Cultivos</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                      {haPorCultivo.map((d,i)=>(
-                        <div key={i} style={{display:"flex",alignItems:"center",gap:10}}>
-                          <span style={{fontSize:16,width:22,textAlign:"center",flexShrink:0}}>{cultivoIcono(d.name)}</span>
-                          <div style={{width:80,fontSize:12,fontWeight:600,color:"#1e3a5f",flexShrink:0}}>{d.name}</div>
-                          <div style={{flex:1,height:9,borderRadius:10,background:"rgba(0,60,140,0.08)",overflow:"hidden",boxShadow:"inset 0 1px 3px rgba(0,60,140,0.08)"}}>
-                            <div className={cultivoBarClass(d.name)} style={{width:totalHa>0?(d.ha/totalHa*100)+"%":"0%",transition:"width 0.7s ease"}}/>
-                          </div>
-                          <div style={{width:32,textAlign:"right",fontSize:12,fontWeight:700,color:d.color,filter:"brightness(0.75)",flexShrink:0}}>
-                            {totalHa>0?Math.round(d.ha/totalHa*100):0}%
-                          </div>
+            {/* Distribución cultivos */}
+            {haPorCultivo.length>0&&(
+              <div className="card" style={{padding:16}}>
+                <div style={{fontSize:11,fontWeight:700,letterSpacing:1.2,color:"#6b8aaa",textTransform:"uppercase",marginBottom:14}}>Distribución de Cultivos</div>
+                <div style={{display:"flex",flexDirection:"column",gap:11}}>
+                  {haPorCultivo.map((d,i)=>{
+                    const cc=cultivoColor(d.name);
+                    return(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:10}}>
+                        <span style={{fontSize:16,width:22,flexShrink:0,textAlign:"center"}}>{cultivoIcono(d.name)}</span>
+                        <div style={{width:76,fontSize:12,fontWeight:600,color:"#1e3a5f",flexShrink:0}}>{d.name}</div>
+                        <div className="bar-track">
+                          <div className="bar-fill" style={{background:cc.bar,width:totalHa>0?(d.ha/totalHa*100)+"%":"0%"}}/>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Chips cultivos */}
-                {haPorCultivo.length>0&&(
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                    {haPorCultivo.slice(0,4).map((d,i)=>(
-                      <div key={i} className="cult-chip" style={{background:`linear-gradient(145deg,${d.color}20,${d.color}08)`,border:`1px solid ${d.color}35`,color:"#1a2a4a"}}>
-                        <span style={{fontSize:18}}>{cultivoIcono(d.name)}</span>
-                        <span style={{fontSize:13,fontWeight:700,color:"#1a2a4a"}}>{d.name}</span>
+                        <div style={{width:32,textAlign:"right",fontSize:12,fontWeight:700,color:cc.text,flexShrink:0}}>
+                          {totalHa>0?Math.round(d.ha/totalHa*100):0}%
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Cobranza */}
-                <div className="gc" style={{padding:16}}>
-                  <div style={{fontSize:11,fontWeight:700,letterSpacing:1.2,color:"#4a6a8a",textTransform:"uppercase",marginBottom:12}}>💰 Cobranza</div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                    <div className="kpi-card" style={{background:"linear-gradient(145deg,rgba(255,100,100,0.25),rgba(255,100,100,0.08))"}}>
-                      <div style={{fontSize:11,fontWeight:700,opacity:0.7,marginBottom:4}}>Pendiente</div>
-                      <div style={{fontSize:20,fontWeight:800,color:"#ff8a8a"}}>${totPend.toLocaleString("es-AR")}</div>
-                    </div>
-                    <div className="kpi-card" style={{background:"linear-gradient(145deg,rgba(100,255,130,0.22),rgba(100,255,130,0.08))"}}>
-                      <div style={{fontSize:11,fontWeight:700,opacity:0.7,marginBottom:4}}>Cobrado</div>
-                      <div style={{fontSize:20,fontWeight:800,color:"#86efac"}}>${totCob.toLocaleString("es-AR")}</div>
-                    </div>
-                  </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
-            {/* ══ PRODUCTORES ══ */}
-            {seccion==="productores"&&(
-              <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:10}}>
-
-                {/* Acciones */}
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-                  {[
-                    {icon:"➕",l:"Nuevo",fn:()=>{setShowForm(!showForm);setEditProd(null);setForm({provincia:"Santa Fe",honorario_tipo:"mensual"});}},
-                    {icon:"📥",l:"Importar",fn:()=>setShowImport(!showImport)},
-                    {icon:"📤",l:"Exportar",fn:()=>exportXLS("productores")},
-                  ].map(b=>(
-                    <button key={b.l} className="action-btn" onClick={b.fn}>
-                      <span style={{fontSize:18}}>{b.icon}</span>
-                      <span>{b.l}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Vincular */}
-                <button onClick={()=>{setShowVincular(!showVincular);setForm({});}}
-                  style={{background:"none",border:"none",cursor:"pointer",color:"#1565c0",fontSize:14,fontWeight:700,textAlign:"left",display:"flex",alignItems:"center",gap:6,padding:"4px 0"}}>
-                  🔗 Vincular productor por código
-                </button>
-
-                {showVincular&&(
-                  <div className="gc-inner fade-in" style={{padding:14}}>
-                    <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"white"}}>🔗 Vincular por código</div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-                      <div><label className={lCls} style={{color:"rgba(255,255,255,0.55)"}}>Código *</label><input type="text" value={form.codigo??""} onChange={e=>setForm({...form,codigo:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}} placeholder="10001"/></div>
-                      <div><label className={lCls} style={{color:"rgba(255,255,255,0.55)"}}>Honorario</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}><option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option></select></div>
-                      <div><label className={lCls} style={{color:"rgba(255,255,255,0.55)"}}>Monto $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}/></div>
-                    </div>
-                    <div style={{display:"flex",gap:8}}>
-                      <button onClick={vincularCodigo} className="btn-solid">Vincular</button>
-                      <button onClick={()=>{setShowVincular(false);setForm({});}} className="action-btn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button>
-                    </div>
-                  </div>
-                )}
-
-                {showImport&&(
-                  <div className="gc-inner fade-in" style={{padding:14}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                      <span style={{fontSize:13,fontWeight:700,color:"#0d2137"}}>📥 Importar productores</span>
-                      <button onClick={()=>{setShowImport(false);setImportPrev([]);setImportMsg("");}} style={{background:"none",border:"none",color:"rgba(255,255,255,0.5)",cursor:"pointer",fontSize:18}}>✕</button>
-                    </div>
-                    <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f)leerExcel(f);}}/>
-                    {importPrev.length===0
-                      ?<button onClick={()=>importRef.current?.click()} className="action-btn" style={{width:"100%",padding:"12px",justifyContent:"center",border:"1.5px dashed rgba(255,255,255,0.3)"}}>📁 Seleccionar archivo Excel</button>
-                      :<div>
-                        <div style={{maxHeight:140,overflowY:"auto",marginBottom:10,borderRadius:10,border:"1px solid rgba(255,255,255,0.15)"}}>
-                          <table style={{width:"100%",fontSize:11,borderCollapse:"collapse"}}>
-                            <thead><tr style={{borderBottom:"1px solid rgba(255,255,255,0.1)",background:"rgba(255,255,255,0.05)"}}>{["Nombre","Tel","Localidad","Ha",""].map(h=><th key={h} style={{textAlign:"left",padding:"6px 10px",color:"rgba(255,255,255,0.5)",fontWeight:600}}>{h}</th>)}</tr></thead>
-                            <tbody>{importPrev.map((r,i)=><tr key={i} style={{borderBottom:"1px solid rgba(255,255,255,0.05)"}}><td style={{padding:"6px 10px",color:"white",fontWeight:600}}>{r.nombre}</td><td style={{padding:"6px 10px",color:"rgba(255,255,255,0.5)"}}>{r.telefono||"—"}</td><td style={{padding:"6px 10px",color:"rgba(255,255,255,0.5)"}}>{r.localidad||"—"}</td><td style={{padding:"6px 10px",color:"rgba(255,255,255,0.6)"}}>{r.hectareas_total||"—"}</td><td style={{padding:"6px 10px"}}><span style={{fontSize:10,padding:"2px 7px",borderRadius:5,fontWeight:700,background:r.existe?"rgba(100,150,255,0.2)":"rgba(100,255,150,0.15)",color:r.existe?"#90caf9":"#86efac"}}>{r.existe?"Existe":"Nuevo"}</span></td></tr>)}</tbody>
-                          </table>
-                        </div>
-                        <div style={{display:"flex",gap:8}}>
-                          <button onClick={confirmarImport} className="btn-solid">Importar {importPrev.filter(p=>!p.existe).length} nuevos</button>
-                          <button onClick={()=>setImportPrev([])} className="action-btn" style={{padding:"9px 14px",fontSize:12}}>Cancelar</button>
-                        </div>
-                      </div>
-                    }
-                    {importMsg&&<p style={{marginTop:8,fontSize:12,fontWeight:600,color:importMsg.startsWith("✅")?"#86efac":"#fca5a5"}}>{importMsg}</p>}
-                  </div>
-                )}
-
-                {showForm&&(
-                  <div className="gc-inner fade-in" style={{padding:14}}>
-                    <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"white"}}>{editProd?"✏️ Editar":"➕"} Productor</div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-                      {[["nombre","Nombre *","text",""],["telefono","Teléfono","text",""],["email","Email (app)","email",""],["localidad","Localidad","text",""],["honorario_monto","Honorario $","number",""],["obs","Observaciones","text",""]].map(([k,l,t,ph])=>(
-                        <div key={k as string} style={{gridColumn:k==="obs"?"1/-1":"auto"}}>
-                          <label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>{l as string}</label>
-                          <input type={t as string} value={form[k as string]??""} onChange={e=>setForm({...form,[k as string]:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}} placeholder={ph as string}/>
-                        </div>
-                      ))}
+            {/* Chips cultivos 2x2 */}
+            {haPorCultivo.length>0&&(
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                {haPorCultivo.slice(0,4).map((d,i)=>{
+                  const cc=cultivoColor(d.name);
+                  return(
+                    <div key={i} className="cult-chip" style={{background:cc.chip,borderColor:cc.border}}>
+                      <span style={{fontSize:26}}>{cultivoIcono(d.name)}</span>
                       <div>
-                        <label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Tipo honorario</label>
-                        <select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}>
-                          <option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option><option value="por_servicio">Por servicio</option>
-                        </select>
+                        <div style={{fontSize:14,fontWeight:700,color:"#1a2a4a"}}>{d.name}</div>
+                        <div style={{fontSize:11,color:"#6b8aaa",fontWeight:500,marginTop:1}}>{d.ha} ha</div>
                       </div>
                     </div>
-                    <div style={{display:"flex",gap:8}}>
-                      <button onClick={guardarProductor} className="btn-solid">Guardar</button>
-                      <button onClick={()=>{setShowForm(false);setEditProd(null);setForm({});}} className="action-btn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Filtros exportar lotes */}
-                {lotes.length>0&&(
-                  <div className="gc" style={{padding:12}}>
-                    <div style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center"}}>
-                      <span style={{fontSize:12,fontWeight:700,color:"#1e3a5f"}}>Exportar lotes:</span>
-                      {[["Cultivo",fCultivo,setFCultivo,["todos",...cultivosU]],["Productor",fProductor,setFProductor,["todos",...productores.map(p=>p.nombre)]],["Estado",fEstado,setFEstado,["todos","planificado","sembrado","en_desarrollo","cosechado"]]].map(([l,v,fn,opts])=>(
-                        <select key={l as string} value={v as string} onChange={e=>(fn as any)(e.target.value)} className="gi sel-crystal" style={{fontSize:12,padding:"6px 10px"}}>
-                          {(opts as string[]).map(o=><option key={o} value={o}>{o==="todos"?"Todos":o}</option>)}
-                        </select>
-                      ))}
-                      <button onClick={()=>exportXLS("lotes")} className="btn-solid" style={{padding:"7px 14px",fontSize:12}}>📤 Exportar</button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Lista productores */}
-                {productores.length===0
-                  ?<div className="gc" style={{padding:48,textAlign:"center"}}><div style={{fontSize:48,opacity:0.2,marginBottom:12}}>👨‍🌾</div><p style={{color:"#4a6a8a",fontSize:14}}>Sin productores</p></div>
-                  :<div style={{display:"flex",flexDirection:"column",gap:10}}>
-                    {productores.map(p=>{
-                      const eid=p.empresa_id??p.id;
-                      const camps=campanasPorProd[eid]??[];
-                      const campActiva=campSelProd[eid]??null;
-                      const lotesP=lotes.filter(l=>(l as any).empresa_id===eid);
-                      const haReales=lotesP.reduce((a,l)=>a+(Number(l.hectareas)||0),0);
-                      const cultivosProd=[...new Set(lotesP.map(l=>l.cultivo_completo||l.cultivo).filter(Boolean))];
-                      return(
-                        <div key={p.id} className="prod-card gc" style={{padding:0}}>
-                          {/* Header */}
-                          <div style={{padding:"14px 14px 12px",borderBottom:"1px solid rgba(255,255,255,0.12)",display:"flex",alignItems:"flex-start",gap:12}}>
-                            <div style={{width:44,height:44,borderRadius:"50%",background:"linear-gradient(145deg,#1976d2,#0d47a1)",border:"2px solid rgba(255,255,255,0.8)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:"white",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.4)",flexShrink:0}}>
-                              {p.nombre.charAt(0)}
-                            </div>
-                            <div style={{flex:1,minWidth:0}}>
-                              <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                                <span style={{fontSize:16,fontWeight:800,color:"#0d2137"}}>{p.nombre}</span>
-                                <span style={{fontSize:14,opacity:0.5,cursor:"pointer"}} onClick={()=>{setEditProd(p.id);setForm({nombre:p.nombre,telefono:p.telefono||"",email:p.email||"",localidad:p.localidad||"",provincia:p.provincia||"",honorario_tipo:p.honorario_tipo||"mensual",honorario_monto:String(p.honorario_monto||0),obs:p.observaciones||""});setShowForm(true);}}>✏️</span>
-                              </div>
-                              <div style={{fontSize:12,color:"#4a6a8a",marginTop:2,display:"flex",alignItems:"center",gap:4}}>
-                                <span>📍</span>{p.localidad}{p.provincia&&p.provincia!==p.localidad?", "+p.provincia:""}
-                              </div>
-                              {p.tiene_cuenta&&<div style={{fontSize:11,color:"#16a34a",fontWeight:700,marginTop:3,background:"rgba(22,163,74,0.1)",padding:"2px 7px",borderRadius:6,display:"inline-block"}}>✓ Usa la app</div>}
-                            </div>
-                            <div style={{display:"flex",gap:6,flexShrink:0}}>
-                              <button onClick={()=>{setEditProd(p.id);setForm({nombre:p.nombre,telefono:p.telefono||"",email:p.email||"",localidad:p.localidad||"",provincia:p.provincia||"",honorario_tipo:p.honorario_tipo||"mensual",honorario_monto:String(p.honorario_monto||0),obs:p.observaciones||""});setShowForm(true);}} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.5)",fontSize:13,fontWeight:500,padding:"4px 8px",borderRadius:8,transition:"color 0.15s"}}>✏️ Editar</button>
-                              <button onClick={()=>eliminarProd(p.id)} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.3)",fontSize:18,padding:"0 4px"}}>✕</button>
-                            </div>
-                          </div>
-
-                          <div style={{padding:"12px 14px",display:"flex",flexDirection:"column",gap:12}}>
-                            {/* Campaña */}
-                            <div>
-                              <div style={{fontSize:10,fontWeight:700,color:"#4a6a8a",textTransform:"uppercase",letterSpacing:1,marginBottom:7}}>Campaña</div>
-                              <div style={{display:"flex",gap:8}}>
-                                {camps.length>0
-                                  ?<select value={campActiva??""} onChange={e=>cambiarCampana(eid,e.target.value,p.nombre)} className="gi sel-crystal" style={{flex:1,padding:"8px 12px",fontSize:13,fontWeight:600}}>
-                                    {camps.map((c:any)=><option key={c.id} value={c.id}>{c.nombre}{c.activa?" ★":""}</option>)}
-                                  </select>
-                                  :<div style={{flex:1,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:12,padding:"8px 12px",fontSize:12,color:"rgba(255,255,255,0.3)"}}>Sin campañas</div>
-                                }
-                                <button onClick={()=>{setNuevaCampProd(p.id);setNuevaCampNombre(new Date().getFullYear()+"/"+(new Date().getFullYear()+1));}} className="action-btn" style={{padding:"8px 12px",fontSize:12,flexShrink:0}}>+ Nueva</button>
-                              </div>
-                              {nuevaCampProd===p.id&&(
-                                <div style={{display:"flex",gap:8,marginTop:8}}>
-                                  <input value={nuevaCampNombre} onChange={e=>setNuevaCampNombre(e.target.value)} className={iCls} style={{flex:1,padding:"7px 12px",fontSize:12}} placeholder="2025/2026"/>
-                                  <button onClick={async()=>{if(nuevaCampNombre.trim()){await crearCampana(eid,nuevaCampNombre.trim());setNuevaCampProd(null);setNuevaCampNombre("");}}} className="btn-solid" style={{padding:"7px 12px",fontSize:12}}>✓</button>
-                                  <button onClick={()=>{setNuevaCampProd(null);setNuevaCampNombre("");}} className="action-btn" style={{padding:"7px 10px",fontSize:12}}>✕</button>
-                                </div>
-                              )}
-                              <div style={{fontSize:12,color:"#4a6a8a",marginTop:6,fontWeight:600}}>{lotesP.length} lotes · {haReales.toLocaleString("es-AR")} ha</div>
-                            </div>
-
-                            {/* KPIs Hectáreas + Honorario */}
-                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                              <div className="kpi-card">
-                                <div style={{fontSize:12,fontWeight:700,color:"#4a6a8a",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>🌿 Hectáreas</div>
-                                <div style={{fontSize:28,fontWeight:800,lineHeight:1}}>{haReales.toLocaleString("es-AR")}</div>
-                                <div style={{fontSize:11,opacity:0.5,marginTop:2}}>ha</div>
-                              </div>
-                              <div className="kpi-card">
-                                <div style={{fontSize:12,fontWeight:700,color:"#4a6a8a",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>$ Honorario</div>
-                                <div className="num-med">${Number(p.honorario_monto||0).toLocaleString("es-AR")}</div>
-                                <div style={{fontSize:11,opacity:0.5,marginTop:2}}>{p.honorario_tipo||"mensual"}</div>
-                              </div>
-                            </div>
-
-                            {/* Distribución cultivos del productor */}
-                            {cultivosProd.length>0&&(
-                              <div className="gc-inner" style={{padding:"10px 12px"}}>
-                                <div style={{fontSize:10,fontWeight:700,color:"#4a6a8a",textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>Distribución de Cultivos</div>
-                                <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                                  {cultivosProd.slice(0,4).map(c=>{
-                                    const info=getCultivoInfo(c);
-                                    const haC=lotesP.filter(l=>(l.cultivo_completo||l.cultivo)===c).reduce((a,l)=>a+(l.hectareas||0),0);
-                                    const pct=haReales>0?Math.round(haC/haReales*100):0;
-                                    return(
-                                      <div key={c} style={{display:"flex",alignItems:"center",gap:8}}>
-                                        <span style={{fontSize:14,flexShrink:0}}>{cultivoIcono(c)}</span>
-                                        <div style={{width:72,fontSize:11,fontWeight:600,color:"#1e3a5f",flexShrink:0}}>{info.label}</div>
-                                        <div style={{flex:1,height:8,borderRadius:10,background:"rgba(0,60,140,0.07)",overflow:"hidden",boxShadow:"inset 0 1px 2px rgba(0,60,140,0.06)"}}>
-                                          <div className={cultivoBarClass(c)} style={{width:pct+"%",transition:"width 0.7s ease"}}/>
-                                        </div>
-                                        <div style={{width:28,textAlign:"right",fontSize:11,fontWeight:700,color:info.color,filter:"brightness(0.75)",flexShrink:0}}>{pct}%</div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                                {/* Chips 2x2 */}
-                                {cultivosProd.length>1&&(
-                                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginTop:10}}>
-                                    {cultivosProd.slice(0,4).map(c=>{
-                                      const info=getCultivoInfo(c);
-                                      return(
-                                        <div key={c} className="cult-chip" style={{background:`linear-gradient(145deg,${info.color}22,${info.color}0a)`,borderColor:`${info.color}30`}}>
-                                          <span style={{fontSize:15}}>{cultivoIcono(c)}</span>
-                                          <span style={{fontSize:12,fontWeight:700,color:"#1a2a4a"}}>{info.label}</span>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* CTA Mis Lotes */}
-                            <button onClick={()=>entrar(p)} className="btn-mislotes">
-                              <span style={{fontSize:18}}>🏛</span>
-                              <span>{p.tiene_cuenta?"Ver Lotes":"Mis Lotes"}</span>
-                              <span style={{fontSize:18,opacity:0.7}}>›</span>
-                            </button>
-                          </div>
-
-                          {p.observaciones&&<div style={{padding:"8px 14px",borderTop:"1px solid rgba(255,255,255,0.08)",fontSize:11,color:"rgba(255,255,255,0.35)"}}>{p.observaciones}</div>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                }
+                  );
+                })}
               </div>
             )}
 
-            {/* ══ COBRANZA ══ */}
-            {seccion==="cobranza"&&(
-              <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:10}}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-                  <div>
-                    <h2 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>Cobranza</h2>
-                    <div style={{display:"flex",gap:12,marginTop:4}}>
-                      <span style={{fontSize:12,fontWeight:600,color:"#dc2626"}}>Pend: <strong>${totPend.toLocaleString("es-AR")}</strong></span>
-                      <span style={{fontSize:12,fontWeight:600,color:"#16a34a"}}>Cobr: <strong>${totCob.toLocaleString("es-AR")}</strong></span>
-                    </div>
-                  </div>
-                  <button onClick={()=>{setShowForm(!showForm);setForm({estado:"pendiente",fecha_c:new Date().toISOString().split("T")[0]});}} className="btn-solid">+ Cobro</button>
+            {/* Cobranza */}
+            <div className="card" style={{padding:14}}>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:1.2,color:"#6b8aaa",textTransform:"uppercase",marginBottom:10}}>💰 Cobranza</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                <div className="kpi" style={{background:"rgba(254,226,226,0.60)",border:"1px solid rgba(220,38,38,0.12)"}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#dc2626",marginBottom:4}}>Pendiente</div>
+                  <div style={{fontSize:20,fontWeight:800,color:"#dc2626"}}>${totPend.toLocaleString("es-AR")}</div>
                 </div>
-                {showForm&&(
-                  <div className="gc-inner fade-in" style={{padding:14}}>
-                    <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"white"}}>+ Nuevo cobro</div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-                      <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Productor</label><select value={form.prod_c??""} onChange={e=>setForm({...form,prod_c:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}><option value="">Sin productor</option>{productores.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
-                      <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Concepto</label><input type="text" value={form.concepto??""} onChange={e=>setForm({...form,concepto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}} placeholder="Honorario enero"/></div>
-                      <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Monto</label><input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}/></div>
-                      <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Fecha</label><input type="date" value={form.fecha_c??""} onChange={e=>setForm({...form,fecha_c:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}/></div>
-                      <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Estado</label><select value={form.estado??"pendiente"} onChange={e=>setForm({...form,estado:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}><option value="pendiente">Pendiente</option><option value="cobrado">Cobrado</option></select></div>
-                      <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Método</label><select value={form.metodo??""} onChange={e=>setForm({...form,metodo:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}><option value="">—</option><option value="transferencia">Transferencia</option><option value="efectivo">Efectivo</option><option value="cheque">Cheque</option></select></div>
-                    </div>
-                    <div style={{display:"flex",gap:8}}><button onClick={guardarCob} className="btn-solid">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="action-btn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button></div>
-                  </div>
-                )}
-                <div className="gc" style={{overflow:"hidden",padding:0}}>
-                  {cobranzas.length===0?<div style={{textAlign:"center",padding:"48px 20px",color:"#4a6a8a",fontSize:14}}>Sin cobros registrados</div>:(
-                    <div style={{overflowX:"auto"}}>
-                      <table style={{width:"100%",fontSize:12,minWidth:520,borderCollapse:"collapse"}}>
-                        <thead><tr style={{borderBottom:"1px solid rgba(255,255,255,0.1)"}}>{["Fecha","Productor","Concepto","Monto","Estado",""].map(h=><th key={h} style={{textAlign:"left",padding:"10px 12px",fontSize:10,color:"#8aabbf",fontWeight:700,textTransform:"uppercase",letterSpacing:0.8}}>{h}</th>)}</tr></thead>
-                        <tbody>{cobranzas.map(c=>{const p=productores.find(x=>x.id===c.productor_id);return(
-                          <tr key={c.id} style={{borderBottom:"1px solid rgba(255,255,255,0.06)"}}>
-                            <td style={{padding:"10px 12px",color:"#8aabbf",fontSize:11}}>{c.fecha}</td>
-                            <td style={{padding:"10px 12px",fontWeight:600,color:"#0d2137",fontSize:12}}>{p?.nombre??"—"}</td>
-                            <td style={{padding:"10px 12px",color:"#4a6a8a",fontSize:11}}>{c.concepto}</td>
-                            <td style={{padding:"10px 12px",fontWeight:700,color:"#fbbf24",fontSize:13}}>${Number(c.monto).toLocaleString("es-AR")}</td>
-                            <td style={{padding:"10px 12px"}}><span style={{fontSize:11,padding:"3px 8px",borderRadius:7,fontWeight:700,background:c.estado==="cobrado"?"rgba(134,239,172,0.15)":"rgba(252,165,165,0.15)",color:c.estado==="cobrado"?"#86efac":"#fca5a5"}}>{c.estado}</span></td>
-                            <td style={{padding:"10px 12px",display:"flex",gap:8}}>
-                              {c.estado==="pendiente"&&<button onClick={()=>marcarCobrado(c.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#86efac",fontSize:12,fontWeight:700}}>✓</button>}
-                              <button onClick={async()=>{const sb=await getSB();await sb.from("ing_cobranzas").delete().eq("id",c.id);await fetchCobs(ingId);}} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.3)",fontSize:15}}>✕</button>
-                            </td>
-                          </tr>
-                        );})}
-                        </tbody>
+                <div className="kpi" style={{background:"rgba(220,252,231,0.60)",border:"1px solid rgba(22,163,74,0.12)"}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#16a34a",marginBottom:4}}>Cobrado</div>
+                  <div style={{fontSize:20,fontWeight:800,color:"#16a34a"}}>${totCob.toLocaleString("es-AR")}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ PRODUCTORES ══ */}
+        {seccion==="productores"&&(
+          <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:10}}>
+
+            {/* Acciones */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+              {[
+                {icon:"➕",l:"Nuevo",fn:()=>{setShowForm(!showForm);setEditProd(null);setForm({provincia:"Santa Fe",honorario_tipo:"mensual"});}},
+                {icon:"📥",l:"Importar",fn:()=>setShowImport(!showImport)},
+                {icon:"📤",l:"Exportar",fn:()=>exportXLS("productores")},
+              ].map(b=>(
+                <button key={b.l} className="abtn" onClick={b.fn}>
+                  <span style={{fontSize:18}}>{b.icon}</span>
+                  <span>{b.l}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Vincular */}
+            <button onClick={()=>{setShowVincular(!showVincular);setForm({});}}
+              style={{background:"none",border:"none",cursor:"pointer",color:"#1565c0",fontSize:14,fontWeight:700,textAlign:"left",display:"flex",alignItems:"center",gap:6,padding:"2px 0"}}>
+              🔗 Vincular productor por código
+            </button>
+
+            {showVincular&&(
+              <div className="card fade-in" style={{padding:14}}>
+                <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"#0d2137"}}>🔗 Vincular por código</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                  <div><label className={lCls}>Código *</label><input type="text" value={form.codigo??""} onChange={e=>setForm({...form,codigo:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="10001"/></div>
+                  <div><label className={lCls}>Honorario</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className="sel" style={{width:"100%"}}><option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option></select></div>
+                  <div><label className={lCls}>Monto $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={vincularCodigo} className="bbtn">Vincular</button>
+                  <button onClick={()=>{setShowVincular(false);setForm({});}} className="abtn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button>
+                </div>
+              </div>
+            )}
+
+            {showImport&&(
+              <div className="card fade-in" style={{padding:14}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                  <span style={{fontSize:13,fontWeight:700,color:"#0d2137"}}>📥 Importar productores</span>
+                  <button onClick={()=>{setShowImport(false);setImportPrev([]);setImportMsg("");}} style={{background:"none",border:"none",color:"#6b8aaa",cursor:"pointer",fontSize:18}}>✕</button>
+                </div>
+                <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f)leerExcel(f);}}/>
+                {importPrev.length===0
+                  ?<button onClick={()=>importRef.current?.click()} className="abtn" style={{width:"100%",padding:"12px",justifyContent:"center",border:"2px dashed rgba(25,118,210,0.25)"}}>📁 Seleccionar archivo Excel</button>
+                  :<div>
+                    <div style={{maxHeight:140,overflowY:"auto",marginBottom:10,borderRadius:10,border:"1px solid rgba(0,0,0,0.06)"}}>
+                      <table style={{width:"100%",fontSize:11,borderCollapse:"collapse"}}>
+                        <thead><tr style={{borderBottom:"1px solid rgba(0,0,0,0.07)",background:"rgba(240,248,255,0.80)"}}>{["Nombre","Tel","Ha",""].map(h=><th key={h} style={{textAlign:"left",padding:"6px 10px",color:"#6b8aaa",fontWeight:600}}>{h}</th>)}</tr></thead>
+                        <tbody>{importPrev.map((r,i)=><tr key={i} style={{borderBottom:"1px solid rgba(0,0,0,0.04)"}}><td style={{padding:"6px 10px",color:"#0d2137",fontWeight:600}}>{r.nombre}</td><td style={{padding:"6px 10px",color:"#6b8aaa"}}>{r.telefono||"—"}</td><td style={{padding:"6px 10px",color:"#4a6a8a"}}>{r.hectareas_total||"—"}</td><td style={{padding:"6px 10px"}}><span style={{fontSize:10,padding:"2px 7px",borderRadius:5,fontWeight:700,background:r.existe?"rgba(25,118,210,0.10)":"rgba(22,163,74,0.10)",color:r.existe?"#1565c0":"#16a34a"}}>{r.existe?"Existe":"Nuevo"}</span></td></tr>)}</tbody>
                       </table>
                     </div>
+                    <div style={{display:"flex",gap:8}}>
+                      <button onClick={confirmarImport} className="bbtn">Importar {importPrev.filter(p=>!p.existe).length} nuevos</button>
+                      <button onClick={()=>setImportPrev([])} className="abtn" style={{padding:"9px 14px",fontSize:12}}>Cancelar</button>
+                    </div>
+                  </div>
+                }
+                {importMsg&&<p style={{marginTop:8,fontSize:12,fontWeight:600,color:importMsg.startsWith("✅")?"#16a34a":"#dc2626"}}>{importMsg}</p>}
+              </div>
+            )}
+
+            {showForm&&(
+              <div className="card fade-in" style={{padding:14}}>
+                <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"#0d2137"}}>{editProd?"✏️ Editar":"➕"} Productor</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                  {[["nombre","Nombre *","text",""],["telefono","Teléfono","text",""],["email","Email (app)","email",""],["localidad","Localidad","text",""],["honorario_monto","Honorario $","number",""],["obs","Obs.","text",""]].map(([k,l,t,ph])=>(
+                    <div key={k as string} style={{gridColumn:k==="obs"?"1/-1":"auto"}}>
+                      <label className={lCls}>{l as string}</label>
+                      <input type={t as string} value={form[k as string]??""} onChange={e=>setForm({...form,[k as string]:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder={ph as string}/>
+                    </div>
+                  ))}
+                  <div>
+                    <label className={lCls}>Tipo honor.</label>
+                    <select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className="sel" style={{width:"100%"}}>
+                      <option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option><option value="por_servicio">Por servicio</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={guardarProductor} className="bbtn">Guardar</button>
+                  <button onClick={()=>{setShowForm(false);setEditProd(null);setForm({});}} className="abtn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button>
+                </div>
+              </div>
+            )}
+
+            {/* Filtros exportar */}
+            {lotes.length>0&&(
+              <div className="card" style={{padding:"10px 12px"}}>
+                <div style={{display:"flex",flexWrap:"wrap",gap:7,alignItems:"center"}}>
+                  <span style={{fontSize:12,fontWeight:700,color:"#1e3a5f"}}>Exportar lotes:</span>
+                  {[["Cultivo",fCultivo,setFCultivo,["todos",...cultivosU]],["Productor",fProductor,setFProductor,["todos",...productores.map(p=>p.nombre)]],["Estado",fEstado,setFEstado,["todos","planificado","sembrado","en_desarrollo","cosechado"]]].map(([l,v,fn,opts])=>(
+                    <select key={l as string} value={v as string} onChange={e=>(fn as any)(e.target.value)} className="sel" style={{fontSize:12,padding:"6px 10px"}}>
+                      {(opts as string[]).map(o=><option key={o} value={o}>{o==="todos"?"Todos":o}</option>)}
+                    </select>
+                  ))}
+                  <button onClick={()=>exportXLS("lotes")} className="bbtn" style={{padding:"7px 12px",fontSize:12}}>📤 Exportar</button>
+                </div>
+              </div>
+            )}
+
+            {/* Lista productores */}
+            {productores.length===0
+              ?<div className="card" style={{padding:"48px 20px",textAlign:"center"}}><div style={{fontSize:48,opacity:0.15,marginBottom:12}}>👨‍🌾</div><p style={{color:"#6b8aaa",fontSize:14}}>Sin productores — agregá el primero</p></div>
+              :<div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {productores.map(p=>{
+                  const eid=p.empresa_id??p.id;
+                  const camps=campanasPorProd[eid]??[];
+                  const campActiva=campSelProd[eid]??null;
+                  const lotesP=lotes.filter(l=>(l as any).empresa_id===eid);
+                  const haReales=lotesP.reduce((a,l)=>a+(Number(l.hectareas)||0),0);
+                  const cultivosProd=[...new Set(lotesP.map(l=>l.cultivo_completo||l.cultivo).filter(Boolean))];
+                  return(
+                    <div key={p.id} className="card" style={{padding:0}}>
+                      {/* Header */}
+                      <div style={{padding:"14px 14px 12px",borderBottom:"1px solid rgba(0,60,140,0.07)",display:"flex",alignItems:"flex-start",gap:12}}>
+                        <div style={{width:44,height:44,borderRadius:"50%",background:"linear-gradient(145deg,#1976d2,#0d47a1)",border:"2px solid rgba(255,255,255,0.90)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:"white",flexShrink:0,boxShadow:"0 2px 8px rgba(25,118,210,0.28)"}}>
+                          {p.nombre.charAt(0)}
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:16,fontWeight:800,color:"#0d2137",display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                            {p.nombre}
+                            <span style={{fontSize:14,opacity:0.4,cursor:"pointer"}} onClick={()=>{setEditProd(p.id);setForm({nombre:p.nombre,telefono:p.telefono||"",email:p.email||"",localidad:p.localidad||"",provincia:p.provincia||"",honorario_tipo:p.honorario_tipo||"mensual",honorario_monto:String(p.honorario_monto||0),obs:p.observaciones||""});setShowForm(true);}}>✏️</span>
+                          </div>
+                          <div style={{fontSize:12,color:"#6b8aaa",marginTop:2,display:"flex",alignItems:"center",gap:3}}>
+                            <span>📍</span>{p.localidad}{p.provincia&&p.provincia!==p.localidad?", "+p.provincia:""}
+                          </div>
+                          {p.tiene_cuenta&&<span style={{fontSize:11,color:"#16a34a",fontWeight:700,marginTop:4,background:"rgba(22,163,74,0.10)",padding:"2px 8px",borderRadius:6,display:"inline-block"}}>✓ Usa la app</span>}
+                        </div>
+                        <div style={{display:"flex",gap:4,flexShrink:0}}>
+                          <button onClick={()=>{setEditProd(p.id);setForm({nombre:p.nombre,telefono:p.telefono||"",email:p.email||"",localidad:p.localidad||"",provincia:p.provincia||"",honorario_tipo:p.honorario_tipo||"mensual",honorario_monto:String(p.honorario_monto||0),obs:p.observaciones||""});setShowForm(true);}} style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:12,fontWeight:600,padding:"4px 8px",borderRadius:8}}>✏️ Editar</button>
+                          <button onClick={()=>eliminarProd(p.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:18,padding:"0 4px"}}>✕</button>
+                        </div>
+                      </div>
+
+                      <div style={{padding:"12px 14px",display:"flex",flexDirection:"column",gap:12}}>
+                        {/* Campaña */}
+                        <div>
+                          <div style={{fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>Campaña</div>
+                          <div style={{display:"flex",gap:8}}>
+                            {camps.length>0
+                              ?<select value={campActiva??""} onChange={e=>cambiarCampana(eid,e.target.value,p.nombre)} className="sel" style={{flex:1,fontSize:13,fontWeight:600}}>
+                                {camps.map((c:any)=><option key={c.id} value={c.id}>{c.nombre}{c.activa?" ★":""}</option>)}
+                              </select>
+                              :<div style={{flex:1,background:"rgba(0,60,140,0.04)",border:"1px solid rgba(0,60,140,0.08)",borderRadius:11,padding:"8px 12px",fontSize:12,color:"#6b8aaa"}}>Sin campañas</div>
+                            }
+                            <button onClick={()=>{setNuevaCampProd(p.id);setNuevaCampNombre(new Date().getFullYear()+"/"+(new Date().getFullYear()+1));}} className="abtn" style={{padding:"8px 12px",fontSize:12,flexShrink:0}}>+ Nueva</button>
+                          </div>
+                          {nuevaCampProd===p.id&&(
+                            <div style={{display:"flex",gap:8,marginTop:8}}>
+                              <input value={nuevaCampNombre} onChange={e=>setNuevaCampNombre(e.target.value)} className={iCls} style={{flex:1,padding:"7px 12px",fontSize:12}} placeholder="2025/2026"/>
+                              <button onClick={async()=>{if(nuevaCampNombre.trim()){await crearCampana(eid,nuevaCampNombre.trim());setNuevaCampProd(null);setNuevaCampNombre("");}}} className="bbtn" style={{padding:"7px 12px",fontSize:12}}>✓</button>
+                              <button onClick={()=>{setNuevaCampProd(null);setNuevaCampNombre("");}} className="abtn" style={{padding:"7px 10px",fontSize:12}}>✕</button>
+                            </div>
+                          )}
+                          <div style={{fontSize:12,color:"#6b8aaa",marginTop:5,fontWeight:500}}>{lotesP.length} lotes · {haReales.toLocaleString("es-AR")} ha</div>
+                        </div>
+
+                        {/* KPIs */}
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                          <div className="kpi">
+                            <div style={{fontSize:12,fontWeight:600,color:"#6b8aaa",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>🌿 Hectáreas</div>
+                            <div className="num-big">{haReales.toLocaleString("es-AR")}</div>
+                            <div style={{fontSize:11,color:"#6b8aaa",marginTop:2,fontWeight:600}}>ha</div>
+                          </div>
+                          <div className="kpi">
+                            <div style={{fontSize:12,fontWeight:600,color:"#6b8aaa",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>$ Honorario</div>
+                            <div className="num-med">${Number(p.honorario_monto||0).toLocaleString("es-AR")}</div>
+                            <div style={{fontSize:11,color:"#6b8aaa",marginTop:2,fontWeight:500}}>{p.honorario_tipo||"mensual"}</div>
+                          </div>
+                        </div>
+
+                        {/* Distribución cultivos */}
+                        {cultivosProd.length>0&&(
+                          <div className="card-sm" style={{padding:"12px 12px"}}>
+                            <div style={{fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:1.1,marginBottom:10}}>Distribución de Cultivos</div>
+                            <div style={{display:"flex",flexDirection:"column",gap:9}}>
+                              {cultivosProd.slice(0,4).map(c=>{
+                                const info=getCultivoInfo(c);
+                                const cc=cultivoColor(c);
+                                const haC=lotesP.filter(l=>(l.cultivo_completo||l.cultivo)===c).reduce((a,l)=>a+(l.hectareas||0),0);
+                                const pct=haReales>0?Math.round(haC/haReales*100):0;
+                                return(
+                                  <div key={c} style={{display:"flex",alignItems:"center",gap:8}}>
+                                    <span style={{fontSize:14,flexShrink:0}}>{cultivoIcono(c)}</span>
+                                    <div style={{width:68,fontSize:11,fontWeight:600,color:"#1e3a5f",flexShrink:0}}>{info.label}</div>
+                                    <div className="bar-track">
+                                      <div className="bar-fill" style={{background:cc.bar,width:pct+"%"}}/>
+                                    </div>
+                                    <div style={{width:28,textAlign:"right",fontSize:11,fontWeight:700,color:cc.text,flexShrink:0}}>{pct}%</div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Chips cultivo */}
+                            {cultivosProd.length>0&&(
+                              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginTop:12}}>
+                                {cultivosProd.slice(0,4).map(c=>{
+                                  const cc=cultivoColor(c);
+                                  return(
+                                    <div key={c} className="cult-chip" style={{background:cc.chip,borderColor:cc.border}}>
+                                      <span style={{fontSize:22}}>{cultivoIcono(c)}</span>
+                                      <span style={{fontSize:12,fontWeight:700,color:"#1a2a4a"}}>{getCultivoInfo(c).label}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* CTA Mis Lotes */}
+                        <button onClick={()=>entrar(p)}
+                          style={{width:"100%",padding:"14px 20px",borderRadius:16,
+                            background:"linear-gradient(145deg,#1976d2,#0d47a1)",
+                            border:"none",color:"white",fontSize:15,fontWeight:700,
+                            display:"flex",alignItems:"center",justifyContent:"center",gap:10,
+                            cursor:"pointer",
+                            boxShadow:"0 5px 18px rgba(25,118,210,0.35)",
+                            transition:"all 0.2s ease"}}>
+                          <span style={{fontSize:18}}>🏛</span>
+                          {p.tiene_cuenta?"Ver Lotes":"Mis Lotes"}
+                          <span style={{fontSize:18,opacity:0.7}}>›</span>
+                        </button>
+                      </div>
+
+                      {p.observaciones&&<div style={{padding:"8px 14px",borderTop:"1px solid rgba(0,60,140,0.06)",fontSize:11,color:"#6b8aaa"}}>{p.observaciones}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            }
+          </div>
+        )}
+
+        {/* ══ COBRANZA ══ */}
+        {seccion==="cobranza"&&(
+          <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:10}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+              <div>
+                <h2 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>Cobranza</h2>
+                <div style={{display:"flex",gap:12,marginTop:3}}>
+                  <span style={{fontSize:12,fontWeight:700,color:"#dc2626"}}>Pend: ${totPend.toLocaleString("es-AR")}</span>
+                  <span style={{fontSize:12,fontWeight:700,color:"#16a34a"}}>Cobr: ${totCob.toLocaleString("es-AR")}</span>
+                </div>
+              </div>
+              <button onClick={()=>{setShowForm(!showForm);setForm({estado:"pendiente",fecha_c:new Date().toISOString().split("T")[0]});}} className="bbtn">+ Cobro</button>
+            </div>
+            {showForm&&(
+              <div className="card fade-in" style={{padding:14}}>
+                <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"#0d2137"}}>+ Nuevo cobro</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                  <div><label className={lCls}>Productor</label><select value={form.prod_c??""} onChange={e=>setForm({...form,prod_c:e.target.value})} className="sel" style={{width:"100%"}}><option value="">Sin productor</option>{productores.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
+                  <div><label className={lCls}>Concepto</label><input type="text" value={form.concepto??""} onChange={e=>setForm({...form,concepto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Honorario enero"/></div>
+                  <div><label className={lCls}>Monto</label><input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_c??""} onChange={e=>setForm({...form,fecha_c:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Estado</label><select value={form.estado??"pendiente"} onChange={e=>setForm({...form,estado:e.target.value})} className="sel" style={{width:"100%"}}><option value="pendiente">Pendiente</option><option value="cobrado">Cobrado</option></select></div>
+                  <div><label className={lCls}>Método</label><select value={form.metodo??""} onChange={e=>setForm({...form,metodo:e.target.value})} className="sel" style={{width:"100%"}}><option value="">—</option><option value="transferencia">Transferencia</option><option value="efectivo">Efectivo</option><option value="cheque">Cheque</option></select></div>
+                </div>
+                <div style={{display:"flex",gap:8}}><button onClick={guardarCob} className="bbtn">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="abtn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button></div>
+              </div>
+            )}
+            <div className="card" style={{overflow:"hidden",padding:0}}>
+              {cobranzas.length===0?<div style={{textAlign:"center",padding:"48px 20px",color:"#6b8aaa",fontSize:14}}>Sin cobros</div>:(
+                <div style={{overflowX:"auto"}}>
+                  <table style={{width:"100%",fontSize:12,minWidth:480,borderCollapse:"collapse"}}>
+                    <thead><tr style={{borderBottom:"1px solid rgba(0,60,140,0.08)",background:"rgba(240,248,255,0.60)"}}>{["Fecha","Productor","Concepto","Monto","Estado",""].map(h=><th key={h} style={{textAlign:"left",padding:"10px 12px",fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase",letterSpacing:0.8}}>{h}</th>)}</tr></thead>
+                    <tbody>{cobranzas.map(c=>{const p=productores.find(x=>x.id===c.productor_id);return(
+                      <tr key={c.id} style={{borderBottom:"1px solid rgba(0,60,140,0.05)"}}>
+                        <td style={{padding:"10px 12px",color:"#6b8aaa",fontSize:11}}>{c.fecha}</td>
+                        <td style={{padding:"10px 12px",fontWeight:700,color:"#0d2137"}}>{p?.nombre??"—"}</td>
+                        <td style={{padding:"10px 12px",color:"#4a6a8a",fontSize:11}}>{c.concepto}</td>
+                        <td style={{padding:"10px 12px",fontWeight:800,color:"#0D47A1"}}>${Number(c.monto).toLocaleString("es-AR")}</td>
+                        <td style={{padding:"10px 12px"}}><span style={{fontSize:11,padding:"3px 8px",borderRadius:7,fontWeight:700,background:c.estado==="cobrado"?"rgba(22,163,74,0.10)":"rgba(220,38,38,0.10)",color:c.estado==="cobrado"?"#16a34a":"#dc2626"}}>{c.estado}</span></td>
+                        <td style={{padding:"10px 12px",display:"flex",gap:8}}>
+                          {c.estado==="pendiente"&&<button onClick={()=>marcarCobrado(c.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#16a34a",fontSize:12,fontWeight:700}}>✓</button>}
+                          <button onClick={async()=>{const sb=await getSB();await sb.from("ing_cobranzas").delete().eq("id",c.id);await fetchCobs(ingId);}} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:15}}>✕</button>
+                        </td>
+                      </tr>
+                    );})}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ══ VEHICULO ══ */}
+        {seccion==="vehiculo"&&(
+          <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:10}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+              <h2 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>Mi Vehículo</h2>
+              {!vehiculoSel?<button onClick={()=>{setShowForm(true);setForm({});}} className="bbtn">+ Agregar</button>
+                :<div style={{display:"flex",gap:8}}>
+                  <button onClick={()=>{setShowForm(true);setForm({});}} className="abtn" style={{padding:"8px 14px",fontSize:12}}>+ Service</button>
+                  <button onClick={()=>{setVehiculoSel(null);setServicios([]);setShowForm(false);}} className="abtn" style={{padding:"8px 14px",fontSize:12}}>← Volver</button>
+                </div>
+              }
+            </div>
+            {showForm&&!vehiculoSel&&(
+              <div className="card fade-in" style={{padding:14}}>
+                <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"#0d2137"}}>+ Nuevo vehículo</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                  {[["nombre","Nombre","Toyota Hilux","text"],["marca","Marca","","text"],["modelo","Modelo","","text"],["anio","Año","","number"],["patente","Patente","","text"],["seg_comp","Compañía seguro","","text"],["seg_venc","Venc. seguro","","date"],["vtv_venc","Venc. VTV","","date"],["km","Km actuales","","number"],["prox_km","Próx. service km","","number"]].map(([k,l,ph,t])=>(
+                    <div key={k as string}><label className={lCls}>{l as string}</label><input type={t as string} value={form[k as string]??""} onChange={e=>setForm({...form,[k as string]:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder={ph as string}/></div>
+                  ))}
+                </div>
+                <div style={{display:"flex",gap:8}}><button onClick={guardarVeh} className="bbtn">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="abtn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button></div>
+              </div>
+            )}
+            {!vehiculoSel?(
+              vehiculos.length===0?<div className="card" style={{padding:"48px 20px",textAlign:"center"}}><div style={{fontSize:48,opacity:0.12,marginBottom:12}}>🚗</div><p style={{color:"#6b8aaa",fontSize:14}}>Sin vehículos</p></div>:(
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  {vehiculos.map((v:any)=>{const sV=v.seguro_vencimiento&&new Date(v.seguro_vencimiento)<new Date();const vV=v.vtv_vencimiento&&new Date(v.vtv_vencimiento)<new Date();return(
+                    <div key={v.id} className="card" style={{padding:14,cursor:"pointer"}} onClick={async()=>{setVehiculoSel(v);const sb=await getSB();const{data}=await sb.from("ing_vehiculo_service").select("*").eq("vehiculo_id",v.id).order("fecha",{ascending:false});setServicios(data??[]);}}>
+                      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+                        <div style={{width:46,height:46,borderRadius:14,background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>🚗</div>
+                        <div style={{flex:1}}><div style={{fontWeight:700,color:"#0d2137",fontSize:15}}>{v.nombre}</div><div style={{fontSize:11,color:"#6b8aaa",marginTop:2}}>{v.marca} {v.modelo} · {v.anio} · {v.patente}</div></div>
+                        <button onClick={e=>{e.stopPropagation();(async()=>{const sb=await getSB();await sb.from("ing_vehiculos").delete().eq("id",v.id);await fetchVehs(ingId);})();}} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:18}}>✕</button>
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+                        <div className="kpi" style={{padding:"10px 12px"}}><div style={{fontSize:10,color:"#6b8aaa",marginBottom:3}}>Km actuales</div><div style={{fontSize:18,fontWeight:700,color:"#0D47A1"}}>{(v.km_actuales||0).toLocaleString()}</div></div>
+                        <div className="kpi" style={{padding:"10px 12px",background:"rgba(251,191,36,0.08)"}}><div style={{fontSize:10,color:"#6b8aaa",marginBottom:3}}>Próx. service</div><div style={{fontSize:16,fontWeight:700,color:"#f57f17"}}>{v.proximo_service_km?(v.proximo_service_km.toLocaleString()+" km"):"—"}</div></div>
+                      </div>
+                      <div style={{display:"flex",gap:8}}>
+                        <span style={{flex:1,fontSize:11,padding:"7px 10px",borderRadius:10,fontWeight:700,textAlign:"center",background:sV?"rgba(220,38,38,0.08)":"rgba(22,163,74,0.08)",color:sV?"#dc2626":"#16a34a",border:`1px solid ${sV?"rgba(220,38,38,0.18)":"rgba(22,163,74,0.18)"}`}}>🛡 {sV?"VENCIDO":v.seguro_vencimiento||"—"}</span>
+                        <span style={{flex:1,fontSize:11,padding:"7px 10px",borderRadius:10,fontWeight:700,textAlign:"center",background:vV?"rgba(220,38,38,0.08)":"rgba(22,163,74,0.08)",color:vV?"#dc2626":"#16a34a",border:`1px solid ${vV?"rgba(220,38,38,0.18)":"rgba(22,163,74,0.18)"}`}}>📋 {vV?"VTV VENCIDA":v.vtv_vencimiento||"—"}</span>
+                      </div>
+                    </div>
+                  );})}
+                </div>
+              )
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                <div className="card" style={{padding:14,display:"flex",alignItems:"center",gap:12}}>
+                  <div style={{width:46,height:46,borderRadius:14,background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🚗</div>
+                  <div><div style={{fontWeight:700,color:"#0d2137"}}>{vehiculoSel.nombre}</div><div style={{fontSize:11,color:"#6b8aaa"}}>{vehiculoSel.marca} {vehiculoSel.modelo} · {(vehiculoSel as any).anio} · {vehiculoSel.patente}</div></div>
+                </div>
+                {showForm&&vehiculoSel&&(
+                  <div className="card fade-in" style={{padding:14}}>
+                    <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"#0d2137"}}>+ Service</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                      <div><label className={lCls}>Tipo</label><select value={form.tipo_s??"service"} onChange={e=>setForm({...form,tipo_s:e.target.value})} className="sel" style={{width:"100%"}}><option value="service">Service</option><option value="reparacion">Reparación</option><option value="vtv">VTV</option><option value="otro">Otro</option></select></div>
+                      <div><label className={lCls}>Descripción</label><input type="text" value={form.desc_s??""} onChange={e=>setForm({...form,desc_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label className={lCls}>Taller</label><input type="text" value={form.taller??""} onChange={e=>setForm({...form,taller:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label className={lCls}>Km</label><input type="number" value={form.km_s??""} onChange={e=>setForm({...form,km_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label className={lCls}>Costo</label><input type="number" value={form.costo_s??""} onChange={e=>setForm({...form,costo_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_s??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                    </div>
+                    <div style={{display:"flex",gap:8}}><button onClick={guardarService} className="bbtn">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="abtn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button></div>
+                  </div>
+                )}
+                <div className="card" style={{overflow:"hidden",padding:0}}>
+                  <div style={{padding:"10px 14px",borderBottom:"1px solid rgba(0,60,140,0.07)",fontSize:13,fontWeight:700,color:"#0d2137"}}>🔧 Historial</div>
+                  {servicios.length===0?<div style={{textAlign:"center",padding:"32px 20px",color:"#6b8aaa",fontSize:13}}>Sin historial</div>:(
+                    <div style={{overflowX:"auto"}}><table style={{width:"100%",fontSize:12,minWidth:440,borderCollapse:"collapse"}}>
+                      <thead><tr style={{borderBottom:"1px solid rgba(0,60,140,0.07)"}}>{["Fecha","Tipo","Descripción","Km","Costo",""].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontSize:10,color:"#6b8aaa",fontWeight:600,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                      <tbody>{servicios.map(s=><tr key={s.id} style={{borderBottom:"1px solid rgba(0,60,140,0.05)"}}><td style={{padding:"9px 12px",color:"#6b8aaa",fontSize:11}}>{s.fecha}</td><td style={{padding:"9px 12px"}}><span style={{fontSize:10,padding:"3px 7px",borderRadius:6,fontWeight:700,background:"rgba(251,191,36,0.12)",color:"#f57f17"}}>{s.tipo}</span></td><td style={{padding:"9px 12px",color:"#4a6a8a",fontSize:11}}>{s.descripcion}</td><td style={{padding:"9px 12px",color:"#6b8aaa",fontSize:11}}>{s.km?(s.km.toLocaleString()+" km"):"—"}</td><td style={{padding:"9px 12px",fontWeight:700,color:"#dc2626",fontSize:12}}>${Number(s.costo).toLocaleString("es-AR")}</td><td style={{padding:"9px 12px"}}><button onClick={async()=>{const sb=await getSB();await sb.from("ing_vehiculo_service").delete().eq("id",s.id);const sb2=await getSB();const{data}=await sb2.from("ing_vehiculo_service").select("*").eq("vehiculo_id",vehiculoSel!.id).order("fecha",{ascending:false});setServicios(data??[]);}} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:15}}>✕</button></td></tr>)}</tbody>
+                    </table></div>
                   )}
                 </div>
               </div>
             )}
-
-            {/* ══ VEHICULO ══ */}
-            {seccion==="vehiculo"&&(
-              <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:10}}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-                  <h2 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>Mi Vehículo</h2>
-                  {!vehiculoSel?<button onClick={()=>{setShowForm(true);setForm({});}} className="btn-solid">+ Agregar</button>
-                    :<div style={{display:"flex",gap:8}}>
-                      <button onClick={()=>{setShowForm(true);setForm({});}} className="action-btn" style={{padding:"8px 14px",fontSize:12}}>+ Service</button>
-                      <button onClick={()=>{setVehiculoSel(null);setServicios([]);setShowForm(false);}} className="action-btn" style={{padding:"8px 14px",fontSize:12}}>← Volver</button>
-                    </div>
-                  }
-                </div>
-                {showForm&&!vehiculoSel&&(
-                  <div className="gc-inner fade-in" style={{padding:14}}>
-                    <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"white"}}>+ Nuevo vehículo</div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-                      {[["nombre","Nombre","Toyota Hilux","text"],["marca","Marca","","text"],["modelo","Modelo","","text"],["anio","Año","","number"],["patente","Patente","","text"],["seg_comp","Compañía seguro","","text"],["seg_venc","Venc. seguro","","date"],["vtv_venc","Venc. VTV","","date"],["km","Km actuales","","number"],["prox_km","Próx. service km","","number"]].map(([k,l,ph,t])=>(
-                        <div key={k as string}><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>{l as string}</label><input type={t as string} value={form[k as string]??""} onChange={e=>setForm({...form,[k as string]:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}} placeholder={ph as string}/></div>
-                      ))}
-                    </div>
-                    <div style={{display:"flex",gap:8}}><button onClick={guardarVeh} className="btn-solid">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="action-btn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button></div>
-                  </div>
-                )}
-                {!vehiculoSel?(
-                  vehiculos.length===0?<div className="gc" style={{padding:"48px 20px",textAlign:"center"}}><div style={{fontSize:48,opacity:0.2,marginBottom:12}}>🚗</div><p style={{color:"#4a6a8a",fontSize:14}}>Sin vehículos</p></div>:(
-                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                      {vehiculos.map((v:any)=>{const sV=v.seguro_vencimiento&&new Date(v.seguro_vencimiento)<new Date();const vV=v.vtv_vencimiento&&new Date(v.vtv_vencimiento)<new Date();return(
-                        <div key={v.id} className="prod-card gc" style={{padding:14,cursor:"pointer"}} onClick={async()=>{setVehiculoSel(v);const sb=await getSB();const{data}=await sb.from("ing_vehiculo_service").select("*").eq("vehiculo_id",v.id).order("fecha",{ascending:false});setServicios(data??[]);}}>
-                          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
-                            <div style={{width:46,height:46,borderRadius:14,background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>🚗</div>
-                            <div style={{flex:1}}><div style={{fontWeight:700,color:"#0d2137",fontSize:15}}>{v.nombre}</div><div style={{fontSize:11,color:"rgba(255,255,255,0.45)",marginTop:2}}>{v.marca} {v.modelo} · {v.anio} · {v.patente}</div></div>
-                            <button onClick={e=>{e.stopPropagation();(async()=>{const sb=await getSB();await sb.from("ing_vehiculos").delete().eq("id",v.id);await fetchVehs(ingId);})();}} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.3)",fontSize:18}}>✕</button>
-                          </div>
-                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-                            <div className="kpi-card" style={{padding:"10px 12px"}}><div style={{fontSize:10,opacity:0.55,marginBottom:3}}>Km actuales</div><div style={{fontSize:18,fontWeight:700}}>{(v.km_actuales||0).toLocaleString()}</div></div>
-                            <div className="kpi-card" style={{padding:"10px 12px",background:"linear-gradient(145deg,rgba(251,191,36,0.20),rgba(251,191,36,0.06))"}}><div style={{fontSize:10,opacity:0.55,marginBottom:3}}>Próx. service</div><div style={{fontSize:16,fontWeight:700,color:"#fbbf24"}}>{v.proximo_service_km?(v.proximo_service_km.toLocaleString()+" km"):"—"}</div></div>
-                          </div>
-                          <div style={{display:"flex",gap:8}}>
-                            <span style={{flex:1,fontSize:11,padding:"7px 10px",borderRadius:10,fontWeight:700,textAlign:"center",background:sV?"rgba(252,165,165,0.15)":"rgba(134,239,172,0.12)",color:sV?"#fca5a5":"#86efac",border:`1px solid ${sV?"rgba(252,165,165,0.2)":"rgba(134,239,172,0.15)"}`}}>🛡 {sV?"VENCIDO":v.seguro_vencimiento||"—"}</span>
-                            <span style={{flex:1,fontSize:11,padding:"7px 10px",borderRadius:10,fontWeight:700,textAlign:"center",background:vV?"rgba(252,165,165,0.15)":"rgba(134,239,172,0.12)",color:vV?"#fca5a5":"#86efac",border:`1px solid ${vV?"rgba(252,165,165,0.2)":"rgba(134,239,172,0.15)"}`}}>📋 {vV?"VTV VENCIDA":v.vtv_vencimiento||"—"}</span>
-                          </div>
-                        </div>
-                      );})}
-                    </div>
-                  )
-                ):(
-                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                    <div className="gc" style={{padding:14,display:"flex",alignItems:"center",gap:12}}>
-                      <div style={{width:46,height:46,borderRadius:14,background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🚗</div>
-                      <div><div style={{fontWeight:700,color:"#0d2137"}}>{vehiculoSel.nombre}</div><div style={{fontSize:11,color:"rgba(255,255,255,0.4)"}}>{vehiculoSel.marca} {vehiculoSel.modelo} · {(vehiculoSel as any).anio} · {vehiculoSel.patente}</div></div>
-                    </div>
-                    {showForm&&vehiculoSel&&(
-                      <div className="gc-inner fade-in" style={{padding:14}}>
-                        <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"white"}}>+ Service</div>
-                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-                          <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Tipo</label><select value={form.tipo_s??"service"} onChange={e=>setForm({...form,tipo_s:e.target.value})} className="gi sel-crystal" style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}><option value="service">Service</option><option value="reparacion">Reparación</option><option value="vtv">VTV</option><option value="otro">Otro</option></select></div>
-                          <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Descripción</label><input type="text" value={form.desc_s??""} onChange={e=>setForm({...form,desc_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}/></div>
-                          <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Taller</label><input type="text" value={form.taller??""} onChange={e=>setForm({...form,taller:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}/></div>
-                          <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Km</label><input type="number" value={form.km_s??""} onChange={e=>setForm({...form,km_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}/></div>
-                          <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Costo</label><input type="number" value={form.costo_s??""} onChange={e=>setForm({...form,costo_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}/></div>
-                          <div><label style={{display:"block",fontSize:10,color:"#4a6a8a",fontWeight:700,marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>Fecha</label><input type="date" value={form.fecha_s??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",color:"#1e3a5f"}}/></div>
-                        </div>
-                        <div style={{display:"flex",gap:8}}><button onClick={guardarService} className="btn-solid">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="action-btn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button></div>
-                      </div>
-                    )}
-                    <div className="gc" style={{overflow:"hidden",padding:0}}>
-                      <div style={{padding:"10px 14px",borderBottom:"1px solid rgba(255,255,255,0.1)",fontSize:13,fontWeight:700,color:"#0d2137"}}>🔧 Historial</div>
-                      {servicios.length===0?<div style={{textAlign:"center",padding:"32px 20px",color:"rgba(255,255,255,0.3)",fontSize:13}}>Sin historial</div>:(
-                        <div style={{overflowX:"auto"}}><table style={{width:"100%",fontSize:12,minWidth:440,borderCollapse:"collapse"}}>
-                          <thead><tr style={{borderBottom:"1px solid rgba(255,255,255,0.08)"}}>{["Fecha","Tipo","Descripción","Km","Costo",""].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontSize:10,color:"rgba(255,255,255,0.4)",fontWeight:600,textTransform:"uppercase",letterSpacing:0.8}}>{h}</th>)}</tr></thead>
-                          <tbody>{servicios.map(s=><tr key={s.id} style={{borderBottom:"1px solid rgba(255,255,255,0.05)"}}><td style={{padding:"9px 12px",color:"rgba(255,255,255,0.4)",fontSize:11}}>{s.fecha}</td><td style={{padding:"9px 12px"}}><span style={{fontSize:10,padding:"3px 7px",borderRadius:6,fontWeight:700,background:"rgba(251,191,36,0.15)",color:"#fbbf24"}}>{s.tipo}</span></td><td style={{padding:"9px 12px",color:"#1e3a5f",fontSize:11}}>{s.descripcion}</td><td style={{padding:"9px 12px",color:"rgba(255,255,255,0.4)",fontSize:11}}>{s.km?(s.km.toLocaleString()+" km"):"—"}</td><td style={{padding:"9px 12px",fontWeight:700,color:"#fca5a5",fontSize:12}}>${Number(s.costo).toLocaleString("es-AR")}</td><td style={{padding:"9px 12px"}}><button onClick={async()=>{const sb=await getSB();await sb.from("ing_vehiculo_service").delete().eq("id",s.id);const sb2=await getSB();const{data}=await sb2.from("ing_vehiculo_service").select("*").eq("vehiculo_id",vehiculoSel!.id).order("fecha",{ascending:false});setServicios(data??[]);}} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.25)",fontSize:15}}>✕</button></td></tr>)}</tbody>
-                        </table></div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div style={{height:80}}/>
           </div>
-        </div>{/* fin main-frame */}
+        )}
+
+        <div style={{height:90}}/>
       </div>
 
-      {/* ══ PANEL VOZ ══ */}
-      {vozPanel&&(
-        <div style={{position:"fixed",bottom:88,right:16,zIndex:50,width:280,borderRadius:20,overflow:"hidden",
-          background:"rgba(255,255,255,0.88)",
-          backdropFilter:"blur(24px)",border:"1px solid rgba(255,255,255,0.85)",
-          boxShadow:"0 16px 48px rgba(0,20,100,0.35),inset 0 1px 0 rgba(255,255,255,0.4)"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:"1px solid rgba(255,255,255,0.12)"}}>
-            <div style={{display:"flex",alignItems:"center",gap:7}}><div style={{width:7,height:7,borderRadius:"50%",background:VOZ_COLOR[vozEstado],boxShadow:`0 0 6px ${VOZ_COLOR[vozEstado]}80`}}/><span style={{color:"#0d2137",fontSize:12,fontWeight:700}}>🎤 ASISTENTE</span></div>
-            <button onClick={()=>{setVozPanel(false);recRef.current?.stop();setVozEstado("idle");}} style={{background:"none",border:"none",color:"#4a6a8a",cursor:"pointer",fontSize:18}}>✕</button>
-          </div>
-          <div style={{padding:14,minHeight:56}}>
-            {vozEstado==="escuchando"&&<p style={{color:"#fca5a5",fontSize:13,fontWeight:600}}>🔴 Escuchando...</p>}
-            {vozEstado==="procesando"&&<p style={{color:"#fbbf24",fontSize:13,fontWeight:600}}>⚙️ Procesando...</p>}
-            {vozEstado==="idle"&&(
-              <div style={{display:"flex",flexDirection:"column",gap:7}}>
-                {["¿Cuántas ha totales?","Dosis glifosato soja","¿Cuántos productores?"].map(q=>(
-                  <button key={q} onClick={()=>{askAI(q);setVozPanel(false);}} className="action-btn" style={{padding:"8px 12px",fontSize:11,justifyContent:"flex-start"}}>💬 {q}</button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div style={{padding:"0 12px 12px",display:"flex",gap:8}}>
-            <input value={vozInput} onChange={e=>setVozInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&vozInput.trim()){askAI(vozInput);setVozInput("");setVozPanel(false);}}} placeholder="Escribí..." className={iCls} style={{flex:1,padding:"8px 12px",fontSize:12}}/>
-            <button onClick={escucharVoz} style={{padding:"8px 12px",borderRadius:12,fontSize:14,background:VOZ_COLOR[vozEstado]+"25",border:`1px solid ${VOZ_COLOR[vozEstado]}50`,color:VOZ_COLOR[vozEstado],cursor:"pointer"}}>{VOZ_ICON[vozEstado]}</button>
-          </div>
-        </div>
-      )}
-
-      {/* ══ PANEL IA CAMPO FLOTANTE ══ */}
+      {/* ══ PANEL IA FLOTANTE ══ */}
       {aiPanel&&(
-        <div style={{position:"fixed",bottom:88,right:80,zIndex:50,width:320,maxHeight:"75vh",borderRadius:22,overflow:"hidden",display:"flex",flexDirection:"column",
-          background:"linear-gradient(145deg,rgba(255,255,255,0.92),rgba(230,245,255,0.90))",
-          backdropFilter:"blur(24px)",border:"1px solid rgba(255,255,255,0.85)",
-          boxShadow:"0 20px 60px rgba(20,80,160,0.22),inset 0 1px 0 rgba(255,255,255,0.95)"}}>
-          {/* Header */}
-          <div style={{padding:"12px 16px",borderBottom:"1px solid rgba(25,118,210,0.12)",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <div style={{width:8,height:8,borderRadius:"50%",background:"#86efac",boxShadow:"0 0 8px #86efac"}}/>
-              <span style={{color:"#0d2137",fontSize:13,fontWeight:700}}>🌾 IA Agronómica</span>
+        <div style={{position:"fixed",bottom:92,right:80,zIndex:50,width:310,maxHeight:"72vh",
+          borderRadius:20,overflow:"hidden",display:"flex",flexDirection:"column",
+          background:"rgba(255,255,255,0.92)",backdropFilter:"blur(16px)",
+          border:"1px solid rgba(255,255,255,0.95)",
+          boxShadow:"0 16px 48px rgba(20,80,160,0.20)"}}>
+          <div style={{padding:"11px 14px",borderBottom:"1px solid rgba(0,60,140,0.08)",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:7}}>
+              <div style={{width:7,height:7,borderRadius:"50%",background:"#22c55e",boxShadow:"0 0 6px rgba(34,197,94,0.6)"}}/>
+              <span style={{fontWeight:700,color:"#0d2137",fontSize:13}}>🌾 IA Agronómica</span>
             </div>
-            <button onClick={()=>setAiPanel(false)} style={{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer",fontSize:20,lineHeight:1}}>✕</button>
+            <button onClick={()=>setAiPanel(false)} style={{background:"none",border:"none",color:"#6b8aaa",cursor:"pointer",fontSize:18}}>✕</button>
           </div>
-          {/* Sugerencias rápidas si no hay chat */}
           {aiChat.length===0&&(
-            <div style={{padding:"10px 12px",borderBottom:"1px solid rgba(255,255,255,0.08)",display:"flex",flexWrap:"wrap",gap:6,flexShrink:0}}>
+            <div style={{padding:"8px 10px",borderBottom:"1px solid rgba(0,60,140,0.06)",display:"flex",flexWrap:"wrap",gap:5,flexShrink:0}}>
               {["Dosis glifosato","Roya soja","Fungicida maíz","Precio soja"].map(q=>(
                 <button key={q} onClick={()=>askAI(q)}
                   style={{fontSize:11,padding:"5px 10px",borderRadius:20,cursor:"pointer",fontWeight:600,
-                    background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.20)",
-                    color:"#1565c0",whiteSpace:"nowrap",transition:"all 0.15s"
-                  }}>💬 {q}</button>
+                    background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.18)",color:"#1565c0"}}>
+                  💬 {q}
+                </button>
               ))}
             </div>
           )}
-          {/* Chat */}
           <div style={{flex:1,overflowY:"auto",padding:12,display:"flex",flexDirection:"column",gap:8,minHeight:0}}>
-            {aiChat.length===0&&(
-              <div style={{textAlign:"center",padding:"24px 16px",color:"#4a6a8a"}}>
-                <div style={{fontSize:36,marginBottom:8}}>🌾</div>
-                <p style={{fontSize:12,lineHeight:1.5}}>Preguntá sobre dosis, plagas,<br/>cultivos y mercados</p>
-              </div>
-            )}
+            {aiChat.length===0&&<div style={{textAlign:"center",padding:"24px 16px",color:"#6b8aaa"}}><div style={{fontSize:36,marginBottom:8}}>🌾</div><p style={{fontSize:12,lineHeight:1.5}}>Preguntá sobre dosis, plagas,<br/>cultivos y mercados</p></div>}
             {aiChat.map((msg,i)=>(
               <div key={i} style={{display:"flex",justifyContent:msg.rol==="user"?"flex-end":"flex-start"}}>
                 <div style={{maxWidth:"85%",padding:"9px 13px",borderRadius:14,fontSize:12,lineHeight:1.5,
                   ...(msg.rol==="user"
-                    ?{background:"linear-gradient(145deg,#42a5f5,#1565c0)",color:"white",boxShadow:"0 3px 10px rgba(33,150,243,0.35)"}
-                    :{background:"rgba(240,248,255,0.90)",border:"1px solid rgba(25,118,210,0.18)",color:"#1e3a5f"})}}>
+                    ?{background:"linear-gradient(145deg,#2196f3,#1565c0)",color:"white",boxShadow:"0 3px 10px rgba(33,150,243,0.28)"}
+                    :{background:"rgba(240,248,255,0.90)",border:"1px solid rgba(25,118,210,0.12)",color:"#1a2a4a"})}}>
                   {msg.rol==="assistant"&&<div style={{fontSize:9,fontWeight:700,color:"#1565c0",marginBottom:4,letterSpacing:1}}>◆ IA AGRONÓMICA</div>}
                   <p style={{margin:0,whiteSpace:"pre-wrap"}}>{msg.texto}</p>
                 </div>
               </div>
             ))}
-            {aiLoad&&(
-              <div style={{display:"flex"}}>
-                <div style={{background:"rgba(255,255,255,0.10)",border:"1px solid rgba(255,255,255,0.14)",padding:"9px 13px",borderRadius:14,display:"flex",gap:4,alignItems:"center"}}>
-                  {[0,1,2].map(i=><div key={i} style={{width:5,height:5,borderRadius:"50%",background:"#90caf9",animation:"float 1s ease-in-out infinite",animationDelay:i*0.18+"s"}}/>)}
-                </div>
-              </div>
-            )}
+            {aiLoad&&<div style={{display:"flex"}}><div style={{background:"rgba(240,248,255,0.90)",border:"1px solid rgba(25,118,210,0.12)",padding:"9px 13px",borderRadius:14,display:"flex",gap:4}}>{[0,1,2].map(i=><div key={i} style={{width:5,height:5,borderRadius:"50%",background:"#90caf9",animation:"float 1s ease-in-out infinite",animationDelay:i*0.18+"s"}}/>)}</div></div>}
           </div>
-          {/* Input */}
-          <div style={{padding:"10px 12px",borderTop:"1px solid rgba(255,255,255,0.10)",display:"flex",gap:8,flexShrink:0,background:"rgba(230,243,255,0.60)"}}>
-            <input type="text" value={aiInput} onChange={e=>setAiInput(e.target.value)}
-              onKeyDown={e=>e.key==="Enter"&&askAI()}
-              placeholder="Consultá sobre dosis, plagas..."
-              className={iCls}
-              style={{flex:1,padding:"9px 12px",fontSize:12}}/>
-            <button onClick={()=>askAI()} disabled={aiLoad||!aiInput.trim()}
-              style={{padding:"9px 14px",borderRadius:12,fontSize:16,cursor:"pointer",flexShrink:0,
-                background:"linear-gradient(145deg,#42a5f5,#1565c0)",border:"none",color:"white",
-                boxShadow:"0 3px 10px rgba(33,150,243,0.4)",opacity:aiLoad||!aiInput.trim()?0.4:1,
-                transition:"all 0.15s"}}>→</button>
+          <div style={{padding:"9px 10px",borderTop:"1px solid rgba(0,60,140,0.07)",display:"flex",gap:7,flexShrink:0,background:"rgba(240,248,255,0.50)"}}>
+            <input type="text" value={aiInput} onChange={e=>setAiInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&askAI()} placeholder="Consultá..." className={iCls} style={{flex:1,padding:"8px 12px",fontSize:12}}/>
+            <button onClick={()=>askAI()} disabled={aiLoad||!aiInput.trim()} className="bbtn" style={{padding:"8px 14px",fontSize:15,opacity:aiLoad||!aiInput.trim()?0.4:1}}>→</button>
           </div>
-          {aiChat.length>0&&(
-            <div style={{padding:"4px 12px 8px",textAlign:"center"}}>
-              <button onClick={()=>setAiChat([])} style={{fontSize:10,color:"#4a6a8a",background:"none",border:"none",cursor:"pointer"}}>Limpiar chat</button>
-            </div>
-          )}
+          {aiChat.length>0&&<div style={{padding:"3px 10px 8px",textAlign:"center"}}><button onClick={()=>setAiChat([])} style={{fontSize:10,color:"#6b8aaa",background:"none",border:"none",cursor:"pointer"}}>Limpiar</button></div>}
         </div>
       )}
 
-      {/* Botón flotante voz */}
+      {/* ══ PANEL VOZ ══ */}
+      {vozPanel&&(
+        <div style={{position:"fixed",bottom:92,right:16,zIndex:50,width:272,borderRadius:18,overflow:"hidden",
+          background:"rgba(255,255,255,0.90)",backdropFilter:"blur(16px)",
+          border:"1px solid rgba(255,255,255,0.95)",
+          boxShadow:"0 12px 36px rgba(20,80,160,0.16)"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 13px",borderBottom:"1px solid rgba(0,60,140,0.07)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:7}}><div style={{width:7,height:7,borderRadius:"50%",background:VOZ_COLOR[vozEstado]}}/><span style={{color:"#0d2137",fontSize:12,fontWeight:700}}>🎤 ASISTENTE</span></div>
+            <button onClick={()=>{setVozPanel(false);recRef.current?.stop();setVozEstado("idle");}} style={{background:"none",border:"none",color:"#6b8aaa",cursor:"pointer",fontSize:18}}>✕</button>
+          </div>
+          <div style={{padding:12,minHeight:52}}>
+            {vozEstado==="escuchando"&&<p style={{color:"#dc2626",fontSize:13,fontWeight:600,margin:0}}>🔴 Escuchando...</p>}
+            {vozEstado==="procesando"&&<p style={{color:"#f57f17",fontSize:13,fontWeight:600,margin:0}}>⚙️ Procesando...</p>}
+            {vozEstado==="idle"&&(
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {["¿Cuántas ha totales?","Dosis glifosato soja","¿Cuántos productores?"].map(q=>(
+                  <button key={q} onClick={()=>{askAI(q);setVozPanel(false);}} className="abtn" style={{padding:"7px 11px",fontSize:11,justifyContent:"flex-start"}}>💬 {q}</button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div style={{padding:"0 10px 10px",display:"flex",gap:7}}>
+            <input value={vozInput} onChange={e=>setVozInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&vozInput.trim()){askAI(vozInput);setVozInput("");setVozPanel(false);}}} placeholder="Escribí..." className={iCls} style={{flex:1,padding:"7px 11px",fontSize:12}}/>
+            <button onClick={escucharVoz} style={{padding:"7px 11px",borderRadius:11,fontSize:14,background:VOZ_COLOR[vozEstado]+"20",border:`1px solid ${VOZ_COLOR[vozEstado]}40`,color:VOZ_COLOR[vozEstado],cursor:"pointer"}}>{VOZ_ICON[vozEstado]}</button>
+          </div>
+        </div>
+      )}
+
+      {/* Botón IA flotante (verde) */}
+      <button onClick={()=>{setAiPanel(!aiPanel);if(!aiPanel)setVozPanel(false);}}
+        style={{position:"fixed",bottom:80,right:16,zIndex:40,width:52,height:52,borderRadius:"50%",
+          display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",
+          background:aiPanel?"linear-gradient(145deg,#43a047,#1b5e20)":"linear-gradient(145deg,#2e7d32,#43a047)",
+          color:"white",border:`2px solid ${aiPanel?"rgba(134,239,172,0.6)":"rgba(255,255,255,0.7)"}`,
+          boxShadow:"0 4px 16px rgba(46,125,50,0.40)",transition:"all 0.2s ease"}}>
+        🌾
+      </button>
+
+      {/* Botón VOZ flotante (azul) */}
       <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}}
-        style={{position:"fixed",bottom:20,right:16,zIndex:40,width:54,height:54,borderRadius:"50%",
+        style={{position:"fixed",bottom:20,right:16,zIndex:40,width:52,height:52,borderRadius:"50%",
           display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",
           background:"linear-gradient(145deg,#2196f3,#1565c0)",color:"white",
-          border:"1.5px solid rgba(100,180,255,0.4)",
-          boxShadow:"0 4px 20px rgba(33,150,243,0.50),inset 0 1px 0 rgba(255,255,255,0.25)",
+          border:"2px solid rgba(255,255,255,0.75)",
+          boxShadow:"0 4px 18px rgba(33,150,243,0.42)",
           animation:vozEstado==="idle"?"float 3s ease-in-out infinite":"none",
           transition:"all 0.2s ease"}}>
         {VOZ_ICON[vozEstado]}
-      </button>
-
-      {/* Botón flotante IA Campo */}
-      <button onClick={()=>{setAiPanel(!aiPanel);if(!aiPanel)setVozPanel(false);}}
-        style={{position:"fixed",bottom:82,right:16,zIndex:40,width:54,height:54,borderRadius:"50%",
-          display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",
-          background:aiPanel?"linear-gradient(145deg,#43a047,#1b5e20)":"linear-gradient(145deg,#1b5e20,#2e7d32)",
-          color:"white",
-          border:`1.5px solid ${aiPanel?"rgba(134,239,172,0.6)":"rgba(100,200,120,0.4)"}`,
-          boxShadow:aiPanel?"0 4px 20px rgba(67,160,71,0.60),inset 0 1px 0 rgba(255,255,255,0.25)":"0 4px 16px rgba(67,160,71,0.35),inset 0 1px 0 rgba(255,255,255,0.20)",
-          transition:"all 0.2s ease"}}>
-        🌾
       </button>
     </div>
   );
