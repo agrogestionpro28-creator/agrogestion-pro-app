@@ -597,13 +597,13 @@ export default function IngenieroPanel() {
           background-image: url('/FON.png');
           background-size: cover;
           background-position: top center;
-          border-bottom:1.5px solid rgba(255,255,255,0.85);
+          border-bottom:1px solid rgba(255,255,255,0.40);
           box-shadow:0 2px 16px rgba(20,80,160,0.12);
           position:relative;
         }
         .topbar::before{
           content:"";position:absolute;inset:0;
-          background:rgba(255,255,255,0.62);
+          background:rgba(255,255,255,0.30);
           pointer-events:none;z-index:0;
         }
         .topbar>*{position:relative;z-index:1;}
@@ -620,7 +620,7 @@ export default function IngenieroPanel() {
         }
         .nav-tab::before{
           content:"";position:absolute;inset:0;
-          background:rgba(255,255,255,0.58);
+          background:rgba(255,255,255,0.42);
           border-radius:12px;pointer-events:none;z-index:0;
           transition:background 0.18s;
         }
@@ -665,15 +665,27 @@ export default function IngenieroPanel() {
         .abtn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(20,80,160,0.18);}
         .abtn:active{transform:scale(0.97);}
 
-        /* ── BTN AZUL ── */
+        /* ── BTN AZUL con AZUL.png ── */
         .bbtn{
-          background:linear-gradient(145deg,#2196f3,#1565c0);
-          border:none;border-radius:12px;color:white;
-          font-weight:700;font-size:13px;cursor:pointer;
-          box-shadow:0 4px 14px rgba(25,118,210,0.38),inset 0 1px 0 rgba(255,255,255,0.22);
+          background-image:url('/AZUL.png');
+          background-size:cover;
+          background-position:center;
+          border:1.5px solid rgba(100,180,255,0.50);
+          border-top:2px solid rgba(180,220,255,0.70);
+          border-radius:14px;color:white;
+          font-weight:800;font-size:13px;cursor:pointer;
+          box-shadow:0 4px 18px rgba(25,118,210,0.45),inset 0 1px 0 rgba(255,255,255,0.30);
           transition:all 0.18s ease;padding:10px 18px;
+          position:relative;overflow:hidden;
+          text-shadow:0 1px 3px rgba(0,40,120,0.35);
         }
-        .bbtn:hover{transform:translateY(-2px);box-shadow:0 7px 20px rgba(25,118,210,0.50);}
+        .bbtn::before{
+          content:"";position:absolute;top:0;left:0;right:0;height:45%;
+          background:linear-gradient(180deg,rgba(255,255,255,0.22) 0%,transparent 100%);
+          border-radius:14px 14px 0 0;pointer-events:none;
+        }
+        .bbtn>*{position:relative;z-index:1;}
+        .bbtn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(25,118,210,0.60);filter:brightness(1.08);}
         .bbtn:active{transform:scale(0.97);}
 
         /* ── INPUT ── */
@@ -796,7 +808,7 @@ export default function IngenieroPanel() {
             <div>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
                 <span style={{fontSize:18,fontWeight:800,color:"#0a1a3a"}}>AgroGestión</span>
-                <span style={{fontSize:10,fontWeight:700,background:"linear-gradient(135deg,#1976d2,#0d47a1)",borderRadius:5,padding:"2px 7px",color:"white",letterSpacing:0.8}}>PRO</span>
+                <span style={{fontSize:10,fontWeight:800,backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",backgroundPosition:"center",borderRadius:5,padding:"2px 8px",color:"white",letterSpacing:0.8,border:"1px solid rgba(100,180,255,0.45)",textShadow:"0 1px 2px rgba(0,40,120,0.40)"}}>PRO</span>
               </div>
               <div style={{fontSize:11,color:"#3a5a7a",marginTop:1,fontWeight:600}}>Gestión inteligente. Decisiones que rinden.</div>
             </div>
@@ -807,7 +819,7 @@ export default function IngenieroPanel() {
                 {alertas.length}
               </div>
             )}
-            <div style={{width:36,height:36,borderRadius:"50%",background:"linear-gradient(135deg,#1976d2,#0d47a1)",border:"2px solid white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,color:"white",boxShadow:"0 2px 8px rgba(25,118,210,0.30)"}}>
+            <div style={{width:36,height:36,borderRadius:"50%",backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",backgroundPosition:"center",border:"2px solid rgba(255,255,255,0.90)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,color:"white",boxShadow:"0 3px 12px rgba(25,118,210,0.45)",textShadow:"0 1px 3px rgba(0,40,120,0.40)"}}>
               {ingNombre.charAt(0)||"M"}
             </div>
             <button onClick={async()=>{const sb=await getSB();await sb.auth.signOut();window.location.href="/login";}}
@@ -1038,7 +1050,7 @@ export default function IngenieroPanel() {
                     <div key={p.id} className="card" style={{padding:0}}>
                       {/* Header */}
                       <div style={{padding:"14px 14px 12px",borderBottom:"1px solid rgba(0,60,140,0.07)",display:"flex",alignItems:"flex-start",gap:12}}>
-                        <div style={{width:44,height:44,borderRadius:"50%",background:"linear-gradient(145deg,#1976d2,#0d47a1)",border:"2px solid rgba(255,255,255,0.90)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:"white",flexShrink:0,boxShadow:"0 2px 8px rgba(25,118,210,0.28)"}}>
+                        <div style={{width:44,height:44,borderRadius:"50%",backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",backgroundPosition:"center",border:"2px solid rgba(180,220,255,0.80)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:"white",flexShrink:0,boxShadow:"0 3px 12px rgba(25,118,210,0.40)",textShadow:"0 1px 3px rgba(0,40,120,0.40)"}}>
                           {p.nombre.charAt(0)}
                         </div>
                         <div style={{flex:1,minWidth:0}}>
@@ -1137,11 +1149,14 @@ export default function IngenieroPanel() {
                         {/* CTA Mis Lotes */}
                         <button onClick={()=>entrar(p)}
                           style={{width:"100%",padding:"14px 20px",borderRadius:16,
-                            background:"linear-gradient(145deg,#1976d2,#0d47a1)",
-                            border:"none",color:"white",fontSize:15,fontWeight:700,
+                            backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",backgroundPosition:"center",
+                            border:"1.5px solid rgba(100,180,255,0.45)",
+                            borderTop:"2px solid rgba(180,220,255,0.65)",
+                            color:"white",fontSize:15,fontWeight:800,
                             display:"flex",alignItems:"center",justifyContent:"center",gap:10,
-                            cursor:"pointer",
-                            boxShadow:"0 5px 18px rgba(25,118,210,0.35)",
+                            cursor:"pointer",position:"relative",overflow:"hidden",
+                            boxShadow:"0 5px 20px rgba(25,118,210,0.45)",
+                            textShadow:"0 1px 3px rgba(0,40,120,0.35)",
                             transition:"all 0.2s ease"}}>
                           <span style={{fontSize:18}}>🏛</span>
                           {p.tiene_cuenta?"Ver Lotes":"Mis Lotes"}
@@ -1381,13 +1396,15 @@ export default function IngenieroPanel() {
 
       {/* Botón VOZ flotante (azul) */}
       <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}}
-        style={{position:"fixed",bottom:20,right:16,zIndex:40,width:52,height:52,borderRadius:"50%",
+        style={{position:"fixed",bottom:20,right:16,zIndex:40,width:54,height:54,borderRadius:"50%",
           display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",
-          background:"linear-gradient(145deg,#2196f3,#1565c0)",color:"white",
-          border:"2px solid rgba(255,255,255,0.75)",
-          boxShadow:"0 4px 18px rgba(33,150,243,0.42)",
+          backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",backgroundPosition:"center",
+          color:"white",
+          border:"2px solid rgba(180,220,255,0.70)",
+          boxShadow:"0 4px 22px rgba(33,150,243,0.55),inset 0 1px 0 rgba(255,255,255,0.30)",
           animation:vozEstado==="idle"?"float 3s ease-in-out infinite":"none",
-          transition:"all 0.2s ease"}}>
+          transition:"all 0.2s ease",
+          textShadow:"0 1px 3px rgba(0,40,120,0.40)"}}>
         {VOZ_ICON[vozEstado]}
       </button>
     </div>
