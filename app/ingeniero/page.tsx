@@ -504,15 +504,6 @@ export default function IngenieroPanel() {
 
 
 
-  if(loading) return (
-    <div style={{minHeight:"100vh",background:"url('/FON.png') center/cover fixed",display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:12}}>
-        <div style={{width:36,height:36,border:"3px solid #1976d2",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
-        <span style={{color:"#1565c0",fontWeight:600,fontSize:14}}>Cargando...</span>
-      </div>
-    </div>
-  );
-
   const cultivoIcono = (label:string) => {
     const l = label.toLowerCase();
     if(l.includes("soja")) return "🌱";
@@ -566,6 +557,15 @@ export default function IngenieroPanel() {
     // Otros — azul grisáceo
     return {bar:"linear-gradient(90deg,#455a64,#90a4ae)",chip:"rgba(69,90,100,0.10)",border:"rgba(69,90,100,0.24)",text:"#263238",chipBg:"rgba(200,215,225,0.55)"};
   };
+
+  if(loading) return (
+    <div style={{minHeight:"100vh",background:"url('/FON.png') center/cover fixed",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:12}}>
+        <div style={{width:36,height:36,border:"3px solid #1976d2",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+        <span style={{color:"#1565c0",fontWeight:600,fontSize:14}}>Cargando...</span>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{minHeight:"100vh",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",position:"relative",backgroundImage:"url('/FON.png')",backgroundSize:"cover",backgroundPosition:"center",backgroundAttachment:"fixed"}}>
