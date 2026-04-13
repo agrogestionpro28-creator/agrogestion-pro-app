@@ -65,6 +65,33 @@ const NAV = [
   { k:"vehiculo",   icon:"🚗", label:"Vehículo" },
 ];
 
+// ── Selector cultivo standalone (fuera del componente) ──
+const _iClsSel = "w-full bg-white/60 border border-white/30 rounded-xl px-3 py-2.5 text-gray-800 text-sm focus:outline-none focus:border-blue-400 transition-all";
+function SelectorCultivo({value, onChange}:{value:string,onChange:(v:string)=>void}) {
+  const isLibre = value?.startsWith("__libre__:");
+  const libreVal = isLibre ? value.replace("__libre__:","") : "";
+  const [showLibre, setShowLibre] = useState(isLibre);
+  const [libreTexto, setLibreTexto] = useState(libreVal);
+  const grupos = ["Verano","Invierno","Especial"];
+  return (
+    <div className="space-y-2">
+      <select value={showLibre?"__libre__":value??""} onChange={e=>{
+        if(e.target.value==="__libre__"){setShowLibre(true);onChange("__libre__:");}
+        else{setShowLibre(false);onChange(e.target.value);}
+      }} className={_iClsSel}>
+        <option value="">Sin cultivo</option>
+        {grupos.map(g=>(
+          <optgroup key={g} label={g}>
+            {CULTIVOS.filter(c=>c.grupo===g).map(c=>(
+              <option key={c.key} value={c.libre?"__libre__":c.key}>{c.label}</option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      {showLibre&&<input type="text" value={libreTexto} onChange={e=>{setLibreTexto(e.target.value);onChange("__libre__:"+e.target.value);}} className={_iClsSel} placeholder="Escribí el cultivo (ej: Alfalfa, Rye grass...)"/>}
+    </div>
+  );
+}
 export default function IngenieroPanel() {
   const [seccion, setSeccion] = useState<Seccion>("general");
   const [ingId, setIngId] = useState("");
@@ -474,32 +501,7 @@ export default function IngenieroPanel() {
   const lCls = "block text-[10px] font-bold uppercase tracking-wider text-[#6b8aaa] mb-1.5";
   const cardCls = "card";
 
-  // Selector cultivo con libre
-  const SelectorCultivo = ({value, onChange}:{value:string,onChange:(v:string)=>void}) => {
-    const isLibre = value?.startsWith("__libre__:");
-    const libreVal = isLibre ? value.replace("__libre__:","") : "";
-    const [showLibre, setShowLibre] = useState(isLibre);
-    const [libreTexto, setLibreTexto] = useState(libreVal);
-    const grupos = ["Verano","Invierno","Especial"];
-    return (
-      <div className="space-y-2">
-        <select value={showLibre?"__libre__":value??""} onChange={e=>{
-          if(e.target.value==="__libre__"){setShowLibre(true);onChange("__libre__:");}
-          else{setShowLibre(false);onChange(e.target.value);}
-        }} className={iCls}>
-          <option value="">Sin cultivo</option>
-          {grupos.map(g=>(
-            <optgroup key={g} label={g}>
-              {CULTIVOS.filter(c=>c.grupo===g).map(c=>(
-                <option key={c.key} value={c.libre?"__libre__":c.key}>{c.label}</option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-        {showLibre&&<input type="text" value={libreTexto} onChange={e=>{setLibreTexto(e.target.value);onChange("__libre__:"+e.target.value);}} className={iCls} placeholder="Escribí el cultivo (ej: Alfalfa, Rye grass...)"/>}
-      </div>
-    );
-  };
+
 
 
 
@@ -909,23 +911,23 @@ export default function IngenieroPanel() {
               ))}
             </div>
 
+            {/* Botón Hoja de Recorrida */}
+            <button onClick={exportarRecorrida}
+              style={{width:"100%",padding:"13px 18px",
+                backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",backgroundPosition:"center",
+                border:"1.5px solid rgba(100,180,255,0.45)",borderTop:"2px solid rgba(180,220,255,0.65)",
+                borderRadius:16,color:"white",fontSize:14,fontWeight:800,
+                display:"flex",alignItems:"center",justifyContent:"center",gap:10,
+                cursor:"pointer",boxShadow:"0 4px 16px rgba(25,118,210,0.38)",
+                textShadow:"0 1px 3px rgba(0,40,120,0.35)",transition:"all 0.2s ease",
+                position:"relative",overflow:"hidden"}}>
+              <span style={{fontSize:20}}>📋</span>
+              <span>Exportar Hoja de Recorrida</span>
+              <span style={{fontSize:12,opacity:0.75}}>· todos los lotes</span>
+            </button>
+
             {/* Distribución cultivos */}
             {haPorCultivo.length>0&&(
-              {/* Botón Hoja de Recorrida */}
-              <button onClick={exportarRecorrida}
-                style={{width:"100%",padding:"13px 18px",
-                  backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",backgroundPosition:"center",
-                  border:"1.5px solid rgba(100,180,255,0.45)",borderTop:"2px solid rgba(180,220,255,0.65)",
-                  borderRadius:16,color:"white",fontSize:14,fontWeight:800,
-                  display:"flex",alignItems:"center",justifyContent:"center",gap:10,
-                  cursor:"pointer",boxShadow:"0 4px 16px rgba(25,118,210,0.38)",
-                  textShadow:"0 1px 3px rgba(0,40,120,0.35)",transition:"all 0.2s ease",
-                  position:"relative",overflow:"hidden"}}>
-                <span style={{fontSize:20}}>📋</span>
-                <span>Exportar Hoja de Recorrida</span>
-                <span style={{fontSize:12,opacity:0.75}}>· todos los lotes</span>
-              </button>
-
               <div className="card" style={{padding:16}}>
                 <div style={{fontSize:11,fontWeight:800,color:"#4a6a8a",letterSpacing:1.2,textTransform:"uppercase",marginBottom:14}}>Distribución de Cultivos</div>
                 <div style={{display:"flex",flexDirection:"column",gap:11}}>
