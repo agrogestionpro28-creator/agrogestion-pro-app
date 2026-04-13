@@ -568,15 +568,7 @@ export default function IngenieroPanel() {
   };
 
   return (
-    <div style={{
-        minHeight:"100vh",
-        fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",
-        position:"relative",
-        backgroundImage:"url('/FON.png')",
-        backgroundSize:"cover",
-        backgroundPosition:"center",
-        backgroundAttachment:"fixed"
-      }}>
+    <div style={{minHeight:"100vh",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",position:"relative",backgroundImage:"url('/FON.png')",backgroundSize:"cover",backgroundPosition:"center",backgroundAttachment:"fixed"}}>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
