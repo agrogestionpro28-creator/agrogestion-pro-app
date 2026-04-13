@@ -1223,7 +1223,7 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
                     <h2 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>{loteActivo.nombre}</h2>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,flexWrap:"wrap"}}>
                       <span style={{fontWeight:800,fontSize:14,color:"#b45309"}}>{loteActivo.hectareas} ha</span>
-                      <span className="tag" style={{background:(cultivoActivoInfo?.color??"#6b7280")+"18",color:cultivoActivoInfo?.color??"#6b7280",border:`1px solid ${cultivoActivoInfo?.color??"#6b7280"}30`}}>{cultivoActivoInfo?.label||"Sin cultivo"}</span>
+                      <span className="tag" style={{background:(cultivoActivoInfo?.color??"#6b7280")+"18",color:cultivoActivoInfo?.color??"#6b7280",border:`1px solid ${cultivoActivoInfo?.color??"#6b7280"}30`}}>{(cultivoActivoInfo?.label||"Sin cultivo").toUpperCase()}</span>
                       {(()=>{const e=ESTADOS.find(x=>x.v===loteActivo.estado);return e?<span className="tag" style={{background:e.c+"18",color:e.c,border:`1px solid ${e.c}30`}}>{e.l}</span>:null;})()}
                     </div>
                   </div>
@@ -1690,7 +1690,7 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
                           <div style={{flex:1,minWidth:0}}>
                             <div style={{fontWeight:800,color:"#0d2137",textTransform:"uppercase",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:14}}>{lote.nombre}</div>
                             <div style={{display:"flex",alignItems:"center",gap:6,marginTop:3,flexWrap:"wrap"}}>
-                              <span style={{fontSize:11,fontWeight:700,color:ci.color}}>{ci.label}</span>
+                              <span style={{fontSize:11,fontWeight:800,color:ci.color,textTransform:"uppercase",letterSpacing:0.2}}>{ci.label}</span>
                               {est&&<span className="tag" style={{background:est.c+"15",color:est.c,border:`1px solid ${est.c}28`}}>{est.l}</span>}
                             </div>
                           </div>
