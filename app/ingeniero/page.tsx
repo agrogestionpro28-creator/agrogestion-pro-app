@@ -356,6 +356,51 @@ export default function IngenieroPanel() {
     const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,tipo);XLSX.writeFile(wb,tipo+"_"+new Date().toISOString().slice(0,10)+".xlsx");
   };
 
+  // ── EXPORTAR TODOS LOS LOTES DE TODOS LOS PRODUCTORES (hoja de recorrida) ──
+  const exportarRecorrida = async () => {
+    const XLSX = await import("xlsx");
+    // Traer todos los lotes de todos los productores con sus datos completos
+    const sb = await getSB();
+    const todosLotes: any[] = [];
+    for (const p of productores) {
+      const eid = p.empresa_id ?? p.id;
+      const campId = campSelProd[eid];
+      if (!campId) continue;
+      const { data: ls } = await sb.from("lotes")
+        .select("nombre,hectareas,cultivo_completo,cultivo,variedad,hibrido,fecha_siembra,estado,observaciones,partido")
+        .eq("empresa_id", eid)
+        .eq("campana_id", campId)
+        .eq("es_segundo_cultivo", false)
+        .order("nombre");
+      (ls ?? []).forEach((l: any) => {
+        todosLotes.push({
+          PRODUCTOR:       p.nombre,
+          LOTE:            l.nombre,
+          PARTIDO:         l.partido || "",
+          HECTAREAS:       l.hectareas || 0,
+          CULTIVO:         l.cultivo_completo || l.cultivo || "",
+          HIBRIDO_VARIEDAD:l.variedad || l.hibrido || "",
+          FECHA_SIEMBRA:   l.fecha_siembra || "",
+          ESTADO:          l.estado || "",
+          OBSERVACIONES:   l.observaciones || "",
+          RECORRIDA:       "",   // columna en blanco para anotación manual
+          NOVEDADES:       "",   // ídem
+        });
+      });
+    }
+    if (!todosLotes.length) { m("Sin lotes para exportar"); return; }
+    // Crear hoja con formato para imprimir
+    const ws = XLSX.utils.json_to_sheet(todosLotes);
+    // Anchos de columna
+    ws["!cols"] = [
+      {wch:22},{wch:20},{wch:14},{wch:8},{wch:14},{wch:18},{wch:14},{wch:12},{wch:28},{wch:25},{wch:25}
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Recorrida");
+    XLSX.writeFile(wb, "recorrida_"+ingNombre+"_"+new Date().toISOString().slice(0,10)+".xlsx");
+    m("✅ Hoja de recorrida exportada — "+todosLotes.length+" lotes");
+  };
+
   const leerExcel = async (file:File) => {
     setImportMsg("Leyendo...");
     try {
@@ -874,6 +919,21 @@ export default function IngenieroPanel() {
 
             {/* Distribución cultivos */}
             {haPorCultivo.length>0&&(
+              {/* Botón Hoja de Recorrida */}
+              <button onClick={exportarRecorrida}
+                style={{width:"100%",padding:"13px 18px",
+                  backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",backgroundPosition:"center",
+                  border:"1.5px solid rgba(100,180,255,0.45)",borderTop:"2px solid rgba(180,220,255,0.65)",
+                  borderRadius:16,color:"white",fontSize:14,fontWeight:800,
+                  display:"flex",alignItems:"center",justifyContent:"center",gap:10,
+                  cursor:"pointer",boxShadow:"0 4px 16px rgba(25,118,210,0.38)",
+                  textShadow:"0 1px 3px rgba(0,40,120,0.35)",transition:"all 0.2s ease",
+                  position:"relative",overflow:"hidden"}}>
+                <span style={{fontSize:20}}>📋</span>
+                <span>Exportar Hoja de Recorrida</span>
+                <span style={{fontSize:12,opacity:0.75}}>· todos los lotes</span>
+              </button>
+
               <div className="card" style={{padding:16}}>
                 <div style={{fontSize:11,fontWeight:800,color:"#4a6a8a",letterSpacing:1.2,textTransform:"uppercase",marginBottom:14}}>Distribución de Cultivos</div>
                 <div style={{display:"flex",flexDirection:"column",gap:11}}>
