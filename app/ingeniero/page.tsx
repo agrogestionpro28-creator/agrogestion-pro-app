@@ -92,6 +92,106 @@ function SelectorCultivo({value, onChange}:{value:string,onChange:(v:string)=>vo
     </div>
   );
 }
+
+// ── ÍCONOS SVG MODERNOS POR CULTIVO ──
+function CultivoIcon({cultivo, size=32}:{cultivo:string, size?:number}) {
+  const l = cultivo.toLowerCase();
+  const s = size;
+  
+  if(l.includes("girasol")) return (
+    <svg width={s} height={s} viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <g transform="translate(24,20)">
+        <ellipse rx="3.2" ry="7" fill="#FBC02D" transform="rotate(0) translate(0,-13)"/>
+        <ellipse rx="3.2" ry="7" fill="#FBC02D" transform="rotate(45) translate(0,-13)"/>
+        <ellipse rx="3.2" ry="7" fill="#FBC02D" transform="rotate(90) translate(0,-13)"/>
+        <ellipse rx="3.2" ry="7" fill="#FBC02D" transform="rotate(135) translate(0,-13)"/>
+        <ellipse rx="3.2" ry="7" fill="#FBC02D" transform="rotate(180) translate(0,-13)"/>
+        <ellipse rx="3.2" ry="7" fill="#FBC02D" transform="rotate(225) translate(0,-13)"/>
+        <ellipse rx="3.2" ry="7" fill="#FBC02D" transform="rotate(270) translate(0,-13)"/>
+        <ellipse rx="3.2" ry="7" fill="#FBC02D" transform="rotate(315) translate(0,-13)"/>
+      </g>
+      <circle cx="24" cy="20" r="7.5" fill="#4E342E"/>
+      <circle cx="24" cy="20" r="5" fill="#3E2723"/>
+      <circle cx="22" cy="18" r="1.1" fill="#795548"/><circle cx="25.5" cy="18" r="1.1" fill="#795548"/>
+      <circle cx="22" cy="21" r="1.1" fill="#795548"/><circle cx="25.5" cy="21" r="1.1" fill="#795548"/>
+      <line x1="24" y1="27" x2="24" y2="46" stroke="#388E3C" strokeWidth="2.5" strokeLinecap="round"/>
+      <path d="M24 38 Q17 34 15 28" fill="none" stroke="#4CAF50" strokeWidth="2.2" strokeLinecap="round"/>
+    </svg>
+  );
+  
+  if(l.includes("trigo")||l.includes("cebada")||l.includes("arveja")||l.includes("carin")||l.includes("camel")) {
+    const col = l.includes("cebada")?"#9C27B0":l.includes("arveja")?"#00796B":l.includes("carin")||l.includes("camel")?"#37474F":"#C8860A";
+    const col2 = l.includes("cebada")?"#AB47BC":l.includes("arveja")?"#4DB6AC":l.includes("carin")||l.includes("camel")?"#607D8B":"#E4A829";
+    return (
+      <svg width={s} height={s} viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <line x1="24" y1="46" x2="24" y2="8" stroke={col} strokeWidth="2.5" strokeLinecap="round"/>
+        <ellipse cx="24" cy="9" rx="3.5" ry="5.5" fill={col2}/>
+        <line x1="24" y1="4" x2="24" y2="8" stroke={col2} strokeWidth="1.5" strokeLinecap="round"/>
+        <ellipse cx="18" cy="14" rx="3" ry="5" fill={col2} transform="rotate(-22 18 14)"/>
+        <ellipse cx="30" cy="14" rx="3" ry="5" fill={col2} transform="rotate(22 30 14)"/>
+        <line x1="18" y1="10" x2="15" y2="5" stroke={col} strokeWidth="1.2" strokeLinecap="round"/>
+        <line x1="30" y1="10" x2="33" y2="5" stroke={col} strokeWidth="1.2" strokeLinecap="round"/>
+        <ellipse cx="17" cy="20" rx="3" ry="5" fill={col} transform="rotate(-18 17 20)"/>
+        <ellipse cx="31" cy="20" rx="3" ry="5" fill={col} transform="rotate(18 31 20)"/>
+        <ellipse cx="18" cy="26" rx="2.8" ry="4.5" fill={col2} transform="rotate(-12 18 26)"/>
+        <ellipse cx="30" cy="26" rx="2.8" ry="4.5" fill={col2} transform="rotate(12 30 26)"/>
+      </svg>
+    );
+  }
+  
+  if(l.includes("sorgo")) {
+    const col = l.includes("2")?"#A1887F":"#6D4C41";
+    const col2 = l.includes("2")?"#D7CCC8":"#8D6E63";
+    return (
+      <svg width={s} height={s} viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <line x1="24" y1="46" x2="24" y2="20" stroke={col} strokeWidth="2.5" strokeLinecap="round"/>
+        <path d="M24 36 Q15 32 13 24" fill="none" stroke="#66BB6A" strokeWidth="2.2" strokeLinecap="round"/>
+        <path d="M24 36 Q33 32 35 24" fill="none" stroke="#81C784" strokeWidth="2.2" strokeLinecap="round"/>
+        <ellipse cx="24" cy="13" rx="7" ry="9" fill={col2}/>
+        <circle cx="20" cy="9" r="2.5" fill="#ECEFF1"/><circle cx="28" cy="9" r="2.5" fill="#ECEFF1"/>
+        <circle cx="17" cy="13.5" r="2.5" fill={col2}/><circle cx="31" cy="13.5" r="2.5" fill={col2}/>
+        <circle cx="20" cy="18" r="2.5" fill={col}/><circle cx="28" cy="18" r="2.5" fill={col}/>
+        <circle cx="24" cy="7" r="2.8" fill="#ECEFF1"/>
+      </svg>
+    );
+  }
+  
+  if(l.includes("maíz")||l.includes("maiz")) {
+    const col = l.includes("2")?"#FFB300":"#FBC02D";
+    const col2 = l.includes("2")?"#FF8F00":"#F57F17";
+    return (
+      <svg width={s} height={s} viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <path d="M24 12 Q31 8 35 14 Q29 16 24 27" fill="#66BB6A"/>
+        <path d="M24 12 Q17 7 13 13 Q19 16 24 27" fill="#81C784"/>
+        <ellipse cx="24" cy="28" rx="9" ry="13" fill={col}/>
+        <circle cx="21" cy="21" r="2" fill={col2}/><circle cx="27" cy="21" r="2" fill={col2}/>
+        <circle cx="21" cy="26" r="2" fill={col2}/><circle cx="27" cy="26" r="2" fill={col2}/>
+        <circle cx="21" cy="31" r="2" fill={col2}/><circle cx="27" cy="31" r="2" fill={col2}/>
+        <circle cx="24" cy="18.5" r="2" fill={col}/><circle cx="24" cy="23.5" r="2" fill={col}/>
+        <circle cx="24" cy="28.5" r="2" fill={col}/><circle cx="24" cy="33.5" r="2" fill={col}/>
+        <line x1="24" y1="41" x2="24" y2="47" stroke="#E65100" strokeWidth="2.5" strokeLinecap="round"/>
+      </svg>
+    );
+  }
+  
+  // Soja (1ra verde, 2da celeste, default verde)
+  const esSoja2 = l.includes("2");
+  const colSoja = esSoja2?"#0288d1":"#4CAF50";
+  const colSoja2 = esSoja2?"#29b6f6":"#66BB6A";
+  const colSoja3 = esSoja2?"#0277bd":"#43A047";
+  const colSojaH = esSoja2?"#01579b":"#2E7D32";
+  return (
+    <svg width={s} height={s} viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="24" cy="29" r="11" fill={colSoja} opacity="0.92"/>
+      <circle cx="16" cy="21" r="9" fill={colSoja2}/>
+      <circle cx="32" cy="21" r="9" fill={colSoja3}/>
+      <circle cx="24" cy="17" r="6" fill={colSoja2} opacity="0.8"/>
+      <line x1="24" y1="40" x2="24" y2="46" stroke={colSojaH} strokeWidth="2.5" strokeLinecap="round"/>
+      <line x1="24" y1="44" x2="19" y2="47" stroke={colSojaH} strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
 export default function IngenieroPanel() {
   const [seccion, setSeccion] = useState<Seccion>("general");
   const [ingId, setIngId] = useState("");
@@ -911,7 +1011,7 @@ export default function IngenieroPanel() {
                 {l:"Con App",v:productores.filter(p=>p.tiene_cuenta).length,icon:"📱",color:"#7b1fa2"},
               ].map(s=>(
                 <div key={s.l} className="kpi">
-                  <div style={{fontSize:22,marginBottom:4}}>{s.icon}</div>
+                  <div style={{fontSize:22,marginBottom:4,display:"flex",justifyContent:"center"}}>{s.icon}</div>
                   <div className="num-big" style={{color:s.color,fontSize:28}}>{s.v}</div>
                   <div style={{fontSize:11,color:"#6b8aaa",marginTop:3,fontWeight:600}}>{s.l}</div>
                 </div>
@@ -942,7 +1042,7 @@ export default function IngenieroPanel() {
                     const cc=cultivoColor(d.name);
                     return(
                       <div key={i} style={{display:"flex",alignItems:"center",gap:10}}>
-                        <span style={{fontSize:16,width:22,flexShrink:0,textAlign:"center"}}>{cultivoIcono(d.name)}</span>
+                        <CultivoIcon cultivo={d.name} size={22}/>
                         <div style={{width:82,fontSize:12,fontWeight:800,color:"#000000",textTransform:"uppercase",letterSpacing:0.2,flexShrink:0}}>{d.name}</div>
                         <div className="bar-track">
                           <div className="bar-fill" style={{background:cc.bar,width:totalHa>0?(d.ha/totalHa*100)+"%":"0%"}}/>
@@ -1179,7 +1279,7 @@ export default function IngenieroPanel() {
                                 const pct=haReales>0?Math.round(haC/haReales*100):0;
                                 return(
                                   <div key={c} style={{display:"flex",alignItems:"center",gap:8}}>
-                                    <span style={{fontSize:14,flexShrink:0}}>{cultivoIcono(c)}</span>
+                                    <CultivoIcon cultivo={c} size={18}/>
                                     <div style={{width:72,fontSize:11,fontWeight:800,color:"#000000",textTransform:"uppercase",letterSpacing:0.2,flexShrink:0}}>{info.label}</div>
                                     <div className="bar-track">
                                       <div className="bar-fill" style={{background:cc.bar,width:pct+"%"}}/>
@@ -1197,7 +1297,7 @@ export default function IngenieroPanel() {
                                   const cc=cultivoColor(c);
                                   return(
                                     <div key={c} className="cult-chip" style={{background:cc.chipBg||cc.chip,borderColor:cc.border}}>
-                                      <span style={{fontSize:28}}>{cultivoIcono(c)}</span>
+                                      <CultivoIcon cultivo={c} size={26}/>
                                       <span style={{fontSize:12,fontWeight:800,color:"#000000",textTransform:"uppercase",letterSpacing:0.3}}>{getCultivoInfo(c).label}</span>
                                     </div>
                                   );
