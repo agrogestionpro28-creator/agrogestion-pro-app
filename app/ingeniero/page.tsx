@@ -868,11 +868,18 @@ export default function IngenieroPanel() {
           </div>
         </div>
         {/* NAV */}
-        <div style={{display:"flex",gap:6,padding:"0 12px 10px",overflowX:"auto",scrollbarWidth:"none"}}>
+        <div style={{display:"flex",gap:6,padding:"0 12px 10px",overflowX:"auto",scrollbarWidth:"none",justifyContent:"center"}}>
           {NAV.map(item=>(
             <button key={item.k}
               onClick={()=>{setSeccion(item.k as Seccion);setShowForm(false);setForm({});setVehiculoSel(null);}}
-              className={`nav-tab${seccion===item.k?" active":""}`}>
+              className={`nav-tab${seccion===item.k?" active":""}`}
+              style={seccion===item.k?{
+                backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",backgroundPosition:"center",
+                border:"1.5px solid rgba(100,180,255,0.45)",borderTop:"2px solid rgba(180,220,255,0.65)",
+                color:"white",fontWeight:800,
+                boxShadow:"0 5px 18px rgba(25,118,210,0.45)",
+                textShadow:"0 1px 3px rgba(0,40,120,0.35)"
+              }:{}}>
               <span>{item.icon}</span> <span>{item.label}</span>
               {seccion===item.k&&<span style={{width:5,height:5,borderRadius:"50%",background:"rgba(255,255,255,0.8)",display:"inline-block",marginLeft:2}}/>}
             </button>
@@ -929,14 +936,14 @@ export default function IngenieroPanel() {
             {/* Distribución cultivos */}
             {haPorCultivo.length>0&&(
               <div className="card" style={{padding:16}}>
-                <div style={{fontSize:11,fontWeight:800,color:"#4a6a8a",letterSpacing:1.2,textTransform:"uppercase",marginBottom:14}}>Distribución de Cultivos</div>
+                <div style={{fontSize:11,fontWeight:800,color:"#1e3a5f",textTransform:"uppercase",letterSpacing:1.2,marginBottom:14}}>Distribución de Cultivos</div>
                 <div style={{display:"flex",flexDirection:"column",gap:11}}>
                   {haPorCultivo.map((d,i)=>{
                     const cc=cultivoColor(d.name);
                     return(
                       <div key={i} style={{display:"flex",alignItems:"center",gap:10}}>
                         <span style={{fontSize:16,width:22,flexShrink:0,textAlign:"center"}}>{cultivoIcono(d.name)}</span>
-                        <div style={{width:76,fontSize:12,fontWeight:600,color:"#1e3a5f",flexShrink:0}}>{d.name}</div>
+                        <div style={{width:82,fontSize:12,fontWeight:800,color:"#000000",textTransform:"uppercase",letterSpacing:0.2,flexShrink:0}}>{d.name}</div>
                         <div className="bar-track">
                           <div className="bar-fill" style={{background:cc.bar,width:totalHa>0?(d.ha/totalHa*100)+"%":"0%"}}/>
                         </div>
@@ -1173,7 +1180,7 @@ export default function IngenieroPanel() {
                                 return(
                                   <div key={c} style={{display:"flex",alignItems:"center",gap:8}}>
                                     <span style={{fontSize:14,flexShrink:0}}>{cultivoIcono(c)}</span>
-                                    <div style={{width:68,fontSize:11,fontWeight:600,color:"#1e3a5f",flexShrink:0}}>{info.label}</div>
+                                    <div style={{width:72,fontSize:11,fontWeight:800,color:"#000000",textTransform:"uppercase",letterSpacing:0.2,flexShrink:0}}>{info.label}</div>
                                     <div className="bar-track">
                                       <div className="bar-fill" style={{background:cc.bar,width:pct+"%"}}/>
                                     </div>
@@ -1191,7 +1198,7 @@ export default function IngenieroPanel() {
                                   return(
                                     <div key={c} className="cult-chip" style={{background:cc.chipBg||cc.chip,borderColor:cc.border}}>
                                       <span style={{fontSize:28}}>{cultivoIcono(c)}</span>
-                                      <span style={{fontSize:13,fontWeight:800,color:cc.text}}>{getCultivoInfo(c).label}</span>
+                                      <span style={{fontSize:12,fontWeight:800,color:"#000000",textTransform:"uppercase",letterSpacing:0.3}}>{getCultivoInfo(c).label}</span>
                                     </div>
                                   );
                                 })}
