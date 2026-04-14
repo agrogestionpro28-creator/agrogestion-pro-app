@@ -429,6 +429,9 @@ export default function IngenieroPanel() {
       observaciones: form.obs ?? "",
       honorario_tipo: form.honorario_tipo ?? "mensual",
       honorario_monto: Number(form.honorario_monto ?? 0),
+      honorario_kg_ha: form.honorario_kg_ha ? Number(form.honorario_kg_ha) : null,
+      honorario_porcentaje: form.honorario_porcentaje ? Number(form.honorario_porcentaje) : null,
+      honorario_notas: form.honorario_notas ?? "",
       empresa_id, tiene_cuenta, activo: true
     };
 
@@ -488,9 +491,92 @@ export default function IngenieroPanel() {
   };
 
   const guardarCob = async () => {
-    if(!ingId)return; const sb=getSB();
-    await sb.from("ing_cobranzas").insert({ingeniero_id:ingId,productor_id:form.prod_c||null,concepto:form.concepto??"",monto:Number(form.monto??0),fecha:form.fecha_c??new Date().toISOString().split("T")[0],estado:form.estado??"pendiente",metodo_pago:form.metodo??""});
+    if(!ingId)return;
+    const sb=getSB();
+    const payload: Record<string,any> = {
+      ingeniero_id: ingId,
+      productor_id: form.prod_c||null,
+      empresa_id: productores.find((p:any)=>p.id===form.prod_c)?.empresa_id||null,
+      concepto: form.concepto??"",
+      monto: Number(form.monto??0),
+      monto_usd: Number(form.monto_usd||form.monto??0),
+      fecha: form.fecha_c??new Date().toISOString().split("T")[0],
+      estado: form.estado??"pendiente",
+      metodo_pago: form.metodo??"",
+      modalidad: form.modalidad??"otro",
+      periodo: form.periodo??"",
+      confirmado: true,
+    };
+    if(form.modalidad==="kg_cultivo_ha"||form.modalidad==="kg_soja_ha") {
+      payload.kg_cantidad = Number(form.kg_cantidad??0);
+      payload.kg_precio_usd = Number(form.kg_precio_usd??0);
+      payload.hectareas = Number(form.hectareas_cob??0);
+      payload.monto_usd = Number(form.kg_cantidad??0)*Number(form.kg_precio_usd??0);
+      payload.monto = payload.monto_usd;
+    }
+    if(form.modalidad==="porcentaje_rto") {
+      payload.porcentaje = Number(form.porcentaje??0);
+      payload.rendimiento_tn = Number(form.rendimiento_tn??0);
+      payload.hectareas = Number(form.hectareas_cob??0);
+    }
+    await sb.from("ing_cobranzas").insert(payload);
     await fetchCobs(ingId); setShowForm(false); setForm({}); m("✅ Cobro registrado");
+  };
+
+  // ── Calcular honorario automático por productor ──
+  const calcularHonorario = async (p: any) => {
+    const sb = getSB();
+    const eid = p.empresa_id ?? p.id;
+    const campId = campSelProd[eid];
+    if(!campId) { m("❌ Sin campaña activa para "+p.nombre); return; }
+    const hoy = new Date().toISOString().split("T")[0];
+    const periodo = campanas.find((c:any)=>c.id===campId)?.nombre ?? new Date().getFullYear()+"/"+(new Date().getFullYear()+1);
+    const { data: ls } = await sb.from("lotes")
+      .select("id,nombre,hectareas,cultivo,cultivo_completo,rendimiento_real,rendimiento_esperado")
+      .eq("empresa_id", eid).eq("campana_id", campId).eq("es_segundo_cultivo", false);
+    const lotesP = ls ?? [];
+    const totalHaP = lotesP.reduce((a:number,l:any)=>a+(l.hectareas||0),0);
+    const tipo = p.honorario_tipo;
+    let concepto="", monto=0, extra:Record<string,any>={};
+
+    if(tipo==="mensual") {
+      concepto=`Honorario mensual — ${p.nombre}`;
+      monto=p.honorario_monto||0;
+      extra={modalidad:"usd_mensual",periodo:new Date().toLocaleString("es-AR",{month:"long",year:"numeric"})};
+    } else if(tipo==="anual"||tipo==="por_campana") {
+      concepto=`Honorario anual campaña ${periodo} — ${p.nombre}`;
+      monto=p.honorario_monto||0;
+      extra={modalidad:"usd_anual",periodo};
+    } else if(tipo==="kg_soja_ha"||tipo==="por_ha") {
+      const kgHa=p.honorario_kg_ha||p.honorario_monto||0;
+      concepto=`${kgHa} kg soja/ha × ${totalHaP} ha — ${p.nombre}`;
+      extra={modalidad:"kg_soja_ha",kg_cantidad:kgHa*totalHaP,hectareas:totalHaP,periodo};
+    } else if(tipo==="kg_cultivo_ha") {
+      const kgHa=p.honorario_kg_ha||p.honorario_monto||0;
+      concepto=`${kgHa} kg/ha cultivo × ${totalHaP} ha — ${p.nombre}`;
+      extra={modalidad:"kg_cultivo_ha",kg_cantidad:kgHa*totalHaP,hectareas:totalHaP,periodo};
+    } else if(tipo==="porcentaje_rto"||tipo==="por_servicio") {
+      const pct=p.honorario_porcentaje||p.honorario_monto||1;
+      const {data:mgs}=await sb.from("margen_bruto_detalle")
+        .select("ingreso_bruto,rendimiento_real,rendimiento_esperado,hectareas")
+        .eq("empresa_id",eid);
+      const ingTotal=(mgs??[]).reduce((a:number,m:any)=>a+(m.ingreso_bruto||0),0);
+      const rtoTotal=(mgs??[]).reduce((a:number,m:any)=>a+((m.rendimiento_real||m.rendimiento_esperado||0)*(m.hectareas||0)),0);
+      monto=ingTotal*pct/100;
+      concepto=`${pct}% ingreso bruto — ${p.nombre}`;
+      extra={modalidad:"porcentaje_rto",porcentaje:pct,rendimiento_tn:rtoTotal,hectareas:totalHaP,periodo};
+    } else {
+      concepto=`Honorario — ${p.nombre}`;
+      monto=p.honorario_monto||0;
+      extra={modalidad:"otro",periodo};
+    }
+    setForm({prod_c:p.id,concepto,monto:String(Math.round(monto)),monto_usd:String(Math.round(monto)),fecha_c:hoy,estado:"pendiente",
+      modalidad:extra.modalidad||"otro",periodo:extra.periodo||"",
+      kg_cantidad:String(extra.kg_cantidad||""),kg_precio_usd:"",
+      hectareas_cob:String(extra.hectareas||""),porcentaje:String(extra.porcentaje||""),
+      rendimiento_tn:String(extra.rendimiento_tn||"")});
+    setShowForm(true);
+    m("✅ Calculado para "+p.nombre+" — revisá y confirmá");
   };
   const marcarCobrado = async (id:string) => { const sb=getSB(); await sb.from("ing_cobranzas").update({estado:"cobrado"}).eq("id",id); await fetchCobs(ingId); };
 
@@ -1152,7 +1238,7 @@ export default function IngenieroPanel() {
                 <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"#0d2137"}}>🔗 Vincular por código</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
                   <div><label className={lCls}>Código *</label><input type="text" value={form.codigo??""} onChange={e=>setForm({...form,codigo:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="10001"/></div>
-                  <div><label className={lCls}>Honorario</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className="sel" style={{width:"100%"}}><option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option></select></div>
+                  <div><label className={lCls}>Honorario</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className="sel" style={{width:"100%"}}><option value="mensual">💵 U$S Mensual</option><option value="anual">💵 U$S Anual</option><option value="kg_soja_ha">🫘 Kg Soja/Ha</option><option value="kg_cultivo_ha">🌾 Kg Cultivo/Ha</option><option value="porcentaje_rto">📊 % Rto</option><option value="otro">✏️ Otro</option></select></div>
                   <div><label className={lCls}>Monto $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                 </div>
                 <div style={{display:"flex",gap:8}}>
@@ -1199,9 +1285,14 @@ export default function IngenieroPanel() {
                     </div>
                   ))}
                   <div>
-                    <label className={lCls}>Tipo honor.</label>
+                    <label className={lCls}>Modalidad honorario</label>
                     <select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className="sel" style={{width:"100%"}}>
-                      <option value="mensual">Mensual</option><option value="por_ha">Por HA</option><option value="por_campana">Por campaña</option><option value="por_servicio">Por servicio</option>
+                      <option value="mensual">💵 U$S Mensual</option>
+                      <option value="anual">💵 U$S Anual</option>
+                      <option value="kg_soja_ha">🫘 Kg Soja/Ha</option>
+                      <option value="kg_cultivo_ha">🌾 Kg Cultivo/Ha</option>
+                      <option value="porcentaje_rto">📊 % del Rendimiento</option>
+                      <option value="otro">✏️ Otro</option>
                     </select>
                   </div>
                 </div>
@@ -1294,7 +1385,7 @@ export default function IngenieroPanel() {
                           <div className="kpi">
                             <div style={{fontSize:12,fontWeight:700,color:"#4a6a8a",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>$ Honorario</div>
                             <div className="num-med">${Number(p.honorario_monto||0).toLocaleString("es-AR")}</div>
-                            <div style={{fontSize:11,color:"#6b8aaa",marginTop:2,fontWeight:500}}>{p.honorario_tipo||"mensual"}</div>
+                            <div style={{fontSize:11,color:"#6b8aaa",marginTop:2,fontWeight:500}}>{{mensual:"U$S/mes",anual:"U$S/año",kg_soja_ha:"Kg soja/ha",kg_cultivo_ha:"Kg cultivo/ha",porcentaje_rto:"% rto",otro:"Otro"}[p.honorario_tipo]||p.honorario_tipo||"mensual"}</div>
                           </div>
                         </div>
 
@@ -1367,49 +1458,294 @@ export default function IngenieroPanel() {
 
         {/* ══ COBRANZA ══ */}
         {seccion==="cobranza"&&(
-          <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:10}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-              <div>
-                <h2 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>Cobranza</h2>
-                <div style={{display:"flex",gap:12,marginTop:3}}>
-                  <span style={{fontSize:12,fontWeight:700,color:"#dc2626"}}>Pend: ${totPend.toLocaleString("es-AR")}</span>
-                  <span style={{fontSize:12,fontWeight:700,color:"#16a34a"}}>Cobr: ${totCob.toLocaleString("es-AR")}</span>
+          <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:12}}>
+
+            {/* Resumen totales */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+              {[
+                {l:"Pendiente",v:"U$S "+totPend.toLocaleString("es-AR"),c:"#dc2626",bg:"rgba(220,38,38,0.08)"},
+                {l:"Cobrado",v:"U$S "+totCob.toLocaleString("es-AR"),c:"#166534",bg:"rgba(22,163,74,0.08)"},
+                {l:"Total campaña",v:"U$S "+(totPend+totCob).toLocaleString("es-AR"),c:"#0D47A1",bg:"rgba(25,118,210,0.08)"},
+              ].map(s=>(
+                <div key={s.l} className="card" style={{padding:"12px 14px",textAlign:"center",background:s.bg}}>
+                  <div style={{fontSize:10,fontWeight:700,color:s.c,textTransform:"uppercase",letterSpacing:0.8,marginBottom:4}}>{s.l}</div>
+                  <div style={{fontSize:16,fontWeight:800,color:s.c}}>{s.v}</div>
                 </div>
-              </div>
-              <button onClick={()=>{setShowForm(!showForm);setForm({estado:"pendiente",fecha_c:new Date().toISOString().split("T")[0]});}} className="bbtn">+ Cobro</button>
+              ))}
             </div>
-            {showForm&&(
-              <div className="card fade-in" style={{padding:14}}>
-                <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"#0d2137"}}>+ Nuevo cobro</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-                  <div><label className={lCls}>Productor</label><select value={form.prod_c??""} onChange={e=>setForm({...form,prod_c:e.target.value})} className="sel" style={{width:"100%"}}><option value="">Sin productor</option>{productores.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}</select></div>
-                  <div><label className={lCls}>Concepto</label><input type="text" value={form.concepto??""} onChange={e=>setForm({...form,concepto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Honorario enero"/></div>
-                  <div><label className={lCls}>Monto</label><input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
-                  <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_c??""} onChange={e=>setForm({...form,fecha_c:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
-                  <div><label className={lCls}>Estado</label><select value={form.estado??"pendiente"} onChange={e=>setForm({...form,estado:e.target.value})} className="sel" style={{width:"100%"}}><option value="pendiente">Pendiente</option><option value="cobrado">Cobrado</option></select></div>
-                  <div><label className={lCls}>Método</label><select value={form.metodo??""} onChange={e=>setForm({...form,metodo:e.target.value})} className="sel" style={{width:"100%"}}><option value="">—</option><option value="transferencia">Transferencia</option><option value="efectivo">Efectivo</option><option value="cheque">Cheque</option></select></div>
+
+            {/* Calcular honorarios por productor */}
+            <div className="card" style={{padding:14}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:800,color:"#0d2137"}}>⚡ Calcular Honorarios Automático</div>
+                  <div style={{fontSize:11,color:"#6b8aaa",marginTop:2}}>Calcula según el acuerdo configurado por productor</div>
                 </div>
-                <div style={{display:"flex",gap:8}}><button onClick={guardarCob} className="bbtn">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="abtn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button></div>
+                <button onClick={()=>{setShowForm(!showForm);setForm({estado:"pendiente",fecha_c:new Date().toISOString().split("T")[0],modalidad:"usd_mensual"});}}
+                  className="bbtn" style={{padding:"8px 14px",fontSize:12}}>+ Cobro manual</button>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {productores.map(p=>{
+                  const eid=p.empresa_id??p.id;
+                  const lotesP=lotes.filter((l:any)=>l.empresa_id===eid);
+                  const haP=lotesP.reduce((a:number,l:any)=>a+(l.hectareas||0),0);
+                  const cobsProd=cobranzas.filter((c:any)=>c.productor_id===p.id);
+                  const pendProd=cobsProd.filter((c:any)=>c.estado==="pendiente").reduce((a:number,c:any)=>a+(c.monto||0),0);
+                  const MODAL_LABEL:Record<string,string>={
+                    mensual:"U$S/mes",anual:"U$S/año",por_campana:"U$S/campaña",
+                    kg_soja_ha:"kg soja/ha",kg_cultivo_ha:"kg cultivo/ha",
+                    porcentaje_rto:"% del rto",por_ha:"kg/ha",por_servicio:"% rto",otro:"Otro"
+                  };
+                  return(
+                    <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",
+                      borderRadius:12,background:"rgba(255,255,255,0.60)",border:"1px solid rgba(255,255,255,0.85)",
+                      boxShadow:"0 2px 8px rgba(20,80,160,0.07)"}}>
+                      <div style={{width:36,height:36,borderRadius:"50%",backgroundImage:"url('/AZUL.png')",
+                        backgroundSize:"cover",border:"2px solid rgba(180,220,255,0.80)",
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontSize:14,fontWeight:800,color:"white",flexShrink:0,
+                        textShadow:"0 1px 3px rgba(0,40,120,0.40)"}}>
+                        {p.nombre.charAt(0)}
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,fontWeight:800,color:"#0d2137",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.nombre}</div>
+                        <div style={{fontSize:11,color:"#6b8aaa",marginTop:1,display:"flex",gap:8}}>
+                          <span>{haP} ha</span>
+                          <span style={{color:"#1565c0",fontWeight:700}}>{MODAL_LABEL[p.honorario_tipo]||"Sin configurar"}</span>
+                          {p.honorario_monto>0&&<span style={{color:"#b45309",fontWeight:600}}>{p.honorario_monto} {p.honorario_tipo?.includes("kg")?"kg":p.honorario_tipo?.includes("porc")||p.honorario_tipo==="por_servicio"?"%":"U$S"}</span>}
+                        </div>
+                      </div>
+                      {pendProd>0&&(
+                        <div style={{fontSize:12,fontWeight:700,color:"#dc2626",flexShrink:0}}>
+                          U$S {Math.round(pendProd).toLocaleString("es-AR")} pend.
+                        </div>
+                      )}
+                      <button onClick={()=>calcularHonorario(p)}
+                        className="bbtn" style={{padding:"7px 12px",fontSize:11,flexShrink:0}}>
+                        ⚡ Calcular
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Form nuevo cobro */}
+            {showForm&&(
+              <div className="card fade-in" style={{padding:16}}>
+                <div style={{fontSize:13,fontWeight:800,color:"#0d2137",marginBottom:14}}>
+                  {form.prod_c?`💰 Honorario — ${productores.find((p:any)=>p.id===form.prod_c)?.nombre||""}`:"+  Nuevo cobro"}
+                </div>
+
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                  <div>
+                    <label className={lCls}>Productor</label>
+                    <select value={form.prod_c??""} onChange={e=>setForm({...form,prod_c:e.target.value})} className="inp" style={{padding:"8px 12px"}}>
+                      <option value="">Sin productor</option>
+                      {productores.map((p:any)=><option key={p.id} value={p.id}>{p.nombre}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={lCls}>Modalidad</label>
+                    <select value={form.modalidad??"usd_mensual"} onChange={e=>setForm({...form,modalidad:e.target.value})} className="inp" style={{padding:"8px 12px"}}>
+                      <option value="usd_mensual">💵 U$S Mensual</option>
+                      <option value="usd_anual">💵 U$S Anual</option>
+                      <option value="kg_soja_ha">🫘 Kg Soja / Ha</option>
+                      <option value="kg_cultivo_ha">🌾 Kg Cultivo / Ha</option>
+                      <option value="porcentaje_rto">📊 % del Rendimiento</option>
+                      <option value="otro">✏️ Otro (manual)</option>
+                    </select>
+                  </div>
+
+                  {/* Campos según modalidad */}
+                  {(form.modalidad==="usd_mensual"||form.modalidad==="usd_anual"||form.modalidad==="otro")&&(
+                    <>
+                      <div>
+                        <label className={lCls}>Monto U$S</label>
+                        <input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value,monto_usd:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="0"/>
+                      </div>
+                      <div>
+                        <label className={lCls}>Período</label>
+                        <input type="text" value={form.periodo??""} onChange={e=>setForm({...form,periodo:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="Ej: Enero 2026 / 2025-2026"/>
+                      </div>
+                    </>
+                  )}
+
+                  {(form.modalidad==="kg_soja_ha"||form.modalidad==="kg_cultivo_ha")&&(
+                    <>
+                      <div>
+                        <label className={lCls}>Kg totales</label>
+                        <input type="number" value={form.kg_cantidad??""} onChange={e=>{
+                          const kg=Number(e.target.value);
+                          const precio=Number(form.kg_precio_usd||0);
+                          setForm({...form,kg_cantidad:e.target.value,monto:String(Math.round(kg*precio)),monto_usd:String(Math.round(kg*precio))});
+                        }} className="inp" style={{padding:"8px 12px"}} placeholder="0"/>
+                      </div>
+                      <div>
+                        <label className={lCls}>Precio U$S / kg</label>
+                        <input type="number" step="0.01" value={form.kg_precio_usd??""} onChange={e=>{
+                          const precio=Number(e.target.value);
+                          const kg=Number(form.kg_cantidad||0);
+                          setForm({...form,kg_precio_usd:e.target.value,monto:String(Math.round(kg*precio)),monto_usd:String(Math.round(kg*precio))});
+                        }} className="inp" style={{padding:"8px 12px"}} placeholder="0.00"/>
+                      </div>
+                      <div>
+                        <label className={lCls}>Hectáreas base</label>
+                        <input type="number" value={form.hectareas_cob??""} onChange={e=>setForm({...form,hectareas_cob:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="0"/>
+                      </div>
+                      <div>
+                        <label className={lCls}>Período</label>
+                        <input type="text" value={form.periodo??""} onChange={e=>setForm({...form,periodo:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="2025/2026"/>
+                      </div>
+                      {/* Preview cálculo */}
+                      {form.kg_cantidad&&form.kg_precio_usd&&(
+                        <div style={{gridColumn:"1/-1",padding:"10px 14px",borderRadius:12,
+                          background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.18)"}}>
+                          <span style={{fontSize:13,color:"#1565c0",fontWeight:700}}>
+                            {Number(form.kg_cantidad).toLocaleString("es-AR")} kg × U$S {form.kg_precio_usd}/kg = <strong>U$S {Math.round(Number(form.kg_cantidad)*Number(form.kg_precio_usd)).toLocaleString("es-AR")}</strong>
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {form.modalidad==="porcentaje_rto"&&(
+                    <>
+                      <div>
+                        <label className={lCls}>% del rendimiento</label>
+                        <input type="number" step="0.1" value={form.porcentaje??""} onChange={e=>setForm({...form,porcentaje:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="1.5"/>
+                      </div>
+                      <div>
+                        <label className={lCls}>Monto U$S resultante</label>
+                        <input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value,monto_usd:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="Calculado auto"/>
+                      </div>
+                      <div>
+                        <label className={lCls}>Rend. total tn</label>
+                        <input type="number" value={form.rendimiento_tn??""} onChange={e=>setForm({...form,rendimiento_tn:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="0"/>
+                      </div>
+                      <div>
+                        <label className={lCls}>Período</label>
+                        <input type="text" value={form.periodo??""} onChange={e=>setForm({...form,periodo:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="2025/2026"/>
+                      </div>
+                    </>
+                  )}
+
+                  <div>
+                    <label className={lCls}>Concepto</label>
+                    <input type="text" value={form.concepto??""} onChange={e=>setForm({...form,concepto:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="Honorario campaña..."/>
+                  </div>
+                  <div>
+                    <label className={lCls}>Fecha</label>
+                    <input type="date" value={form.fecha_c??""} onChange={e=>setForm({...form,fecha_c:e.target.value})} className="inp" style={{padding:"8px 12px"}}/>
+                  </div>
+                  <div>
+                    <label className={lCls}>Estado</label>
+                    <select value={form.estado??"pendiente"} onChange={e=>setForm({...form,estado:e.target.value})} className="inp" style={{padding:"8px 12px"}}>
+                      <option value="pendiente">Pendiente</option>
+                      <option value="cobrado">Cobrado</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={lCls}>Método de pago</label>
+                    <select value={form.metodo??""} onChange={e=>setForm({...form,metodo:e.target.value})} className="inp" style={{padding:"8px 12px"}}>
+                      <option value="">—</option>
+                      <option value="transferencia">Transferencia</option>
+                      <option value="efectivo">Efectivo</option>
+                      <option value="cheque">Cheque</option>
+                      <option value="granos">Granos</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Total a cobrar */}
+                {Number(form.monto||0)>0&&(
+                  <div style={{marginBottom:12,padding:"12px 16px",borderRadius:14,
+                    backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",backgroundPosition:"center",
+                    position:"relative",overflow:"hidden"}}>
+                    <div style={{position:"absolute",inset:0,background:"rgba(255,255,255,0.12)"}}/>
+                    <div style={{position:"relative",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                      <span style={{fontSize:13,fontWeight:700,color:"white",textShadow:"0 1px 3px rgba(0,40,120,0.40)"}}>Total a cobrar</span>
+                      <span style={{fontSize:20,fontWeight:800,color:"white",textShadow:"0 1px 3px rgba(0,40,120,0.40)"}}>U$S {Number(form.monto||0).toLocaleString("es-AR")}</span>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={guardarCob} className="bbtn">✓ Confirmar cobro</button>
+                  <button onClick={()=>{setShowForm(false);setForm({});}} className="btn-cancel" style={{padding:"10px 16px",fontSize:13}}>Cancelar</button>
+                </div>
               </div>
             )}
-            <div className="card" style={{overflow:"hidden",padding:0}}>
-              {cobranzas.length===0?<div style={{textAlign:"center",padding:"48px 20px",color:"#6b8aaa",fontSize:14}}>Sin cobros</div>:(
+
+            {/* Tabla de cobros registrados */}
+            <div className="card" style={{padding:0,overflow:"hidden"}}>
+              <div style={{padding:"12px 16px",borderBottom:"1px solid rgba(0,60,140,0.08)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <span style={{fontSize:13,fontWeight:800,color:"#0d2137"}}>Historial de cobros</span>
+                <button onClick={async()=>{
+                  const XLSX=await import("xlsx");
+                  const data=cobranzas.map((c:any)=>{
+                    const p=productores.find((x:any)=>x.id===c.productor_id);
+                    return{PRODUCTOR:p?.nombre??"—",CONCEPTO:c.concepto,MODALIDAD:c.modalidad??"",PERIODO:c.periodo??"",MONTO_USD:c.monto||0,KG:c.kg_cantidad||"",PRECIO_KG:c.kg_precio_usd||"",FECHA:c.fecha,ESTADO:c.estado,METODO:c.metodo_pago||""};
+                  });
+                  const ws=XLSX.utils.json_to_sheet(data);
+                  ws["!cols"]=[{wch:22},{wch:28},{wch:14},{wch:14},{wch:12},{wch:10},{wch:10},{wch:12},{wch:10},{wch:12}];
+                  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Cobranza");
+                  XLSX.writeFile(wb,"cobranza_"+new Date().toISOString().slice(0,10)+".xlsx");
+                }} className="btn-g" style={{padding:"6px 12px",fontSize:12}}>📤 Exportar</button>
+              </div>
+              {cobranzas.length===0?(
+                <div style={{textAlign:"center",padding:"48px 20px",color:"#6b8aaa",fontSize:14}}>Sin cobros registrados</div>
+              ):(
                 <div style={{overflowX:"auto"}}>
-                  <table style={{width:"100%",fontSize:12,minWidth:480,borderCollapse:"collapse"}}>
-                    <thead><tr style={{borderBottom:"1px solid rgba(0,60,140,0.08)",background:"rgba(240,248,255,0.60)"}}>{["Fecha","Productor","Concepto","Monto","Estado",""].map(h=><th key={h} style={{textAlign:"left",padding:"10px 12px",fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase",letterSpacing:0.8}}>{h}</th>)}</tr></thead>
-                    <tbody>{cobranzas.map(c=>{const p=productores.find(x=>x.id===c.productor_id);return(
-                      <tr key={c.id} style={{borderBottom:"1px solid rgba(0,60,140,0.05)"}}>
-                        <td style={{padding:"10px 12px",color:"#6b8aaa",fontSize:11}}>{c.fecha}</td>
-                        <td style={{padding:"10px 12px",fontWeight:700,color:"#0d2137"}}>{p?.nombre??"—"}</td>
-                        <td style={{padding:"10px 12px",color:"#4a6a8a",fontSize:11}}>{c.concepto}</td>
-                        <td style={{padding:"10px 12px",fontWeight:800,color:"#0D47A1"}}>${Number(c.monto).toLocaleString("es-AR")}</td>
-                        <td style={{padding:"10px 12px"}}><span style={{fontSize:11,padding:"3px 8px",borderRadius:7,fontWeight:700,background:c.estado==="cobrado"?"rgba(22,163,74,0.10)":"rgba(220,38,38,0.10)",color:c.estado==="cobrado"?"#16a34a":"#dc2626"}}>{c.estado}</span></td>
-                        <td style={{padding:"10px 12px",display:"flex",gap:8}}>
-                          {c.estado==="pendiente"&&<button onClick={()=>marcarCobrado(c.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#16a34a",fontSize:12,fontWeight:700}}>✓</button>}
-                          <button onClick={async()=>{const sb=getSB();await sb.from("ing_cobranzas").delete().eq("id",c.id);await fetchCobs(ingId);}} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:15}}>✕</button>
-                        </td>
-                      </tr>
-                    );})}
+                  <table style={{width:"100%",fontSize:12,minWidth:600,borderCollapse:"collapse"}}>
+                    <thead><tr style={{borderBottom:"1px solid rgba(0,60,140,0.08)",background:"rgba(240,248,255,0.50)"}}>
+                      {["Productor","Concepto","Modalidad","Período","Monto U$S","Estado",""].map(h=>(
+                        <th key={h} style={{textAlign:"left",padding:"10px 12px",fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase",letterSpacing:0.8}}>{h}</th>
+                      ))}
+                    </tr></thead>
+                    <tbody>
+                      {cobranzas.map((c:any)=>{
+                        const p=productores.find((x:any)=>x.id===c.productor_id);
+                        const MODAL_ICON:Record<string,string>={usd_mensual:"💵",usd_anual:"💵",kg_soja_ha:"🫘",kg_cultivo_ha:"🌾",porcentaje_rto:"📊",otro:"✏️"};
+                        const MODAL_LABEL:Record<string,string>={usd_mensual:"U$S/mes",usd_anual:"U$S/año",kg_soja_ha:"Kg soja/ha",kg_cultivo_ha:"Kg cultivo/ha",porcentaje_rto:"% Rto",otro:"Otro"};
+                        return(
+                          <tr key={c.id} style={{borderBottom:"1px solid rgba(0,60,140,0.05)"}}
+                            onMouseOver={e=>(e.currentTarget.style.background="rgba(240,248,255,0.50)")}
+                            onMouseOut={e=>(e.currentTarget.style.background="transparent")}>
+                            <td style={{padding:"10px 12px",fontWeight:700,color:"#0d2137"}}>{p?.nombre??"—"}</td>
+                            <td style={{padding:"10px 12px",color:"#4a6a8a",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.concepto}</td>
+                            <td style={{padding:"10px 12px"}}>
+                              <span style={{fontSize:11,padding:"3px 8px",borderRadius:7,fontWeight:700,
+                                background:"rgba(25,118,210,0.10)",color:"#1565c0"}}>
+                                {MODAL_ICON[c.modalidad]||"✏️"} {MODAL_LABEL[c.modalidad]||"Manual"}
+                              </span>
+                            </td>
+                            <td style={{padding:"10px 12px",color:"#6b8aaa",fontSize:11}}>{c.periodo||"—"}</td>
+                            <td style={{padding:"10px 12px",fontWeight:800,color:"#0D47A1",fontSize:13}}>
+                              U$S {Number(c.monto||0).toLocaleString("es-AR")}
+                              {c.kg_cantidad>0&&<div style={{fontSize:10,color:"#6b8aaa",fontWeight:500}}>{c.kg_cantidad} kg × U$S {c.kg_precio_usd}/kg</div>}
+                            </td>
+                            <td style={{padding:"10px 12px"}}>
+                              <span style={{fontSize:11,padding:"3px 8px",borderRadius:7,fontWeight:700,
+                                background:c.estado==="cobrado"?"rgba(22,163,74,0.10)":"rgba(220,38,38,0.08)",
+                                color:c.estado==="cobrado"?"#166534":"#dc2626"}}>
+                                {c.estado==="cobrado"?"✓ Cobrado":"⏳ Pendiente"}
+                              </span>
+                            </td>
+                            <td style={{padding:"10px 12px",display:"flex",gap:8,alignItems:"center"}}>
+                              {c.estado==="pendiente"&&(
+                                <button onClick={()=>marcarCobrado(c.id)}
+                                  style={{fontSize:11,padding:"4px 10px",borderRadius:7,fontWeight:700,cursor:"pointer",
+                                    background:"rgba(22,163,74,0.10)",border:"1px solid rgba(22,163,74,0.25)",color:"#166534"}}>
+                                  ✓ Cobrar
+                                </button>
+                              )}
+                              <button onClick={async()=>{const sb=getSB();await sb.from("ing_cobranzas").delete().eq("id",c.id);await fetchCobs(ingId);}}
+                                style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:15}}>✕</button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
