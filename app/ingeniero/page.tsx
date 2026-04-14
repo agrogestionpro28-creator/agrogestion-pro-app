@@ -231,6 +231,7 @@ export default function IngenieroPanel() {
   const [aiInput, setAiInput] = useState("");
   const [aiLoad, setAiLoad] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
+  const formCobRef = useRef<HTMLDivElement>(null);
   const [nuevaCampProd, setNuevaCampProd] = useState<string|null>(null);
   const [nuevaCampNombre, setNuevaCampNombre] = useState("");
   const recRef = useRef<any>(null);
@@ -577,6 +578,7 @@ export default function IngenieroPanel() {
       rendimiento_tn:String(extra.rendimiento_tn||"")});
     setShowForm(true);
     m("✅ Calculado para "+p.nombre+" — revisá y confirmá");
+    setTimeout(()=>formCobRef.current?.scrollIntoView({behavior:"smooth",block:"center"}),100);
   };
   const marcarCobrado = async (id:string) => { const sb=getSB(); await sb.from("ing_cobranzas").update({estado:"cobrado"}).eq("id",id); await fetchCobs(ingId); };
 
@@ -1238,7 +1240,7 @@ export default function IngenieroPanel() {
                 <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"#0d2137"}}>🔗 Vincular por código</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
                   <div><label className={lCls}>Código *</label><input type="text" value={form.codigo??""} onChange={e=>setForm({...form,codigo:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="10001"/></div>
-                  <div><label className={lCls}>Honorario</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className="sel" style={{width:"100%"}}><option value="mensual">💵 U$S Mensual</option><option value="anual">💵 U$S Anual</option><option value="kg_soja_ha">🫘 Kg Soja/Ha</option><option value="kg_cultivo_ha">🌾 Kg Cultivo/Ha</option><option value="porcentaje_rto">📊 % Rto</option><option value="otro">✏️ Otro</option></select></div>
+                  <div><label className={lCls}>Honorario</label><select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className="sel" style={{width:"100%"}}><option value="mensual">U$S Mensual</option><option value="anual">U$S Anual</option><option value="kg_soja_ha">Kg Soja / Ha</option><option value="kg_cultivo_ha">Kg Cultivo / Ha</option><option value="porcentaje_rto">📊 % Rto</option><option value="otro">Otro</option></select></div>
                   <div><label className={lCls}>Monto $</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                 </div>
                 <div style={{display:"flex",gap:8}}>
@@ -1287,12 +1289,12 @@ export default function IngenieroPanel() {
                   <div>
                     <label className={lCls}>Modalidad honorario</label>
                     <select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className="sel" style={{width:"100%"}}>
-                      <option value="mensual">💵 U$S Mensual</option>
-                      <option value="anual">💵 U$S Anual</option>
-                      <option value="kg_soja_ha">🫘 Kg Soja/Ha</option>
-                      <option value="kg_cultivo_ha">🌾 Kg Cultivo/Ha</option>
-                      <option value="porcentaje_rto">📊 % del Rendimiento</option>
-                      <option value="otro">✏️ Otro</option>
+                      <option value="mensual">U$S Mensual</option>
+                      <option value="anual">U$S Anual</option>
+                      <option value="kg_soja_ha">Kg Soja / Ha</option>
+                      <option value="kg_cultivo_ha">Kg Cultivo / Ha</option>
+                      <option value="porcentaje_rto">% del Rendimiento</option>
+                      <option value="otro">Otro</option>
                     </select>
                   </div>
                 </div>
@@ -1532,7 +1534,7 @@ export default function IngenieroPanel() {
 
             {/* Form nuevo cobro */}
             {showForm&&(
-              <div className="card fade-in" style={{padding:16}}>
+              <div ref={formCobRef} className="card fade-in" style={{padding:16}}>
                 <div style={{fontSize:13,fontWeight:800,color:"#0d2137",marginBottom:14}}>
                   {form.prod_c?`💰 Honorario — ${productores.find((p:any)=>p.id===form.prod_c)?.nombre||""}`:"+  Nuevo cobro"}
                 </div>
@@ -1548,12 +1550,12 @@ export default function IngenieroPanel() {
                   <div>
                     <label className={lCls}>Modalidad</label>
                     <select value={form.modalidad??"usd_mensual"} onChange={e=>setForm({...form,modalidad:e.target.value})} className="inp" style={{padding:"8px 12px"}}>
-                      <option value="usd_mensual">💵 U$S Mensual</option>
-                      <option value="usd_anual">💵 U$S Anual</option>
-                      <option value="kg_soja_ha">🫘 Kg Soja / Ha</option>
-                      <option value="kg_cultivo_ha">🌾 Kg Cultivo / Ha</option>
-                      <option value="porcentaje_rto">📊 % del Rendimiento</option>
-                      <option value="otro">✏️ Otro (manual)</option>
+                      <option value="usd_mensual">U$S Mensual</option>
+                      <option value="usd_anual">U$S Anual</option>
+                      <option value="kg_soja_ha">Kg Soja / Ha</option>
+                      <option value="kg_cultivo_ha">Kg Cultivo / Ha</option>
+                      <option value="porcentaje_rto">% del Rendimiento</option>
+                      <option value="otro">Otro (manual)</option>
                     </select>
                   </div>
 
@@ -1561,7 +1563,7 @@ export default function IngenieroPanel() {
                   {(form.modalidad==="usd_mensual"||form.modalidad==="usd_anual"||form.modalidad==="otro")&&(
                     <>
                       <div>
-                        <label className={lCls}>Monto U$S</label>
+                        <label className={lCls}>{form.modalidad==="usd_mensual"?"Monto U$S / mes":form.modalidad==="usd_anual"?"Monto U$S / año":"Monto U$S"}</label>
                         <input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value,monto_usd:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="0"/>
                       </div>
                       <div>
@@ -1632,7 +1634,7 @@ export default function IngenieroPanel() {
 
                   <div>
                     <label className={lCls}>Concepto</label>
-                    <input type="text" value={form.concepto??""} onChange={e=>setForm({...form,concepto:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="Honorario campaña..."/>
+                    <input type="text" value={form.concepto??""} onChange={e=>setForm({...form,concepto:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="Ej: Honorario mensual abril 2026..."/>
                   </div>
                   <div>
                     <label className={lCls}>Fecha</label>
