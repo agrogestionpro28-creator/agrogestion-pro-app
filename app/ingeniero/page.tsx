@@ -530,16 +530,6 @@ export default function IngenieroPanel() {
     m("✅ Acuerdo anterior cargado — revisá y confirmá para la nueva campaña");
   };
 
-  const fetchAcuerdos = async (iid: string) => {
-    const sb = getSB();
-    const [{ data: ac }, { data: pg }] = await Promise.all([
-      sb.from("ing_acuerdos").select("*").eq("ingeniero_id", iid).order("created_at", { ascending: false }),
-      sb.from("ing_pagos").select("*").eq("ingeniero_id", iid).order("fecha", { ascending: false }),
-    ]);
-    setAcuerdos(ac ?? []);
-    setPagos(pg ?? []);
-  };
-
   const guardarAcuerdo = async () => {
     if(!ingId || !form.prod_ac) { m("❌ Seleccioná un productor"); return; }
     const sb = getSB();
