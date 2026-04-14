@@ -16,7 +16,6 @@ const getSB = () => {
   }
   return _sb;
 };
-};
 
 type Seccion = "general"|"productores"|"cobranza"|"vehiculo"|"ia_campo";
 type ProductorIng = { id:string; nombre:string; telefono:string; email:string; localidad:string; provincia:string; hectareas_total:number; observaciones:string; empresa_id:string|null; tiene_cuenta:boolean; honorario_tipo:string; honorario_monto:number; };
