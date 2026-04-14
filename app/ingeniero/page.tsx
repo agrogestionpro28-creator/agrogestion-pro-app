@@ -3,10 +3,19 @@
 import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { createClient } from "@supabase/supabase-js";
 
-const getSB = async () => {
-  const { createClient } = await import("@supabase/supabase-js");
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+// ── Cliente singleton — se crea una sola vez, no en cada llamada ──
+let _sb: any = null;
+const getSB = () => {
+  if (!_sb) {
+    _sb = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+  }
+  return _sb;
+};
 };
 
 type Seccion = "general"|"productores"|"cobranza"|"vehiculo"|"ia_campo";
@@ -242,7 +251,7 @@ export default function IngenieroPanel() {
 
   const init = async () => {
     try {
-      const sb = await getSB();
+      const sb = getSB();
       const { data: { user } } = await sb.auth.getUser();
       if (!user) { window.location.href = "/login"; return; }
       const { data: u } = await sb.from("usuarios").select("*").eq("auth_id", user.id).single();
@@ -256,53 +265,75 @@ export default function IngenieroPanel() {
   };
 
   const fetchProds = async (iid: string) => {
-    const sb = await getSB();
-    const { data: prods } = await sb.from("ing_productores").select("*").eq("ingeniero_id", iid).eq("activo", true).order("nombre");
-    setProductores(prods ?? []);
+    const sb = getSB();
+
+    // Query 1: productores (1 query)
+    const { data: prods } = await sb
+      .from("ing_productores")
+      .select("*")
+      .eq("ingeniero_id", iid)
+      .eq("activo", true)
+      .order("nombre");
+    if (!prods?.length) { setProductores([]); setLotes([]); return; }
+    setProductores(prods);
+
+    const eids = prods.map((p:any) => p.empresa_id).filter(Boolean);
+    if (!eids.length) return;
+
+    // Queries 2 y 3 en PARALELO — campañas y lotes al mismo tiempo
+    const [{ data: todasCamps }, { data: todosLotes }] = await Promise.all([
+      sb.from("campanas")
+        .select("id,nombre,activa,año_inicio,año_fin,empresa_id")
+        .in("empresa_id", eids)
+        .order("año_inicio", { ascending: false }),
+      sb.from("lotes")
+        .select("id,nombre,hectareas,cultivo,cultivo_completo,estado,campana_id,empresa_id")
+        .in("empresa_id", eids)
+        .eq("es_segundo_cultivo", false)
+    ]);
+
+    // Procesar en memoria (sin más queries)
     const cpMap: Record<string,any[]> = {};
     const csMap: Record<string,string> = {};
     const lotesAll: LoteResumen[] = [];
 
-    for (const p of (prods ?? [])) {
-      if (!p.empresa_id) continue;
+    // Agrupar campañas por empresa
+    for (const c of (todasCamps ?? [])) {
+      if (!cpMap[c.empresa_id]) cpMap[c.empresa_id] = [];
+      cpMap[c.empresa_id].push(c);
+    }
+
+    // Agrupar lotes por empresa y campana
+    const lotesPorEmpresa: Record<string, any[]> = {};
+    for (const l of (todosLotes ?? [])) {
+      if (!lotesPorEmpresa[l.empresa_id]) lotesPorEmpresa[l.empresa_id] = [];
+      lotesPorEmpresa[l.empresa_id].push(l);
+    }
+
+    for (const p of prods) {
       const eid = p.empresa_id;
+      if (!eid) continue;
 
-      // 1. Traer campañas ordenadas por año DESC
-      const { data: camps } = await sb.from("campanas")
-        .select("id,nombre,activa,año_inicio,año_fin")
-        .eq("empresa_id", eid)
-        .order("año_inicio", { ascending: false });
-      const campList: any[] = (camps ?? []) as any[];
-      cpMap[eid] = campList;
-
-      // 2. Elegir campaña: marcada activa > más reciente
+      const campList = cpMap[eid] ?? [];
       const campSel = campList.find((c:any) => c.activa) ?? campList[0] ?? null;
+      const lotesEmpresa = lotesPorEmpresa[eid] ?? [];
 
       if (campSel) {
-        // Tiene campaña — traer SOLO lotes de esa campaña
         csMap[eid] = campSel.id;
-        const { data: ls } = await sb.from("lotes")
-          .select("id,nombre,hectareas,cultivo,cultivo_completo,estado")
-          .eq("empresa_id", eid)
-          .eq("campana_id", campSel.id)
-          .eq("es_segundo_cultivo", false);
-        (ls ?? []).forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre, empresa_id: eid}));
+        // Filtrar lotes de la campaña activa en memoria
+        lotesEmpresa
+          .filter((l:any) => l.campana_id === campSel.id)
+          .forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre}));
       } else {
-        // Sin campañas — traer lotes más recientes (una sola query, sin duplicar)
-        const { data: ls } = await sb.from("lotes")
-          .select("id,nombre,hectareas,cultivo,cultivo_completo,estado,campana_id")
-          .eq("empresa_id", eid)
-          .eq("es_segundo_cultivo", false)
-          .order("created_at", { ascending: false })
-          .limit(200);
-        // Agrupar por campana_id y tomar solo la más reciente
-        const campIdMasReciente = (ls ?? [])[0]?.campana_id ?? null;
-        const lotesFiltrados = campIdMasReciente
-          ? (ls ?? []).filter((l:any) => l.campana_id === campIdMasReciente)
-          : (ls ?? []);
-        lotesFiltrados.forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre, empresa_id: eid}));
+        // Sin campañas — tomar lotes de la campana_id más reciente
+        const campIds = [...new Set(lotesEmpresa.map((l:any) => l.campana_id))];
+        const campIdMasReciente = campIds[0] ?? null;
+        lotesEmpresa
+          .filter((l:any) => !campIdMasReciente || l.campana_id === campIdMasReciente)
+          .forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre}));
       }
     }
+
     setCampanasPorProd(cpMap);
     setCampSelProd(csMap);
     setLotes(lotesAll);
@@ -310,7 +341,7 @@ export default function IngenieroPanel() {
 
   const cambiarCampana = async (eid: string, campana_id: string, prod_nombre: string) => {
     setCampSelProd(prev => ({...prev, [eid]: campana_id}));
-    const sb = await getSB();
+    const sb = getSB();
     const { data: ls } = await sb.from("lotes")
       .select("id,nombre,hectareas,cultivo,cultivo_completo,estado")
       .eq("empresa_id", eid)
@@ -325,7 +356,7 @@ export default function IngenieroPanel() {
   };
 
   const crearCampana = async (eid: string, nombre: string) => {
-    const sb = await getSB();
+    const sb = getSB();
     const parts = nombre.split("/");
     const anioInicio = Number(parts[0]) || new Date().getFullYear();
     const anioFin = Number(parts[1]) || anioInicio + 1;
@@ -334,11 +365,11 @@ export default function IngenieroPanel() {
     if (nueva) { setCampanasPorProd(prev => ({ ...prev, [eid]: [nueva, ...(prev[eid] ?? [])] })); setCampSelProd(prev => ({ ...prev, [eid]: nueva.id })); m("✅ Campaña creada"); }
   };
 
-  const fetchCobs = async (iid: string) => { try { const sb=await getSB(); const{data}=await sb.from("ing_cobranzas").select("*").eq("ingeniero_id",iid).order("fecha",{ascending:false}); setCobranzas(data??[]); } catch {} };
+  const fetchCobs = async (iid: string) => { try { const sb=getSB(); const{data}=await sb.from("ing_cobranzas").select("*").eq("ingeniero_id",iid).order("fecha",{ascending:false}); setCobranzas(data??[]); } catch {} };
 
   const fetchVehs = async (iid: string) => {
     try {
-      const sb=await getSB(); const{data}=await sb.from("ing_vehiculos").select("*").eq("ingeniero_id",iid); setVehiculos(data??[]);
+      const sb=getSB(); const{data}=await sb.from("ing_vehiculos").select("*").eq("ingeniero_id",iid); setVehiculos(data??[]);
       const als:{msg:string;urgencia:string}[]=[]; const hoy=new Date();
       (data??[]).forEach((v:any)=>{
         if(v.seguro_vencimiento){const d=(new Date(v.seguro_vencimiento).getTime()-hoy.getTime())/86400000;if(d<0)als.push({msg:v.nombre+": Seguro VENCIDO",urgencia:"alta"});else if(d<=30)als.push({msg:v.nombre+": Seguro vence en "+Math.round(d)+" días",urgencia:d<=7?"alta":"media"});}
@@ -360,7 +391,7 @@ export default function IngenieroPanel() {
 
   // ── Reparar productores sin empresa_id (se llama al cargar) ──
   const repararEmpresasSinId = async () => {
-    const sb = await getSB();
+    const sb = getSB();
     const { data: sinEmpresa } = await sb.from("ing_productores")
       .select("id,nombre")
       .eq("ingeniero_id", ingId)
@@ -377,7 +408,7 @@ export default function IngenieroPanel() {
 
   const guardarProductor = async () => {
     if (!ingId || !form.nombre?.trim()) { m("❌ Ingresá el nombre"); return; }
-    const sb = await getSB();
+    const sb = getSB();
     let empresa_id: string|null = null;
     let tiene_cuenta = false;
 
@@ -430,7 +461,7 @@ export default function IngenieroPanel() {
 
   const vincularCodigo = async () => {
     if(!ingId||!form.codigo?.trim()){m("❌ Ingresá el código");return;}
-    const sb=await getSB();
+    const sb=getSB();
     const{data:u}=await sb.from("usuarios").select("id,nombre").eq("codigo",form.codigo.trim()).single();
     if(!u){m("❌ Código no encontrado");return;}
     let{data:emp}=await sb.from("empresas").select("id").eq("propietario_id",u.id).single();
@@ -444,7 +475,7 @@ export default function IngenieroPanel() {
     m("✅ "+u.nombre+" vinculado"); await fetchProds(ingId); setShowVincular(false); setForm({});
   };
 
-  const eliminarProd = async (id:string) => { if(!confirm("¿Eliminar?"))return; const sb=await getSB(); await sb.from("ing_productores").update({activo:false}).eq("id",id); await fetchProds(ingId); };
+  const eliminarProd = async (id:string) => { if(!confirm("¿Eliminar?"))return; const sb=getSB(); await sb.from("ing_productores").update({activo:false}).eq("id",id); await fetchProds(ingId); };
 
   const entrar = (p:ProductorIng) => {
     const eid = p.empresa_id ?? p.id;
@@ -457,22 +488,22 @@ export default function IngenieroPanel() {
   };
 
   const guardarCob = async () => {
-    if(!ingId)return; const sb=await getSB();
+    if(!ingId)return; const sb=getSB();
     await sb.from("ing_cobranzas").insert({ingeniero_id:ingId,productor_id:form.prod_c||null,concepto:form.concepto??"",monto:Number(form.monto??0),fecha:form.fecha_c??new Date().toISOString().split("T")[0],estado:form.estado??"pendiente",metodo_pago:form.metodo??""});
     await fetchCobs(ingId); setShowForm(false); setForm({}); m("✅ Cobro registrado");
   };
-  const marcarCobrado = async (id:string) => { const sb=await getSB(); await sb.from("ing_cobranzas").update({estado:"cobrado"}).eq("id",id); await fetchCobs(ingId); };
+  const marcarCobrado = async (id:string) => { const sb=getSB(); await sb.from("ing_cobranzas").update({estado:"cobrado"}).eq("id",id); await fetchCobs(ingId); };
 
   const guardarVeh = async () => {
-    if(!ingId||!form.nombre?.trim())return; const sb=await getSB();
+    if(!ingId||!form.nombre?.trim())return; const sb=getSB();
     await sb.from("ing_vehiculos").insert({ingeniero_id:ingId,nombre:form.nombre,marca:form.marca??"",modelo:form.modelo??"",anio:Number(form.anio??0),patente:form.patente??"",seguro_vencimiento:form.seg_venc||null,seguro_compania:form.seg_comp??"",vtv_vencimiento:form.vtv_venc||null,km_actuales:Number(form.km??0),proximo_service_km:Number(form.prox_km??0)});
     await fetchVehs(ingId); setShowForm(false); setForm({}); m("✅ Vehículo guardado");
   };
 
   const guardarService = async () => {
-    if(!vehiculoSel||!ingId)return; const sb=await getSB();
+    if(!vehiculoSel||!ingId)return; const sb=getSB();
     await sb.from("ing_vehiculo_service").insert({vehiculo_id:vehiculoSel.id,ingeniero_id:ingId,tipo:form.tipo_s??"service",descripcion:form.desc_s??"",costo:Number(form.costo_s??0),km:Number(form.km_s??0),fecha:form.fecha_s??new Date().toISOString().split("T")[0],taller:form.taller??""});
-    const sb2=await getSB();const{data}=await sb2.from("ing_vehiculo_service").select("*").eq("vehiculo_id",vehiculoSel.id).order("fecha",{ascending:false});
+    const sb2=getSB();const{data}=await sb2.from("ing_vehiculo_service").select("*").eq("vehiculo_id",vehiculoSel.id).order("fecha",{ascending:false});
     setServicios(data??[]); setShowForm(false); setForm({}); m("✅ Service guardado");
   };
 
@@ -487,7 +518,7 @@ export default function IngenieroPanel() {
   const exportarRecorrida = async () => {
     const XLSX = await import("xlsx");
     // Traer todos los lotes de todos los productores con sus datos completos
-    const sb = await getSB();
+    const sb = getSB();
     const todosLotes: any[] = [];
     for (const p of productores) {
       const eid = p.empresa_id ?? p.id;
@@ -545,7 +576,7 @@ export default function IngenieroPanel() {
   };
 
   const confirmarImport = async () => {
-    const sb=await getSB();let c=0;
+    const sb=getSB();let c=0;
     for(const p of importPrev.filter(x=>!x.existe)){
       const{data:nuevo}=await sb.from("ing_productores").insert({ingeniero_id:ingId,nombre:p.nombre,telefono:p.telefono,localidad:p.localidad,hectareas_total:p.hectareas_total,honorario_tipo:"mensual",honorario_monto:0,activo:true}).select().single();
       if(nuevo){const{data:emp}=await sb.from("empresas").insert({nombre:p.nombre+" (Ing)",propietario_id:ingId}).select().single();if(emp)await sb.from("ing_productores").update({empresa_id:emp.id}).eq("id",nuevo.id);}
@@ -670,7 +701,7 @@ export default function IngenieroPanel() {
   );
 
   return (
-    <div style={{minHeight:"100vh",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",position:"relative",backgroundImage:"url('/FON.png')",backgroundSize:"cover",backgroundPosition:"center",backgroundAttachment:"fixed"}}>
+    <div style={{minHeight:"100vh",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",position:"relative",backgroundImage:"url('/FON.png')",backgroundSize:"cover",backgroundPosition:"center",backgroundAttachment:"scroll"}}>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
@@ -961,7 +992,7 @@ export default function IngenieroPanel() {
             <div style={{width:36,height:36,borderRadius:"50%",backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",backgroundPosition:"center",border:"2px solid rgba(255,255,255,0.90)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:800,color:"white",boxShadow:"0 3px 12px rgba(25,118,210,0.45)",textShadow:"0 1px 3px rgba(0,40,120,0.40)"}}>
               {ingNombre.charAt(0)||"M"}
             </div>
-            <button onClick={async()=>{const sb=await getSB();await sb.auth.signOut();window.location.href="/login";}}
+            <button onClick={async()=>{const sb=getSB();await sb.auth.signOut();window.location.href="/login";}}
               style={{display:"flex",alignItems:"center",gap:5,color:"#4a6a8a",fontSize:13,fontWeight:600,background:"none",border:"none",cursor:"pointer"}}>
               Salir <span>⎋</span>
             </button>
@@ -1375,7 +1406,7 @@ export default function IngenieroPanel() {
                         <td style={{padding:"10px 12px"}}><span style={{fontSize:11,padding:"3px 8px",borderRadius:7,fontWeight:700,background:c.estado==="cobrado"?"rgba(22,163,74,0.10)":"rgba(220,38,38,0.10)",color:c.estado==="cobrado"?"#16a34a":"#dc2626"}}>{c.estado}</span></td>
                         <td style={{padding:"10px 12px",display:"flex",gap:8}}>
                           {c.estado==="pendiente"&&<button onClick={()=>marcarCobrado(c.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#16a34a",fontSize:12,fontWeight:700}}>✓</button>}
-                          <button onClick={async()=>{const sb=await getSB();await sb.from("ing_cobranzas").delete().eq("id",c.id);await fetchCobs(ingId);}} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:15}}>✕</button>
+                          <button onClick={async()=>{const sb=getSB();await sb.from("ing_cobranzas").delete().eq("id",c.id);await fetchCobs(ingId);}} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:15}}>✕</button>
                         </td>
                       </tr>
                     );})}
@@ -1414,11 +1445,11 @@ export default function IngenieroPanel() {
               vehiculos.length===0?<div className="card" style={{padding:"48px 20px",textAlign:"center"}}><div style={{fontSize:48,opacity:0.12,marginBottom:12}}>🚗</div><p style={{color:"#6b8aaa",fontSize:14}}>Sin vehículos</p></div>:(
                 <div style={{display:"flex",flexDirection:"column",gap:10}}>
                   {vehiculos.map((v:any)=>{const sV=v.seguro_vencimiento&&new Date(v.seguro_vencimiento)<new Date();const vV=v.vtv_vencimiento&&new Date(v.vtv_vencimiento)<new Date();return(
-                    <div key={v.id} className="card" style={{padding:14,cursor:"pointer"}} onClick={async()=>{setVehiculoSel(v);const sb=await getSB();const{data}=await sb.from("ing_vehiculo_service").select("*").eq("vehiculo_id",v.id).order("fecha",{ascending:false});setServicios(data??[]);}}>
+                    <div key={v.id} className="card" style={{padding:14,cursor:"pointer"}} onClick={async()=>{setVehiculoSel(v);const sb=getSB();const{data}=await sb.from("ing_vehiculo_service").select("*").eq("vehiculo_id",v.id).order("fecha",{ascending:false});setServicios(data??[]);}}>
                       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
                         <div style={{width:46,height:46,borderRadius:14,background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>🚗</div>
                         <div style={{flex:1}}><div style={{fontWeight:700,color:"#0d2137",fontSize:15}}>{v.nombre}</div><div style={{fontSize:11,color:"#6b8aaa",marginTop:2}}>{v.marca} {v.modelo} · {v.anio} · {v.patente}</div></div>
-                        <button onClick={e=>{e.stopPropagation();(async()=>{const sb=await getSB();await sb.from("ing_vehiculos").delete().eq("id",v.id);await fetchVehs(ingId);})();}} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:18}}>✕</button>
+                        <button onClick={e=>{e.stopPropagation();(async()=>{const sb=getSB();await sb.from("ing_vehiculos").delete().eq("id",v.id);await fetchVehs(ingId);})();}} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:18}}>✕</button>
                       </div>
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
                         <div className="kpi" style={{padding:"10px 12px"}}><div style={{fontSize:10,color:"#6b8aaa",marginBottom:3}}>Km actuales</div><div style={{fontSize:18,fontWeight:700,color:"#0D47A1"}}>{(v.km_actuales||0).toLocaleString()}</div></div>
@@ -1457,7 +1488,7 @@ export default function IngenieroPanel() {
                   {servicios.length===0?<div style={{textAlign:"center",padding:"32px 20px",color:"#6b8aaa",fontSize:13}}>Sin historial</div>:(
                     <div style={{overflowX:"auto"}}><table style={{width:"100%",fontSize:12,minWidth:440,borderCollapse:"collapse"}}>
                       <thead><tr style={{borderBottom:"1px solid rgba(0,60,140,0.07)"}}>{["Fecha","Tipo","Descripción","Km","Costo",""].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontSize:10,color:"#6b8aaa",fontWeight:600,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
-                      <tbody>{servicios.map(s=><tr key={s.id} style={{borderBottom:"1px solid rgba(0,60,140,0.05)"}}><td style={{padding:"9px 12px",color:"#6b8aaa",fontSize:11}}>{s.fecha}</td><td style={{padding:"9px 12px"}}><span style={{fontSize:10,padding:"3px 7px",borderRadius:6,fontWeight:700,background:"rgba(251,191,36,0.12)",color:"#f57f17"}}>{s.tipo}</span></td><td style={{padding:"9px 12px",color:"#4a6a8a",fontSize:11}}>{s.descripcion}</td><td style={{padding:"9px 12px",color:"#6b8aaa",fontSize:11}}>{s.km?(s.km.toLocaleString()+" km"):"—"}</td><td style={{padding:"9px 12px",fontWeight:700,color:"#dc2626",fontSize:12}}>${Number(s.costo).toLocaleString("es-AR")}</td><td style={{padding:"9px 12px"}}><button onClick={async()=>{const sb=await getSB();await sb.from("ing_vehiculo_service").delete().eq("id",s.id);const sb2=await getSB();const{data}=await sb2.from("ing_vehiculo_service").select("*").eq("vehiculo_id",vehiculoSel!.id).order("fecha",{ascending:false});setServicios(data??[]);}} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:15}}>✕</button></td></tr>)}</tbody>
+                      <tbody>{servicios.map(s=><tr key={s.id} style={{borderBottom:"1px solid rgba(0,60,140,0.05)"}}><td style={{padding:"9px 12px",color:"#6b8aaa",fontSize:11}}>{s.fecha}</td><td style={{padding:"9px 12px"}}><span style={{fontSize:10,padding:"3px 7px",borderRadius:6,fontWeight:700,background:"rgba(251,191,36,0.12)",color:"#f57f17"}}>{s.tipo}</span></td><td style={{padding:"9px 12px",color:"#4a6a8a",fontSize:11}}>{s.descripcion}</td><td style={{padding:"9px 12px",color:"#6b8aaa",fontSize:11}}>{s.km?(s.km.toLocaleString()+" km"):"—"}</td><td style={{padding:"9px 12px",fontWeight:700,color:"#dc2626",fontSize:12}}>${Number(s.costo).toLocaleString("es-AR")}</td><td style={{padding:"9px 12px"}}><button onClick={async()=>{const sb=getSB();await sb.from("ing_vehiculo_service").delete().eq("id",s.id);const sb2=getSB();const{data}=await sb2.from("ing_vehiculo_service").select("*").eq("vehiculo_id",vehiculoSel!.id).order("fecha",{ascending:false});setServicios(data??[]);}} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:15}}>✕</button></td></tr>)}</tbody>
                     </table></div>
                   )}
                 </div>
