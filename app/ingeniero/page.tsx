@@ -238,6 +238,7 @@ export default function IngenieroPanel() {
   const [editProd, setEditProd] = useState<string|null>(null);
   const [form, setForm] = useState<Record<string,string>>({});
   const [msj, setMsj] = useState("");
+  const m = (t:string) => { setMsj(t); setTimeout(()=>setMsj(""),4000); };
   const [alertas, setAlertas] = useState<{msg:string;urgencia:string}[]>([]);
   const [importPrev, setImportPrev] = useState<any[]>([]);
   const [importMsg, setImportMsg] = useState("");
