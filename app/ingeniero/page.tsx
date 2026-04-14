@@ -277,7 +277,6 @@ export default function IngenieroPanel() {
       setIngId(u.id); setIngNombre(u.nombre); setIngData(u);
       await fetchProds(u.id);
       await fetchCobs(u.id);
-    await fetchAcuerdos(u.id);
       await fetchVehs(u.id);
       await fetchAcuerdos(u.id);
     } catch(e) { console.error(e); }
