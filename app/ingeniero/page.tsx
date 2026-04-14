@@ -1540,6 +1540,8 @@ export default function IngenieroPanel() {
                 </div>
 
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+
+                  {/* Productor */}
                   <div>
                     <label className={lCls}>Productor</label>
                     <select value={form.prod_c??""} onChange={e=>setForm({...form,prod_c:e.target.value})} className="inp" style={{padding:"8px 12px"}}>
@@ -1547,75 +1549,184 @@ export default function IngenieroPanel() {
                       {productores.map((p:any)=><option key={p.id} value={p.id}>{p.nombre}</option>)}
                     </select>
                   </div>
+
+                  {/* Modalidad base */}
                   <div>
                     <label className={lCls}>Modalidad</label>
                     <select value={form.modalidad??"usd_mensual"} onChange={e=>setForm({...form,modalidad:e.target.value})} className="inp" style={{padding:"8px 12px"}}>
                       <option value="usd_mensual">U$S Mensual</option>
                       <option value="usd_anual">U$S Anual</option>
                       <option value="kg_soja_ha">Kg Soja / Ha</option>
-                      <option value="kg_cultivo_ha">Kg Cultivo / Ha</option>
+                      <option value="kg_cultivo_ha">Kg por Cultivo / Ha</option>
                       <option value="porcentaje_rto">% del Rendimiento</option>
                       <option value="otro">Otro (manual)</option>
                     </select>
                   </div>
 
-                  {/* Campos según modalidad */}
-                  {(form.modalidad==="usd_mensual"||form.modalidad==="usd_anual"||form.modalidad==="otro")&&(
-                    <>
-                      <div>
-                        <label className={lCls}>{form.modalidad==="usd_mensual"?"Monto U$S / mes":form.modalidad==="usd_anual"?"Monto U$S / año":"Monto U$S"}</label>
-                        <input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value,monto_usd:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="0"/>
-                      </div>
-                      <div>
-                        <label className={lCls}>Período</label>
-                        <input type="text" value={form.periodo??""} onChange={e=>setForm({...form,periodo:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="Ej: Enero 2026 / 2025-2026"/>
-                      </div>
-                    </>
+                  {/* Frecuencia — solo para kg y % */}
+                  {(form.modalidad==="kg_soja_ha"||form.modalidad==="kg_cultivo_ha"||form.modalidad==="porcentaje_rto")&&(
+                    <div>
+                      <label className={lCls}>Frecuencia de cobro</label>
+                      <select value={form.frecuencia??"anual"} onChange={e=>setForm({...form,frecuencia:e.target.value})} className="inp" style={{padding:"8px 12px"}}>
+                        <option value="mensual">Mensual</option>
+                        <option value="semestral">Semestral</option>
+                        <option value="anual">Anual (campaña)</option>
+                        <option value="cosecha">Al momento de cosecha</option>
+                      </select>
+                    </div>
                   )}
 
-                  {(form.modalidad==="kg_soja_ha"||form.modalidad==="kg_cultivo_ha")&&(
+                  {/* Período */}
+                  <div>
+                    <label className={lCls}>Período</label>
+                    <input type="text" value={form.periodo??""} onChange={e=>setForm({...form,periodo:e.target.value})} className="inp" style={{padding:"8px 12px"}}
+                      placeholder={form.modalidad==="usd_mensual"?"Ej: Abril 2026":form.frecuencia==="semestral"?"Ej: 1er semestre 2026":"Ej: 2025/2026"}/>
+                  </div>
+
+                  {/* ── U$S MENSUAL / ANUAL / OTRO ── */}
+                  {(form.modalidad==="usd_mensual"||form.modalidad==="usd_anual"||form.modalidad==="otro")&&(
+                    <div>
+                      <label className={lCls}>{form.modalidad==="usd_mensual"?"Monto U$S / mes":form.modalidad==="usd_anual"?"Monto U$S / año":"Monto U$S"}</label>
+                      <input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value,monto_usd:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="0"/>
+                    </div>
+                  )}
+
+                  {/* ── KG SOJA / HA ── */}
+                  {form.modalidad==="kg_soja_ha"&&(
                     <>
+                      {/* Info hectáreas del productor */}
+                      {form.prod_c&&(()=>{
+                        const eid=productores.find((p:any)=>p.id===form.prod_c)?.empresa_id;
+                        const haP=lotes.filter((l:any)=>l.empresa_id===eid).reduce((a:number,l:any)=>a+(l.hectareas||0),0);
+                        return haP>0?(
+                          <div style={{gridColumn:"1/-1",padding:"8px 14px",borderRadius:10,background:"rgba(25,118,210,0.07)",border:"1px solid rgba(25,118,210,0.15)",display:"flex",gap:16,alignItems:"center"}}>
+                            <span style={{fontSize:12,color:"#1565c0",fontWeight:700}}>🌿 Hectáreas campaña activa: <strong>{haP} ha</strong></span>
+                          </div>
+                        ):null;
+                      })()}
                       <div>
-                        <label className={lCls}>Kg totales</label>
-                        <input type="number" value={form.kg_cantidad??""} onChange={e=>{
-                          const kg=Number(e.target.value);
-                          const precio=Number(form.kg_precio_usd||0);
-                          setForm({...form,kg_cantidad:e.target.value,monto:String(Math.round(kg*precio)),monto_usd:String(Math.round(kg*precio))});
-                        }} className="inp" style={{padding:"8px 12px"}} placeholder="0"/>
+                        <label className={lCls}>Kg soja / Ha</label>
+                        <input type="number" step="0.5" value={form.kg_por_ha??""} onChange={e=>{
+                          const eid=productores.find((p:any)=>p.id===form.prod_c)?.empresa_id;
+                          const haP=lotes.filter((l:any)=>l.empresa_id===eid).reduce((a:number,l:any)=>a+(l.hectareas||0),0);
+                          const kgTotal=Number(e.target.value)*haP;
+                          setForm({...form,kg_por_ha:e.target.value,kg_cantidad:String(kgTotal),
+                            concepto:`${e.target.value} kg soja/ha × ${haP} ha (${form.frecuencia||"anual"}) — ${productores.find((p:any)=>p.id===form.prod_c)?.nombre||""}`});
+                        }} className="inp" style={{padding:"8px 12px"}} placeholder="Ej: 50"/>
                       </div>
                       <div>
-                        <label className={lCls}>Precio U$S / kg</label>
-                        <input type="number" step="0.01" value={form.kg_precio_usd??""} onChange={e=>{
+                        <label className={lCls}>Kg totales calculados</label>
+                        <input type="number" value={form.kg_cantidad??""} onChange={e=>setForm({...form,kg_cantidad:e.target.value})} className="inp" style={{padding:"8px 12px",background:"rgba(240,248,255,0.80)"}} placeholder="Auto"/>
+                      </div>
+                      <div>
+                        <label className={lCls}>Precio U$S / kg soja (hoy)</label>
+                        <input type="number" step="0.001" value={form.kg_precio_usd??""} onChange={e=>{
                           const precio=Number(e.target.value);
                           const kg=Number(form.kg_cantidad||0);
                           setForm({...form,kg_precio_usd:e.target.value,monto:String(Math.round(kg*precio)),monto_usd:String(Math.round(kg*precio))});
-                        }} className="inp" style={{padding:"8px 12px"}} placeholder="0.00"/>
+                        }} className="inp" style={{padding:"8px 12px"}} placeholder="Ej: 0.240"/>
                       </div>
-                      <div>
-                        <label className={lCls}>Hectáreas base</label>
-                        <input type="number" value={form.hectareas_cob??""} onChange={e=>setForm({...form,hectareas_cob:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="0"/>
-                      </div>
-                      <div>
-                        <label className={lCls}>Período</label>
-                        <input type="text" value={form.periodo??""} onChange={e=>setForm({...form,periodo:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="2025/2026"/>
-                      </div>
-                      {/* Preview cálculo */}
-                      {form.kg_cantidad&&form.kg_precio_usd&&(
+                      {form.kg_cantidad&&form.kg_precio_usd&&Number(form.kg_precio_usd)>0&&(
                         <div style={{gridColumn:"1/-1",padding:"10px 14px",borderRadius:12,
                           background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.18)"}}>
                           <span style={{fontSize:13,color:"#1565c0",fontWeight:700}}>
                             {Number(form.kg_cantidad).toLocaleString("es-AR")} kg × U$S {form.kg_precio_usd}/kg = <strong>U$S {Math.round(Number(form.kg_cantidad)*Number(form.kg_precio_usd)).toLocaleString("es-AR")}</strong>
                           </span>
+                          <div style={{fontSize:11,color:"#6b8aaa",marginTop:2}}>💡 El precio en $ se pesifica al momento del pago</div>
                         </div>
                       )}
                     </>
                   )}
 
+                  {/* ── KG CULTIVO / HA ── */}
+                  {form.modalidad==="kg_cultivo_ha"&&(
+                    <>
+                      {form.prod_c&&(()=>{
+                        const eid=productores.find((p:any)=>p.id===form.prod_c)?.empresa_id;
+                        // Agrupar lotes por cultivo (solo los que tienen fecha_siembra o sembrados)
+                        const lotesP=lotes.filter((l:any)=>l.empresa_id===eid&&l.cultivo&&l.estado!=="planificado");
+                        const cultivosGrp: Record<string,number>={};
+                        lotesP.forEach((l:any)=>{
+                          const k=l.cultivo_completo||l.cultivo||"Otro";
+                          cultivosGrp[k]=(cultivosGrp[k]||0)+(l.hectareas||0);
+                        });
+                        const haTotal=Object.values(cultivosGrp).reduce((a:number,v:any)=>a+v,0);
+                        return Object.keys(cultivosGrp).length>0?(
+                          <div style={{gridColumn:"1/-1"}}>
+                            <label className={lCls}>Cultivos sembrados — kg/ha por cultivo</label>
+                            <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:4}}>
+                              {Object.entries(cultivosGrp).map(([cult,ha]:any)=>(
+                                <div key={cult} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",
+                                  borderRadius:10,background:"rgba(255,255,255,0.65)",border:"1px solid rgba(180,210,240,0.50)"}}>
+                                  <span style={{flex:1,fontSize:12,fontWeight:700,color:"#0d2137",textTransform:"uppercase"}}>{cult}</span>
+                                  <span style={{fontSize:11,color:"#6b8aaa",marginRight:8}}>{ha} ha</span>
+                                  <input type="number" step="0.5"
+                                    value={form[`kg_ha_${cult}`]??""}
+                                    onChange={e=>{
+                                      const newForm={...form,[`kg_ha_${cult}`]:e.target.value};
+                                      // Recalcular kg totales
+                                      let kgTotal=0;
+                                      Object.entries(cultivosGrp).forEach(([c,h]:any)=>{
+                                        kgTotal+=(Number(newForm[`kg_ha_${c}`]||0))*h;
+                                      });
+                                      newForm.kg_cantidad=String(Math.round(kgTotal));
+                                      const precio=Number(newForm.kg_precio_usd||0);
+                                      if(precio>0){newForm.monto=String(Math.round(kgTotal*precio));newForm.monto_usd=String(Math.round(kgTotal*precio));}
+                                      setForm(newForm);
+                                    }}
+                                    className="inp" style={{width:80,padding:"6px 10px",fontSize:12}} placeholder="kg/ha"/>
+                                  <span style={{fontSize:11,color:"#4a6a8a",minWidth:70}}>
+                                    = {Math.round(Number(form[`kg_ha_${cult}`]||0)*ha).toLocaleString("es-AR")} kg
+                                  </span>
+                                </div>
+                              ))}
+                              <div style={{padding:"8px 12px",borderRadius:10,background:"rgba(25,118,210,0.07)",
+                                border:"1px solid rgba(25,118,210,0.15)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                                <span style={{fontSize:12,fontWeight:700,color:"#1565c0"}}>Total kg calculados</span>
+                                <span style={{fontSize:14,fontWeight:800,color:"#0D47A1"}}>{Number(form.kg_cantidad||0).toLocaleString("es-AR")} kg</span>
+                              </div>
+                            </div>
+                          </div>
+                        ):<div style={{gridColumn:"1/-1",padding:"10px 14px",borderRadius:10,background:"rgba(250,200,0,0.08)",border:"1px solid rgba(250,200,0,0.25)"}}>
+                          <span style={{fontSize:12,color:"#b45309",fontWeight:600}}>⚠ Sin lotes sembrados en la campaña activa. Los cultivos aparecen cuando se registra la siembra.</span>
+                        </div>;
+                      })()}
+                      <div>
+                        <label className={lCls}>Precio U$S / kg referencia</label>
+                        <input type="number" step="0.001" value={form.kg_precio_usd??""} onChange={e=>{
+                          const precio=Number(e.target.value);
+                          const kg=Number(form.kg_cantidad||0);
+                          setForm({...form,kg_precio_usd:e.target.value,monto:String(Math.round(kg*precio)),monto_usd:String(Math.round(kg*precio))});
+                        }} className="inp" style={{padding:"8px 12px"}} placeholder="Ej: 0.240"/>
+                      </div>
+                      {form.kg_cantidad&&form.kg_precio_usd&&Number(form.kg_precio_usd)>0&&(
+                        <div style={{gridColumn:"1/-1",padding:"10px 14px",borderRadius:12,
+                          background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.18)"}}>
+                          <span style={{fontSize:13,color:"#1565c0",fontWeight:700}}>
+                            {Number(form.kg_cantidad).toLocaleString("es-AR")} kg × U$S {form.kg_precio_usd}/kg = <strong>U$S {Math.round(Number(form.kg_cantidad)*Number(form.kg_precio_usd)).toLocaleString("es-AR")}</strong>
+                          </span>
+                          <div style={{fontSize:11,color:"#6b8aaa",marginTop:2}}>💡 El precio en $ se pesifica al momento del pago</div>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* ── % RENDIMIENTO ── */}
                   {form.modalidad==="porcentaje_rto"&&(
                     <>
+                      {form.prod_c&&(()=>{
+                        const eid=productores.find((p:any)=>p.id===form.prod_c)?.empresa_id;
+                        const lotesP=lotes.filter((l:any)=>l.empresa_id===eid&&l.cultivo&&l.estado!=="planificado");
+                        const haTotal=lotesP.reduce((a:number,l:any)=>a+(l.hectareas||0),0);
+                        return haTotal>0?(
+                          <div style={{gridColumn:"1/-1",padding:"8px 14px",borderRadius:10,background:"rgba(25,118,210,0.07)",border:"1px solid rgba(25,118,210,0.15)"}}>
+                            <span style={{fontSize:12,color:"#1565c0",fontWeight:700}}>🌿 {haTotal} ha sembradas en campaña activa</span>
+                          </div>
+                        ):null;
+                      })()}
                       <div>
                         <label className={lCls}>% del rendimiento</label>
-                        <input type="number" step="0.1" value={form.porcentaje??""} onChange={e=>setForm({...form,porcentaje:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="1.5"/>
+                        <input type="number" step="0.1" value={form.porcentaje??""} onChange={e=>setForm({...form,porcentaje:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="Ej: 1.5"/>
                       </div>
                       <div>
                         <label className={lCls}>Monto U$S resultante</label>
@@ -1625,17 +1736,16 @@ export default function IngenieroPanel() {
                         <label className={lCls}>Rend. total tn</label>
                         <input type="number" value={form.rendimiento_tn??""} onChange={e=>setForm({...form,rendimiento_tn:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="0"/>
                       </div>
-                      <div>
-                        <label className={lCls}>Período</label>
-                        <input type="text" value={form.periodo??""} onChange={e=>setForm({...form,periodo:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="2025/2026"/>
-                      </div>
                     </>
                   )}
 
-                  <div>
-                    <label className={lCls}>Concepto</label>
-                    <input type="text" value={form.concepto??""} onChange={e=>setForm({...form,concepto:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="Ej: Honorario mensual abril 2026..."/>
+                  {/* Concepto — siempre editable */}
+                  <div style={{gridColumn:"1/-1"}}>
+                    <label className={lCls}>Concepto (editable)</label>
+                    <input type="text" value={form.concepto??""} onChange={e=>setForm({...form,concepto:e.target.value})} className="inp" style={{padding:"8px 12px"}}
+                      placeholder="Ej: Honorario mensual abril 2026..."/>
                   </div>
+
                   <div>
                     <label className={lCls}>Fecha</label>
                     <input type="date" value={form.fecha_c??""} onChange={e=>setForm({...form,fecha_c:e.target.value})} className="inp" style={{padding:"8px 12px"}}/>
@@ -1666,7 +1776,10 @@ export default function IngenieroPanel() {
                     position:"relative",overflow:"hidden"}}>
                     <div style={{position:"absolute",inset:0,background:"rgba(255,255,255,0.12)"}}/>
                     <div style={{position:"relative",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                      <span style={{fontSize:13,fontWeight:700,color:"white",textShadow:"0 1px 3px rgba(0,40,120,0.40)"}}>Total a cobrar</span>
+                      <div>
+                        <span style={{fontSize:13,fontWeight:700,color:"white",textShadow:"0 1px 3px rgba(0,40,120,0.40)"}}>Total a cobrar</span>
+                        {form.kg_cantidad&&<div style={{fontSize:11,color:"rgba(255,255,255,0.75)",marginTop:2}}>{Number(form.kg_cantidad).toLocaleString("es-AR")} kg · {form.frecuencia||"anual"}</div>}
+                      </div>
                       <span style={{fontSize:20,fontWeight:800,color:"white",textShadow:"0 1px 3px rgba(0,40,120,0.40)"}}>U$S {Number(form.monto||0).toLocaleString("es-AR")}</span>
                     </div>
                   </div>
