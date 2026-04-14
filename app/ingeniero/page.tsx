@@ -235,11 +235,6 @@ export default function IngenieroPanel() {
   const [showPago, setShowPago] = useState(false);
   const [showAcuerdo, setShowAcuerdo] = useState(false);
   const [campanaFiltro, setCampanaFiltro] = useState<string>("todas");
-  const [acuerdos, setAcuerdos] = useState<Acuerdo[]>([]);
-  const [pagos, setPagos] = useState<Pago[]>([]);
-  const [acuerdoSel, setAcuerdoSel] = useState<Acuerdo|null>(null);
-  const [showPago, setShowPago] = useState(false);
-  const [showAcuerdo, setShowAcuerdo] = useState(false);
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
   const [servicios, setServicios] = useState<ServiceVeh[]>([]);
   const [vehiculoSel, setVehiculoSel] = useState<Vehiculo|null>(null);
