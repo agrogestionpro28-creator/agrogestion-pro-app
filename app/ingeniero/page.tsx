@@ -812,16 +812,84 @@ export default function IngenieroPanel() {
   const vincularCodigo = async () => {
     if(!ingId||!form.codigo?.trim()){m("❌ Ingresá el código");return;}
     const sb=getSB();
-    const{data:u}=await sb.from("usuarios").select("id,nombre,auth_id").eq("codigo_vinculacion",form.codigo.trim()).single();
+    const{data:u}=await sb.from("usuarios").select("id,nombre").eq("codigo",form.codigo.trim()).single();
     if(!u){m("❌ Código no encontrado");return;}
-    const{data:emp}=await sb.from("empresas").select("id").eq("propietario_id",u.id).single();
-    const empId=emp?.id??u.id;
-    const ex=await sb.from("ing_productores").select("id").eq("ingeniero_id",ingId).eq("empresa_id",empId).single();
-    if(ex.data){m("⚠ Ya está vinculado");return;}
-    await sb.from("ing_productores").insert({ingeniero_id:ingId,nombre:u.nombre,empresa_id:empId,tiene_cuenta:true,
-      honorario_tipo:form.honorario_tipo??"mensual",honorario_monto:Number(form.honorario_monto??0),activo:true});
+    let{data:emp}=await sb.from("empresas").select("id").eq("propietario_id",u.id).single();
+    if(!emp){const{data:ne}=await sb.from("empresas").insert({nombre:"Empresa de "+u.nombre,propietario_id:u.id}).select().single();emp=ne;}
+    if(!emp){m("❌ Error empresa");return;}
+    const{data:ex}=await sb.from("ing_productores").select("id").eq("ingeniero_id",ingId).eq("empresa_id",emp.id).single();
+    if(!ex)await sb.from("ing_productores").insert({ingeniero_id:ingId,nombre:u.nombre,empresa_id:emp.id,tiene_cuenta:true,honorario_tipo:form.honorario_tipo??"mensual",honorario_monto:Number(form.honorario_monto??0),activo:true});
+    else await sb.from("ing_productores").update({empresa_id:emp.id,tiene_cuenta:true}).eq("id",ex.id);
+    const{data:vex}=await sb.from("vinculaciones").select("id").eq("profesional_id",ingId).eq("empresa_id",emp.id).single();
+    if(!vex)await sb.from("vinculaciones").insert({profesional_id:ingId,empresa_id:emp.id,activa:true,rol_profesional:"ingeniero"});
+    m("✅ "+u.nombre+" vinculado"); await fetchProds(ingId); setShowVincular(false); setForm({});
+  };
+
+
+  const crearEmpresaVirtual = async (sb: any, nombre: string): Promise<string|null> => {
+    const { data: emp } = await sb.from("empresas")
+      .insert({ nombre: nombre + " (Ing)", propietario_id: ingId })
+      .select("id").single();
+    return emp?.id ?? null;
+  };
+
+  const guardarProductor = async () => {
+    if (!ingId || !form.nombre?.trim()) { m("❌ Ingresá el nombre"); return; }
+    const sb = getSB();
+    let empresa_id: string|null = null;
+    let tiene_cuenta = false;
+    if (form.email?.trim()) {
+      const { data: ue } = await sb.from("usuarios").select("id").eq("email", form.email.trim()).single();
+      if (ue) {
+        const { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", ue.id).single();
+        if (emp) { empresa_id = emp.id; tiene_cuenta = true; }
+      }
+    }
+    const pay: any = {
+      ingeniero_id: ingId, nombre: form.nombre.trim(),
+      telefono: form.telefono ?? "", email: form.email ?? "",
+      localidad: form.localidad ?? "", provincia: form.provincia ?? "Santa Fe",
+      hectareas_total: Number(form.hectareas_total ?? 0),
+      observaciones: form.obs ?? "",
+      honorario_tipo: form.honorario_tipo ?? "mensual",
+      honorario_monto: Number(form.honorario_monto ?? 0),
+      honorario_kg_ha: form.honorario_kg_ha ? Number(form.honorario_kg_ha) : null,
+      honorario_porcentaje: form.honorario_porcentaje ? Number(form.honorario_porcentaje) : null,
+      honorario_notas: form.honorario_notas ?? "",
+      empresa_id, tiene_cuenta, activo: true
+    };
+    if (editProd) {
+      if (!empresa_id) {
+        const { data: prodActual } = await sb.from("ing_productores").select("empresa_id").eq("id", editProd).single();
+        if (!prodActual?.empresa_id) { empresa_id = await crearEmpresaVirtual(sb, form.nombre.trim()); pay.empresa_id = empresa_id; }
+        else { pay.empresa_id = prodActual.empresa_id; }
+      }
+      await sb.from("ing_productores").update(pay).eq("id", editProd);
+      setEditProd(null);
+    } else {
+      if (!empresa_id) { empresa_id = await crearEmpresaVirtual(sb, form.nombre.trim()); pay.empresa_id = empresa_id; }
+      await sb.from("ing_productores").insert(pay);
+    }
+    m(tiene_cuenta ? "✅ Guardado — con cuenta APP" : "✅ Guardado");
     await fetchProds(ingId);
-    setShowVincular(false);setForm({});m("✅ Productor vinculado: "+u.nombre);
+    setShowForm(false); setForm({});
+  };
+
+  const eliminarProd = async (id:string) => {
+    if(!confirm("¿Eliminar?")) return;
+    const sb = getSB();
+    await sb.from("ing_productores").update({activo:false}).eq("id",id);
+    await fetchProds(ingId);
+  };
+
+  const entrar = (p:ProductorIng) => {
+    const eid = p.empresa_id ?? p.id;
+    const campId = campSelProd[eid] ?? null;
+    localStorage.setItem("ing_empresa_id", eid);
+    localStorage.setItem("ing_empresa_nombre", p.nombre);
+    localStorage.setItem("ing_modo_compartido", p.empresa_id ? "true" : "false");
+    if (campId) localStorage.setItem("ing_campana_id", campId);
+    window.location.href = "/ingeniero/lotes";
   };
 
   if(loading) return (
