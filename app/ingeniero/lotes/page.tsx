@@ -3,6 +3,10 @@
 // app/ingeniero/lotes/page.tsx
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+// Singleton Supabase
+let _sbLotes: any = null;
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import EscanerIA from "@/components/EscanerIA";
 
@@ -128,6 +132,106 @@ function laborColor(tipo: string): string {
   return "#6b7280";
 }
 
+
+// ── ÍCONOS SVG MODERNOS POR CULTIVO ──
+function CultivoIcon({cultivo, size=32}:{cultivo:string, size?:number}) {
+  const l = cultivo.toLowerCase();
+  const s = size;
+  
+  if(l.includes("girasol")) return (
+    <svg width={s} height={s} viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <g transform="translate(24,20)">
+        <ellipse rx="3.2" ry="7" fill="#FBC02D" transform="rotate(0) translate(0,-13)"/>
+        <ellipse rx="3.2" ry="7" fill="#FBC02D" transform="rotate(45) translate(0,-13)"/>
+        <ellipse rx="3.2" ry="7" fill="#FBC02D" transform="rotate(90) translate(0,-13)"/>
+        <ellipse rx="3.2" ry="7" fill="#FBC02D" transform="rotate(135) translate(0,-13)"/>
+        <ellipse rx="3.2" ry="7" fill="#FBC02D" transform="rotate(180) translate(0,-13)"/>
+        <ellipse rx="3.2" ry="7" fill="#FBC02D" transform="rotate(225) translate(0,-13)"/>
+        <ellipse rx="3.2" ry="7" fill="#FBC02D" transform="rotate(270) translate(0,-13)"/>
+        <ellipse rx="3.2" ry="7" fill="#FBC02D" transform="rotate(315) translate(0,-13)"/>
+      </g>
+      <circle cx="24" cy="20" r="7.5" fill="#4E342E"/>
+      <circle cx="24" cy="20" r="5" fill="#3E2723"/>
+      <circle cx="22" cy="18" r="1.1" fill="#795548"/><circle cx="25.5" cy="18" r="1.1" fill="#795548"/>
+      <circle cx="22" cy="21" r="1.1" fill="#795548"/><circle cx="25.5" cy="21" r="1.1" fill="#795548"/>
+      <line x1="24" y1="27" x2="24" y2="46" stroke="#388E3C" strokeWidth="2.5" strokeLinecap="round"/>
+      <path d="M24 38 Q17 34 15 28" fill="none" stroke="#4CAF50" strokeWidth="2.2" strokeLinecap="round"/>
+    </svg>
+  );
+  
+  if(l.includes("trigo")||l.includes("cebada")||l.includes("arveja")||l.includes("carin")||l.includes("camel")) {
+    const col = l.includes("cebada")?"#9C27B0":l.includes("arveja")?"#00796B":l.includes("carin")||l.includes("camel")?"#37474F":"#C8860A";
+    const col2 = l.includes("cebada")?"#AB47BC":l.includes("arveja")?"#4DB6AC":l.includes("carin")||l.includes("camel")?"#607D8B":"#E4A829";
+    return (
+      <svg width={s} height={s} viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <line x1="24" y1="46" x2="24" y2="8" stroke={col} strokeWidth="2.5" strokeLinecap="round"/>
+        <ellipse cx="24" cy="9" rx="3.5" ry="5.5" fill={col2}/>
+        <line x1="24" y1="4" x2="24" y2="8" stroke={col2} strokeWidth="1.5" strokeLinecap="round"/>
+        <ellipse cx="18" cy="14" rx="3" ry="5" fill={col2} transform="rotate(-22 18 14)"/>
+        <ellipse cx="30" cy="14" rx="3" ry="5" fill={col2} transform="rotate(22 30 14)"/>
+        <line x1="18" y1="10" x2="15" y2="5" stroke={col} strokeWidth="1.2" strokeLinecap="round"/>
+        <line x1="30" y1="10" x2="33" y2="5" stroke={col} strokeWidth="1.2" strokeLinecap="round"/>
+        <ellipse cx="17" cy="20" rx="3" ry="5" fill={col} transform="rotate(-18 17 20)"/>
+        <ellipse cx="31" cy="20" rx="3" ry="5" fill={col} transform="rotate(18 31 20)"/>
+        <ellipse cx="18" cy="26" rx="2.8" ry="4.5" fill={col2} transform="rotate(-12 18 26)"/>
+        <ellipse cx="30" cy="26" rx="2.8" ry="4.5" fill={col2} transform="rotate(12 30 26)"/>
+      </svg>
+    );
+  }
+  
+  if(l.includes("sorgo")) {
+    const col = l.includes("2")?"#A1887F":"#6D4C41";
+    const col2 = l.includes("2")?"#D7CCC8":"#8D6E63";
+    return (
+      <svg width={s} height={s} viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <line x1="24" y1="46" x2="24" y2="20" stroke={col} strokeWidth="2.5" strokeLinecap="round"/>
+        <path d="M24 36 Q15 32 13 24" fill="none" stroke="#66BB6A" strokeWidth="2.2" strokeLinecap="round"/>
+        <path d="M24 36 Q33 32 35 24" fill="none" stroke="#81C784" strokeWidth="2.2" strokeLinecap="round"/>
+        <ellipse cx="24" cy="13" rx="7" ry="9" fill={col2}/>
+        <circle cx="20" cy="9" r="2.5" fill="#ECEFF1"/><circle cx="28" cy="9" r="2.5" fill="#ECEFF1"/>
+        <circle cx="17" cy="13.5" r="2.5" fill={col2}/><circle cx="31" cy="13.5" r="2.5" fill={col2}/>
+        <circle cx="20" cy="18" r="2.5" fill={col}/><circle cx="28" cy="18" r="2.5" fill={col}/>
+        <circle cx="24" cy="7" r="2.8" fill="#ECEFF1"/>
+      </svg>
+    );
+  }
+  
+  if(l.includes("maíz")||l.includes("maiz")) {
+    const col = l.includes("2")?"#FFB300":"#FBC02D";
+    const col2 = l.includes("2")?"#FF8F00":"#F57F17";
+    return (
+      <svg width={s} height={s} viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <path d="M24 12 Q31 8 35 14 Q29 16 24 27" fill="#66BB6A"/>
+        <path d="M24 12 Q17 7 13 13 Q19 16 24 27" fill="#81C784"/>
+        <ellipse cx="24" cy="28" rx="9" ry="13" fill={col}/>
+        <circle cx="21" cy="21" r="2" fill={col2}/><circle cx="27" cy="21" r="2" fill={col2}/>
+        <circle cx="21" cy="26" r="2" fill={col2}/><circle cx="27" cy="26" r="2" fill={col2}/>
+        <circle cx="21" cy="31" r="2" fill={col2}/><circle cx="27" cy="31" r="2" fill={col2}/>
+        <circle cx="24" cy="18.5" r="2" fill={col}/><circle cx="24" cy="23.5" r="2" fill={col}/>
+        <circle cx="24" cy="28.5" r="2" fill={col}/><circle cx="24" cy="33.5" r="2" fill={col}/>
+        <line x1="24" y1="41" x2="24" y2="47" stroke="#E65100" strokeWidth="2.5" strokeLinecap="round"/>
+      </svg>
+    );
+  }
+  
+  // Soja (1ra verde, 2da celeste, default verde)
+  const esSoja2 = l.includes("2");
+  const colSoja = esSoja2?"#0288d1":"#4CAF50";
+  const colSoja2 = esSoja2?"#29b6f6":"#66BB6A";
+  const colSoja3 = esSoja2?"#0277bd":"#43A047";
+  const colSojaH = esSoja2?"#01579b":"#2E7D32";
+  return (
+    <svg width={s} height={s} viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="24" cy="29" r="11" fill={colSoja} opacity="0.92"/>
+      <circle cx="16" cy="21" r="9" fill={colSoja2}/>
+      <circle cx="32" cy="21" r="9" fill={colSoja3}/>
+      <circle cx="24" cy="17" r="6" fill={colSoja2} opacity="0.8"/>
+      <line x1="24" y1="40" x2="24" y2="46" stroke={colSojaH} strokeWidth="2.5" strokeLinecap="round"/>
+      <line x1="24" y1="44" x2="19" y2="47" stroke={colSojaH} strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
 export default function IngenieroLotesPage() {
   const [empresaId, setEmpresaId] = useState("");
   const [productorNombre, setProductorNombre] = useState("");
@@ -174,15 +278,20 @@ export default function IngenieroLotesPage() {
   const [descuentoItems, setDescuentoItems] = useState<DescuentoItem[]>([]);
   const [laborPendiente, setLaborPendiente] = useState<any>(null);
 
-  const getSB = async () => {
-    const { createClient } = await import("@supabase/supabase-js");
-    return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const getSB = () => {
+    if (!_sbLotes) {
+      _sbLotes = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+    }
+    return _sbLotes;
   };
 
   useEffect(() => { init(); }, []);
 
   const init = async () => {
-    const sb = await getSB();
+    const sb = getSB();
     const { data: { user } } = await sb.auth.getUser();
     if (!user) { window.location.href = "/login"; return; }
     const { data: u } = await sb.from("usuarios").select("id,nombre,rol").eq("auth_id", user.id).single();
@@ -198,7 +307,7 @@ export default function IngenieroLotesPage() {
   };
 
   const setupEmpresaYCampanas = async (eid: string, iid: string, compartido: boolean, pnombre: string) => {
-    const sb = await getSB();
+    const sb = getSB();
     if (!compartido) {
       const { data: emp } = await sb.from("empresas").select("id").eq("id", eid).single();
       if (!emp) await sb.from("empresas").insert({ id: eid, nombre: pnombre + " (Ing)", propietario_id: iid }).select().single();
@@ -221,7 +330,7 @@ export default function IngenieroLotesPage() {
   };
 
   const fetchLotes = async (eid: string, cid: string) => {
-    const sb = await getSB();
+    const sb = getSB();
     const [ls, lbs, mgs] = await Promise.all([
       sb.from("lotes").select("*").eq("empresa_id", eid).eq("campana_id", cid),
       sb.from("lote_labores").select("*").eq("empresa_id", eid).order("fecha", { ascending: false }),
@@ -254,7 +363,7 @@ export default function IngenieroLotesPage() {
   // ── CRUD LOTES ──
   const guardarLote = async () => {
     if (!empresaId || !form.nombre?.trim()) { msg("❌ Ingresá el nombre del lote"); return; }
-    const sb = await getSB();
+    const sb = getSB();
     const cid = await getCampanaId(sb);
     if (!cid) { msg("❌ Sin campaña"); return; }
     const ci = CULTIVOS_LISTA.find(c => c.cultivo+"|"+c.orden === form.cultivo_key) ?? CULTIVOS_LISTA[0];
@@ -288,7 +397,7 @@ export default function IngenieroLotesPage() {
 
   const eliminarLote = async (id: string) => {
     if (!confirm("¿Eliminar lote?")) return;
-    const sb = await getSB();
+    const sb = getSB();
     await sb.from("lotes").delete().eq("id", id);
     await fetchLotes(empresaId, campanaActiva);
     setLoteActivo(null);
@@ -375,7 +484,7 @@ export default function IngenieroLotesPage() {
   };
 
   const abrirPanelDescuento = async (laborPayload: any, ha: number, desc: string) => {
-    const sb = await getSB();
+    const sb = getSB();
     const { data: ins } = await sb.from("stock_insumos")
       .select("id,nombre,cantidad,unidad,precio_ppp,precio_unitario,categoria")
       .eq("empresa_id", empresaId)
@@ -402,7 +511,7 @@ export default function IngenieroLotesPage() {
 
   const confirmarDescuento = async () => {
     if (!laborPendiente || !empresaId) return;
-    const sb = await getSB();
+    const sb = getSB();
     const itemsSeleccionados = descuentoItems.filter(d => d.seleccionado && d.cantidad_ajustada > 0);
     let costoInsumosTotal = 0;
     for (const item of itemsSeleccionados) {
@@ -449,7 +558,7 @@ export default function IngenieroLotesPage() {
 
   const guardarLabor = async () => {
     if (!loteActivo || !empresaId) return;
-    const sb = await getSB();
+    const sb = getSB();
     const ha = Number(form.superficie_ha ?? loteActivo.hectareas ?? 0);
     const costoTotal = form.costo_total_lab
       ? Number(form.costo_total_lab)
@@ -495,7 +604,7 @@ export default function IngenieroLotesPage() {
   };
 
   const actualizarCostoLaboresEnMB = async (loteId: string, costoNuevo: number) => {
-    const sb = await getSB();
+    const sb = getSB();
     const existing = margenes.find(m => m.lote_id === loteId);
     if (!existing) return;
     const labsLote = labores.filter(l => l.lote_id === loteId);
@@ -507,7 +616,7 @@ export default function IngenieroLotesPage() {
 
   const eliminarLabor = async (id: string) => {
     if (!confirm("¿Eliminar?")) return;
-    const sb = await getSB();
+    const sb = getSB();
     await sb.from("lote_labores").delete().eq("id", id);
     await fetchLotes(empresaId, campanaActiva);
   };
@@ -515,7 +624,7 @@ export default function IngenieroLotesPage() {
   // ── MARGEN ──
   const guardarMargen = async () => {
     if (!loteActivo || !empresaId) return;
-    const sb = await getSB();
+    const sb = getSB();
     const ha = loteActivo.hectareas || 0;
     const rend = Number(form.mg_rend_real || form.mg_rend_esp || 0);
     const precio = Number(form.mg_precio || 0);
@@ -554,7 +663,7 @@ export default function IngenieroLotesPage() {
   const subirAdjunto = async (file: File, tipo: string) => {
     if (!empresaId || !loteActivo) return;
     try {
-      const sb = await getSB();
+      const sb = getSB();
       const ext = file.name.split(".").pop() ?? "pdf";
       const path = empresaId+"/"+loteActivo.id+"/"+tipo+"_"+Date.now()+"."+ext;
       const { error } = await sb.storage.from("lotes-adjuntos").upload(path, file, { upsert:true });
@@ -635,7 +744,7 @@ export default function IngenieroLotesPage() {
 
   const confirmarImportLotes = async () => {
     if (!empresaId||!importPreview.length) return;
-    const sb = await getSB();
+    const sb = getSB();
     const cid = await getCampanaId(sb);
     if (!cid) { msg("❌ Sin campaña"); return; }
     let creados=0; let actualizados=0; const errores: string[]=[];
@@ -795,7 +904,7 @@ export default function IngenieroLotesPage() {
 
   const confirmarImportCuaderno = async () => {
     if (!empresaId || !cuadernoPreview.length) return;
-    const sb = await getSB();
+    const sb = getSB();
     let ok = 0; let err = 0; let errMsg = "";
     for (const l of cuadernoPreview) {
       if (!l.lote_id) { err++; continue; }
@@ -949,7 +1058,7 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
   return (
     <div style={{minHeight:"100vh",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",
       backgroundImage:"url('/FON.png')",backgroundSize:"cover",backgroundPosition:"center",
-      backgroundAttachment:"fixed",position:"relative"}}>
+      backgroundAttachment:"scroll",position:"relative"}}>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
@@ -1218,7 +1327,7 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
                 <div style={{display:"flex",alignItems:"center",gap:12}}>
                   <div style={{width:4,alignSelf:"stretch",borderRadius:4,background:cultivoActivoInfo?.color,flexShrink:0}}/>
-                  <span style={{fontSize:28}}>{(cultivoActivoInfo as any)?.icon}</span>
+                  <CultivoIcon cultivo={loteActivo?.cultivo||""} size={28}/>
                   <div>
                     <h2 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>{loteActivo.nombre}</h2>
                     <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,flexWrap:"wrap"}}>
@@ -1686,7 +1795,7 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
                         {/* Header */}
                         <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",borderBottom:"1px solid rgba(0,60,140,0.08)"}}>
                           <div style={{width:3,alignSelf:"stretch",borderRadius:3,background:ci.color,flexShrink:0}}/>
-                          <span style={{fontSize:22}}>{(ci as any).icon}</span>
+                          <CultivoIcon cultivo={lote.cultivo||""} size={24}/>
                           <div style={{flex:1,minWidth:0}}>
                             <div style={{fontWeight:800,color:"#0d2137",textTransform:"uppercase",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:14}}>{lote.nombre}</div>
                             <div style={{display:"flex",alignItems:"center",gap:6,marginTop:3,flexWrap:"wrap"}}>
@@ -1753,7 +1862,7 @@ Para crear_lote incluir: nombre, hectareas, cultivo.` }] })
                               onMouseOut={e=>(e.currentTarget.style.background="transparent")}
                               onClick={()=>{const l=lotes.find(x=>x.id===m.lote_id);if(l)setLoteActivo(l);}}>
                               <td style={{padding:"10px 14px",fontWeight:800,color:"#0d2137"}}>{lote?.nombre||"—"}</td>
-                              <td style={{padding:"10px 14px"}}><span className="tag" style={{background:ci.color+"18",color:ci.color,border:`1px solid ${ci.color}28`}}>{(ci as any).icon} {ci.label}</span></td>
+                              <td style={{padding:"10px 14px"}}><span className="tag" style={{background:ci.color+"18",color:ci.color,border:`1px solid ${ci.color}28`}}>{ci.label}</span></td>
                               <td style={{padding:"10px 14px",color:"#4a6a8a"}}>{m.hectareas}</td>
                               <td style={{padding:"10px 14px",color:"#b45309",fontWeight:700}}>{m.rendimiento_real||m.rendimiento_esperado} tn/ha</td>
                               <td style={{padding:"10px 14px",color:"#0d2137",fontWeight:600}}>${Math.round(m.ingreso_bruto).toLocaleString("es-AR")}</td>
