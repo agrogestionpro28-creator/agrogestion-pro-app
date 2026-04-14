@@ -529,7 +529,8 @@ export default function IngenieroPanel() {
     const campId = campSelProd[eid];
     if(!campId) { m("❌ Sin campaña activa para "+p.nombre); return; }
     const hoy = new Date().toISOString().split("T")[0];
-    const periodo = campanas.find((c:any)=>c.id===campId)?.nombre ?? new Date().getFullYear()+"/"+(new Date().getFullYear()+1);
+    const { data: campData } = await sb.from("campanas").select("nombre").eq("id", campId).single();
+    const periodo = campData?.nombre ?? new Date().getFullYear()+"/"+(new Date().getFullYear()+1);
     const { data: ls } = await sb.from("lotes")
       .select("id,nombre,hectareas,cultivo,cultivo_completo,rendimiento_real,rendimiento_esperado")
       .eq("empresa_id", eid).eq("campana_id", campId).eq("es_segundo_cultivo", false);
