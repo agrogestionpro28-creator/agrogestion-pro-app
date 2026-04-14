@@ -2058,4 +2058,19 @@ export default function IngenieroPanel() {
       </button>
     </div>
   );
+  const vincularCodigo = async () => {
+    if(!ingId||!form.codigo?.trim()){m("❌ Ingresá el código");return;}
+    const sb=getSB();
+    const{data:u}=await sb.from("usuarios").select("id,nombre,auth_id").eq("codigo_vinculacion",form.codigo.trim()).single();
+    if(!u){m("❌ Código no encontrado");return;}
+    const{data:emp}=await sb.from("empresas").select("id").eq("propietario_id",u.id).single();
+    const empId=emp?.id??u.id;
+    const ex=await sb.from("ing_productores").select("id").eq("ingeniero_id",ingId).eq("empresa_id",empId).single();
+    if(ex.data){m("⚠ Ya está vinculado");return;}
+    await sb.from("ing_productores").insert({ingeniero_id:ingId,nombre:u.nombre,empresa_id:empId,tiene_cuenta:true,
+      honorario_tipo:form.honorario_tipo??"mensual",honorario_monto:Number(form.honorario_monto??0),activo:true});
+    await fetchProds(ingId);
+    setShowVincular(false);setForm({});m("✅ Productor vinculado: "+u.nombre);
+  };
+
 }
