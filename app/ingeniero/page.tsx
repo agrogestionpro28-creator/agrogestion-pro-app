@@ -385,6 +385,7 @@ export default function IngenieroPanel() {
   };
 
   const fetchCobs = async (iid: string) => { try { const sb=getSB(); const{data}=await sb.from("ing_cobranzas").select("*").eq("ingeniero_id",iid).order("fecha",{ascending:false}); setCobranzas(data??[]); } catch {} };
+  const fetchVehs = async (iid: string) => { try { const sb=getSB(); const{data}=await sb.from("ing_vehiculos").select("*").eq("ingeniero_id",iid).order("nombre"); setVehiculos(data??[]); } catch {} };
 
   const fetchAcuerdos = async (iid: string) => {
     const sb = getSB();
