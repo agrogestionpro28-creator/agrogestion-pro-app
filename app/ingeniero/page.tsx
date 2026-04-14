@@ -32,17 +32,6 @@ type Pago = {
   monto_usd:number; kg_cantidad:number; tipo_cambio:number; monto_pesos:number;
   metodo_pago:string; observaciones:string;
 };
-type Acuerdo = {
-  id:string; ingeniero_id:string; productor_id:string; empresa_id:string;
-  campana_id:string; campana_nombre:string; modalidad:string;
-  monto_total_usd:number; kg_total:number; kg_precio_referencia:number;
-  porcentaje:number; hectareas:number; concepto:string; notas:string; estado:string;
-};
-type Pago = {
-  id:string; acuerdo_id:string; productor_id:string; fecha:string;
-  monto_usd:number; kg_cantidad:number; tipo_cambio:number; monto_pesos:number;
-  metodo_pago:string; observaciones:string;
-};
 type Vehiculo = { id:string; nombre:string; marca:string; modelo:string; anio:number; patente:string; seguro_vencimiento:string; vtv_vencimiento:string; km_actuales:number; proximo_service_km:number; seguro_compania:string; };
 type ServiceVeh = { id:string; tipo:string; descripcion:string; costo:number; km:number; fecha:string; taller:string; };
 type MsgIA = { rol:"user"|"assistant"; texto:string };
