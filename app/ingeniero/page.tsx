@@ -1598,9 +1598,21 @@ export default function IngenieroPanel() {
                       {form.prod_c&&(()=>{
                         const eid=productores.find((p:any)=>p.id===form.prod_c)?.empresa_id;
                         const haP=lotes.filter((l:any)=>l.empresa_id===eid).reduce((a:number,l:any)=>a+(l.hectareas||0),0);
+                        // Agrupar por cultivo para mostrar desglose
+                        const lotesP2=lotes.filter((l:any)=>l.empresa_id===eid&&l.cultivo);
+                        const cultivosGrp2: Record<string,number>={};
+                        lotesP2.forEach((l:any)=>{const k=l.cultivo_completo||l.cultivo||"Otro";cultivosGrp2[k]=(cultivosGrp2[k]||0)+(l.hectareas||0);});
                         return haP>0?(
-                          <div style={{gridColumn:"1/-1",padding:"8px 14px",borderRadius:10,background:"rgba(25,118,210,0.07)",border:"1px solid rgba(25,118,210,0.15)",display:"flex",gap:16,alignItems:"center"}}>
-                            <span style={{fontSize:12,color:"#1565c0",fontWeight:700}}>🌿 Hectáreas campaña activa: <strong>{haP} ha</strong></span>
+                          <div style={{gridColumn:"1/-1",padding:"10px 14px",borderRadius:10,background:"rgba(25,118,210,0.07)",border:"1px solid rgba(25,118,210,0.15)"}}>
+                            <div style={{fontSize:12,color:"#1565c0",fontWeight:700,marginBottom:6}}>🌿 Hectáreas campaña activa: <strong>{haP} ha totales</strong></div>
+                            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                              {Object.entries(cultivosGrp2).map(([cult,ha]:any)=>(
+                                <span key={cult} style={{fontSize:11,padding:"3px 10px",borderRadius:20,fontWeight:700,
+                                  background:"rgba(255,255,255,0.70)",border:"1px solid rgba(25,118,210,0.20)",color:"#1e3a5f"}}>
+                                  {cult.toUpperCase()}: {ha} ha
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         ):null;
                       })()}
@@ -1644,7 +1656,7 @@ export default function IngenieroPanel() {
                       {form.prod_c&&(()=>{
                         const eid=productores.find((p:any)=>p.id===form.prod_c)?.empresa_id;
                         // Agrupar lotes por cultivo (solo los que tienen fecha_siembra o sembrados)
-                        const lotesP=lotes.filter((l:any)=>l.empresa_id===eid&&l.cultivo&&l.estado!=="planificado");
+                        const lotesP=lotes.filter((l:any)=>l.empresa_id===eid&&l.cultivo);
                         const cultivosGrp: Record<string,number>={};
                         lotesP.forEach((l:any)=>{
                           const k=l.cultivo_completo||l.cultivo||"Otro";
@@ -1688,7 +1700,7 @@ export default function IngenieroPanel() {
                             </div>
                           </div>
                         ):<div style={{gridColumn:"1/-1",padding:"10px 14px",borderRadius:10,background:"rgba(250,200,0,0.08)",border:"1px solid rgba(250,200,0,0.25)"}}>
-                          <span style={{fontSize:12,color:"#b45309",fontWeight:600}}>⚠ Sin lotes sembrados en la campaña activa. Los cultivos aparecen cuando se registra la siembra.</span>
+                          <span style={{fontSize:12,color:"#b45309",fontWeight:600}}>⚠ Sin lotes cargados en la campaña activa para este productor.</span>
                         </div>;
                       })()}
                       <div>
@@ -1716,11 +1728,21 @@ export default function IngenieroPanel() {
                     <>
                       {form.prod_c&&(()=>{
                         const eid=productores.find((p:any)=>p.id===form.prod_c)?.empresa_id;
-                        const lotesP=lotes.filter((l:any)=>l.empresa_id===eid&&l.cultivo&&l.estado!=="planificado");
+                        const lotesP=lotes.filter((l:any)=>l.empresa_id===eid&&l.cultivo);
                         const haTotal=lotesP.reduce((a:number,l:any)=>a+(l.hectareas||0),0);
+                        const cultivosGrp3: Record<string,number>={};
+                        lotesP.forEach((l:any)=>{const k=l.cultivo_completo||l.cultivo||"Otro";cultivosGrp3[k]=(cultivosGrp3[k]||0)+(l.hectareas||0);});
                         return haTotal>0?(
-                          <div style={{gridColumn:"1/-1",padding:"8px 14px",borderRadius:10,background:"rgba(25,118,210,0.07)",border:"1px solid rgba(25,118,210,0.15)"}}>
-                            <span style={{fontSize:12,color:"#1565c0",fontWeight:700}}>🌿 {haTotal} ha sembradas en campaña activa</span>
+                          <div style={{gridColumn:"1/-1",padding:"10px 14px",borderRadius:10,background:"rgba(25,118,210,0.07)",border:"1px solid rgba(25,118,210,0.15)"}}>
+                            <div style={{fontSize:12,color:"#1565c0",fontWeight:700,marginBottom:6}}>🌿 <strong>{haTotal} ha</strong> totales en campaña activa</div>
+                            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                              {Object.entries(cultivosGrp3).map(([cult,ha]:any)=>(
+                                <span key={cult} style={{fontSize:11,padding:"3px 10px",borderRadius:20,fontWeight:700,
+                                  background:"rgba(255,255,255,0.70)",border:"1px solid rgba(25,118,210,0.20)",color:"#1e3a5f"}}>
+                                  {cult.toUpperCase()}: {ha} ha
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         ):null;
                       })()}
