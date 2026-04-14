@@ -21,6 +21,28 @@ type Seccion = "general"|"productores"|"cobranza"|"vehiculo"|"ia_campo";
 type ProductorIng = { id:string; nombre:string; telefono:string; email:string; localidad:string; provincia:string; hectareas_total:number; observaciones:string; empresa_id:string|null; tiene_cuenta:boolean; honorario_tipo:string; honorario_monto:number; };
 type Campana = { id:string; nombre:string; activa:boolean; año_inicio?:number; año_fin?:number; };
 type Cobranza = { id:string; productor_id:string; concepto:string; monto:number; fecha:string; estado:string; metodo_pago:string; };
+type Acuerdo = {
+  id:string; ingeniero_id:string; productor_id:string; empresa_id:string;
+  campana_id:string; campana_nombre:string; modalidad:string;
+  monto_total_usd:number; kg_total:number; kg_precio_referencia:number;
+  porcentaje:number; hectareas:number; concepto:string; notas:string; estado:string;
+};
+type Pago = {
+  id:string; acuerdo_id:string; productor_id:string; fecha:string;
+  monto_usd:number; kg_cantidad:number; tipo_cambio:number; monto_pesos:number;
+  metodo_pago:string; observaciones:string;
+};
+type Acuerdo = {
+  id:string; ingeniero_id:string; productor_id:string; empresa_id:string;
+  campana_id:string; campana_nombre:string; modalidad:string;
+  monto_total_usd:number; kg_total:number; kg_precio_referencia:number;
+  porcentaje:number; hectareas:number; concepto:string; notas:string; estado:string;
+};
+type Pago = {
+  id:string; acuerdo_id:string; productor_id:string; fecha:string;
+  monto_usd:number; kg_cantidad:number; tipo_cambio:number; monto_pesos:number;
+  metodo_pago:string; observaciones:string;
+};
 type Vehiculo = { id:string; nombre:string; marca:string; modelo:string; anio:number; patente:string; seguro_vencimiento:string; vtv_vencimiento:string; km_actuales:number; proximo_service_km:number; seguro_compania:string; };
 type ServiceVeh = { id:string; tipo:string; descripcion:string; costo:number; km:number; fecha:string; taller:string; };
 type MsgIA = { rol:"user"|"assistant"; texto:string };
@@ -207,10 +229,22 @@ export default function IngenieroPanel() {
   const [ingData, setIngData] = useState<any>({});
   const [productores, setProductores] = useState<ProductorIng[]>([]);
   const [cobranzas, setCobranzas] = useState<Cobranza[]>([]);
+  const [acuerdos, setAcuerdos] = useState<Acuerdo[]>([]);
+  const [pagos, setPagos] = useState<Pago[]>([]);
+  const [acuerdoSel, setAcuerdoSel] = useState<Acuerdo|null>(null);
+  const [showPago, setShowPago] = useState(false);
+  const [showAcuerdo, setShowAcuerdo] = useState(false);
+  const [campanaFiltro, setCampanaFiltro] = useState<string>("todas");
+  const [acuerdos, setAcuerdos] = useState<Acuerdo[]>([]);
+  const [pagos, setPagos] = useState<Pago[]>([]);
+  const [acuerdoSel, setAcuerdoSel] = useState<Acuerdo|null>(null);
+  const [showPago, setShowPago] = useState(false);
+  const [showAcuerdo, setShowAcuerdo] = useState(false);
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
   const [servicios, setServicios] = useState<ServiceVeh[]>([]);
   const [vehiculoSel, setVehiculoSel] = useState<Vehiculo|null>(null);
   const [lotes, setLotes] = useState<LoteResumen[]>([]);
+  const [campanas, setCampanas] = useState<any[]>([]);
   const [campanasPorProd, setCampanasPorProd] = useState<Record<string,any[]>>({});
   const [campSelProd, setCampSelProd] = useState<Record<string,string>>({});
   const [loading, setLoading] = useState(true);
@@ -259,7 +293,9 @@ export default function IngenieroPanel() {
       setIngId(u.id); setIngNombre(u.nombre); setIngData(u);
       await fetchProds(u.id);
       await fetchCobs(u.id);
+    await fetchAcuerdos(u.id);
       await fetchVehs(u.id);
+      await fetchAcuerdos(u.id);
     } catch(e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -366,6 +402,220 @@ export default function IngenieroPanel() {
   };
 
   const fetchCobs = async (iid: string) => { try { const sb=getSB(); const{data}=await sb.from("ing_cobranzas").select("*").eq("ingeniero_id",iid).order("fecha",{ascending:false}); setCobranzas(data??[]); } catch {} };
+
+  const fetchAcuerdos = async (iid: string) => {
+    const sb = getSB();
+    const [{ data: ac }, { data: pg }] = await Promise.all([
+      sb.from("ing_acuerdos").select("*").eq("ingeniero_id", iid).order("created_at", {ascending:false}),
+      sb.from("ing_pagos").select("*").eq("ingeniero_id", iid).order("fecha", {ascending:false}),
+    ]);
+    setAcuerdos(ac ?? []);
+    setPagos(pg ?? []);
+  };
+
+  // Guardar acuerdo (1 por productor por campaña)
+  const guardarAcuerdo = async () => {
+    if(!ingId || !form.prod_ac) { m("❌ Seleccioná un productor"); return; }
+    const sb = getSB();
+    const prod = productores.find((p:any) => p.id === form.prod_ac);
+    const eid = prod?.empresa_id ?? prod?.id;
+    const campId = campSelProd[eid] ?? "";
+    // Buscar nombre campaña
+    const { data: campData } = await sb.from("campanas").select("nombre").eq("id", campId).single();
+    const campNombre = campData?.nombre ?? "";
+
+    // Calcular kg_total y monto_usd según modalidad
+    const modalidad = form.modalidad_ac ?? "usd_anual";
+    let kg_total = 0, monto_total_usd = 0;
+    if(modalidad === "kg_soja_ha" || modalidad === "kg_cultivo_ha") {
+      kg_total = Number(form.kg_total_ac ?? 0);
+      monto_total_usd = 0; // se calcula al cobrar
+    } else if(modalidad === "usd_mensual") {
+      monto_total_usd = Number(form.monto_ac ?? 0) * 12;
+    } else {
+      monto_total_usd = Number(form.monto_ac ?? 0);
+    }
+
+    const payload = {
+      ingeniero_id: ingId,
+      productor_id: form.prod_ac,
+      empresa_id: eid,
+      campana_id: campId,
+      campana_nombre: campNombre,
+      modalidad,
+      monto_total_usd,
+      kg_total,
+      kg_precio_referencia: Number(form.kg_precio_ref_ac ?? 0),
+      porcentaje: Number(form.porcentaje_ac ?? 0),
+      hectareas: Number(form.hectareas_ac ?? 0),
+      concepto: form.concepto_ac ?? `Honorario ${campNombre} — ${prod?.nombre}`,
+      notas: form.notas_ac ?? "",
+      estado: "activo",
+    };
+
+    // Verificar si ya existe acuerdo para esta campaña
+    const existente = acuerdos.find((a:any) => a.productor_id === form.prod_ac && a.campana_id === campId);
+    if(existente) {
+      await sb.from("ing_acuerdos").update(payload).eq("id", existente.id);
+      m("✅ Acuerdo actualizado");
+    } else {
+      await sb.from("ing_acuerdos").insert(payload);
+      m("✅ Acuerdo creado");
+    }
+    await fetchAcuerdos(ingId);
+    setShowAcuerdo(false); setForm({});
+  };
+
+  // Registrar pago parcial
+  const registrarPago = async () => {
+    if(!acuerdoSel || !ingId) return;
+    const sb = getSB();
+    const modalidad = acuerdoSel.modalidad;
+    const kgCant = Number(form.pago_kg ?? 0);
+    const precio = Number(form.pago_precio_soja ?? 0);
+    const tipoCambio = Number(form.pago_tc ?? 1);
+    let montoUsd = 0;
+
+    if(modalidad === "kg_soja_ha" || modalidad === "kg_cultivo_ha") {
+      montoUsd = kgCant * precio;
+    } else {
+      montoUsd = Number(form.pago_usd ?? 0);
+    }
+
+    const montoPesos = montoUsd * tipoCambio;
+
+    await sb.from("ing_pagos").insert({
+      acuerdo_id: acuerdoSel.id,
+      ingeniero_id: ingId,
+      productor_id: acuerdoSel.productor_id,
+      fecha: form.pago_fecha ?? new Date().toISOString().split("T")[0],
+      monto_usd: montoUsd,
+      kg_cantidad: kgCant,
+      tipo_cambio: tipoCambio,
+      monto_pesos: montoPesos,
+      metodo_pago: form.pago_metodo ?? "",
+      observaciones: form.pago_obs ?? "",
+    });
+    m(`✅ Pago registrado — U$S ${montoUsd.toLocaleString("es-AR")}${montoPesos>0?" / $"+Math.round(montoPesos).toLocaleString("es-AR"):""}`);
+    await fetchAcuerdos(ingId);
+    setShowPago(false); setForm({});
+  };
+
+  // Calcular saldo de un acuerdo
+  const calcularSaldo = (ac: Acuerdo) => {
+    const pagosAc = pagos.filter((p:any) => p.acuerdo_id === ac.id);
+    if(ac.modalidad === "kg_soja_ha" || ac.modalidad === "kg_cultivo_ha") {
+      const kgPagado = pagosAc.reduce((a:any,p:any) => a+(p.kg_cantidad||0), 0);
+      const kgRestante = (ac.kg_total||0) - kgPagado;
+      return { kgPagado, kgRestante, usdPagado:0, usdRestante:0, completo: kgRestante<=0 };
+    } else {
+      const usdPagado = pagosAc.reduce((a:any,p:any) => a+(p.monto_usd||0), 0);
+      const usdRestante = (ac.monto_total_usd||0) - usdPagado;
+      return { kgPagado:0, kgRestante:0, usdPagado, usdRestante, completo: usdRestante<=0 };
+    }
+  };
+
+  // Copiar acuerdo de campaña anterior
+  const copiarAcuerdoAnterior = async (prodId: string) => {
+    const anterior = acuerdos.find((a:any) => a.productor_id === prodId && a.estado === "activo");
+    if(!anterior) { m("Sin acuerdo anterior para copiar"); return; }
+    const prod = productores.find((p:any) => p.id === prodId);
+    setForm({
+      prod_ac: prodId,
+      modalidad_ac: anterior.modalidad,
+      monto_ac: String(anterior.modalidad==="usd_mensual"?anterior.monto_total_usd/12:anterior.monto_total_usd),
+      kg_total_ac: String(anterior.kg_total),
+      kg_precio_ref_ac: String(anterior.kg_precio_referencia),
+      porcentaje_ac: String(anterior.porcentaje),
+      hectareas_ac: String(anterior.hectareas),
+      concepto_ac: anterior.concepto?.replace(/202\d\/202\d/g,"")?.trim() ?? "",
+      notas_ac: anterior.notas ?? "",
+    });
+    setShowAcuerdo(true);
+    m("✅ Acuerdo anterior cargado — revisá y confirmá para la nueva campaña");
+  };
+
+  const fetchAcuerdos = async (iid: string) => {
+    const sb = getSB();
+    const [{ data: ac }, { data: pg }] = await Promise.all([
+      sb.from("ing_acuerdos").select("*").eq("ingeniero_id", iid).order("created_at", { ascending: false }),
+      sb.from("ing_pagos").select("*").eq("ingeniero_id", iid).order("fecha", { ascending: false }),
+    ]);
+    setAcuerdos(ac ?? []);
+    setPagos(pg ?? []);
+  };
+
+  const guardarAcuerdo = async () => {
+    if(!ingId || !form.prod_ac) { m("❌ Seleccioná un productor"); return; }
+    const sb = getSB();
+    const p = productores.find((x:any) => x.id === form.prod_ac);
+    const eid = p?.empresa_id ?? p?.id;
+    const campId = campSelProd[eid] ?? null;
+    const campNombre = campanas.find ? "" : ""; // se busca abajo
+    const { data: campData } = await sb.from("campanas").select("nombre").eq("id", campId).single();
+
+    // Verificar si ya existe acuerdo para esta campaña y productor
+    const existe = acuerdos.find((a:any) => a.productor_id === form.prod_ac && a.campana_id === campId && a.estado === "activo");
+    if(existe && !form.reemplazar) {
+      m("⚠ Ya existe un acuerdo activo para esta campaña. Desactivalo primero o marcá reemplazar.");
+      return;
+    }
+    if(existe && form.reemplazar) {
+      await sb.from("ing_acuerdos").update({ estado: "reemplazado" }).eq("id", existe.id);
+    }
+
+    const payload: Record<string,any> = {
+      ingeniero_id: ingId,
+      productor_id: form.prod_ac,
+      empresa_id: eid,
+      campana_id: campId,
+      campana_nombre: campData?.nombre ?? "",
+      modalidad: form.modalidad_ac ?? "usd_anual",
+      monto_total_usd: Number(form.monto_total_usd ?? 0),
+      kg_total: Number(form.kg_total ?? 0),
+      kg_precio_referencia: Number(form.kg_precio_ref ?? 0),
+      porcentaje: Number(form.porcentaje_ac ?? 0),
+      hectareas: Number(form.hectareas_ac ?? 0),
+      concepto: form.concepto_ac ?? "",
+      notas: form.notas_ac ?? "",
+      estado: "activo",
+    };
+    // Si es kg, calcular monto_total_usd de referencia
+    if(payload.modalidad === "kg_soja_ha" || payload.modalidad === "kg_cultivo_ha") {
+      payload.monto_total_usd = Math.round(payload.kg_total * payload.kg_precio_referencia);
+    }
+    await sb.from("ing_acuerdos").insert(payload);
+    m("✅ Acuerdo guardado");
+    setShowAcuerdo(false); setForm({});
+    await fetchAcuerdos(ingId);
+  };
+
+  const registrarPago = async () => {
+    if(!acuerdoSel || !ingId) return;
+    const sb = getSB();
+    const tc = Number(form.tipo_cambio ?? 1);
+    const kgCant = Number(form.kg_pago ?? 0);
+    const montoUsd = acuerdoSel.modalidad === "kg_soja_ha" || acuerdoSel.modalidad === "kg_cultivo_ha"
+      ? Math.round(kgCant * Number(form.precio_kg_hoy ?? 0))
+      : Number(form.monto_pago ?? 0);
+    const montoPesos = Math.round(montoUsd * tc);
+
+    await sb.from("ing_pagos").insert({
+      acuerdo_id: acuerdoSel.id,
+      ingeniero_id: ingId,
+      productor_id: acuerdoSel.productor_id,
+      fecha: form.fecha_pago ?? new Date().toISOString().split("T")[0],
+      monto_usd: montoUsd,
+      kg_cantidad: kgCant,
+      tipo_cambio: tc,
+      monto_pesos: montoPesos,
+      metodo_pago: form.metodo_pago ?? "",
+      observaciones: form.obs_pago ?? "",
+    });
+    m(`✅ Pago registrado — U$S ${montoUsd.toLocaleString("es-AR")} · $${montoPesos.toLocaleString("es-AR")}`);
+    setShowPago(false); setAcuerdoSel(null); setForm({});
+    await fetchAcuerdos(ingId);
+  };
 
   const fetchVehs = async (iid: string) => {
     try {
@@ -1462,432 +1712,386 @@ export default function IngenieroPanel() {
         {seccion==="cobranza"&&(
           <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:12}}>
 
-            {/* Resumen totales */}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-              {[
-                {l:"Pendiente",v:"U$S "+totPend.toLocaleString("es-AR"),c:"#dc2626",bg:"rgba(220,38,38,0.08)"},
-                {l:"Cobrado",v:"U$S "+totCob.toLocaleString("es-AR"),c:"#166534",bg:"rgba(22,163,74,0.08)"},
-                {l:"Total campaña",v:"U$S "+(totPend+totCob).toLocaleString("es-AR"),c:"#0D47A1",bg:"rgba(25,118,210,0.08)"},
-              ].map(s=>(
-                <div key={s.l} className="card" style={{padding:"12px 14px",textAlign:"center",background:s.bg}}>
-                  <div style={{fontSize:10,fontWeight:700,color:s.c,textTransform:"uppercase",letterSpacing:0.8,marginBottom:4}}>{s.l}</div>
-                  <div style={{fontSize:16,fontWeight:800,color:s.c}}>{s.v}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Calcular honorarios por productor */}
-            <div className="card" style={{padding:14}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-                <div>
-                  <div style={{fontSize:13,fontWeight:800,color:"#0d2137"}}>⚡ Calcular Honorarios Automático</div>
-                  <div style={{fontSize:11,color:"#6b8aaa",marginTop:2}}>Calcula según el acuerdo configurado por productor</div>
-                </div>
-                <button onClick={()=>{setShowForm(!showForm);setForm({estado:"pendiente",fecha_c:new Date().toISOString().split("T")[0],modalidad:"usd_mensual"});}}
-                  className="bbtn" style={{padding:"8px 14px",fontSize:12}}>+ Cobro manual</button>
+            {/* Header + acciones */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+              <div>
+                <h2 style={{fontSize:18,fontWeight:800,color:"#0d2137",margin:0}}>Cobranza</h2>
+                <p style={{fontSize:12,color:"#6b8aaa",margin:"2px 0 0"}}>1 acuerdo por productor por campaña · los pagos van descontando el saldo</p>
               </div>
-              <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                {productores.map(p=>{
-                  const eid=p.empresa_id??p.id;
-                  const lotesP=lotes.filter((l:any)=>l.empresa_id===eid);
-                  const haP=lotesP.reduce((a:number,l:any)=>a+(l.hectareas||0),0);
-                  const cobsProd=cobranzas.filter((c:any)=>c.productor_id===p.id);
-                  const pendProd=cobsProd.filter((c:any)=>c.estado==="pendiente").reduce((a:number,c:any)=>a+(c.monto||0),0);
-                  const MODAL_LABEL:Record<string,string>={
-                    mensual:"U$S/mes",anual:"U$S/año",por_campana:"U$S/campaña",
-                    kg_soja_ha:"kg soja/ha",kg_cultivo_ha:"kg cultivo/ha",
-                    porcentaje_rto:"% del rto",por_ha:"kg/ha",por_servicio:"% rto",otro:"Otro"
-                  };
-                  return(
-                    <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",
-                      borderRadius:12,background:"rgba(255,255,255,0.60)",border:"1px solid rgba(255,255,255,0.85)",
-                      boxShadow:"0 2px 8px rgba(20,80,160,0.07)"}}>
-                      <div style={{width:36,height:36,borderRadius:"50%",backgroundImage:"url('/AZUL.png')",
-                        backgroundSize:"cover",border:"2px solid rgba(180,220,255,0.80)",
-                        display:"flex",alignItems:"center",justifyContent:"center",
-                        fontSize:14,fontWeight:800,color:"white",flexShrink:0,
-                        textShadow:"0 1px 3px rgba(0,40,120,0.40)"}}>
-                        {p.nombre.charAt(0)}
-                      </div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:13,fontWeight:800,color:"#0d2137",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.nombre}</div>
-                        <div style={{fontSize:11,color:"#6b8aaa",marginTop:1,display:"flex",gap:8}}>
-                          <span>{haP} ha</span>
-                          <span style={{color:"#1565c0",fontWeight:700}}>{MODAL_LABEL[p.honorario_tipo]||"Sin configurar"}</span>
-                          {p.honorario_monto>0&&<span style={{color:"#b45309",fontWeight:600}}>{p.honorario_monto} {p.honorario_tipo?.includes("kg")?"kg":p.honorario_tipo?.includes("porc")||p.honorario_tipo==="por_servicio"?"%":"U$S"}</span>}
-                        </div>
-                      </div>
-                      {pendProd>0&&(
-                        <div style={{fontSize:12,fontWeight:700,color:"#dc2626",flexShrink:0}}>
-                          U$S {Math.round(pendProd).toLocaleString("es-AR")} pend.
-                        </div>
-                      )}
-                      <button onClick={()=>calcularHonorario(p)}
-                        className="bbtn" style={{padding:"7px 12px",fontSize:11,flexShrink:0}}>
-                        ⚡ Calcular
-                      </button>
-                    </div>
-                  );
-                })}
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                {/* Filtro campaña */}
+                <select value={campanaFiltro} onChange={e=>setCampanaFiltro(e.target.value)}
+                  className="inp" style={{padding:"7px 12px",fontSize:12,fontWeight:600,color:"#1565c0"}}>
+                  <option value="todas">Todas las campañas</option>
+                  {[...new Set(acuerdos.map((a:any)=>a.campana_nombre).filter(Boolean))].map((c:any)=>(
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                <button onClick={()=>{setShowAcuerdo(!showAcuerdo);setForm({});setAcuerdoSel(null);}} className="bbtn">
+                  + Nuevo acuerdo
+                </button>
               </div>
             </div>
 
-            {/* Form nuevo cobro */}
-            {showForm&&(
-              <div ref={formCobRef} className="card fade-in" style={{padding:16}}>
+            {/* Form nuevo acuerdo */}
+            {showAcuerdo&&(
+              <div className="card fade-in" style={{padding:16}}>
                 <div style={{fontSize:13,fontWeight:800,color:"#0d2137",marginBottom:14}}>
-                  {form.prod_c?`💰 Honorario — ${productores.find((p:any)=>p.id===form.prod_c)?.nombre||""}`:"+  Nuevo cobro"}
+                  📋 Configurar acuerdo de honorario
                 </div>
-
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-
-                  {/* Productor */}
                   <div>
                     <label className={lCls}>Productor</label>
-                    <select value={form.prod_c??""} onChange={e=>setForm({...form,prod_c:e.target.value})} className="inp" style={{padding:"8px 12px"}}>
-                      <option value="">Sin productor</option>
+                    <select value={form.prod_ac??""} onChange={e=>{
+                      const prod=productores.find((p:any)=>p.id===e.target.value);
+                      const eid=prod?.empresa_id??prod?.id;
+                      const haP=lotes.filter((l:any)=>l.empresa_id===eid).reduce((a:number,l:any)=>a+(l.hectareas||0),0);
+                      setForm({...form,prod_ac:e.target.value,hectareas_ac:String(haP)});
+                    }} className="inp" style={{padding:"8px 12px"}}>
+                      <option value="">Seleccioná...</option>
                       {productores.map((p:any)=><option key={p.id} value={p.id}>{p.nombre}</option>)}
                     </select>
                   </div>
-
-                  {/* Modalidad base */}
                   <div>
                     <label className={lCls}>Modalidad</label>
-                    <select value={form.modalidad??"usd_mensual"} onChange={e=>setForm({...form,modalidad:e.target.value})} className="inp" style={{padding:"8px 12px"}}>
-                      <option value="usd_mensual">U$S Mensual</option>
-                      <option value="usd_anual">U$S Anual</option>
+                    <select value={form.modalidad_ac??"usd_anual"} onChange={e=>setForm({...form,modalidad_ac:e.target.value})} className="inp" style={{padding:"8px 12px"}}>
+                      <option value="usd_mensual">U$S Mensual (× 12 = total)</option>
+                      <option value="usd_anual">U$S Anual / Campaña</option>
                       <option value="kg_soja_ha">Kg Soja / Ha</option>
-                      <option value="kg_cultivo_ha">Kg por Cultivo / Ha</option>
-                      <option value="porcentaje_rto">% del Rendimiento</option>
+                      <option value="kg_cultivo_ha">Kg Cultivo / Ha</option>
                       <option value="otro">Otro (manual)</option>
                     </select>
                   </div>
 
-                  {/* Frecuencia — solo para kg y % */}
-                  {(form.modalidad==="kg_soja_ha"||form.modalidad==="kg_cultivo_ha"||form.modalidad==="porcentaje_rto")&&(
-                    <div>
-                      <label className={lCls}>Frecuencia de cobro</label>
-                      <select value={form.frecuencia??"anual"} onChange={e=>setForm({...form,frecuencia:e.target.value})} className="inp" style={{padding:"8px 12px"}}>
-                        <option value="mensual">Mensual</option>
-                        <option value="semestral">Semestral</option>
-                        <option value="anual">Anual (campaña)</option>
-                        <option value="cosecha">Al momento de cosecha</option>
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Período */}
-                  <div>
-                    <label className={lCls}>Período</label>
-                    <input type="text" value={form.periodo??""} onChange={e=>setForm({...form,periodo:e.target.value})} className="inp" style={{padding:"8px 12px"}}
-                      placeholder={form.modalidad==="usd_mensual"?"Ej: Abril 2026":form.frecuencia==="semestral"?"Ej: 1er semestre 2026":"Ej: 2025/2026"}/>
-                  </div>
-
-                  {/* ── U$S MENSUAL / ANUAL / OTRO ── */}
-                  {(form.modalidad==="usd_mensual"||form.modalidad==="usd_anual"||form.modalidad==="otro")&&(
-                    <div>
-                      <label className={lCls}>{form.modalidad==="usd_mensual"?"Monto U$S / mes":form.modalidad==="usd_anual"?"Monto U$S / año":"Monto U$S"}</label>
-                      <input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value,monto_usd:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="0"/>
-                    </div>
-                  )}
-
-                  {/* ── KG SOJA / HA ── */}
-                  {form.modalidad==="kg_soja_ha"&&(
+                  {/* U$S mensual */}
+                  {form.modalidad_ac==="usd_mensual"&&(
                     <>
-                      {/* Info hectáreas del productor */}
-                      {form.prod_c&&(()=>{
-                        const eid=productores.find((p:any)=>p.id===form.prod_c)?.empresa_id;
-                        const haP=lotes.filter((l:any)=>l.empresa_id===eid).reduce((a:number,l:any)=>a+(l.hectareas||0),0);
-                        // Agrupar por cultivo para mostrar desglose
-                        const lotesP2=lotes.filter((l:any)=>l.empresa_id===eid&&l.cultivo);
-                        const cultivosGrp2: Record<string,number>={};
-                        lotesP2.forEach((l:any)=>{const k=l.cultivo_completo||l.cultivo||"Otro";cultivosGrp2[k]=(cultivosGrp2[k]||0)+(l.hectareas||0);});
-                        return haP>0?(
-                          <div style={{gridColumn:"1/-1",padding:"10px 14px",borderRadius:10,background:"rgba(25,118,210,0.07)",border:"1px solid rgba(25,118,210,0.15)"}}>
-                            <div style={{fontSize:12,color:"#1565c0",fontWeight:700,marginBottom:6}}>🌿 Hectáreas campaña activa: <strong>{haP} ha totales</strong></div>
-                            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-                              {Object.entries(cultivosGrp2).map(([cult,ha]:any)=>(
-                                <span key={cult} style={{fontSize:11,padding:"3px 10px",borderRadius:20,fontWeight:700,
-                                  background:"rgba(255,255,255,0.70)",border:"1px solid rgba(25,118,210,0.20)",color:"#1e3a5f"}}>
-                                  {cult.toUpperCase()}: {ha} ha
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        ):null;
-                      })()}
                       <div>
-                        <label className={lCls}>Kg soja / Ha</label>
-                        <input type="number" step="0.5" value={form.kg_por_ha??""} onChange={e=>{
-                          const eid=productores.find((p:any)=>p.id===form.prod_c)?.empresa_id;
-                          const haP=lotes.filter((l:any)=>l.empresa_id===eid).reduce((a:number,l:any)=>a+(l.hectareas||0),0);
-                          const kgTotal=Number(e.target.value)*haP;
-                          setForm({...form,kg_por_ha:e.target.value,kg_cantidad:String(kgTotal),
-                            concepto:`${e.target.value} kg soja/ha × ${haP} ha (${form.frecuencia||"anual"}) — ${productores.find((p:any)=>p.id===form.prod_c)?.nombre||""}`});
-                        }} className="inp" style={{padding:"8px 12px"}} placeholder="Ej: 50"/>
+                        <label className={lCls}>Monto U$S / mes</label>
+                        <input type="number" value={form.monto_ac??""} onChange={e=>setForm({...form,monto_ac:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="Ej: 200"/>
                       </div>
-                      <div>
-                        <label className={lCls}>Kg totales calculados</label>
-                        <input type="number" value={form.kg_cantidad??""} onChange={e=>setForm({...form,kg_cantidad:e.target.value})} className="inp" style={{padding:"8px 12px",background:"rgba(240,248,255,0.80)"}} placeholder="Auto"/>
-                      </div>
-                      <div>
-                        <label className={lCls}>Precio U$S / kg soja (hoy)</label>
-                        <input type="number" step="0.001" value={form.kg_precio_usd??""} onChange={e=>{
-                          const precio=Number(e.target.value);
-                          const kg=Number(form.kg_cantidad||0);
-                          setForm({...form,kg_precio_usd:e.target.value,monto:String(Math.round(kg*precio)),monto_usd:String(Math.round(kg*precio))});
-                        }} className="inp" style={{padding:"8px 12px"}} placeholder="Ej: 0.240"/>
-                      </div>
-                      {form.kg_cantidad&&form.kg_precio_usd&&Number(form.kg_precio_usd)>0&&(
-                        <div style={{gridColumn:"1/-1",padding:"10px 14px",borderRadius:12,
-                          background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.18)"}}>
-                          <span style={{fontSize:13,color:"#1565c0",fontWeight:700}}>
-                            {Number(form.kg_cantidad).toLocaleString("es-AR")} kg × U$S {form.kg_precio_usd}/kg = <strong>U$S {Math.round(Number(form.kg_cantidad)*Number(form.kg_precio_usd)).toLocaleString("es-AR")}</strong>
-                          </span>
-                          <div style={{fontSize:11,color:"#6b8aaa",marginTop:2}}>💡 El precio en $ se pesifica al momento del pago</div>
+                      {form.monto_ac&&Number(form.monto_ac)>0&&(
+                        <div style={{display:"flex",alignItems:"center",padding:"8px 14px",borderRadius:10,background:"rgba(25,118,210,0.07)",border:"1px solid rgba(25,118,210,0.15)"}}>
+                          <span style={{fontSize:12,color:"#1565c0",fontWeight:700}}>Total anual: U$S {(Number(form.monto_ac)*12).toLocaleString("es-AR")}</span>
                         </div>
                       )}
                     </>
                   )}
 
-                  {/* ── KG CULTIVO / HA ── */}
-                  {form.modalidad==="kg_cultivo_ha"&&(
+                  {/* U$S anual / otro */}
+                  {(form.modalidad_ac==="usd_anual"||form.modalidad_ac==="otro")&&(
+                    <div>
+                      <label className={lCls}>Monto U$S {form.modalidad_ac==="usd_anual"?"/ campaña":""}</label>
+                      <input type="number" value={form.monto_ac??""} onChange={e=>setForm({...form,monto_ac:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="0"/>
+                    </div>
+                  )}
+
+                  {/* Kg soja/ha */}
+                  {form.modalidad_ac==="kg_soja_ha"&&(
                     <>
-                      {form.prod_c&&(()=>{
-                        const eid=productores.find((p:any)=>p.id===form.prod_c)?.empresa_id;
-                        // Agrupar lotes por cultivo (solo los que tienen fecha_siembra o sembrados)
-                        const lotesP=lotes.filter((l:any)=>l.empresa_id===eid&&l.cultivo);
-                        const cultivosGrp: Record<string,number>={};
-                        lotesP.forEach((l:any)=>{
-                          const k=l.cultivo_completo||l.cultivo||"Otro";
-                          cultivosGrp[k]=(cultivosGrp[k]||0)+(l.hectareas||0);
-                        });
-                        const haTotal=Object.values(cultivosGrp).reduce((a:number,v:any)=>a+v,0);
-                        return Object.keys(cultivosGrp).length>0?(
-                          <div style={{gridColumn:"1/-1"}}>
-                            <label className={lCls}>Cultivos sembrados — kg/ha por cultivo</label>
-                            <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:4}}>
-                              {Object.entries(cultivosGrp).map(([cult,ha]:any)=>(
-                                <div key={cult} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",
-                                  borderRadius:10,background:"rgba(255,255,255,0.65)",border:"1px solid rgba(180,210,240,0.50)"}}>
-                                  <span style={{flex:1,fontSize:12,fontWeight:700,color:"#0d2137",textTransform:"uppercase"}}>{cult}</span>
-                                  <span style={{fontSize:11,color:"#6b8aaa",marginRight:8}}>{ha} ha</span>
-                                  <input type="number" step="0.5"
-                                    value={form[`kg_ha_${cult}`]??""}
-                                    onChange={e=>{
-                                      const newForm={...form,[`kg_ha_${cult}`]:e.target.value};
-                                      // Recalcular kg totales
-                                      let kgTotal=0;
-                                      Object.entries(cultivosGrp).forEach(([c,h]:any)=>{
-                                        kgTotal+=(Number(newForm[`kg_ha_${c}`]||0))*h;
-                                      });
-                                      newForm.kg_cantidad=String(Math.round(kgTotal));
-                                      const precio=Number(newForm.kg_precio_usd||0);
-                                      if(precio>0){newForm.monto=String(Math.round(kgTotal*precio));newForm.monto_usd=String(Math.round(kgTotal*precio));}
-                                      setForm(newForm);
-                                    }}
-                                    className="inp" style={{width:80,padding:"6px 10px",fontSize:12}} placeholder="kg/ha"/>
-                                  <span style={{fontSize:11,color:"#4a6a8a",minWidth:70}}>
-                                    = {Math.round(Number(form[`kg_ha_${cult}`]||0)*ha).toLocaleString("es-AR")} kg
-                                  </span>
-                                </div>
-                              ))}
-                              <div style={{padding:"8px 12px",borderRadius:10,background:"rgba(25,118,210,0.07)",
-                                border:"1px solid rgba(25,118,210,0.15)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                                <span style={{fontSize:12,fontWeight:700,color:"#1565c0"}}>Total kg calculados</span>
-                                <span style={{fontSize:14,fontWeight:800,color:"#0D47A1"}}>{Number(form.kg_cantidad||0).toLocaleString("es-AR")} kg</span>
-                              </div>
-                            </div>
-                          </div>
-                        ):<div style={{gridColumn:"1/-1",padding:"10px 14px",borderRadius:10,background:"rgba(250,200,0,0.08)",border:"1px solid rgba(250,200,0,0.25)"}}>
-                          <span style={{fontSize:12,color:"#b45309",fontWeight:600}}>⚠ Sin lotes cargados en la campaña activa para este productor.</span>
+                      {form.prod_ac&&(()=>{
+                        const eid=productores.find((p:any)=>p.id===form.prod_ac)?.empresa_id;
+                        const haP=lotes.filter((l:any)=>l.empresa_id===eid).reduce((a:number,l:any)=>a+(l.hectareas||0),0);
+                        return haP>0&&<div style={{gridColumn:"1/-1",padding:"8px 14px",borderRadius:10,background:"rgba(25,118,210,0.07)",border:"1px solid rgba(25,118,210,0.15)"}}>
+                          <span style={{fontSize:12,color:"#1565c0",fontWeight:700}}>🌿 {haP} ha en campaña activa</span>
                         </div>;
                       })()}
                       <div>
-                        <label className={lCls}>Precio U$S / kg referencia</label>
-                        <input type="number" step="0.001" value={form.kg_precio_usd??""} onChange={e=>{
-                          const precio=Number(e.target.value);
-                          const kg=Number(form.kg_cantidad||0);
-                          setForm({...form,kg_precio_usd:e.target.value,monto:String(Math.round(kg*precio)),monto_usd:String(Math.round(kg*precio))});
-                        }} className="inp" style={{padding:"8px 12px"}} placeholder="Ej: 0.240"/>
+                        <label className={lCls}>Kg soja / Ha</label>
+                        <input type="number" step="0.5" value={form.kg_por_ha_ac??""} onChange={e=>{
+                          const haP=Number(form.hectareas_ac||0);
+                          setForm({...form,kg_por_ha_ac:e.target.value,kg_total_ac:String(Math.round(Number(e.target.value)*haP))});
+                        }} className="inp" style={{padding:"8px 12px"}} placeholder="Ej: 50"/>
                       </div>
-                      {form.kg_cantidad&&form.kg_precio_usd&&Number(form.kg_precio_usd)>0&&(
-                        <div style={{gridColumn:"1/-1",padding:"10px 14px",borderRadius:12,
-                          background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.18)"}}>
-                          <span style={{fontSize:13,color:"#1565c0",fontWeight:700}}>
-                            {Number(form.kg_cantidad).toLocaleString("es-AR")} kg × U$S {form.kg_precio_usd}/kg = <strong>U$S {Math.round(Number(form.kg_cantidad)*Number(form.kg_precio_usd)).toLocaleString("es-AR")}</strong>
-                          </span>
-                          <div style={{fontSize:11,color:"#6b8aaa",marginTop:2}}>💡 El precio en $ se pesifica al momento del pago</div>
-                        </div>
-                      )}
+                      <div>
+                        <label className={lCls}>Kg totales pactados</label>
+                        <input type="number" value={form.kg_total_ac??""} onChange={e=>setForm({...form,kg_total_ac:e.target.value})} className="inp" style={{padding:"8px 12px",background:"rgba(240,248,255,0.80)"}}/>
+                      </div>
                     </>
                   )}
 
-                  {/* ── % RENDIMIENTO ── */}
-                  {form.modalidad==="porcentaje_rto"&&(
+                  {/* Kg cultivo/ha */}
+                  {form.modalidad_ac==="kg_cultivo_ha"&&(
                     <>
-                      {form.prod_c&&(()=>{
-                        const eid=productores.find((p:any)=>p.id===form.prod_c)?.empresa_id;
+                      {form.prod_ac&&(()=>{
+                        const eid=productores.find((p:any)=>p.id===form.prod_ac)?.empresa_id;
                         const lotesP=lotes.filter((l:any)=>l.empresa_id===eid&&l.cultivo);
-                        const haTotal=lotesP.reduce((a:number,l:any)=>a+(l.hectareas||0),0);
-                        const cultivosGrp3: Record<string,number>={};
-                        lotesP.forEach((l:any)=>{const k=l.cultivo_completo||l.cultivo||"Otro";cultivosGrp3[k]=(cultivosGrp3[k]||0)+(l.hectareas||0);});
-                        return haTotal>0?(
-                          <div style={{gridColumn:"1/-1",padding:"10px 14px",borderRadius:10,background:"rgba(25,118,210,0.07)",border:"1px solid rgba(25,118,210,0.15)"}}>
-                            <div style={{fontSize:12,color:"#1565c0",fontWeight:700,marginBottom:6}}>🌿 <strong>{haTotal} ha</strong> totales en campaña activa</div>
-                            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-                              {Object.entries(cultivosGrp3).map(([cult,ha]:any)=>(
-                                <span key={cult} style={{fontSize:11,padding:"3px 10px",borderRadius:20,fontWeight:700,
-                                  background:"rgba(255,255,255,0.70)",border:"1px solid rgba(25,118,210,0.20)",color:"#1e3a5f"}}>
-                                  {cult.toUpperCase()}: {ha} ha
-                                </span>
+                        const cultivosGrp:Record<string,number>={};
+                        lotesP.forEach((l:any)=>{const k=l.cultivo_completo||l.cultivo;cultivosGrp[k]=(cultivosGrp[k]||0)+(l.hectareas||0);});
+                        return(
+                          <div style={{gridColumn:"1/-1"}}>
+                            <label className={lCls}>Kg / Ha por cultivo</label>
+                            <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:4}}>
+                              {Object.entries(cultivosGrp).map(([cult,ha]:any)=>(
+                                <div key={cult} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",
+                                  borderRadius:10,background:"rgba(255,255,255,0.65)",border:"1px solid rgba(180,210,240,0.50)"}}>
+                                  <span style={{flex:1,fontSize:12,fontWeight:800,color:"#0d2137",textTransform:"uppercase"}}>{cult}</span>
+                                  <span style={{fontSize:11,color:"#6b8aaa"}}>{ha} ha</span>
+                                  <input type="number" step="0.5" value={form[`kg_ac_${cult}`]??""}
+                                    onChange={e=>{
+                                      const nf={...form,[`kg_ac_${cult}`]:e.target.value};
+                                      let kgT=0;
+                                      Object.entries(cultivosGrp).forEach(([c,h]:any)=>kgT+=Number(nf[`kg_ac_${c}`]||0)*h);
+                                      nf.kg_total_ac=String(Math.round(kgT));
+                                      setForm(nf);
+                                    }}
+                                    className="inp" style={{width:80,padding:"6px 10px",fontSize:12}} placeholder="kg/ha"/>
+                                  <span style={{fontSize:11,color:"#4a6a8a",minWidth:65}}>= {Math.round(Number(form[`kg_ac_${cult}`]||0)*ha)} kg</span>
+                                </div>
                               ))}
+                              <div style={{padding:"8px 12px",borderRadius:10,background:"rgba(25,118,210,0.07)",
+                                border:"1px solid rgba(25,118,210,0.15)",display:"flex",justifyContent:"space-between"}}>
+                                <span style={{fontSize:12,fontWeight:700,color:"#1565c0"}}>Total kg pactados</span>
+                                <span style={{fontSize:14,fontWeight:800,color:"#0D47A1"}}>{Number(form.kg_total_ac||0).toLocaleString("es-AR")} kg</span>
+                              </div>
                             </div>
                           </div>
-                        ):null;
+                        );
                       })()}
-                      <div>
-                        <label className={lCls}>% del rendimiento</label>
-                        <input type="number" step="0.1" value={form.porcentaje??""} onChange={e=>setForm({...form,porcentaje:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="Ej: 1.5"/>
-                      </div>
-                      <div>
-                        <label className={lCls}>Monto U$S resultante</label>
-                        <input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value,monto_usd:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="Calculado auto"/>
-                      </div>
-                      <div>
-                        <label className={lCls}>Rend. total tn</label>
-                        <input type="number" value={form.rendimiento_tn??""} onChange={e=>setForm({...form,rendimiento_tn:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="0"/>
-                      </div>
                     </>
                   )}
 
-                  {/* Concepto — siempre editable */}
                   <div style={{gridColumn:"1/-1"}}>
-                    <label className={lCls}>Concepto (editable)</label>
-                    <input type="text" value={form.concepto??""} onChange={e=>setForm({...form,concepto:e.target.value})} className="inp" style={{padding:"8px 12px"}}
-                      placeholder="Ej: Honorario mensual abril 2026..."/>
-                  </div>
-
-                  <div>
-                    <label className={lCls}>Fecha</label>
-                    <input type="date" value={form.fecha_c??""} onChange={e=>setForm({...form,fecha_c:e.target.value})} className="inp" style={{padding:"8px 12px"}}/>
-                  </div>
-                  <div>
-                    <label className={lCls}>Estado</label>
-                    <select value={form.estado??"pendiente"} onChange={e=>setForm({...form,estado:e.target.value})} className="inp" style={{padding:"8px 12px"}}>
-                      <option value="pendiente">Pendiente</option>
-                      <option value="cobrado">Cobrado</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className={lCls}>Método de pago</label>
-                    <select value={form.metodo??""} onChange={e=>setForm({...form,metodo:e.target.value})} className="inp" style={{padding:"8px 12px"}}>
-                      <option value="">—</option>
-                      <option value="transferencia">Transferencia</option>
-                      <option value="efectivo">Efectivo</option>
-                      <option value="cheque">Cheque</option>
-                      <option value="granos">Granos</option>
-                    </select>
+                    <label className={lCls}>Concepto / Notas del acuerdo</label>
+                    <input type="text" value={form.concepto_ac??""} onChange={e=>setForm({...form,concepto_ac:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="Ej: Honorario campaña 2025/2026 — 50 kg soja/ha..."/>
                   </div>
                 </div>
 
-                {/* Total a cobrar */}
-                {Number(form.monto||0)>0&&(
-                  <div style={{marginBottom:12,padding:"12px 16px",borderRadius:14,
-                    backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",backgroundPosition:"center",
-                    position:"relative",overflow:"hidden"}}>
-                    <div style={{position:"absolute",inset:0,background:"rgba(255,255,255,0.12)"}}/>
-                    <div style={{position:"relative",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                      <div>
-                        <span style={{fontSize:13,fontWeight:700,color:"white",textShadow:"0 1px 3px rgba(0,40,120,0.40)"}}>Total a cobrar</span>
-                        {form.kg_cantidad&&<div style={{fontSize:11,color:"rgba(255,255,255,0.75)",marginTop:2}}>{Number(form.kg_cantidad).toLocaleString("es-AR")} kg · {form.frecuencia||"anual"}</div>}
-                      </div>
-                      <span style={{fontSize:20,fontWeight:800,color:"white",textShadow:"0 1px 3px rgba(0,40,120,0.40)"}}>U$S {Number(form.monto||0).toLocaleString("es-AR")}</span>
-                    </div>
-                  </div>
-                )}
-
-                <div style={{display:"flex",gap:8}}>
-                  <button onClick={guardarCob} className="bbtn">✓ Confirmar cobro</button>
-                  <button onClick={()=>{setShowForm(false);setForm({});}} className="btn-cancel" style={{padding:"10px 16px",fontSize:13}}>Cancelar</button>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  <button onClick={guardarAcuerdo} className="bbtn">✓ Guardar acuerdo</button>
+                  {form.prod_ac&&<button onClick={()=>copiarAcuerdoAnterior(form.prod_ac)}
+                    style={{padding:"10px 16px",borderRadius:12,fontSize:13,fontWeight:700,cursor:"pointer",
+                      background:"rgba(255,255,255,0.75)",border:"1.5px solid rgba(255,255,255,0.95)",color:"#4a6a8a"}}>
+                    📋 Copiar campaña anterior
+                  </button>}
+                  <button onClick={()=>{setShowAcuerdo(false);setForm({});}} className="btn-cancel" style={{padding:"10px 16px",fontSize:13}}>Cancelar</button>
                 </div>
               </div>
             )}
 
-            {/* Tabla de cobros registrados */}
-            <div className="card" style={{padding:0,overflow:"hidden"}}>
-              <div style={{padding:"12px 16px",borderBottom:"1px solid rgba(0,60,140,0.08)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <span style={{fontSize:13,fontWeight:800,color:"#0d2137"}}>Historial de cobros</span>
-                <button onClick={async()=>{
-                  const XLSX=await import("xlsx");
-                  const data=cobranzas.map((c:any)=>{
-                    const p=productores.find((x:any)=>x.id===c.productor_id);
-                    return{PRODUCTOR:p?.nombre??"—",CONCEPTO:c.concepto,MODALIDAD:c.modalidad??"",PERIODO:c.periodo??"",MONTO_USD:c.monto||0,KG:c.kg_cantidad||"",PRECIO_KG:c.kg_precio_usd||"",FECHA:c.fecha,ESTADO:c.estado,METODO:c.metodo_pago||""};
-                  });
-                  const ws=XLSX.utils.json_to_sheet(data);
-                  ws["!cols"]=[{wch:22},{wch:28},{wch:14},{wch:14},{wch:12},{wch:10},{wch:10},{wch:12},{wch:10},{wch:12}];
-                  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Cobranza");
-                  XLSX.writeFile(wb,"cobranza_"+new Date().toISOString().slice(0,10)+".xlsx");
-                }} className="btn-g" style={{padding:"6px 12px",fontSize:12}}>📤 Exportar</button>
-              </div>
-              {cobranzas.length===0?(
-                <div style={{textAlign:"center",padding:"48px 20px",color:"#6b8aaa",fontSize:14}}>Sin cobros registrados</div>
-              ):(
-                <div style={{overflowX:"auto"}}>
-                  <table style={{width:"100%",fontSize:12,minWidth:600,borderCollapse:"collapse"}}>
-                    <thead><tr style={{borderBottom:"1px solid rgba(0,60,140,0.08)",background:"rgba(240,248,255,0.50)"}}>
-                      {["Productor","Concepto","Modalidad","Período","Monto U$S","Estado",""].map(h=>(
-                        <th key={h} style={{textAlign:"left",padding:"10px 12px",fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase",letterSpacing:0.8}}>{h}</th>
-                      ))}
-                    </tr></thead>
-                    <tbody>
-                      {cobranzas.map((c:any)=>{
-                        const p=productores.find((x:any)=>x.id===c.productor_id);
-                        const MODAL_ICON:Record<string,string>={usd_mensual:"💵",usd_anual:"💵",kg_soja_ha:"🫘",kg_cultivo_ha:"🌾",porcentaje_rto:"📊",otro:"✏️"};
-                        const MODAL_LABEL:Record<string,string>={usd_mensual:"U$S/mes",usd_anual:"U$S/año",kg_soja_ha:"Kg soja/ha",kg_cultivo_ha:"Kg cultivo/ha",porcentaje_rto:"% Rto",otro:"Otro"};
-                        return(
-                          <tr key={c.id} style={{borderBottom:"1px solid rgba(0,60,140,0.05)"}}
-                            onMouseOver={e=>(e.currentTarget.style.background="rgba(240,248,255,0.50)")}
-                            onMouseOut={e=>(e.currentTarget.style.background="transparent")}>
-                            <td style={{padding:"10px 12px",fontWeight:700,color:"#0d2137"}}>{p?.nombre??"—"}</td>
-                            <td style={{padding:"10px 12px",color:"#4a6a8a",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.concepto}</td>
-                            <td style={{padding:"10px 12px"}}>
-                              <span style={{fontSize:11,padding:"3px 8px",borderRadius:7,fontWeight:700,
-                                background:"rgba(25,118,210,0.10)",color:"#1565c0"}}>
-                                {MODAL_ICON[c.modalidad]||"✏️"} {MODAL_LABEL[c.modalidad]||"Manual"}
-                              </span>
-                            </td>
-                            <td style={{padding:"10px 12px",color:"#6b8aaa",fontSize:11}}>{c.periodo||"—"}</td>
-                            <td style={{padding:"10px 12px",fontWeight:800,color:"#0D47A1",fontSize:13}}>
-                              U$S {Number(c.monto||0).toLocaleString("es-AR")}
-                              {c.kg_cantidad>0&&<div style={{fontSize:10,color:"#6b8aaa",fontWeight:500}}>{c.kg_cantidad} kg × U$S {c.kg_precio_usd}/kg</div>}
-                            </td>
-                            <td style={{padding:"10px 12px"}}>
-                              <span style={{fontSize:11,padding:"3px 8px",borderRadius:7,fontWeight:700,
-                                background:c.estado==="cobrado"?"rgba(22,163,74,0.10)":"rgba(220,38,38,0.08)",
-                                color:c.estado==="cobrado"?"#166534":"#dc2626"}}>
-                                {c.estado==="cobrado"?"✓ Cobrado":"⏳ Pendiente"}
-                              </span>
-                            </td>
-                            <td style={{padding:"10px 12px",display:"flex",gap:8,alignItems:"center"}}>
-                              {c.estado==="pendiente"&&(
-                                <button onClick={()=>marcarCobrado(c.id)}
-                                  style={{fontSize:11,padding:"4px 10px",borderRadius:7,fontWeight:700,cursor:"pointer",
-                                    background:"rgba(22,163,74,0.10)",border:"1px solid rgba(22,163,74,0.25)",color:"#166534"}}>
-                                  ✓ Cobrar
-                                </button>
-                              )}
-                              <button onClick={async()=>{const sb=getSB();await sb.from("ing_cobranzas").delete().eq("id",c.id);await fetchCobs(ingId);}}
-                                style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:15}}>✕</button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+            {/* Form registrar pago */}
+            {showPago&&acuerdoSel&&(()=>{
+              const saldo=calcularSaldo(acuerdoSel);
+              const esKg=acuerdoSel.modalidad==="kg_soja_ha"||acuerdoSel.modalidad==="kg_cultivo_ha";
+              const prod=productores.find((p:any)=>p.id===acuerdoSel.productor_id);
+              return(
+                <div className="card fade-in" style={{padding:16}}>
+                  <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:800,color:"#0d2137"}}>💸 Registrar pago — {prod?.nombre}</div>
+                      <div style={{fontSize:12,color:"#6b8aaa",marginTop:2}}>{acuerdoSel.concepto} · {acuerdoSel.campana_nombre}</div>
+                    </div>
+                    {/* Saldo actual */}
+                    <div style={{padding:"8px 14px",borderRadius:12,background:saldo.completo?"rgba(22,163,74,0.10)":"rgba(220,38,38,0.08)",
+                      border:`1px solid ${saldo.completo?"rgba(22,163,74,0.25)":"rgba(220,38,38,0.20)"}`}}>
+                      <div style={{fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase"}}>Saldo restante</div>
+                      <div style={{fontSize:16,fontWeight:800,color:saldo.completo?"#166534":"#dc2626"}}>
+                        {esKg?`${saldo.kgRestante.toLocaleString("es-AR")} kg`:`U$S ${Math.round(saldo.usdRestante).toLocaleString("es-AR")}`}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                    <div>
+                      <label className={lCls}>Fecha de pago</label>
+                      <input type="date" value={form.pago_fecha??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,pago_fecha:e.target.value})} className="inp" style={{padding:"8px 12px"}}/>
+                    </div>
+
+                    {esKg?(
+                      <>
+                        <div>
+                          <label className={lCls}>Kg a cobrar este pago</label>
+                          <input type="number" value={form.pago_kg??""} onChange={e=>{
+                            const kg=Number(e.target.value);
+                            const precio=Number(form.pago_precio_soja||0);
+                            const tc=Number(form.pago_tc||1);
+                            const usd=Math.round(kg*precio);
+                            setForm({...form,pago_kg:e.target.value,pago_usd:String(usd),pago_pesos:String(Math.round(usd*tc))});
+                          }} className="inp" style={{padding:"8px 12px"}} placeholder={`Máx ${saldo.kgRestante} kg`}/>
+                        </div>
+                        <div>
+                          <label className={lCls}>Precio soja hoy U$S/kg</label>
+                          <input type="number" step="0.001" value={form.pago_precio_soja??""} onChange={e=>{
+                            const precio=Number(e.target.value);
+                            const kg=Number(form.pago_kg||0);
+                            const tc=Number(form.pago_tc||1);
+                            const usd=Math.round(kg*precio);
+                            setForm({...form,pago_precio_soja:e.target.value,pago_usd:String(usd),pago_pesos:String(Math.round(usd*tc))});
+                          }} className="inp" style={{padding:"8px 12px"}} placeholder="Ej: 0.240"/>
+                        </div>
+                      </>
+                    ):(
+                      <div>
+                        <label className={lCls}>Monto U$S este pago</label>
+                        <input type="number" value={form.pago_usd??""} onChange={e=>{
+                          const usd=Number(e.target.value);
+                          const tc=Number(form.pago_tc||1);
+                          setForm({...form,pago_usd:e.target.value,pago_pesos:String(Math.round(usd*tc))});
+                        }} className="inp" style={{padding:"8px 12px"}} placeholder={`Máx U$S ${Math.round(saldo.usdRestante)}`}/>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className={lCls}>Tipo de cambio (hoy)</label>
+                      <input type="number" step="1" value={form.pago_tc??""} onChange={e=>{
+                        const tc=Number(e.target.value);
+                        const usd=Number(form.pago_usd||0);
+                        setForm({...form,pago_tc:e.target.value,pago_pesos:String(Math.round(usd*tc))});
+                      }} className="inp" style={{padding:"8px 12px"}} placeholder="Ej: 1150"/>
+                    </div>
+
+                    {(form.pago_usd||form.pago_pesos)&&Number(form.pago_usd||0)>0&&(
+                      <div style={{padding:"8px 14px",borderRadius:10,background:"rgba(25,118,210,0.07)",border:"1px solid rgba(25,118,210,0.15)",display:"flex",flexDirection:"column",gap:2}}>
+                        <span style={{fontSize:12,fontWeight:700,color:"#1565c0"}}>
+                          U$S {Number(form.pago_usd||0).toLocaleString("es-AR")}
+                          {form.pago_tc&&<span style={{fontWeight:500,color:"#4a6a8a"}}> × ${Number(form.pago_tc).toLocaleString("es-AR")}</span>}
+                        </span>
+                        {form.pago_pesos&&Number(form.pago_pesos)>0&&(
+                          <span style={{fontSize:14,fontWeight:800,color:"#0D47A1"}}>= ${Number(form.pago_pesos).toLocaleString("es-AR")}</span>
+                        )}
+                      </div>
+                    )}
+
+                    <div>
+                      <label className={lCls}>Método de pago</label>
+                      <select value={form.pago_metodo??""} onChange={e=>setForm({...form,pago_metodo:e.target.value})} className="inp" style={{padding:"8px 12px"}}>
+                        <option value="">—</option>
+                        <option value="transferencia">Transferencia</option>
+                        <option value="efectivo">Efectivo</option>
+                        <option value="cheque">Cheque</option>
+                        <option value="granos">Granos</option>
+                      </select>
+                    </div>
+                    <div style={{gridColumn:"1/-1"}}>
+                      <label className={lCls}>Observaciones</label>
+                      <input type="text" value={form.pago_obs??""} onChange={e=>setForm({...form,pago_obs:e.target.value})} className="inp" style={{padding:"8px 12px"}} placeholder="Opcional..."/>
+                    </div>
+                  </div>
+
+                  <div style={{display:"flex",gap:8}}>
+                    <button onClick={registrarPago} className="bbtn">✓ Registrar pago</button>
+                    <button onClick={()=>{setShowPago(false);setAcuerdoSel(null);setForm({});}} className="btn-cancel" style={{padding:"10px 16px",fontSize:13}}>Cancelar</button>
+                  </div>
                 </div>
-              )}
-            </div>
+              );
+            })()}
+
+            {/* Lista acuerdos por campaña */}
+            {acuerdos
+              .filter((a:any)=>campanaFiltro==="todas"||a.campana_nombre===campanaFiltro)
+              .length===0?(
+              <div className="card" style={{padding:"48px 20px",textAlign:"center"}}>
+                <div style={{fontSize:40,opacity:0.12,marginBottom:12}}>📋</div>
+                <p style={{color:"#6b8aaa",fontSize:14,marginBottom:12}}>Sin acuerdos configurados</p>
+                <button onClick={()=>{setShowAcuerdo(true);setForm({});}} className="bbtn">+ Configurar primer acuerdo</button>
+              </div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {acuerdos
+                  .filter((a:any)=>campanaFiltro==="todas"||a.campana_nombre===campanaFiltro)
+                  .map((ac:any)=>{
+                  const saldo=calcularSaldo(ac);
+                  const esKg=ac.modalidad==="kg_soja_ha"||ac.modalidad==="kg_cultivo_ha";
+                  const prod=productores.find((p:any)=>p.id===ac.productor_id);
+                  const pagosAc=pagos.filter((p:any)=>p.acuerdo_id===ac.id);
+                  const pct=esKg
+                    ?(ac.kg_total>0?Math.min(100,Math.round((saldo.kgPagado/ac.kg_total)*100)):0)
+                    :(ac.monto_total_usd>0?Math.min(100,Math.round((saldo.usdPagado/ac.monto_total_usd)*100)):0);
+                  const MODAL_LABEL:Record<string,string>={usd_mensual:"U$S/mes",usd_anual:"U$S/campaña",kg_soja_ha:"Kg soja/ha",kg_cultivo_ha:"Kg cultivo/ha",otro:"Manual"};
+
+                  return(
+                    <div key={ac.id} className="card" style={{padding:0}}>
+                      {/* Header acuerdo */}
+                      <div style={{padding:"12px 14px",borderBottom:"1px solid rgba(0,60,140,0.08)",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                        <div style={{width:38,height:38,borderRadius:"50%",backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",
+                          border:"2px solid rgba(180,220,255,0.80)",display:"flex",alignItems:"center",justifyContent:"center",
+                          fontSize:15,fontWeight:800,color:"white",flexShrink:0,textShadow:"0 1px 3px rgba(0,40,120,0.40)"}}>
+                          {prod?.nombre?.charAt(0)||"?"}
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:14,fontWeight:800,color:"#0d2137"}}>{prod?.nombre||"—"}</div>
+                          <div style={{fontSize:11,color:"#6b8aaa",marginTop:1,display:"flex",gap:8,flexWrap:"wrap"}}>
+                            <span style={{fontWeight:700,color:"#1565c0"}}>{ac.campana_nombre}</span>
+                            <span>{MODAL_LABEL[ac.modalidad]||ac.modalidad}</span>
+                            {ac.concepto&&<span>· {ac.concepto}</span>}
+                          </div>
+                        </div>
+                        {/* Total pactado */}
+                        <div style={{textAlign:"right",flexShrink:0}}>
+                          <div style={{fontSize:11,color:"#6b8aaa",fontWeight:600}}>Pactado</div>
+                          <div style={{fontSize:14,fontWeight:800,color:"#0d2137"}}>
+                            {esKg?`${ac.kg_total?.toLocaleString("es-AR")} kg`:`U$S ${ac.monto_total_usd?.toLocaleString("es-AR")}`}
+                          </div>
+                        </div>
+                        <div style={{display:"flex",gap:6,flexShrink:0}}>
+                          <button onClick={()=>{setAcuerdoSel(ac);setShowPago(true);setShowAcuerdo(false);
+                            setTimeout(()=>formCobRef.current?.scrollIntoView({behavior:"smooth",block:"center"}),100);}}
+                            className="bbtn" style={{padding:"7px 12px",fontSize:12}}>+ Cobrar</button>
+                          <button onClick={()=>{
+                            setForm({prod_ac:ac.productor_id,modalidad_ac:ac.modalidad,
+                              monto_ac:String(ac.modalidad==="usd_mensual"?ac.monto_total_usd/12:ac.monto_total_usd),
+                              kg_total_ac:String(ac.kg_total),concepto_ac:ac.concepto,notas_ac:ac.notas});
+                            setShowAcuerdo(true);setShowPago(false);}} style={{padding:"7px 12px",borderRadius:12,fontSize:12,fontWeight:600,cursor:"pointer",background:"rgba(255,255,255,0.70)",border:"1.5px solid rgba(255,255,255,0.95)",color:"#4a6a8a"}}>✏️</button>
+                          <button onClick={async()=>{if(confirm("¿Eliminar acuerdo y sus pagos?")){const sb=getSB();await sb.from("ing_acuerdos").delete().eq("id",ac.id);await fetchAcuerdos(ingId);}}}
+                            style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:16}}>✕</button>
+                        </div>
+                      </div>
+
+                      {/* Barra de progreso */}
+                      <div style={{padding:"10px 14px"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+                          <div style={{display:"flex",gap:16}}>
+                            <div style={{fontSize:11,color:"#6b8aaa"}}>
+                              Cobrado: <strong style={{color:"#166534"}}>{esKg?`${saldo.kgPagado.toLocaleString("es-AR")} kg`:`U$S ${Math.round(saldo.usdPagado).toLocaleString("es-AR")}`}</strong>
+                            </div>
+                            <div style={{fontSize:11,color:"#6b8aaa"}}>
+                              Saldo: <strong style={{color:saldo.completo?"#166534":"#dc2626"}}>{esKg?`${saldo.kgRestante.toLocaleString("es-AR")} kg`:`U$S ${Math.round(saldo.usdRestante).toLocaleString("es-AR")}`}</strong>
+                            </div>
+                          </div>
+                          <span style={{fontSize:12,fontWeight:800,color:saldo.completo?"#166534":"#1565c0"}}>{pct}%</span>
+                        </div>
+                        {/* Barra */}
+                        <div style={{height:8,borderRadius:10,background:"rgba(0,60,140,0.08)",overflow:"hidden"}}>
+                          <div style={{height:"100%",borderRadius:10,
+                            background:saldo.completo?"linear-gradient(90deg,#22c55e,#4ade80)":"linear-gradient(90deg,#1976d2,#42a5f5)",
+                            width:pct+"%",transition:"width 0.5s ease",position:"relative",overflow:"hidden"}}>
+                            <div style={{position:"absolute",top:0,left:"-50%",width:"40%",height:"100%",
+                              background:"linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent)",
+                              animation:"shine 2.5s ease-in-out infinite"}}/>
+                          </div>
+                        </div>
+
+                        {/* Historial de pagos del acuerdo */}
+                        {pagosAc.length>0&&(
+                          <div style={{marginTop:10}}>
+                            <div style={{fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:6}}>Pagos registrados</div>
+                            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                              {pagosAc.map((pg:any)=>(
+                                <div key={pg.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 10px",
+                                  borderRadius:8,background:"rgba(255,255,255,0.55)",border:"1px solid rgba(255,255,255,0.85)"}}>
+                                  <span style={{fontSize:11,color:"#6b8aaa",minWidth:75}}>{pg.fecha}</span>
+                                  <span style={{fontSize:12,fontWeight:700,color:"#0D47A1",flex:1}}>
+                                    {esKg?`${pg.kg_cantidad} kg → `:""}U$S {Number(pg.monto_usd||0).toLocaleString("es-AR")}
+                                    {pg.tipo_cambio>1&&<span style={{fontWeight:500,color:"#4a6a8a"}}> · ${Math.round(pg.monto_pesos||0).toLocaleString("es-AR")}</span>}
+                                  </span>
+                                  {pg.metodo_pago&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:6,fontWeight:600,background:"rgba(25,118,210,0.08)",color:"#1565c0"}}>{pg.metodo_pago}</span>}
+                                  <button onClick={async()=>{const sb=getSB();await sb.from("ing_pagos").delete().eq("id",pg.id);await fetchAcuerdos(ingId);}}
+                                    style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:13}}>✕</button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Ref para scroll */}
+            <div ref={formCobRef}/>
+
           </div>
         )}
 
