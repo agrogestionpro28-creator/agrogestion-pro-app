@@ -498,7 +498,7 @@ export default function IngenieroPanel() {
       empresa_id: productores.find((p:any)=>p.id===form.prod_c)?.empresa_id||null,
       concepto: form.concepto??"",
       monto: Number(form.monto??0),
-      monto_usd: Number(form.monto_usd||form.monto??0),
+      monto_usd: Number(form.monto_usd||(form.monto??0)),
       fecha: form.fecha_c??new Date().toISOString().split("T")[0],
       estado: form.estado??"pendiente",
       metodo_pago: form.metodo??"",
