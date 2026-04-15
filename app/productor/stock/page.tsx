@@ -21,21 +21,20 @@ const UBICACIONES = [
 const CULTIVO_ICONS: Record<string,string> = { soja:"🌱",maiz:"🌽",trigo:"🌾",girasol:"🌻",sorgo:"🌿",cebada:"🍃",arveja:"🫛",otro:"🌐" };
 const SUBCATS_AGRO = ["herbicida","insecticida","fungicida","coadyuvante","curasemilla","fertilizante_foliar","otro"];
 const TABS = [
-  { key:"granos", label:"Libro de Granos", icon:"🌾", color:"#C9A227", img:"/stock-granos.png" },
-  { key:"insumos", label:"Insumos", icon:"🧪", color:"#4ADE80", img:"/stock-insumos.png" },
-  { key:"gasoil", label:"Gasoil", icon:"⛽", color:"#60A5FA", img:"/stock-gasoil.png" },
-  { key:"varios", label:"Stock Varios", icon:"🔧", color:"#A78BFA", img:"/stock-varios.png" },
+  { key:"granos", label:"Libro de Granos", icon:"🌾", color:"#d97706", img:"/stock-granos.png" },
+  { key:"insumos", label:"Insumos", icon:"🧪", color:"#16a34a", img:"/stock-insumos.png" },
+  { key:"gasoil", label:"Gasoil", icon:"⛽", color:"#1565c0", img:"/stock-gasoil.png" },
+  { key:"varios", label:"Stock Varios", icon:"🔧", color:"#7c3aed", img:"/stock-varios.png" },
 ];
 const CAT_INSUMOS = [
-  { key:"semilla", label:"Semillas", color:"#4ADE80", icon:"🌱" },
-  { key:"fertilizante", label:"Fertilizantes", color:"#C9A227", icon:"💊" },
-  { key:"agroquimico", label:"Agroquímicos", color:"#60A5FA", icon:"🧪" },
-  { key:"otro", label:"Otros", color:"#A78BFA", icon:"🔧" },
+  { key:"semilla", label:"Semillas", color:"#22c55e", icon:"🌱" },
+  { key:"fertilizante", label:"Fertilizantes", color:"#d97706", icon:"💊" },
+  { key:"agroquimico", label:"Agroquímicos", color:"#1565c0", icon:"🧪" },
+  { key:"otro", label:"Otros", color:"#7c3aed", icon:"🔧" },
 ];
 
 type VozEstado = "idle"|"escuchando"|"procesando"|"respondiendo"|"error";
 
-// ── Calcula PPP: (stock_actual * ppp_anterior + cantidad_nueva * precio_nuevo) / (stock_actual + cantidad_nueva)
 function calcularPPP(stockActual: number, pppAnterior: number, cantidadNueva: number, precioNuevo: number): number {
   const totalUnidades = stockActual + cantidadNueva;
   if (totalUnidades <= 0) return precioNuevo;
@@ -55,7 +54,6 @@ export default function StockPage() {
   const [loading, setLoading] = useState(true);
   const [cultivoActivo, setCultivoActivo] = useState<string|null>(null);
   const [gasoilActivo, setGasoilActivo] = useState<string|null>(null);
-
   const [showFormUbicacion, setShowFormUbicacion] = useState(false);
   const [showFormVenta, setShowFormVenta] = useState(false);
   const [showFormInsumo, setShowFormInsumo] = useState(false);
@@ -66,17 +64,14 @@ export default function StockPage() {
   const [showImport, setShowImport] = useState(false);
   const [showProveedores, setShowProveedores] = useState(false);
   const [showFormProveedor, setShowFormProveedor] = useState(false);
-
   const [editandoUbicacion, setEditandoUbicacion] = useState<string|null>(null);
   const [editandoInsumo, setEditandoInsumo] = useState<string|null>(null);
   const [editandoVarios, setEditandoVarios] = useState<string|null>(null);
-
   const [form, setForm] = useState<Record<string,string>>({});
   const [importMsg, setImportMsg] = useState("");
   const [importPreview, setImportPreview] = useState<any[]>([]);
   const [msgExito, setMsgExito] = useState("");
   const importRef = useRef<HTMLInputElement>(null);
-
   const [vozEstado, setVozEstado] = useState<VozEstado>("idle");
   const [vozPanel, setVozPanel] = useState(false);
   const [vozTranscripcion, setVozTranscripcion] = useState("");
@@ -188,9 +183,13 @@ export default function StockPage() {
           await sb.from("stock_insumos_movimientos").insert({ empresa_id: empresaId, insumo_id: insumo.id, fecha: new Date().toISOString().split("T")[0], tipo: "uso", cantidad: Number(parsed.datos.cantidad ?? 0), precio_unitario: 0, precio_ppp: pppActual, descripcion: texto, metodo: "voz" });
           await fetchAll(empresaId);
         }
-      } else if (parsed.accion === "cargar_gasoil" && parsed.datos) { setTab("gasoil"); setForm({ cantidad_litros: String(parsed.datos.litros ?? ""), tipo_ubicacion: "tanque_propio", ubicacion: parsed.datos.ubicacion ?? "" }); setShowFormGasoil(true);
-      } else if (parsed.accion === "cargar_insumo" && parsed.datos) { setTab("insumos"); setForm({ nombre: parsed.datos.nombre ?? "", categoria: parsed.datos.categoria ?? "agroquimico", cantidad: String(parsed.datos.cantidad ?? ""), unidad: parsed.datos.unidad ?? "litros" }); setShowFormInsumo(true);
-      } else if (parsed.accion === "cargar_grano" && parsed.datos) { setTab("granos"); setForm({ cultivo: parsed.datos.cultivo ?? "", cantidad_tn: String(parsed.datos.cantidad_tn ?? ""), tipo_ubicacion: parsed.datos.tipo_ubicacion ?? "silo" }); setShowFormCultivo(true); }
+      } else if (parsed.accion === "cargar_gasoil" && parsed.datos) {
+        setTab("gasoil"); setForm({ cantidad_litros: String(parsed.datos.litros ?? ""), tipo_ubicacion: "tanque_propio", ubicacion: parsed.datos.ubicacion ?? "" }); setShowFormGasoil(true);
+      } else if (parsed.accion === "cargar_insumo" && parsed.datos) {
+        setTab("insumos"); setForm({ nombre: parsed.datos.nombre ?? "", categoria: parsed.datos.categoria ?? "agroquimico", cantidad: String(parsed.datos.cantidad ?? ""), unidad: parsed.datos.unidad ?? "litros" }); setShowFormInsumo(true);
+      } else if (parsed.accion === "cargar_grano" && parsed.datos) {
+        setTab("granos"); setForm({ cultivo: parsed.datos.cultivo ?? "", cantidad_tn: String(parsed.datos.cantidad_tn ?? ""), tipo_ubicacion: parsed.datos.tipo_ubicacion ?? "silo" }); setShowFormCultivo(true);
+      }
       setVozEstado("respondiendo");
     } catch { const err = "No pude interpretar. Intentá de nuevo."; setVozRespuesta(err); hablar(err); setVozEstado("error"); setTimeout(() => setVozEstado("idle"), 2000); }
   }, [gasoil, insumos, cultivosConStock, empresaId, hablar]);
@@ -205,11 +204,10 @@ export default function StockPage() {
     rec.start();
   };
 
-  const VOZ_COLOR: Record<VozEstado,string> = { idle:"#00FF80", escuchando:"#F87171", procesando:"#C9A227", respondiendo:"#60A5FA", error:"#F87171" };
+  const VOZ_COLOR: Record<VozEstado,string> = { idle:"#22c55e", escuchando:"#ef4444", procesando:"#d97706", respondiendo:"#60a5fa", error:"#ef4444" };
   const VOZ_ICON: Record<VozEstado,string> = { idle:"🎤", escuchando:"🔴", procesando:"⚙️", respondiendo:"🔊", error:"❌" };
-  const VOZ_LABEL: Record<VozEstado,string> = { idle:"Hablar", escuchando:"Escuchando...", procesando:"Procesando...", respondiendo:"Respondiendo...", error:"Error" };
 
-  // ===== CRUD =====
+  // ===== CRUD (lógica 100% original) =====
 
   const guardarUbicacion = async () => {
     if (!empresaId || !form.cultivo) return;
@@ -232,137 +230,51 @@ export default function StockPage() {
     mostrarMsg("✅ Venta pactada"); await fetchAll(empresaId); setShowFormVenta(false); setForm({});
   };
 
-  // ── INSUMOS con PPP ──
   const guardarInsumo = async () => {
     if (!empresaId) return;
     const sb = await getSB();
     const cantNueva = Number(form.cantidad ?? 0);
     const precioNuevo = Number(form.precio_unitario ?? 0);
-
     if (editandoInsumo) {
-      // Edición simple — no recalcula PPP, solo actualiza datos
-      await sb.from("stock_insumos").update({
-        nombre: form.nombre, categoria: form.categoria ?? "agroquimico",
-        subcategoria: form.subcategoria ?? "", cantidad: cantNueva,
-        unidad: form.unidad ?? "litros", ubicacion: form.ubicacion ?? "",
-        tipo_ubicacion: form.tipo_ubicacion ?? "deposito_propio",
-        precio_unitario: precioNuevo,
-      }).eq("id", editandoInsumo);
+      await sb.from("stock_insumos").update({ nombre: form.nombre, categoria: form.categoria ?? "agroquimico", subcategoria: form.subcategoria ?? "", cantidad: cantNueva, unidad: form.unidad ?? "litros", ubicacion: form.ubicacion ?? "", tipo_ubicacion: form.tipo_ubicacion ?? "deposito_propio", precio_unitario: precioNuevo }).eq("id", editandoInsumo);
       setEditandoInsumo(null);
     } else {
-      // Nueva compra — calcula PPP con stock existente del mismo insumo
-      const existente = insumos.find(i =>
-        i.nombre.toLowerCase().trim() === (form.nombre ?? "").toLowerCase().trim() &&
-        i.categoria === (form.categoria ?? "agroquimico")
-      );
-
+      const existente = insumos.find(i => i.nombre.toLowerCase().trim() === (form.nombre ?? "").toLowerCase().trim() && i.categoria === (form.categoria ?? "agroquimico"));
       if (existente) {
-        // Ya existe → actualiza stock y recalcula PPP
         const pppNuevo = calcularPPP(existente.cantidad, existente.precio_ppp || existente.precio_unitario, cantNueva, precioNuevo);
         const cantTotal = existente.cantidad + cantNueva;
-        const costoTotal = cantTotal * pppNuevo;
-
-        await sb.from("stock_insumos").update({
-          cantidad: cantTotal,
-          precio_ppp: pppNuevo,
-          precio_unitario: precioNuevo, // último precio de compra
-          costo_total_stock: costoTotal,
-        }).eq("id", existente.id);
-
-        // Registra movimiento de compra
-        await sb.from("stock_insumos_movimientos").insert({
-          empresa_id: empresaId, insumo_id: existente.id,
-          fecha: new Date().toISOString().split("T")[0],
-          tipo: "compra", cantidad: cantNueva,
-          precio_unitario: precioNuevo, precio_ppp: pppNuevo,
-          descripcion: `Compra: ${cantNueva} ${existente.unidad} a $${precioNuevo}`, metodo: "manual",
-        });
-
+        await sb.from("stock_insumos").update({ cantidad: cantTotal, precio_ppp: pppNuevo, precio_unitario: precioNuevo, costo_total_stock: cantTotal * pppNuevo }).eq("id", existente.id);
+        await sb.from("stock_insumos_movimientos").insert({ empresa_id: empresaId, insumo_id: existente.id, fecha: new Date().toISOString().split("T")[0], tipo: "compra", cantidad: cantNueva, precio_unitario: precioNuevo, precio_ppp: pppNuevo, descripcion: `Compra: ${cantNueva} ${existente.unidad} a $${precioNuevo}`, metodo: "manual" });
         mostrarMsg(`✅ Stock actualizado — PPP: $${pppNuevo.toFixed(2)}/${existente.unidad}`);
       } else {
-        // Nuevo insumo — PPP = precio de compra inicial
-        const { data: nuevo } = await sb.from("stock_insumos").insert({
-          empresa_id: empresaId, nombre: form.nombre,
-          categoria: form.categoria ?? "agroquimico", subcategoria: form.subcategoria ?? "",
-          cantidad: cantNueva, unidad: form.unidad ?? "litros",
-          ubicacion: form.ubicacion ?? "", tipo_ubicacion: form.tipo_ubicacion ?? "deposito_propio",
-          precio_unitario: precioNuevo,
-          precio_ppp: precioNuevo, // PPP inicial = precio de compra
-          costo_total_stock: cantNueva * precioNuevo,
-        }).select().single();
-
-        if (nuevo) {
-          await sb.from("stock_insumos_movimientos").insert({
-            empresa_id: empresaId, insumo_id: nuevo.id,
-            fecha: new Date().toISOString().split("T")[0],
-            tipo: "compra", cantidad: cantNueva,
-            precio_unitario: precioNuevo, precio_ppp: precioNuevo,
-            descripcion: `Compra inicial: ${cantNueva} ${form.unidad ?? "litros"} a $${precioNuevo}`, metodo: "manual",
-          });
-        }
-
+        const { data: nuevo } = await sb.from("stock_insumos").insert({ empresa_id: empresaId, nombre: form.nombre, categoria: form.categoria ?? "agroquimico", subcategoria: form.subcategoria ?? "", cantidad: cantNueva, unidad: form.unidad ?? "litros", ubicacion: form.ubicacion ?? "", tipo_ubicacion: form.tipo_ubicacion ?? "deposito_propio", precio_unitario: precioNuevo, precio_ppp: precioNuevo, costo_total_stock: cantNueva * precioNuevo }).select().single();
+        if (nuevo) await sb.from("stock_insumos_movimientos").insert({ empresa_id: empresaId, insumo_id: nuevo.id, fecha: new Date().toISOString().split("T")[0], tipo: "compra", cantidad: cantNueva, precio_unitario: precioNuevo, precio_ppp: precioNuevo, descripcion: `Compra inicial: ${cantNueva} ${form.unidad ?? "litros"} a $${precioNuevo}`, metodo: "manual" });
         mostrarMsg("✅ Insumo cargado");
       }
     }
-
     await fetchAll(empresaId); setShowFormInsumo(false); setForm({});
   };
 
-  // ── DESCONTAR INSUMO con PPP ──
   const descontarInsumo = async (id: string, cantDescontar: number, loteId?: string) => {
     const sb = await getSB();
     const ins = insumos.find(i => i.id === id);
     if (!ins || !empresaId) return;
-
     const nuevaCant = Math.max(0, ins.cantidad - cantDescontar);
     const pppActual = ins.precio_ppp || ins.precio_unitario || 0;
-    const costoImputado = cantDescontar * pppActual; // costo al MB del lote
-    const nuevoCostoTotal = nuevaCant * pppActual;
-
-    await sb.from("stock_insumos").update({
-      cantidad: nuevaCant,
-      costo_total_stock: nuevoCostoTotal,
-      // PPP no cambia al sacar, solo al comprar
-    }).eq("id", id);
-
-    await sb.from("stock_insumos_movimientos").insert({
-      empresa_id: empresaId, insumo_id: id,
-      fecha: new Date().toISOString().split("T")[0],
-      tipo: "uso", cantidad: cantDescontar,
-      precio_unitario: 0, precio_ppp: pppActual,
-      lote_id: loteId ?? null,
-      descripcion: `Uso: ${cantDescontar} ${ins.unidad} — costo imputado $${costoImputado.toFixed(0)}`,
-      metodo: "manual",
-    });
-
+    const costoImputado = cantDescontar * pppActual;
+    await sb.from("stock_insumos").update({ cantidad: nuevaCant, costo_total_stock: nuevaCant * pppActual }).eq("id", id);
+    await sb.from("stock_insumos_movimientos").insert({ empresa_id: empresaId, insumo_id: id, fecha: new Date().toISOString().split("T")[0], tipo: "uso", cantidad: cantDescontar, precio_unitario: 0, precio_ppp: pppActual, lote_id: loteId ?? null, descripcion: `Uso: ${cantDescontar} ${ins.unidad} — costo imputado $${costoImputado.toFixed(0)}`, metodo: "manual" });
     mostrarMsg(`✅ ${cantDescontar} ${ins.unidad} descontados — PPP: $${pppActual.toFixed(2)} — Costo: $${costoImputado.toFixed(0)}`);
     await fetchAll(empresaId);
   };
 
-  // ── GASOIL con PPP ──
   const guardarGasoil = async () => {
     if (!empresaId) return;
     const sb = await getSB();
     const litros = Number(form.cantidad_litros ?? 0);
     const precioLitro = Number(form.precio_litro ?? 0);
-
-    // PPP inicial = precio de carga
-    const { data: nuevo } = await sb.from("stock_gasoil").insert({
-      empresa_id: empresaId, cantidad_litros: litros,
-      ubicacion: form.ubicacion ?? "", tipo_ubicacion: form.tipo_ubicacion ?? "tanque_propio",
-      precio_litro: precioLitro,
-      precio_ppp: precioLitro, // PPP inicial
-      costo_total_stock: litros * precioLitro,
-    }).select().single();
-
-    if (nuevo) {
-      await sb.from("stock_gasoil_movimientos").insert({
-        empresa_id: empresaId, gasoil_id: nuevo.id,
-        fecha: new Date().toISOString().split("T")[0],
-        tipo: "carga", litros, descripcion: "Carga inicial", metodo: "manual",
-        precio_litro: precioLitro, precio_ppp: precioLitro,
-      });
-    }
+    const { data: nuevo } = await sb.from("stock_gasoil").insert({ empresa_id: empresaId, cantidad_litros: litros, ubicacion: form.ubicacion ?? "", tipo_ubicacion: form.tipo_ubicacion ?? "tanque_propio", precio_litro: precioLitro, precio_ppp: precioLitro, costo_total_stock: litros * precioLitro }).select().single();
+    if (nuevo) await sb.from("stock_gasoil_movimientos").insert({ empresa_id: empresaId, gasoil_id: nuevo.id, fecha: new Date().toISOString().split("T")[0], tipo: "carga", litros, descripcion: "Carga inicial", metodo: "manual", precio_litro: precioLitro, precio_ppp: precioLitro });
     mostrarMsg("✅ Gasoil cargado"); await fetchAll(empresaId); setShowFormGasoil(false); setForm({});
   };
 
@@ -373,47 +285,17 @@ export default function StockPage() {
     const precioLitroNuevo = Number(form.precio_litro_mov ?? 0);
     const tanque = gasoil.find(g => g.id === gasoilId);
     if (!tanque) return;
-
-    let nuevaCant: number;
-    let pppNuevo: number;
-
+    let nuevaCant: number; let pppNuevo: number;
     if (tipo === "carga") {
-      // Nueva carga → recalcula PPP
       nuevaCant = tanque.cantidad_litros + litros;
-      pppNuevo = precioLitroNuevo > 0
-        ? calcularPPP(tanque.cantidad_litros, tanque.precio_ppp || tanque.precio_litro, litros, precioLitroNuevo)
-        : tanque.precio_ppp || tanque.precio_litro;
+      pppNuevo = precioLitroNuevo > 0 ? calcularPPP(tanque.cantidad_litros, tanque.precio_ppp || tanque.precio_litro, litros, precioLitroNuevo) : tanque.precio_ppp || tanque.precio_litro;
     } else {
-      // Consumo → no cambia PPP, solo cantidad
       nuevaCant = Math.max(0, tanque.cantidad_litros - litros);
       pppNuevo = tanque.precio_ppp || tanque.precio_litro;
     }
-
-    const nuevoCostoTotal = nuevaCant * pppNuevo;
-
-    await sb.from("stock_gasoil").update({
-      cantidad_litros: nuevaCant,
-      precio_ppp: pppNuevo,
-      costo_total_stock: nuevoCostoTotal,
-      ...(tipo === "carga" && precioLitroNuevo > 0 ? { precio_litro: precioLitroNuevo } : {}),
-    }).eq("id", gasoilId);
-
-    await sb.from("stock_gasoil_movimientos").insert({
-      empresa_id: empresaId, gasoil_id: gasoilId,
-      fecha: form.fecha_mov ?? new Date().toISOString().split("T")[0],
-      tipo, litros,
-      descripcion: form.descripcion_mov ?? "",
-      metodo: "manual",
-      precio_litro: precioLitroNuevo,
-      precio_ppp: pppNuevo,
-      ...(form.lote_mov ? { lote_id: form.lote_mov } : {}),
-    });
-
-    const msg = tipo === "carga"
-      ? `✅ Carga registrada — PPP actualizado: $${pppNuevo.toFixed(2)}/L`
-      : `✅ Consumo registrado — PPP: $${pppNuevo.toFixed(2)}/L — Costo: $${(litros * pppNuevo).toFixed(0)}`;
-
-    mostrarMsg(msg);
+    await sb.from("stock_gasoil").update({ cantidad_litros: nuevaCant, precio_ppp: pppNuevo, costo_total_stock: nuevaCant * pppNuevo, ...(tipo === "carga" && precioLitroNuevo > 0 ? { precio_litro: precioLitroNuevo } : {}) }).eq("id", gasoilId);
+    await sb.from("stock_gasoil_movimientos").insert({ empresa_id: empresaId, gasoil_id: gasoilId, fecha: form.fecha_mov ?? new Date().toISOString().split("T")[0], tipo, litros, descripcion: form.descripcion_mov ?? "", metodo: "manual", precio_litro: precioLitroNuevo, precio_ppp: pppNuevo, ...(form.lote_mov ? { lote_id: form.lote_mov } : {}) });
+    mostrarMsg(tipo === "carga" ? `✅ Carga registrada — PPP: $${pppNuevo.toFixed(2)}/L` : `✅ Consumo — PPP: $${pppNuevo.toFixed(2)}/L — Costo: $${(litros * pppNuevo).toFixed(0)}`);
     await fetchAll(empresaId); setShowFormGasoilMov(""); setForm({});
   };
 
@@ -482,128 +364,246 @@ export default function StockPage() {
     }
   };
 
-  const iCls = "w-full bg-[#0a1628]/80 border border-[#00FF80]/20 rounded-xl px-4 py-2.5 text-[#E5E7EB] text-sm focus:outline-none focus:border-[#00FF80] font-mono transition-all";
-  const lCls = "block text-xs text-[#4B6B5B] uppercase tracking-widest mb-1 font-mono";
+  // ── Estilos nuevos ──
+  const iCls = "inp w-full px-3 py-2.5 text-[#1a2a4a] text-sm";
+  const lCls = "block text-[10px] font-bold uppercase tracking-wider text-[#6b8aaa] mb-1.5";
 
-  if (loading) return <div className="min-h-screen bg-[#020810] flex items-center justify-center text-[#00FF80] font-mono animate-pulse">Cargando inventario...</div>;
+  if (loading) return (
+    <div style={{minHeight:"100vh",backgroundImage:"url('/FON.png')",backgroundSize:"cover",backgroundPosition:"center",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{display:"flex",alignItems:"center",gap:12}}>
+        <div style={{width:32,height:32,border:"3px solid #1976d2",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+        <span style={{color:"#1565c0",fontWeight:600}}>Cargando inventario...</span>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="relative min-h-screen bg-[#020810] text-[#E5E7EB]">
+    <div style={{minHeight:"100vh",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",backgroundImage:"url('/FON.png')",backgroundSize:"cover",backgroundPosition:"center",backgroundAttachment:"scroll"}}>
       <style>{`
-        @keyframes gf{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-        @keyframes wave{0%{transform:scaleY(0.5)}100%{transform:scaleY(1.5)}}
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
         @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes pulse-ring{0%{box-shadow:0 0 0 0 rgba(248,113,113,0.4)}100%{box-shadow:0 0 0 12px rgba(248,113,113,0)}}
-        .card-s:hover{border-color:rgba(201,162,39,0.5)!important;transform:translateY(-2px)}
-        .card-s{transition:all 0.2s ease}
-        .tab-on{border-color:#00FF80!important}
-        .tab-img-s{transition:all 0.2s ease}
-        .tab-img-s:hover{transform:translateY(-2px)}
-        .logo-b:hover{filter:drop-shadow(0 0 12px rgba(0,255,128,0.8));transform:scale(1.03)}
-        .logo-b{transition:all 0.2s;cursor:pointer}
-        .btn-voz-esc{animation:pulse-ring 1s infinite}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+
+        .inp{background:rgba(255,255,255,0.75);border:1px solid rgba(180,210,240,0.55);border-radius:11px;box-shadow:inset 0 1px 3px rgba(0,60,140,0.04);transition:all 0.18s;color:#1a2a4a;font-family:'DM Sans',system-ui;}
+        .inp::placeholder{color:rgba(80,120,160,0.50);}
+        .inp:focus{background:rgba(255,255,255,0.97);border-color:rgba(25,118,210,0.40);outline:none;box-shadow:0 0 0 3px rgba(25,118,210,0.10);}
+        .inp option{background:white;color:#1a2a4a;}
+        .sel{background:rgba(255,255,255,0.75);border:1px solid rgba(180,210,240,0.55);border-radius:11px;color:#1a2a4a;padding:8px 12px;font-size:13px;font-family:'DM Sans',system-ui;width:100%;}
+        .sel option{background:white;color:#1a2a4a;}
+
+        /* Card base */
+        .card{background-image:url('/FON.png');background-size:cover;background-position:center;border:1.5px solid rgba(255,255,255,0.90);border-top:2px solid rgba(255,255,255,1);border-radius:18px;box-shadow:0 6px 24px rgba(20,80,160,0.14),inset 0 2px 0 rgba(255,255,255,0.90);position:relative;overflow:hidden;}
+        .card::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.62);border-radius:18px;pointer-events:none;z-index:0;}
+        .card::after{content:"";position:absolute;top:0;left:0;right:0;height:42%;background:linear-gradient(180deg,rgba(255,255,255,0.48) 0%,transparent 100%);border-radius:18px 18px 0 0;pointer-events:none;z-index:1;}
+        .card>*{position:relative;z-index:2;}
+
+        /* Topbar */
+        .topbar-st{background-image:url('/FON.png');background-size:cover;background-position:top center;border-bottom:1px solid rgba(255,255,255,0.40);box-shadow:0 2px 16px rgba(20,80,160,0.12);position:relative;}
+        .topbar-st::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.30);pointer-events:none;}
+        .topbar-st>*{position:relative;z-index:1;}
+
+        /* Botones */
+        .bbtn{background-image:url('/AZUL.png');background-size:cover;background-position:center;border:1.5px solid rgba(100,180,255,0.50);border-top:2px solid rgba(180,220,255,0.70);border-radius:12px;color:white;font-weight:800;font-size:12px;cursor:pointer;padding:8px 16px;text-shadow:0 1px 3px rgba(0,40,120,0.35);box-shadow:0 3px 12px rgba(25,118,210,0.35);transition:all 0.18s;}
+        .bbtn:hover{transform:translateY(-1px);filter:brightness(1.08);}
+        .abtn{background:rgba(255,255,255,0.70);border:1.5px solid rgba(255,255,255,0.92);border-radius:12px;color:#1e3a5f;font-weight:700;font-size:12px;cursor:pointer;padding:8px 14px;transition:all 0.18s;display:inline-flex;align-items:center;gap:5px;}
+        .abtn:hover{background:rgba(255,255,255,0.95);}
+
+        /* Tab de imagen */
+        .tab-img{border-radius:14px;overflow:hidden;cursor:pointer;transition:all 0.20s;position:relative;height:72px;border:2px solid transparent;}
+        .tab-img.active{border-color:rgba(255,255,255,0.90);box-shadow:0 4px 18px rgba(25,118,210,0.30);}
+        .tab-img:hover{transform:translateY(-2px);}
+
+        /* Cultivo card */
+        .cultivo-card{background-image:url('/FON.png');background-size:cover;background-position:center;border:1.5px solid rgba(255,255,255,0.88);border-radius:16px;box-shadow:0 4px 16px rgba(20,80,160,0.12);cursor:pointer;transition:all 0.20s;position:relative;overflow:hidden;}
+        .cultivo-card::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.58);border-radius:16px;pointer-events:none;}
+        .cultivo-card>*{position:relative;}
+        .cultivo-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(20,80,160,0.18);}
+
+        /* KPI chip */
+        .kpi-s{background-image:url('/FON.png');background-size:cover;background-position:center;border:1.5px solid rgba(255,255,255,0.88);border-radius:12px;padding:8px 10px;text-align:center;position:relative;overflow:hidden;}
+        .kpi-s::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.68);border-radius:12px;pointer-events:none;}
+        .kpi-s>*{position:relative;}
+
+        /* Ubicacion card */
+        .ubic-card{background-image:url('/FON.png');background-size:cover;background-position:center;border:1.5px solid rgba(255,255,255,0.88);border-radius:14px;overflow:hidden;position:relative;}
+        .ubic-card::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.55);pointer-events:none;}
+        .ubic-card>*{position:relative;}
+
+        .fade-in{animation:fadeIn 0.20s ease;}
+        ::-webkit-scrollbar{width:3px;height:3px}
+        ::-webkit-scrollbar-thumb{background:rgba(25,118,210,0.20);border-radius:3px}
+        .row-s:hover{background:rgba(255,255,255,0.80)!important;}
+        .form-box{background:rgba(255,255,255,0.55);border:1px solid rgba(180,210,240,0.40);border-radius:14px;padding:14px;}
       `}</style>
 
-      <div className="absolute inset-0 z-0"><Image src="/dashboard-bg.png" alt="" fill style={{objectFit:"cover"}}/><div className="absolute inset-0 bg-[#020810]/88"/></div>
-      <div className="absolute inset-0 z-1 pointer-events-none opacity-[0.03]" style={{backgroundImage:`linear-gradient(rgba(0,255,128,1) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,128,1) 1px,transparent 1px)`,backgroundSize:"50px 50px"}}/>
-
-      <div className="relative z-10">
-        <div className="absolute bottom-0 left-0 right-0 h-[1px]" style={{background:"linear-gradient(90deg,transparent,#00FF80,#00AAFF,#00FF80,transparent)",backgroundSize:"200% 100%",animation:"gf 4s ease infinite"}}/>
-        <div className="absolute inset-0" style={{background:"linear-gradient(135deg,rgba(2,8,16,0.95) 0%,rgba(0,20,10,0.90) 50%,rgba(2,8,16,0.95) 100%)"}}/>
-        <div className="relative px-6 py-4 flex items-center gap-4">
-          <button onClick={()=>cultivoActivo?setCultivoActivo(null):gasoilActivo?setGasoilActivo(null):window.location.href="/productor/dashboard"} className="text-[#4B5563] hover:text-[#00FF80] transition-colors font-mono text-sm">← {cultivoActivo||gasoilActivo?"Volver":"Dashboard"}</button>
-          <div className="flex-1"/>
-          <button onClick={vozEstado==="escuchando"?(()=>{recRef.current?.stop();setVozEstado("idle");}):(()=>{setVozPanel(true);escucharVoz();})} className={`flex items-center gap-2 px-4 py-2 rounded-xl border font-mono text-sm transition-all ${vozEstado==="escuchando"?"border-red-400 text-red-400 btn-voz-esc":vozEstado==="procesando"?"border-[#C9A227] text-[#C9A227]":vozEstado==="respondiendo"?"border-[#60A5FA] text-[#60A5FA]":"border-[#00FF80]/30 text-[#00FF80] hover:bg-[#00FF80]/10"}`}>{VOZ_ICON[vozEstado]} {VOZ_LABEL[vozEstado]}</button>
-          <div className="logo-b" onClick={()=>window.location.href="/productor/dashboard"}><Image src="/logo.png" alt="Logo" width={110} height={38} className="object-contain"/></div>
+      {/* TOPBAR */}
+      <div className="topbar-st" style={{position:"sticky",top:0,zIndex:20}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,padding:"11px 16px"}}>
+          <button onClick={()=>cultivoActivo?setCultivoActivo(null):gasoilActivo?setGasoilActivo(null):window.location.href="/productor/dashboard"}
+            style={{background:"none",border:"none",cursor:"pointer",color:"#4a6a8a",fontSize:13,fontWeight:700}}>
+            ← {cultivoActivo||gasoilActivo?"Volver":"Dashboard"}
+          </button>
+          <div style={{flex:1}}/>
+          <div style={{fontSize:13,fontWeight:800,color:"#0d2137"}}>📦 Stock</div>
+          <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}}
+            style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:10,fontSize:13,fontWeight:700,cursor:"pointer",background:VOZ_COLOR[vozEstado]+"18",border:`1.5px solid ${VOZ_COLOR[vozEstado]}50`,color:VOZ_COLOR[vozEstado]}}>
+            {VOZ_ICON[vozEstado]}
+          </button>
+          <button onClick={()=>window.location.href="/productor/dashboard"} style={{background:"none",border:"none",cursor:"pointer"}}>
+            <Image src="/logo.png" alt="Logo" width={90} height={32} style={{objectFit:"contain"}}/>
+          </button>
         </div>
       </div>
 
-      <div className="relative z-10 max-w-6xl mx-auto p-6">
+      <div style={{maxWidth:1100,margin:"0 auto",padding:"14px 14px 80px",position:"relative",zIndex:1}}>
 
-        {msgExito && <div className="mb-4 px-4 py-2 rounded-lg border border-[#4ADE80]/30 text-[#4ADE80] bg-[#4ADE80]/5 text-sm font-mono flex items-center justify-between">{msgExito}<button onClick={()=>setMsgExito("")} className="opacity-50 hover:opacity-100">✕</button></div>}
+        {/* Toast */}
+        {msgExito&&<div className="fade-in" style={{marginBottom:12,padding:"10px 14px",borderRadius:12,fontSize:13,fontWeight:600,color:msgExito.startsWith("✅")?"#16a34a":"#dc2626",background:msgExito.startsWith("✅")?"rgba(220,252,231,0.90)":"rgba(254,226,226,0.90)",border:`1px solid ${msgExito.startsWith("✅")?"rgba(22,163,74,0.25)":"rgba(220,38,38,0.20)"}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>{msgExito}<button onClick={()=>setMsgExito("")} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,opacity:0.5}}>✕</button></div>}
 
-        <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-          <div><h1 className="text-2xl font-bold text-[#E5E7EB] font-mono">▣ STOCK</h1><p className="text-[#00FF80] text-xs tracking-widest font-mono mt-1">SISTEMA DE INVENTARIO AGROPECUARIO</p></div>
-          <div className="flex gap-2 flex-wrap">
-            <button onClick={()=>setShowProveedores(!showProveedores)} className="px-4 py-2 rounded-xl border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/10 font-mono text-sm">💬 Proveedores WA</button>
-            <button onClick={()=>setShowImport(!showImport)} className="px-4 py-2 rounded-xl border border-[#C9A227]/30 text-[#C9A227] hover:bg-[#C9A227]/10 font-mono text-sm">📥 Importar</button>
-            <button onClick={exportarExcel} className="px-4 py-2 rounded-xl border border-[#4ADE80]/30 text-[#4ADE80] hover:bg-[#4ADE80]/10 font-mono text-sm">📤 Exportar</button>
+        {/* Header */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
+          <div>
+            <h1 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>📦 Stock</h1>
+            <p style={{fontSize:11,color:"#6b8aaa",margin:"2px 0 0",fontWeight:600}}>Sistema de inventario agropecuario</p>
+          </div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <button onClick={()=>setShowProveedores(!showProveedores)} className="abtn" style={{fontSize:11}}>💬 Proveedores WA</button>
+            <button onClick={()=>setShowImport(!showImport)} className="abtn" style={{fontSize:11}}>📥 Importar</button>
+            <button onClick={exportarExcel} className="abtn" style={{fontSize:11}}>📤 Exportar</button>
           </div>
         </div>
 
-        {showProveedores && (
-          <div className="bg-[#0a1628]/80 border border-[#25D366]/30 rounded-xl p-5 mb-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-[#25D366] font-mono text-sm font-bold">💬 PROVEEDORES — COTIZACIÓN POR WHATSAPP</h3>
-              <div className="flex gap-2"><button onClick={()=>setShowFormProveedor(!showFormProveedor)} className="text-xs text-[#25D366] border border-[#25D366]/30 px-3 py-1.5 rounded-lg font-mono hover:bg-[#25D366]/10">+ Agregar</button><button onClick={()=>setShowProveedores(false)} className="text-[#4B5563] text-sm">✕</button></div>
+        {/* Proveedores WA */}
+        {showProveedores&&(
+          <div className="card fade-in" style={{padding:14,marginBottom:14}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+              <div style={{fontSize:13,fontWeight:800,color:"#16a34a"}}>💬 Proveedores — Cotización por WhatsApp</div>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>setShowFormProveedor(!showFormProveedor)} className="bbtn" style={{fontSize:11,padding:"5px 10px"}}>+ Agregar</button>
+                <button onClick={()=>setShowProveedores(false)} style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:18}}>✕</button>
+              </div>
             </div>
-            {showFormProveedor && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 p-3 bg-[#020810]/40 rounded-xl">
-                <div><label className={lCls}>Nombre</label><input type="text" value={form.prov_nombre??""} onChange={e=>setForm({...form,prov_nombre:e.target.value})} className={iCls} placeholder="Ej: YPF Agro"/></div>
-                <div><label className={lCls}>Teléfono WA</label><input type="text" value={form.prov_tel??""} onChange={e=>setForm({...form,prov_tel:e.target.value})} className={iCls} placeholder="3400123456"/></div>
-                <div><label className={lCls}>Categoría</label><select value={form.prov_cat??"proveedor_gasoil"} onChange={e=>setForm({...form,prov_cat:e.target.value})} className={iCls}><option value="proveedor_gasoil">⛽ Gasoil</option><option value="proveedor_insumo">🧪 Insumos</option></select></div>
-                <div className="flex items-end"><button onClick={async()=>{if(!empresaId||!form.prov_nombre)return;const sb=await getSB();await sb.from("contactos").insert({empresa_id:empresaId,nombre:form.prov_nombre,telefono:form.prov_tel??"",categoria:form.prov_cat??"proveedor_gasoil",activo:true});mostrarMsg("✅ Proveedor agregado");await fetchAll(empresaId);setShowFormProveedor(false);setForm({});}} className="w-full bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] font-bold px-4 py-2.5 rounded-xl text-sm font-mono">▶ Guardar</button></div>
+            {showFormProveedor&&(
+              <div className="form-box fade-in" style={{marginBottom:10}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:10}}>
+                  <div><label className={lCls}>Nombre</label><input type="text" value={form.prov_nombre??""} onChange={e=>setForm({...form,prov_nombre:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Ej: YPF Agro"/></div>
+                  <div><label className={lCls}>Teléfono WA</label><input type="text" value={form.prov_tel??""} onChange={e=>setForm({...form,prov_tel:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="3400123456"/></div>
+                  <div><label className={lCls}>Categoría</label><select value={form.prov_cat??"proveedor_gasoil"} onChange={e=>setForm({...form,prov_cat:e.target.value})} className="sel"><option value="proveedor_gasoil">⛽ Gasoil</option><option value="proveedor_insumo">🧪 Insumos</option></select></div>
+                  <div style={{display:"flex",alignItems:"flex-end"}}><button onClick={async()=>{if(!empresaId||!form.prov_nombre)return;const sb=await getSB();await sb.from("contactos").insert({empresa_id:empresaId,nombre:form.prov_nombre,telefono:form.prov_tel??"",categoria:form.prov_cat??"proveedor_gasoil",activo:true});mostrarMsg("✅ Proveedor agregado");await fetchAll(empresaId);setShowFormProveedor(false);setForm({});}} className="bbtn" style={{width:"100%"}}>Guardar</button></div>
+                </div>
               </div>
             )}
-            {proveedores.length===0?<p className="text-[#4B5563] font-mono text-sm text-center py-4">Sin proveedores.</p>:(
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {proveedores.map(p=><div key={p.id} className="bg-[#020810]/40 rounded-xl p-4 flex items-center justify-between gap-3"><div><div className="font-bold text-[#E5E7EB] font-mono">{p.nombre}</div><div className="text-xs text-[#4B5563] font-mono">{p.categoria==="proveedor_gasoil"?"⛽ Gasoil":"🧪 Insumos"} · {p.telefono}</div></div><div className="flex gap-2"><button onClick={()=>enviarWAProveedor(p,p.categoria==="proveedor_gasoil"?"gasoil":"insumo")} className="px-3 py-2 rounded-lg bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] text-xs font-mono">💬 Cotizar</button><button onClick={()=>eliminarItem("contactos",p.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button></div></div>)}
+            {proveedores.length===0
+              ?<p style={{color:"#6b8aaa",fontSize:13,textAlign:"center",padding:"14px 0"}}>Sin proveedores agregados.</p>
+              :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:8}}>
+                {proveedores.map(p=>(
+                  <div key={p.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 12px",borderRadius:12,background:"rgba(255,255,255,0.60)",border:"1px solid rgba(180,210,240,0.35)"}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:700,color:"#0d2137"}}>{p.nombre}</div>
+                      <div style={{fontSize:11,color:"#6b8aaa"}}>{p.categoria==="proveedor_gasoil"?"⛽ Gasoil":"🧪 Insumos"} · {p.telefono}</div>
+                    </div>
+                    <div style={{display:"flex",gap:6}}>
+                      <button onClick={()=>enviarWAProveedor(p,p.categoria==="proveedor_gasoil"?"gasoil":"insumo")} style={{padding:"5px 10px",borderRadius:8,background:"rgba(22,163,74,0.10)",border:"1px solid rgba(22,163,74,0.25)",color:"#16a34a",cursor:"pointer",fontSize:11,fontWeight:700}}>💬 Cotizar</button>
+                      <button onClick={()=>eliminarItem("contactos",p.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:14}}>✕</button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
+            }
           </div>
         )}
 
-        {showImport && (
-          <div className="bg-[#0a1628]/80 border border-[#C9A227]/30 rounded-xl p-5 mb-5">
-            <div className="flex items-center justify-between mb-3"><h3 className="text-[#C9A227] font-mono text-sm font-bold">📥 IMPORTAR GRANOS DESDE EXCEL</h3><button onClick={()=>{setShowImport(false);setImportPreview([]);setImportMsg("");}} className="text-[#4B5563] text-sm">✕</button></div>
-            <p className="text-xs text-[#4B5563] font-mono mb-3">Columnas: <span className="text-[#C9A227]">CULTIVO · TIPO_UBICACION · NOMBRE_LUGAR · TN</span></p>
-            <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)leerExcelGranos(f);}}/>
-            {importPreview.length===0?<button onClick={()=>importRef.current?.click()} className="flex items-center gap-2 px-4 py-3 border border-dashed border-[#C9A227]/40 rounded-xl text-[#C9A227] font-mono text-sm w-full justify-center hover:border-[#C9A227]/70">📁 Seleccionar archivo</button>:(
-              <div><div className="max-h-36 overflow-y-auto mb-3 rounded-lg border border-[#C9A227]/15"><table className="w-full text-xs"><thead><tr className="border-b border-[#C9A227]/10">{["Cultivo","Tipo","Lugar","Tn"].map(h=><th key={h} className="text-left px-3 py-2 text-[#4B5563] font-mono">{h}</th>)}</tr></thead><tbody>{importPreview.map((r,i)=><tr key={i} className="border-b border-[#C9A227]/5"><td className="px-3 py-2 text-[#E5E7EB] font-mono font-bold">{r.cultivo}</td><td className="px-3 py-2 text-[#9CA3AF] font-mono">{r.tipo_ubicacion}</td><td className="px-3 py-2 text-[#9CA3AF] font-mono">{r.nombre_ubicacion||"—"}</td><td className="px-3 py-2 text-[#00FF80] font-mono font-bold">{r.cantidad_tn} tn</td></tr>)}</tbody></table></div>
-              <div className="flex gap-3"><button onClick={confirmarImport} className="bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-bold px-4 py-2 rounded-lg text-xs font-mono hover:bg-[#C9A227]/20">▶ Confirmar {importPreview.length} registros</button><button onClick={()=>{setImportPreview([]);setImportMsg("");}} className="border border-[#1C2128] text-[#4B5563] px-4 py-2 rounded-lg text-xs font-mono">Cancelar</button></div></div>
-            )}
-            {importMsg&&<p className={`mt-3 text-xs font-mono ${importMsg.startsWith("✅")?"text-[#4ADE80]":"text-[#F87171]"}`}>{importMsg}</p>}
+        {/* Import */}
+        {showImport&&(
+          <div className="card fade-in" style={{padding:14,marginBottom:14}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+              <div style={{fontSize:13,fontWeight:800,color:"#d97706"}}>📥 Importar Granos desde Excel</div>
+              <button onClick={()=>{setShowImport(false);setImportPreview([]);setImportMsg("");}} style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:18}}>✕</button>
+            </div>
+            <p style={{fontSize:11,color:"#6b8aaa",marginBottom:10}}>Columnas: <span style={{color:"#d97706",fontWeight:700}}>CULTIVO · TIPO_UBICACION · NOMBRE_LUGAR · TN</span></p>
+            <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(f)leerExcelGranos(f);}}/>
+            {importPreview.length===0
+              ?<button onClick={()=>importRef.current?.click()} className="abtn" style={{width:"100%",justifyContent:"center",padding:"12px",border:"2px dashed rgba(217,119,6,0.30)"}}>📁 Seleccionar archivo</button>
+              :<div>
+                <div style={{maxHeight:140,overflowY:"auto",marginBottom:10,borderRadius:10,border:"1px solid rgba(0,60,140,0.08)"}}>
+                  <table style={{width:"100%",fontSize:11,borderCollapse:"collapse"}}>
+                    <thead><tr style={{borderBottom:"1px solid rgba(0,60,140,0.08)"}}>{["Cultivo","Tipo","Lugar","Tn"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 10px",color:"#6b8aaa",fontWeight:600}}>{h}</th>)}</tr></thead>
+                    <tbody>{importPreview.map((r,i)=><tr key={i} style={{borderBottom:"1px solid rgba(0,60,140,0.05)"}}><td style={{padding:"5px 10px",fontWeight:700,color:"#0d2137"}}>{r.cultivo}</td><td style={{padding:"5px 10px",color:"#6b8aaa"}}>{r.tipo_ubicacion}</td><td style={{padding:"5px 10px",color:"#6b8aaa"}}>{r.nombre_ubicacion||"—"}</td><td style={{padding:"5px 10px",fontWeight:700,color:"#16a34a"}}>{r.cantidad_tn} tn</td></tr>)}</tbody>
+                  </table>
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={confirmarImport} className="bbtn">▶ Confirmar {importPreview.length} registros</button>
+                  <button onClick={()=>{setImportPreview([]);setImportMsg("");}} className="abtn">Cancelar</button>
+                </div>
+              </div>
+            }
+            {importMsg&&<p style={{marginTop:8,fontSize:11,fontWeight:600,color:importMsg.startsWith("✅")?"#16a34a":"#dc2626"}}>{importMsg}</p>}
           </div>
         )}
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        {/* ── TABS con imagen ── */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:16}}>
           {TABS.map(t=>(
-            <div key={t.key} className={`tab-img-s cursor-pointer rounded-xl overflow-hidden border-2 ${tab===t.key?"tab-on border-[#00FF80]":"border-transparent"}`} style={{height:"80px",position:"relative"}} onClick={()=>{setTab(t.key as Tab);setCultivoActivo(null);setGasoilActivo(null);}}>
-              <Image src={t.img} alt={t.label} fill style={{objectFit:"cover"}} onError={(e)=>{(e.target as any).src="/dashboard-bg.png";}}/>
-              <div className="absolute inset-0" style={{background:tab===t.key?"rgba(0,255,128,0.15)":"rgba(2,8,16,0.55)"}}/>
-              <div className="absolute bottom-0 left-0 right-0 p-2 flex items-center gap-1.5"><span>{t.icon}</span><span className="text-xs font-bold font-mono text-white">{t.label}</span></div>
-              {tab===t.key&&<div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#00FF80]"/>}
+            <div key={t.key} className={`tab-img${tab===t.key?" active":""}`} onClick={()=>{setTab(t.key as Tab);setCultivoActivo(null);setGasoilActivo(null);}}>
+              <Image src={t.img} alt={t.label} fill style={{objectFit:"cover"}} onError={(e:any)=>{e.target.src="/dashboard-bg.png";}}/>
+              <div style={{position:"absolute",inset:0,background:tab===t.key?"rgba(255,255,255,0.18)":"rgba(20,40,80,0.45)",transition:"background 0.2s"}}/>
+              <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"6px 10px",display:"flex",alignItems:"center",gap:6}}>
+                <span style={{fontSize:15}}>{t.icon}</span>
+                <span style={{fontSize:11,fontWeight:800,color:"white",textShadow:"0 1px 3px rgba(0,0,0,0.55)"}}>{t.label}</span>
+              </div>
+              {tab===t.key&&<div style={{position:"absolute",top:6,right:6,width:7,height:7,borderRadius:"50%",background:"white",boxShadow:"0 0 6px rgba(255,255,255,0.8)"}}/>}
             </div>
           ))}
         </div>
 
-        {/* ===== GRANOS LISTA ===== */}
-        {tab==="granos" && !cultivoActivo && (
-          <div>
+        {/* ══════════════════════════════
+            GRANOS — LISTA CULTIVOS
+        ══════════════════════════════ */}
+        {tab==="granos"&&!cultivoActivo&&(
+          <div className="fade-in">
             {cultivosConStock.length===0?(
-              <div className="text-center py-20 bg-[#0a1628]/60 border border-[#C9A227]/15 rounded-xl"><div className="text-5xl mb-4 opacity-20">🌾</div><p className="text-[#4B5563] font-mono mb-4">Sin stock de granos cargado</p><button onClick={()=>setShowFormCultivo(true)} className="px-4 py-2 rounded-xl bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-mono text-sm">+ Cargar primer stock</button></div>
+              <div className="card" style={{padding:"48px 20px",textAlign:"center"}}>
+                <div style={{fontSize:48,opacity:0.12,marginBottom:12}}>🌾</div>
+                <p style={{color:"#6b8aaa",marginBottom:12,fontSize:14}}>Sin stock de granos cargado</p>
+                <button onClick={()=>setShowFormCultivo(true)} className="bbtn">+ Cargar primer stock</button>
+              </div>
             ):(
               <div>
-                <div className="flex justify-end mb-4"><button onClick={()=>setShowFormCultivo(true)} className="px-4 py-2 rounded-xl bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-mono text-sm hover:bg-[#C9A227]/20">+ Cargar Stock</button></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+                  <button onClick={()=>setShowFormCultivo(true)} className="bbtn">+ Cargar Stock</button>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12}}>
                   {cultivosConStock.map(cultivo=>{
                     const {ubs,totalFisico,totalPactado,balance}=stockPorCultivo(cultivo);
-                    return (
-                      <div key={cultivo} className="card-s border border-[#C9A227]/20 rounded-xl overflow-hidden cursor-pointer" onClick={()=>setCultivoActivo(cultivo)}>
-                        <div className="relative h-28">
-                          <Image src="/stock-granos.png" alt={cultivo} fill style={{objectFit:"cover"}} onError={(e)=>{(e.target as any).src="/dashboard-bg.png";}}/>
-                          <div className="absolute inset-0 bg-gradient-to-t from-[#020810] via-[#020810]/40 to-transparent"/>
-                          <div className="absolute bottom-2 left-3 flex items-center gap-2"><span className="text-xl">{CULTIVO_ICONS[cultivo]??"🌾"}</span><span className="font-bold text-white font-mono text-lg uppercase">{cultivo}</span></div>
-                          <div className="absolute top-2 right-2"><span className="text-xs font-bold px-2 py-1 rounded-full font-mono" style={{background:balance>=0?"rgba(74,222,128,0.25)":"rgba(248,113,113,0.25)",color:balance>=0?"#4ADE80":"#F87171"}}>{balance>=0?"+":""}{balance} tn</span></div>
-                        </div>
-                        <div className="p-4 bg-[#0a1628]/80">
-                          <div className="grid grid-cols-3 gap-2 text-xs font-mono mb-3">
-                            <div className="text-center bg-[#020810]/40 rounded-lg p-2"><div className="text-[#4B5563] mb-1">Físico</div><div className="text-[#E5E7EB] font-bold">{totalFisico} tn</div></div>
-                            <div className="text-center bg-[#020810]/40 rounded-lg p-2"><div className="text-[#4B5563] mb-1">Pactado</div><div className="text-[#60A5FA] font-bold">{totalPactado} tn</div></div>
-                            <div className="text-center bg-[#020810]/40 rounded-lg p-2"><div className="text-[#4B5563] mb-1">Balance</div><div className="font-bold" style={{color:balance>=0?"#4ADE80":"#F87171"}}>{balance} tn</div></div>
+                    return(
+                      <div key={cultivo} className="cultivo-card" onClick={()=>setCultivoActivo(cultivo)}>
+                        {/* imagen cabecera */}
+                        <div style={{position:"relative",height:100,borderRadius:"16px 16px 0 0",overflow:"hidden"}}>
+                          <Image src="/stock-granos.png" alt={cultivo} fill style={{objectFit:"cover"}} onError={(e:any)=>{e.target.src="/dashboard-bg.png";}}/>
+                          <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,transparent 30%,rgba(255,255,255,0.70) 100%)"}}/>
+                          <div style={{position:"absolute",bottom:6,left:10,display:"flex",alignItems:"center",gap:6}}>
+                            <span style={{fontSize:20}}>{CULTIVO_ICONS[cultivo]??"🌾"}</span>
+                            <span style={{fontSize:15,fontWeight:800,color:"#0d2137",textTransform:"uppercase"}}>{cultivo}</span>
                           </div>
-                          <div className="flex gap-1 flex-wrap">{ubs.map(u=>{const ub=UBICACIONES.find(x=>x.value===u.tipo_ubicacion);return(<div key={u.id} className="flex items-center gap-1 bg-[#020810]/60 rounded-lg px-2 py-1"><span className="text-xs">{ub?.icon??"📍"}</span><span className="text-xs text-[#9CA3AF] font-mono">{u.cantidad_tn}tn</span></div>);})}</div>
+                          <div style={{position:"absolute",top:6,right:8}}>
+                            <span style={{fontSize:11,fontWeight:800,padding:"2px 10px",borderRadius:20,background:balance>=0?"rgba(22,163,74,0.18)":"rgba(220,38,38,0.15)",color:balance>=0?"#16a34a":"#dc2626"}}>
+                              {balance>=0?"+":""}{balance} tn
+                            </span>
+                          </div>
+                        </div>
+                        <div style={{padding:"10px 12px 12px"}}>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:8}}>
+                            {[{l:"Físico",v:totalFisico+" tn",c:"#0d2137"},{l:"Pactado",v:totalPactado+" tn",c:"#1565c0"},{l:"Balance",v:balance+" tn",c:balance>=0?"#16a34a":"#dc2626"}].map(s=>(
+                              <div key={s.l} className="kpi-s">
+                                <div style={{fontSize:9,color:"#6b8aaa",fontWeight:600}}>{s.l}</div>
+                                <div style={{fontSize:11,fontWeight:800,color:s.c,marginTop:1}}>{s.v}</div>
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                            {ubs.map(u=>{const ub=UBICACIONES.find(x=>x.value===u.tipo_ubicacion);return(<span key={u.id} style={{fontSize:10,padding:"2px 7px",borderRadius:6,background:"rgba(25,118,210,0.08)",color:"#4a6a8a",fontWeight:600}}>{ub?.icon??"📍"} {u.cantidad_tn}tn</span>);})}
+                          </div>
                         </div>
                       </div>
                     );
@@ -611,172 +611,194 @@ export default function StockPage() {
                 </div>
               </div>
             )}
-            {showFormCultivo && (
-              <div className="bg-[#0a1628]/80 border border-[#C9A227]/30 rounded-xl p-5 mt-4">
-                <h3 className="text-[#C9A227] font-mono text-sm font-bold mb-4">+ CARGAR STOCK DE GRANO</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div><label className={lCls}>Cultivo</label><input type="text" value={form.cultivo??""} onChange={e=>setForm({...form,cultivo:e.target.value.toLowerCase()})} className={iCls} placeholder="soja, maiz, trigo..."/></div>
-                  <div><label className={lCls}>Dónde está</label><select value={form.tipo_ubicacion??"silo"} onChange={e=>setForm({...form,tipo_ubicacion:e.target.value})} className={iCls}>{UBICACIONES.map(u=><option key={u.value} value={u.value}>{u.icon} {u.label}</option>)}</select></div>
-                  <div><label className={lCls}>Nombre lugar</label><input type="text" value={form.nombre_ubicacion??""} onChange={e=>setForm({...form,nombre_ubicacion:e.target.value})} className={iCls} placeholder="Silo Norte, ACA..."/></div>
-                  <div><label className={lCls}>Toneladas</label><input type="number" value={form.cantidad_tn??""} onChange={e=>setForm({...form,cantidad_tn:e.target.value})} className={iCls} placeholder="0"/></div>
+            {showFormCultivo&&(
+              <div className="card fade-in" style={{padding:14,marginTop:12}}>
+                <div style={{fontSize:13,fontWeight:800,color:"#d97706",marginBottom:12}}>+ Cargar Stock de Grano</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:12}}>
+                  <div><label className={lCls}>Cultivo</label><input type="text" value={form.cultivo??""} onChange={e=>setForm({...form,cultivo:e.target.value.toLowerCase()})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="soja, maiz, trigo..."/></div>
+                  <div><label className={lCls}>Dónde está</label><select value={form.tipo_ubicacion??"silo"} onChange={e=>setForm({...form,tipo_ubicacion:e.target.value})} className="sel">{UBICACIONES.map(u=><option key={u.value} value={u.value}>{u.icon} {u.label}</option>)}</select></div>
+                  <div><label className={lCls}>Nombre lugar</label><input type="text" value={form.nombre_ubicacion??""} onChange={e=>setForm({...form,nombre_ubicacion:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Silo Norte, ACA..."/></div>
+                  <div><label className={lCls}>Toneladas</label><input type="number" value={form.cantidad_tn??""} onChange={e=>setForm({...form,cantidad_tn:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                 </div>
-                <div className="flex gap-3 mt-4">
-                  <button onClick={guardarUbicacion} className="bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-bold px-6 py-2.5 rounded-xl text-sm font-mono hover:bg-[#C9A227]/20">▶ Guardar</button>
-                  <button onClick={()=>{setShowFormCultivo(false);setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">Cancelar</button>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={guardarUbicacion} className="bbtn">Guardar</button>
+                  <button onClick={()=>{setShowFormCultivo(false);setForm({});}} className="abtn">Cancelar</button>
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* ===== GRANOS DETALLE ===== */}
-        {tab==="granos" && cultivoActivo && (
-          <div>
-            <div className="relative rounded-2xl overflow-hidden mb-5 h-40">
-              <Image src="/stock-granos.png" alt={cultivoActivo} fill style={{objectFit:"cover"}} onError={(e)=>{(e.target as any).src="/dashboard-bg.png";}}/>
-              <div className="absolute inset-0 bg-gradient-to-t from-[#020810] via-[#020810]/50 to-transparent"/>
-              <div className="absolute bottom-4 left-5 flex items-center gap-3">
-                <span className="text-4xl">{CULTIVO_ICONS[cultivoActivo]??"🌾"}</span>
-                <div>
-                  <h2 className="text-3xl font-bold text-white font-mono uppercase">{cultivoActivo}</h2>
-                  {(()=>{const {totalFisico,totalPactado,balance}=stockPorCultivo(cultivoActivo);return(<div className="flex gap-3 text-xs font-mono mt-1"><span className="text-[#E5E7EB]">{totalFisico}tn físico</span><span className="text-[#60A5FA]">{totalPactado}tn pactado</span><span style={{color:balance>=0?"#4ADE80":"#F87171"}}>{balance>=0?"+":""}{balance}tn balance</span></div>);})()}
+        {/* ══════════════════════════════
+            GRANOS — DETALLE CULTIVO
+        ══════════════════════════════ */}
+        {tab==="granos"&&cultivoActivo&&(
+          <div className="fade-in">
+            {/* Header cultivo */}
+            <div className="card" style={{padding:0,overflow:"hidden",marginBottom:14}}>
+              <div style={{position:"relative",height:120}}>
+                <Image src="/stock-granos.png" alt={cultivoActivo} fill style={{objectFit:"cover"}} onError={(e:any)=>{e.target.src="/dashboard-bg.png";}}/>
+                <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,transparent 20%,rgba(255,255,255,0.85) 100%)"}}/>
+                <div style={{position:"absolute",bottom:14,left:16,display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:32}}>{CULTIVO_ICONS[cultivoActivo]??"🌾"}</span>
+                  <div>
+                    <h2 style={{fontSize:22,fontWeight:800,color:"#0d2137",margin:0,textTransform:"uppercase"}}>{cultivoActivo}</h2>
+                    {(()=>{const {totalFisico,totalPactado,balance}=stockPorCultivo(cultivoActivo);return(<div style={{display:"flex",gap:12,fontSize:11,fontWeight:700,marginTop:2}}><span style={{color:"#0d2137"}}>{totalFisico} tn físico</span><span style={{color:"#1565c0"}}>{totalPactado} tn pactado</span><span style={{color:balance>=0?"#16a34a":"#dc2626"}}>{balance>=0?"+":""}{balance} tn balance</span></div>);})()}
+                  </div>
                 </div>
-              </div>
-              <div className="absolute bottom-4 right-5 flex gap-2">
-                <button onClick={()=>{setShowFormUbicacion(true);setForm({cultivo:cultivoActivo});}} className="px-3 py-2 rounded-xl bg-[#C9A227]/20 border border-[#C9A227]/40 text-[#C9A227] font-mono text-xs">+ Stock</button>
-                <button onClick={()=>{setShowFormVenta(true);setForm({cultivo:cultivoActivo});}} className="px-3 py-2 rounded-xl bg-[#25D366]/20 border border-[#25D366]/40 text-[#25D366] font-mono text-xs">+ Venta pactada</button>
+                <div style={{position:"absolute",bottom:14,right:14,display:"flex",gap:7}}>
+                  <button onClick={()=>{setShowFormUbicacion(true);setForm({cultivo:cultivoActivo});}} className="abtn" style={{fontSize:11}}>+ Stock</button>
+                  <button onClick={()=>{setShowFormVenta(true);setForm({cultivo:cultivoActivo});}} style={{padding:"7px 12px",borderRadius:10,background:"rgba(22,163,74,0.10)",border:"1px solid rgba(22,163,74,0.28)",color:"#16a34a",cursor:"pointer",fontSize:11,fontWeight:700}}>+ Venta pactada</button>
+                </div>
               </div>
             </div>
 
-            {showFormUbicacion && (
-              <div className="bg-[#0a1628]/80 border border-[#C9A227]/30 rounded-xl p-5 mb-4">
-                <h3 className="text-[#C9A227] font-mono text-sm font-bold mb-4">{editandoUbicacion?"✏️ EDITAR":"+"} STOCK {cultivoActivo.toUpperCase()}</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div><label className={lCls}>Dónde está</label><select value={form.tipo_ubicacion??"silo"} onChange={e=>setForm({...form,tipo_ubicacion:e.target.value})} className={iCls}>{UBICACIONES.map(u=><option key={u.value} value={u.value}>{u.icon} {u.label}</option>)}</select></div>
-                  <div><label className={lCls}>Nombre lugar</label><input type="text" value={form.nombre_ubicacion??""} onChange={e=>setForm({...form,nombre_ubicacion:e.target.value})} className={iCls} placeholder="ACA Rafaela..."/></div>
-                  <div><label className={lCls}>Toneladas</label><input type="number" value={form.cantidad_tn??""} onChange={e=>setForm({...form,cantidad_tn:e.target.value})} className={iCls} placeholder="0"/></div>
+            {showFormUbicacion&&(
+              <div className="card fade-in" style={{padding:14,marginBottom:12}}>
+                <div style={{fontSize:13,fontWeight:800,color:"#d97706",marginBottom:12}}>{editandoUbicacion?"✏️ Editar":"+"} Stock {cultivoActivo.toUpperCase()}</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:12}}>
+                  <div><label className={lCls}>Dónde está</label><select value={form.tipo_ubicacion??"silo"} onChange={e=>setForm({...form,tipo_ubicacion:e.target.value})} className="sel">{UBICACIONES.map(u=><option key={u.value} value={u.value}>{u.icon} {u.label}</option>)}</select></div>
+                  <div><label className={lCls}>Nombre lugar</label><input type="text" value={form.nombre_ubicacion??""} onChange={e=>setForm({...form,nombre_ubicacion:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="ACA Rafaela..."/></div>
+                  <div><label className={lCls}>Toneladas</label><input type="number" value={form.cantidad_tn??""} onChange={e=>setForm({...form,cantidad_tn:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                 </div>
-                <div className="flex gap-3 mt-4">
-                  <button onClick={guardarUbicacion} className="bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-bold px-5 py-2 rounded-xl text-sm font-mono">▶ Guardar</button>
-                  <button onClick={()=>{setShowFormUbicacion(false);setEditandoUbicacion(null);setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-5 py-2 rounded-xl text-sm font-mono">Cancelar</button>
-                </div>
-              </div>
-            )}
-
-            {showFormVenta && (
-              <div className="bg-[#0a1628]/80 border border-[#25D366]/30 rounded-xl p-5 mb-4">
-                <h3 className="text-[#25D366] font-mono text-sm font-bold mb-4">+ VENTA PACTADA — {cultivoActivo.toUpperCase()}</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div><label className={lCls}>Toneladas</label><input type="number" value={form.cantidad_tn??""} onChange={e=>setForm({...form,cantidad_tn:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Precio ($/tn)</label><input type="number" value={form.precio_tn??""} onChange={e=>setForm({...form,precio_tn:e.target.value})} className={iCls} placeholder="0 = sin base"/></div>
-                  <div><label className={lCls}>Destino</label><input type="text" value={form.destino??""} onChange={e=>setForm({...form,destino:e.target.value})} className={iCls} placeholder="AFA, Coop..."/></div>
-                  <div><label className={lCls}>Tipo destino</label><select value={form.tipo_destino??"cooperativa"} onChange={e=>setForm({...form,tipo_destino:e.target.value})} className={iCls}><option value="cooperativa">Cooperativa</option><option value="acopio">Acopio</option><option value="empresa">Empresa</option><option value="exportador">Exportador</option><option value="otro">Otro</option></select></div>
-                  <div><label className={lCls}>Fecha entrega</label><input type="date" value={form.fecha_entrega??""} onChange={e=>setForm({...form,fecha_entrega:e.target.value})} className={iCls}/></div>
-                </div>
-                <div className="flex gap-3 mt-4">
-                  <button onClick={guardarVenta} className="bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] font-bold px-5 py-2 rounded-xl text-sm font-mono">▶ Guardar</button>
-                  <button onClick={()=>{setShowFormVenta(false);setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-5 py-2 rounded-xl text-sm font-mono">Cancelar</button>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={guardarUbicacion} className="bbtn">Guardar</button>
+                  <button onClick={()=>{setShowFormUbicacion(false);setEditandoUbicacion(null);setForm({});}} className="abtn">Cancelar</button>
                 </div>
               </div>
             )}
 
-            <h3 className="text-[#C9A227] font-mono text-sm font-bold mb-3">📍 STOCK POR UBICACIÓN</h3>
-            {ubicaciones.filter(u=>u.cultivo===cultivoActivo).length===0?<p className="text-[#4B5563] font-mono text-sm mb-4">Sin ubicaciones</p>:(
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+            {showFormVenta&&(
+              <div className="card fade-in" style={{padding:14,marginBottom:12}}>
+                <div style={{fontSize:13,fontWeight:800,color:"#16a34a",marginBottom:12}}>+ Venta Pactada — {cultivoActivo.toUpperCase()}</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:10,marginBottom:12}}>
+                  <div><label className={lCls}>Toneladas</label><input type="number" value={form.cantidad_tn??""} onChange={e=>setForm({...form,cantidad_tn:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Precio ($/tn)</label><input type="number" value={form.precio_tn??""} onChange={e=>setForm({...form,precio_tn:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="0 = sin base"/></div>
+                  <div><label className={lCls}>Destino</label><input type="text" value={form.destino??""} onChange={e=>setForm({...form,destino:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="AFA, Coop..."/></div>
+                  <div><label className={lCls}>Tipo destino</label><select value={form.tipo_destino??"cooperativa"} onChange={e=>setForm({...form,tipo_destino:e.target.value})} className="sel"><option value="cooperativa">Cooperativa</option><option value="acopio">Acopio</option><option value="empresa">Empresa</option><option value="exportador">Exportador</option><option value="otro">Otro</option></select></div>
+                  <div><label className={lCls}>Fecha entrega</label><input type="date" value={form.fecha_entrega??""} onChange={e=>setForm({...form,fecha_entrega:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={guardarVenta} className="bbtn">Guardar</button>
+                  <button onClick={()=>{setShowFormVenta(false);setForm({});}} className="abtn">Cancelar</button>
+                </div>
+              </div>
+            )}
+
+            {/* Ubicaciones */}
+            <div style={{fontSize:11,fontWeight:800,color:"#d97706",textTransform:"uppercase",letterSpacing:0.8,marginBottom:8}}>📍 Stock por Ubicación</div>
+            {ubicaciones.filter(u=>u.cultivo===cultivoActivo).length===0
+              ?<p style={{color:"#6b8aaa",fontSize:13,marginBottom:12}}>Sin ubicaciones</p>
+              :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:10,marginBottom:16}}>
                 {ubicaciones.filter(u=>u.cultivo===cultivoActivo).map(u=>{
                   const ub=UBICACIONES.find(x=>x.value===u.tipo_ubicacion);
-                  return (
-                    <div key={u.id} className="card-s border border-[#C9A227]/20 rounded-xl overflow-hidden">
-                      <div className="relative h-28">
-                        <Image src={ub?.img??"/ubicacion-silo.png"} alt="" fill style={{objectFit:"cover"}} onError={(e)=>{(e.target as any).src="/dashboard-bg.png";}}/>
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#020810]/90 to-transparent"/>
-                        <div className="absolute bottom-2 left-2 right-2"><div className="text-lg font-bold text-white font-mono">{u.cantidad_tn} tn</div><div className="text-xs text-[#C9A227] font-mono">{ub?.label??u.tipo_ubicacion}</div>{u.nombre_ubicacion&&<div className="text-xs text-[#9CA3AF] font-mono truncate">{u.nombre_ubicacion}</div>}</div>
+                  return(
+                    <div key={u.id} className="ubic-card">
+                      <div style={{position:"relative",height:90,borderRadius:"14px 14px 0 0",overflow:"hidden"}}>
+                        <Image src={ub?.img??"/ubicacion-silo.png"} alt="" fill style={{objectFit:"cover"}} onError={(e:any)=>{e.target.src="/dashboard-bg.png";}}/>
+                        <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,transparent 20%,rgba(255,255,255,0.80) 100%)"}}/>
+                        <div style={{position:"absolute",bottom:6,left:8}}>
+                          <div style={{fontSize:16,fontWeight:800,color:"#0d2137"}}>{u.cantidad_tn} tn</div>
+                          <div style={{fontSize:11,color:"#d97706",fontWeight:600}}>{ub?.label??u.tipo_ubicacion}</div>
+                          {u.nombre_ubicacion&&<div style={{fontSize:10,color:"#6b8aaa"}}>{u.nombre_ubicacion}</div>}
+                        </div>
                       </div>
-                      <div className="p-2 bg-[#0a1628]/80 flex justify-between items-center gap-1">
-                        <button onClick={()=>{setEditandoUbicacion(u.id);setForm({cultivo:cultivoActivo,tipo_ubicacion:u.tipo_ubicacion,nombre_ubicacion:u.nombre_ubicacion,cantidad_tn:String(u.cantidad_tn)});setShowFormUbicacion(true);}} className="text-xs text-[#C9A227] font-mono hover:underline">✏️</button>
-                        <button onClick={()=>eliminarItem("stock_granos_ubicaciones",u.id)} className="text-xs text-[#4B5563] hover:text-red-400 font-mono">✕</button>
+                      <div style={{padding:"6px 10px",display:"flex",gap:6}}>
+                        <button onClick={()=>{setEditandoUbicacion(u.id);setForm({cultivo:cultivoActivo,tipo_ubicacion:u.tipo_ubicacion,nombre_ubicacion:u.nombre_ubicacion,cantidad_tn:String(u.cantidad_tn)});setShowFormUbicacion(true);}} style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:13}}>✏️</button>
+                        <button onClick={()=>eliminarItem("stock_granos_ubicaciones",u.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:14}}>✕</button>
                       </div>
                     </div>
                   );
                 })}
               </div>
-            )}
+            }
 
-            <h3 className="text-[#25D366] font-mono text-sm font-bold mb-3">💬 VENTAS PACTADAS</h3>
-            {ventas.filter(v=>v.cultivo===cultivoActivo).length===0?<p className="text-[#4B5563] font-mono text-sm mb-4">Sin ventas pactadas</p>:(
-              <div className="space-y-2 mb-4">
+            {/* Ventas pactadas */}
+            <div style={{fontSize:11,fontWeight:800,color:"#16a34a",textTransform:"uppercase",letterSpacing:0.8,marginBottom:8}}>💬 Ventas Pactadas</div>
+            {ventas.filter(v=>v.cultivo===cultivoActivo).length===0
+              ?<p style={{color:"#6b8aaa",fontSize:13,marginBottom:12}}>Sin ventas pactadas</p>
+              :<div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:12}}>
                 {ventas.filter(v=>v.cultivo===cultivoActivo).map(v=>(
-                  <div key={v.id} className="bg-[#0a1628]/80 border border-[#25D366]/15 rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-4">
-                      <div className="text-xl font-bold text-[#E5E7EB] font-mono">{v.cantidad_tn} tn</div>
-                      <div><div className="text-sm text-[#25D366] font-mono font-bold">{v.destino||"Sin destino"}</div><div className="text-xs text-[#4B5563] font-mono">{v.tipo_destino}{v.fecha_entrega?` · ${v.fecha_entrega}`:""}</div></div>
-                      {v.precio_tn>0&&<div className="text-sm text-[#C9A227] font-mono font-bold">${Number(v.precio_tn).toLocaleString("es-AR")}/tn</div>}
+                  <div key={v.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,padding:"10px 14px",borderRadius:12,background:"rgba(255,255,255,0.70)",border:"1px solid rgba(22,163,74,0.18)"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:12}}>
+                      <div style={{fontSize:16,fontWeight:800,color:"#0d2137"}}>{v.cantidad_tn} tn</div>
+                      <div>
+                        <div style={{fontSize:13,color:"#16a34a",fontWeight:700}}>{v.destino||"Sin destino"}</div>
+                        <div style={{fontSize:11,color:"#6b8aaa"}}>{v.tipo_destino}{v.fecha_entrega?` · ${v.fecha_entrega}`:""}</div>
+                      </div>
+                      {v.precio_tn>0&&<div style={{fontSize:13,color:"#d97706",fontWeight:800}}>${Number(v.precio_tn).toLocaleString("es-AR")}/tn</div>}
                     </div>
-                    <div className="flex gap-2">
-                      <button onClick={()=>marcarEntregada(v.id)} className="text-xs text-[#4ADE80] border border-[#4ADE80]/20 px-3 py-1.5 rounded-lg font-mono hover:bg-[#4ADE80]/10">✓ Entregado</button>
-                      <button onClick={()=>eliminarItem("stock_ventas_pactadas",v.id)} className="text-xs text-[#4B5563] hover:text-red-400 font-mono">✕</button>
+                    <div style={{display:"flex",gap:6}}>
+                      <button onClick={()=>marcarEntregada(v.id)} style={{fontSize:11,padding:"5px 12px",borderRadius:8,background:"rgba(22,163,74,0.10)",border:"1px solid rgba(22,163,74,0.25)",color:"#16a34a",cursor:"pointer",fontWeight:700}}>✓ Entregado</button>
+                      <button onClick={()=>eliminarItem("stock_ventas_pactadas",v.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:14}}>✕</button>
                     </div>
                   </div>
                 ))}
               </div>
-            )}
-            <div className="flex gap-3">
-              <button onClick={()=>enviarWAVenta(cultivoActivo,"sin_base")} className="flex-1 py-3 rounded-xl bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] font-mono text-sm hover:bg-[#25D366]/20">💬 WA Sin base</button>
-              <button onClick={()=>enviarWAVenta(cultivoActivo,"con_base")} className="flex-1 py-3 rounded-xl bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] font-mono text-sm hover:bg-[#25D366]/20">💬 WA Con base</button>
+            }
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>enviarWAVenta(cultivoActivo,"sin_base")} style={{flex:1,padding:"10px",borderRadius:12,background:"rgba(22,163,74,0.08)",border:"1px solid rgba(22,163,74,0.22)",color:"#16a34a",cursor:"pointer",fontWeight:700,fontSize:12}}>💬 WA Sin base</button>
+              <button onClick={()=>enviarWAVenta(cultivoActivo,"con_base")} style={{flex:1,padding:"10px",borderRadius:12,background:"rgba(22,163,74,0.08)",border:"1px solid rgba(22,163,74,0.22)",color:"#16a34a",cursor:"pointer",fontWeight:700,fontSize:12}}>💬 WA Con base</button>
             </div>
           </div>
         )}
 
-        {/* ===== INSUMOS ===== */}
-        {tab==="insumos" && (
-          <div>
-            <div className="flex justify-end mb-4"><button onClick={()=>{setShowFormInsumo(!showFormInsumo);setEditandoInsumo(null);setForm({categoria:"agroquimico"});}} className="px-4 py-2 rounded-xl bg-[#4ADE80]/10 border border-[#4ADE80]/30 text-[#4ADE80] font-mono text-sm hover:bg-[#4ADE80]/20">+ Cargar Insumo</button></div>
-            {showFormInsumo && (
-              <div className="bg-[#0a1628]/80 border border-[#4ADE80]/30 rounded-xl p-5 mb-5">
-                <h3 className="text-[#4ADE80] font-mono text-sm font-bold mb-4">{editandoInsumo?"✏️ EDITAR":"+"} INSUMO</h3>
-                {!editandoInsumo && <p className="text-xs text-[#4B5563] font-mono mb-3">💡 Si el insumo ya existe, se suma al stock y se recalcula el PPP automáticamente</p>}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div><label className={lCls}>Nombre</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls} placeholder="Ej: Glifosato 48%"/></div>
-                  <div><label className={lCls}>Categoría</label><select value={form.categoria??"agroquimico"} onChange={e=>setForm({...form,categoria:e.target.value,subcategoria:""})} className={iCls}>{CAT_INSUMOS.map(c=><option key={c.key} value={c.key}>{c.icon} {c.label}</option>)}</select></div>
-                  {form.categoria==="agroquimico"&&<div><label className={lCls}>Subcategoría</label><select value={form.subcategoria??""} onChange={e=>setForm({...form,subcategoria:e.target.value})} className={iCls}><option value="">Seleccionar</option>{SUBCATS_AGRO.map(s=><option key={s} value={s}>{s}</option>)}</select></div>}
-                  <div><label className={lCls}>Cantidad</label><input type="number" value={form.cantidad??""} onChange={e=>setForm({...form,cantidad:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Unidad</label><select value={form.unidad??"litros"} onChange={e=>setForm({...form,unidad:e.target.value})} className={iCls}><option value="litros">Litros</option><option value="kg">kg</option><option value="bolsas">Bolsas</option><option value="unidad">Unidad</option></select></div>
-                  <div><label className={lCls}>Precio de compra</label><input type="number" value={form.precio_unitario??""} onChange={e=>setForm({...form,precio_unitario:e.target.value})} className={iCls} placeholder="Precio esta compra"/></div>
-                  <div><label className={lCls}>Dónde está</label><select value={form.tipo_ubicacion??"deposito_propio"} onChange={e=>setForm({...form,tipo_ubicacion:e.target.value})} className={iCls}><option value="deposito_propio">Depósito Propio</option><option value="comercio">Comercio</option><option value="cooperativa">Cooperativa</option></select></div>
-                  <div><label className={lCls}>Nombre lugar</label><input type="text" value={form.ubicacion??""} onChange={e=>setForm({...form,ubicacion:e.target.value})} className={iCls}/></div>
+        {/* ══════════════════════════════
+            INSUMOS
+        ══════════════════════════════ */}
+        {tab==="insumos"&&(
+          <div className="fade-in">
+            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+              <button onClick={()=>{setShowFormInsumo(!showFormInsumo);setEditandoInsumo(null);setForm({categoria:"agroquimico"});}} className="bbtn">+ Cargar Insumo</button>
+            </div>
+            {showFormInsumo&&(
+              <div className="card fade-in" style={{padding:14,marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:800,color:"#16a34a",marginBottom:6}}>{editandoInsumo?"✏️ Editar":"+"} Insumo</div>
+                {!editandoInsumo&&<p style={{fontSize:11,color:"#6b8aaa",marginBottom:10}}>💡 Si el insumo ya existe, se suma al stock y se recalcula el PPP automáticamente</p>}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:12}}>
+                  <div><label className={lCls}>Nombre</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Ej: Glifosato 48%"/></div>
+                  <div><label className={lCls}>Categoría</label><select value={form.categoria??"agroquimico"} onChange={e=>setForm({...form,categoria:e.target.value,subcategoria:""})} className="sel">{CAT_INSUMOS.map(c=><option key={c.key} value={c.key}>{c.icon} {c.label}</option>)}</select></div>
+                  {form.categoria==="agroquimico"&&<div><label className={lCls}>Subcategoría</label><select value={form.subcategoria??""} onChange={e=>setForm({...form,subcategoria:e.target.value})} className="sel"><option value="">Seleccionar</option>{SUBCATS_AGRO.map(s=><option key={s} value={s}>{s}</option>)}</select></div>}
+                  <div><label className={lCls}>Cantidad</label><input type="number" value={form.cantidad??""} onChange={e=>setForm({...form,cantidad:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Unidad</label><select value={form.unidad??"litros"} onChange={e=>setForm({...form,unidad:e.target.value})} className="sel"><option value="litros">Litros</option><option value="kg">kg</option><option value="bolsas">Bolsas</option><option value="unidad">Unidad</option></select></div>
+                  <div><label className={lCls}>Precio de compra</label><input type="number" value={form.precio_unitario??""} onChange={e=>setForm({...form,precio_unitario:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Precio esta compra"/></div>
+                  <div><label className={lCls}>Dónde está</label><select value={form.tipo_ubicacion??"deposito_propio"} onChange={e=>setForm({...form,tipo_ubicacion:e.target.value})} className="sel"><option value="deposito_propio">Depósito Propio</option><option value="comercio">Comercio</option><option value="cooperativa">Cooperativa</option></select></div>
+                  <div><label className={lCls}>Nombre lugar</label><input type="text" value={form.ubicacion??""} onChange={e=>setForm({...form,ubicacion:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                 </div>
-                <div className="flex gap-3 mt-4">
-                  <button onClick={guardarInsumo} className="bg-[#4ADE80]/10 border border-[#4ADE80]/30 text-[#4ADE80] font-bold px-6 py-2.5 rounded-xl text-sm font-mono">▶ Guardar</button>
-                  <button onClick={()=>{setShowFormInsumo(false);setEditandoInsumo(null);setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">Cancelar</button>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={guardarInsumo} className="bbtn">Guardar</button>
+                  <button onClick={()=>{setShowFormInsumo(false);setEditandoInsumo(null);setForm({});}} className="abtn">Cancelar</button>
                 </div>
               </div>
             )}
+
             {CAT_INSUMOS.map(cat=>{
               const items=insumos.filter(i=>i.categoria===cat.key); if(items.length===0) return null;
               const renderTabla=(its:InsumoItem[],titulo?:string)=>(
-                <div key={titulo||cat.key} className={titulo?"mb-3":""}>
-                  {titulo&&<div className="text-xs text-[#4B5563] uppercase tracking-widest font-mono mb-1.5 px-1">— {titulo}</div>}
-                  <div className="bg-[#0a1628]/80 border rounded-xl overflow-hidden" style={{borderColor:cat.color+"25"}}>
-                    <table className="w-full"><thead><tr className="border-b" style={{borderColor:cat.color+"15"}}>
-                      {["Producto","Cantidad","Último Precio","PPP","Costo Stock","Ubicación",""].map(h=><th key={h} className="text-left px-4 py-2 text-xs text-[#4B5563] font-mono">{h}</th>)}
-                    </tr></thead>
+                <div key={titulo||cat.key} style={{marginBottom:titulo?10:0}}>
+                  {titulo&&<div style={{fontSize:10,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,fontWeight:700,marginBottom:5,paddingLeft:2}}>— {titulo}</div>}
+                  <div className="card" style={{padding:0,overflow:"hidden"}}>
+                    <table style={{width:"100%",fontSize:12,borderCollapse:"collapse"}}>
+                      <thead><tr style={{borderBottom:"1px solid rgba(0,60,140,0.08)"}}>
+                        {["Producto","Cantidad","Último Precio","PPP","Costo Stock","Ubicación",""].map(h=>(
+                          <th key={h} style={{textAlign:"left",padding:"8px 12px",fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase"}}>{h}</th>
+                        ))}
+                      </tr></thead>
                       <tbody>{its.map(i=>(
-                        <tr key={i.id} className="border-b hover:bg-white/5" style={{borderColor:cat.color+"10"}}>
-                          <td className="px-4 py-3 text-sm text-[#E5E7EB] font-mono font-bold">{i.nombre}</td>
-                          <td className="px-4 py-3 text-sm font-mono font-bold" style={{color:cat.color}}>{i.cantidad} {i.unidad}</td>
-                          <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{i.precio_unitario>0?`$${i.precio_unitario}/${i.unidad}`:"-"}</td>
-                          <td className="px-4 py-3 text-xs font-mono font-bold text-[#C9A227]">
-                            {(i.precio_ppp||i.precio_unitario)>0?`$${Number(i.precio_ppp||i.precio_unitario).toFixed(2)}/${i.unidad}`:"—"}
+                        <tr key={i.id} className="row-s" style={{borderBottom:"1px solid rgba(0,60,140,0.05)",transition:"background 0.15s"}}>
+                          <td style={{padding:"9px 12px",fontWeight:800,color:"#0d2137"}}>{i.nombre}</td>
+                          <td style={{padding:"9px 12px",fontWeight:800,color:cat.color}}>{i.cantidad} {i.unidad}</td>
+                          <td style={{padding:"9px 12px",color:"#6b8aaa"}}>{i.precio_unitario>0?`$${i.precio_unitario}/${i.unidad}`:"-"}</td>
+                          <td style={{padding:"9px 12px",fontWeight:800,color:"#d97706"}}>{(i.precio_ppp||i.precio_unitario)>0?`$${Number(i.precio_ppp||i.precio_unitario).toFixed(2)}/${i.unidad}`:"—"}</td>
+                          <td style={{padding:"9px 12px",color:"#16a34a",fontWeight:700}}>{(i.costo_total_stock||(i.cantidad*(i.precio_ppp||i.precio_unitario)))>0?`$${Math.round(i.costo_total_stock||(i.cantidad*(i.precio_ppp||i.precio_unitario))).toLocaleString("es-AR")}`:"—"}</td>
+                          <td style={{padding:"9px 12px",color:"#6b8aaa"}}>{i.tipo_ubicacion?.replace("_"," ")}{i.ubicacion?` · ${i.ubicacion}`:""}</td>
+                          <td style={{padding:"9px 12px"}}>
+                            <div style={{display:"flex",gap:6}}>
+                              <button onClick={()=>{setEditandoInsumo(i.id);setForm({nombre:i.nombre,categoria:i.categoria,subcategoria:i.subcategoria??"",cantidad:String(i.cantidad),unidad:i.unidad,ubicacion:i.ubicacion,tipo_ubicacion:i.tipo_ubicacion,precio_unitario:String(i.precio_unitario)});setShowFormInsumo(true);}} style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:13}}>✏️</button>
+                              <button onClick={()=>{const cant=prompt(`Descontar cantidad (${i.unidad}):\nPPP actual: $${(i.precio_ppp||i.precio_unitario).toFixed(2)}`);if(cant&&Number(cant)>0)descontarInsumo(i.id,Number(cant));}} style={{background:"none",border:"none",cursor:"pointer",color:"#1565c0",fontSize:13,fontWeight:800}} title="Descontar uso">➖</button>
+                              <button onClick={()=>eliminarItem("stock_insumos",i.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:14}}>✕</button>
+                            </div>
                           </td>
-                          <td className="px-4 py-3 text-xs text-[#4ADE80] font-mono">
-                            {(i.costo_total_stock||(i.cantidad*(i.precio_ppp||i.precio_unitario)))>0?`$${Math.round(i.costo_total_stock||(i.cantidad*(i.precio_ppp||i.precio_unitario))).toLocaleString("es-AR")}`:"—"}
-                          </td>
-                          <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{i.tipo_ubicacion?.replace("_"," ")}{i.ubicacion?` · ${i.ubicacion}`:""}</td>
-                          <td className="px-4 py-3"><div className="flex items-center gap-2">
-                            <button onClick={()=>{setEditandoInsumo(i.id);setForm({nombre:i.nombre,categoria:i.categoria,subcategoria:i.subcategoria??"",cantidad:String(i.cantidad),unidad:i.unidad,ubicacion:i.ubicacion,tipo_ubicacion:i.tipo_ubicacion,precio_unitario:String(i.precio_unitario)});setShowFormInsumo(true);}} className="text-xs text-[#C9A227] font-mono hover:underline">✏️</button>
-                            <button onClick={()=>{const cant=prompt(`Descontar cantidad (${i.unidad}):\nPPP actual: $${(i.precio_ppp||i.precio_unitario).toFixed(2)}`);if(cant&&Number(cant)>0)descontarInsumo(i.id,Number(cant));}} className="text-xs text-[#60A5FA] font-mono hover:underline" title="Descontar uso (usa PPP)">➖</button>
-                            <button onClick={()=>eliminarItem("stock_insumos",i.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button>
-                          </div></td>
                         </tr>
                       ))}</tbody>
                     </table>
@@ -785,102 +807,116 @@ export default function StockPage() {
               );
               if(cat.key==="agroquimico"){
                 const subgrupos=SUBCATS_AGRO.reduce((acc,sub)=>{const filtered=items.filter(i=>i.subcategoria===sub||(!i.subcategoria&&sub==="otro"));if(filtered.length>0)acc[sub]=filtered;return acc;},{} as Record<string,InsumoItem[]>);
-                return(<div key={cat.key} className="mb-6"><div className="flex items-center gap-2 mb-3"><span className="text-lg">{cat.icon}</span><h3 className="font-bold font-mono" style={{color:cat.color}}>{cat.label}</h3><span className="text-xs text-[#4B5563] font-mono">{items.length} productos</span></div>{Object.entries(subgrupos).map(([sub,subItems])=>renderTabla(subItems,sub))}</div>);
+                return(<div key={cat.key} style={{marginBottom:18}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><span style={{fontSize:18}}>{cat.icon}</span><span style={{fontSize:14,fontWeight:800,color:cat.color}}>{cat.label}</span><span style={{fontSize:11,color:"#6b8aaa"}}>{items.length} productos</span></div>{Object.entries(subgrupos).map(([sub,subItems])=>renderTabla(subItems,sub))}</div>);
               }
-              return(<div key={cat.key} className="mb-6"><div className="flex items-center gap-2 mb-3"><span className="text-lg">{cat.icon}</span><h3 className="font-bold font-mono" style={{color:cat.color}}>{cat.label}</h3><span className="text-xs text-[#4B5563] font-mono">{items.length} productos</span></div>{renderTabla(items)}</div>);
+              return(<div key={cat.key} style={{marginBottom:18}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><span style={{fontSize:18}}>{cat.icon}</span><span style={{fontSize:14,fontWeight:800,color:cat.color}}>{cat.label}</span><span style={{fontSize:11,color:"#6b8aaa"}}>{items.length} productos</span></div>{renderTabla(items)}</div>);
             })}
-            {insumos.length===0&&!showFormInsumo&&<div className="text-center py-16 text-[#4B5563] font-mono bg-[#0a1628]/60 border border-[#4ADE80]/15 rounded-xl">Sin insumos registrados</div>}
+            {insumos.length===0&&!showFormInsumo&&<div className="card" style={{padding:"48px 20px",textAlign:"center"}}><div style={{fontSize:40,opacity:0.12,marginBottom:10}}>🧪</div><p style={{color:"#6b8aaa",fontSize:14}}>Sin insumos registrados</p></div>}
           </div>
         )}
 
-        {/* ===== GASOIL ===== */}
-        {tab==="gasoil" && (
-          <div>
-            <div className="flex justify-end mb-4"><button onClick={()=>setShowFormGasoil(!showFormGasoil)} className="px-4 py-2 rounded-xl bg-[#60A5FA]/10 border border-[#60A5FA]/30 text-[#60A5FA] font-mono text-sm hover:bg-[#60A5FA]/20">+ Nuevo Tanque</button></div>
-            {showFormGasoil && (
-              <div className="bg-[#0a1628]/80 border border-[#60A5FA]/30 rounded-xl p-5 mb-5">
-                <h3 className="text-[#60A5FA] font-mono text-sm font-bold mb-4">+ NUEVO TANQUE / STOCK GASOIL</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div><label className={lCls}>Litros iniciales</label><input type="number" value={form.cantidad_litros??""} onChange={e=>setForm({...form,cantidad_litros:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Tipo</label><select value={form.tipo_ubicacion??"tanque_propio"} onChange={e=>setForm({...form,tipo_ubicacion:e.target.value})} className={iCls}><option value="tanque_propio">Tanque Propio</option><option value="proveedor">En Proveedor</option></select></div>
-                  <div><label className={lCls}>Nombre lugar</label><input type="text" value={form.ubicacion??""} onChange={e=>setForm({...form,ubicacion:e.target.value})} className={iCls} placeholder="YPF Ruta 34"/></div>
-                  <div><label className={lCls}>Precio/litro</label><input type="number" value={form.precio_litro??""} onChange={e=>setForm({...form,precio_litro:e.target.value})} className={iCls}/></div>
+        {/* ══════════════════════════════
+            GASOIL
+        ══════════════════════════════ */}
+        {tab==="gasoil"&&(
+          <div className="fade-in">
+            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+              <button onClick={()=>setShowFormGasoil(!showFormGasoil)} className="bbtn">+ Nuevo Tanque</button>
+            </div>
+            {showFormGasoil&&(
+              <div className="card fade-in" style={{padding:14,marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:800,color:"#1565c0",marginBottom:12}}>+ Nuevo Tanque / Stock Gasoil</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:12}}>
+                  <div><label className={lCls}>Litros iniciales</label><input type="number" value={form.cantidad_litros??""} onChange={e=>setForm({...form,cantidad_litros:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Tipo</label><select value={form.tipo_ubicacion??"tanque_propio"} onChange={e=>setForm({...form,tipo_ubicacion:e.target.value})} className="sel"><option value="tanque_propio">Tanque Propio</option><option value="proveedor">En Proveedor</option></select></div>
+                  <div><label className={lCls}>Nombre lugar</label><input type="text" value={form.ubicacion??""} onChange={e=>setForm({...form,ubicacion:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="YPF Ruta 34"/></div>
+                  <div><label className={lCls}>Precio/litro</label><input type="number" value={form.precio_litro??""} onChange={e=>setForm({...form,precio_litro:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                 </div>
-                <div className="flex gap-3 mt-4">
-                  <button onClick={guardarGasoil} className="bg-[#60A5FA]/10 border border-[#60A5FA]/30 text-[#60A5FA] font-bold px-6 py-2.5 rounded-xl text-sm font-mono">▶ Guardar</button>
-                  <button onClick={()=>{setShowFormGasoil(false);setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">Cancelar</button>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={guardarGasoil} className="bbtn">Guardar</button>
+                  <button onClick={()=>{setShowFormGasoil(false);setForm({});}} className="abtn">Cancelar</button>
                 </div>
               </div>
             )}
-            {gasoil.length===0?<div className="text-center py-16 text-[#4B5563] font-mono bg-[#0a1628]/80 border border-[#60A5FA]/15 rounded-xl">Sin stock de gasoil</div>:(
-              <div className="space-y-4">
+            {gasoil.length===0
+              ?<div className="card" style={{padding:"48px 20px",textAlign:"center"}}><div style={{fontSize:40,opacity:0.12,marginBottom:10}}>⛽</div><p style={{color:"#6b8aaa",fontSize:14}}>Sin stock de gasoil</p></div>
+              :<div style={{display:"flex",flexDirection:"column",gap:12}}>
                 {gasoil.map(g=>{
-                  const movsDeTanque=gasoilMovs.filter(m=>m.gasoil_id===g.id); const isActivo=gasoilActivo===g.id;
-                  const pppActual = g.precio_ppp || g.precio_litro;
-                  return (
-                    <div key={g.id} className="card-s bg-[#0a1628]/80 border border-[#60A5FA]/20 rounded-xl overflow-hidden">
-                      <div className="relative h-28">
-                        <Image src="/stock-gasoil.png" alt="gasoil" fill style={{objectFit:"cover"}} onError={(e)=>{(e.target as any).src="/dashboard-bg.png";}}/>
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#0a1628] to-transparent"/>
-                        <div className="absolute bottom-3 left-4"><div className="text-2xl font-bold text-white font-mono">{g.cantidad_litros.toLocaleString("es-AR")} L</div><div className="text-xs text-[#60A5FA] font-mono">{g.tipo_ubicacion?.replace("_"," ")}{g.ubicacion?` · ${g.ubicacion}`:""}</div></div>
-                        <div className="absolute top-2 right-2"><button onClick={()=>setGasoilActivo(isActivo?null:g.id)} className="px-2 py-1 rounded-lg bg-[#60A5FA]/20 border border-[#60A5FA]/40 text-[#60A5FA] text-xs font-mono">{isActivo?"▲":"▼ Historial"}</button></div>
+                  const movsDeTanque=gasoilMovs.filter(m=>m.gasoil_id===g.id);
+                  const isActivo=gasoilActivo===g.id;
+                  const pppActual=g.precio_ppp||g.precio_litro;
+                  return(
+                    <div key={g.id} className="card" style={{padding:0,overflow:"hidden"}}>
+                      {/* imagen gasoil */}
+                      <div style={{position:"relative",height:100}}>
+                        <Image src="/stock-gasoil.png" alt="gasoil" fill style={{objectFit:"cover"}} onError={(e:any)=>{e.target.src="/dashboard-bg.png";}}/>
+                        <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,transparent 10%,rgba(255,255,255,0.85) 100%)"}}/>
+                        <div style={{position:"absolute",bottom:10,left:14}}>
+                          <div style={{fontSize:22,fontWeight:800,color:"#0d2137"}}>{g.cantidad_litros.toLocaleString("es-AR")} L</div>
+                          <div style={{fontSize:11,color:"#1565c0",fontWeight:600}}>{g.tipo_ubicacion?.replace("_"," ")}{g.ubicacion?` · ${g.ubicacion}`:""}</div>
+                        </div>
+                        <div style={{position:"absolute",top:8,right:10,display:"flex",gap:6}}>
+                          <button onClick={()=>setGasoilActivo(isActivo?null:g.id)} className="abtn" style={{fontSize:11,padding:"4px 10px"}}>{isActivo?"▲":"▼ Historial"}</button>
+                          <button onClick={()=>eliminarItem("stock_gasoil",g.id)} style={{background:"rgba(255,255,255,0.70)",border:"1.5px solid rgba(255,255,255,0.92)",borderRadius:10,color:"#aab8c8",cursor:"pointer",padding:"4px 8px",fontSize:13}}>✕</button>
+                        </div>
                       </div>
-                      <div className="p-4">
+                      <div style={{padding:14}}>
                         {/* PPP info */}
-                        <div className="flex items-center gap-4 mb-3 flex-wrap">
-                          <span className="text-xs font-mono text-[#9CA3AF]">Último precio: <span className="text-[#E5E7EB]">${g.precio_litro}/L</span></span>
-                          <span className="text-xs font-mono font-bold text-[#C9A227]">PPP: ${pppActual.toFixed(2)}/L</span>
-                          <span className="text-xs font-mono text-[#4ADE80]">Costo stock: ${Math.round(g.cantidad_litros * pppActual).toLocaleString("es-AR")}</span>
-                          <button onClick={()=>eliminarItem("stock_gasoil",g.id)} className="text-[#4B5563] hover:text-red-400 text-xs ml-auto">✕</button>
+                        <div style={{display:"flex",gap:14,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
+                          <span style={{fontSize:12,color:"#6b8aaa"}}>Último precio: <strong style={{color:"#0d2137"}}>${g.precio_litro}/L</strong></span>
+                          <span style={{fontSize:13,fontWeight:800,color:"#d97706"}}>PPP: ${pppActual.toFixed(2)}/L</span>
+                          <span style={{fontSize:12,color:"#16a34a",fontWeight:600}}>Stock: ${Math.round(g.cantidad_litros*pppActual).toLocaleString("es-AR")}</span>
                         </div>
-                        <div className="flex gap-2 mb-3">
-                          <button onClick={()=>{setShowFormGasoilMov(g.id+"_carga");setForm({fecha_mov:new Date().toISOString().split("T")[0]});}} className="flex-1 py-2 rounded-lg bg-[#4ADE80]/10 border border-[#4ADE80]/30 text-[#4ADE80] text-xs font-mono hover:bg-[#4ADE80]/20">⬆️ Registrar carga</button>
-                          <button onClick={()=>{setShowFormGasoilMov(g.id+"_consumo");setForm({fecha_mov:new Date().toISOString().split("T")[0]});}} className="flex-1 py-2 rounded-lg bg-[#F87171]/10 border border-[#F87171]/30 text-[#F87171] text-xs font-mono hover:bg-[#F87171]/20">⬇️ Registrar consumo</button>
-                          {proveedores.filter(p=>p.categoria==="proveedor_gasoil").length>0&&<button onClick={()=>{const p=proveedores.find(x=>x.categoria==="proveedor_gasoil");if(p)enviarWAProveedor(p,"gasoil");}} className="px-3 py-2 rounded-lg bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] text-xs font-mono">💬 Cotizar</button>}
+                        <div style={{display:"flex",gap:8,marginBottom:showFormGasoilMov.startsWith(g.id)?12:0}}>
+                          <button onClick={()=>{setShowFormGasoilMov(g.id+"_carga");setForm({fecha_mov:new Date().toISOString().split("T")[0]});}} style={{flex:1,padding:"8px",borderRadius:10,background:"rgba(22,163,74,0.08)",border:"1px solid rgba(22,163,74,0.22)",color:"#16a34a",cursor:"pointer",fontWeight:700,fontSize:12}}>⬆️ Registrar carga</button>
+                          <button onClick={()=>{setShowFormGasoilMov(g.id+"_consumo");setForm({fecha_mov:new Date().toISOString().split("T")[0]});}} style={{flex:1,padding:"8px",borderRadius:10,background:"rgba(220,38,38,0.07)",border:"1px solid rgba(220,38,38,0.20)",color:"#dc2626",cursor:"pointer",fontWeight:700,fontSize:12}}>⬇️ Registrar consumo</button>
+                          {proveedores.filter(p=>p.categoria==="proveedor_gasoil").length>0&&<button onClick={()=>{const p=proveedores.find(x=>x.categoria==="proveedor_gasoil");if(p)enviarWAProveedor(p,"gasoil");}} style={{padding:"8px 12px",borderRadius:10,background:"rgba(22,163,74,0.08)",border:"1px solid rgba(22,163,74,0.22)",color:"#16a34a",cursor:"pointer",fontSize:11,fontWeight:700}}>💬 Cotizar</button>}
                         </div>
+
+                        {/* Form mov gasoil */}
                         {(showFormGasoilMov===g.id+"_carga"||showFormGasoilMov===g.id+"_consumo")&&(
-                          <div className="bg-[#020810]/60 rounded-xl p-3 mb-3 border border-[#60A5FA]/20">
-                            <h4 className="text-[#60A5FA] font-mono text-xs font-bold mb-3">{showFormGasoilMov.endsWith("_carga")?"⬆️ CARGAR GASOIL":"⬇️ REGISTRAR CONSUMO"}</h4>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                              <div><label className={lCls}>Litros</label><input type="number" value={form.litros_mov??""} onChange={e=>setForm({...form,litros_mov:e.target.value})} className={iCls}/></div>
-                              {showFormGasoilMov.endsWith("_carga") && (
-                                <div><label className={lCls}>Precio/litro compra</label><input type="number" value={form.precio_litro_mov??""} onChange={e=>setForm({...form,precio_litro_mov:e.target.value})} className={iCls} placeholder={`PPP actual: $${pppActual.toFixed(2)}`}/></div>
-                              )}
-                              <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_mov??""} onChange={e=>setForm({...form,fecha_mov:e.target.value})} className={iCls}/></div>
-                              <div><label className={lCls}>Descripción</label><input type="text" value={form.descripcion_mov??""} onChange={e=>setForm({...form,descripcion_mov:e.target.value})} className={iCls} placeholder="Ej: Cosecha, tractor..."/></div>
+                          <div className="form-box fade-in" style={{marginBottom:10}}>
+                            <div style={{fontSize:12,fontWeight:800,color:"#1565c0",marginBottom:10}}>{showFormGasoilMov.endsWith("_carga")?"⬆️ Cargar gasoil":"⬇️ Registrar consumo"}</div>
+                            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:10,marginBottom:10}}>
+                              <div><label className={lCls}>Litros</label><input type="number" value={form.litros_mov??""} onChange={e=>setForm({...form,litros_mov:e.target.value})} className={iCls} style={{width:"100%",padding:"7px 12px"}}/></div>
+                              {showFormGasoilMov.endsWith("_carga")&&<div><label className={lCls}>Precio/litro compra</label><input type="number" value={form.precio_litro_mov??""} onChange={e=>setForm({...form,precio_litro_mov:e.target.value})} className={iCls} style={{width:"100%",padding:"7px 12px"}} placeholder={`PPP: $${pppActual.toFixed(2)}`}/></div>}
+                              <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_mov??""} onChange={e=>setForm({...form,fecha_mov:e.target.value})} className={iCls} style={{width:"100%",padding:"7px 12px"}}/></div>
+                              <div><label className={lCls}>Descripción</label><input type="text" value={form.descripcion_mov??""} onChange={e=>setForm({...form,descripcion_mov:e.target.value})} className={iCls} style={{width:"100%",padding:"7px 12px"}} placeholder="Cosecha, tractor..."/></div>
                             </div>
-                            {showFormGasoilMov.endsWith("_carga") && form.litros_mov && form.precio_litro_mov && (
-                              <div className="mt-2 text-xs text-[#C9A227] font-mono bg-[#C9A227]/5 px-3 py-2 rounded-lg">
-                                PPP nuevo estimado: ${calcularPPP(g.cantidad_litros, pppActual, Number(form.litros_mov), Number(form.precio_litro_mov)).toFixed(2)}/L
+                            {showFormGasoilMov.endsWith("_carga")&&form.litros_mov&&form.precio_litro_mov&&(
+                              <div style={{fontSize:11,color:"#d97706",fontWeight:700,padding:"6px 10px",borderRadius:8,background:"rgba(217,119,6,0.08)",marginBottom:8}}>
+                                PPP nuevo estimado: ${calcularPPP(g.cantidad_litros,pppActual,Number(form.litros_mov),Number(form.precio_litro_mov)).toFixed(2)}/L
                               </div>
                             )}
-                            {showFormGasoilMov.endsWith("_consumo") && form.litros_mov && (
-                              <div className="mt-2 text-xs text-[#F87171] font-mono bg-[#F87171]/5 px-3 py-2 rounded-lg">
-                                Costo imputado: ${Math.round(Number(form.litros_mov) * pppActual).toLocaleString("es-AR")} (PPP: ${pppActual.toFixed(2)}/L)
+                            {showFormGasoilMov.endsWith("_consumo")&&form.litros_mov&&(
+                              <div style={{fontSize:11,color:"#dc2626",fontWeight:700,padding:"6px 10px",borderRadius:8,background:"rgba(220,38,38,0.06)",marginBottom:8}}>
+                                Costo imputado: ${Math.round(Number(form.litros_mov)*pppActual).toLocaleString("es-AR")} (PPP: ${pppActual.toFixed(2)}/L)
                               </div>
                             )}
-                            <div className="flex gap-2 mt-3">
-                              <button onClick={()=>registrarMovGasoil(g.id,showFormGasoilMov.endsWith("_carga")?"carga":"consumo")} className="bg-[#60A5FA]/10 border border-[#60A5FA]/30 text-[#60A5FA] font-bold px-4 py-2 rounded-lg text-xs font-mono">▶ Guardar</button>
-                              <button onClick={()=>{setShowFormGasoilMov("");setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-4 py-2 rounded-lg text-xs font-mono">Cancelar</button>
+                            <div style={{display:"flex",gap:8}}>
+                              <button onClick={()=>registrarMovGasoil(g.id,showFormGasoilMov.endsWith("_carga")?"carga":"consumo")} className="bbtn" style={{fontSize:11,padding:"7px 14px"}}>▶ Guardar</button>
+                              <button onClick={()=>{setShowFormGasoilMov("");setForm({});}} className="abtn" style={{fontSize:11,padding:"7px 12px"}}>Cancelar</button>
                             </div>
                           </div>
                         )}
+
+                        {/* Historial */}
                         {isActivo&&movsDeTanque.length>0&&(
-                          <div className="border-t border-[#60A5FA]/15 pt-3">
-                            <div className="text-xs text-[#60A5FA] font-mono font-bold mb-2">HISTORIAL DE MOVIMIENTOS</div>
-                            <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                          <div style={{borderTop:"1px solid rgba(0,60,140,0.08)",paddingTop:10}}>
+                            <div style={{fontSize:10,fontWeight:800,color:"#1565c0",textTransform:"uppercase",marginBottom:8}}>Historial de movimientos</div>
+                            <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:180,overflowY:"auto"}}>
                               {movsDeTanque.map(m=>(
-                                <div key={m.id} className="flex items-center justify-between bg-[#020810]/40 rounded-lg px-3 py-2">
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-xs" style={{color:m.tipo==="carga"?"#4ADE80":"#F87171"}}>{m.tipo==="carga"?"⬆️":"⬇️"}</span>
-                                    <span className="text-xs text-[#9CA3AF] font-mono">{m.fecha}</span>
-                                    {m.descripcion&&<span className="text-xs text-[#4B5563] font-mono">{m.descripcion}</span>}
-                                    {m.precio_ppp>0&&<span className="text-xs text-[#C9A227] font-mono">PPP:${m.precio_ppp.toFixed(2)}</span>}
-                                    {m.metodo==="voz"&&<span className="text-xs text-[#A78BFA] font-mono">🎤</span>}
+                                <div key={m.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 10px",borderRadius:8,background:"rgba(255,255,255,0.65)"}}>
+                                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                    <span style={{color:m.tipo==="carga"?"#16a34a":"#dc2626",fontSize:12}}>{m.tipo==="carga"?"⬆️":"⬇️"}</span>
+                                    <span style={{fontSize:11,color:"#6b8aaa"}}>{m.fecha}</span>
+                                    {m.descripcion&&<span style={{fontSize:11,color:"#4a6a8a"}}>{m.descripcion}</span>}
+                                    {m.precio_ppp>0&&<span style={{fontSize:10,color:"#d97706",fontWeight:700}}>PPP:${m.precio_ppp.toFixed(2)}</span>}
+                                    {m.metodo==="voz"&&<span style={{fontSize:10,color:"#7c3aed"}}>🎤</span>}
                                   </div>
-                                  <div className="text-right">
-                                    <span className="text-sm font-bold font-mono" style={{color:m.tipo==="carga"?"#4ADE80":"#F87171"}}>{m.tipo==="carga"?"+":"-"}{m.litros}L</span>
-                                    {m.tipo==="consumo"&&m.precio_ppp>0&&<div className="text-xs text-[#F87171] font-mono">${Math.round(m.litros*m.precio_ppp).toLocaleString("es-AR")}</div>}
+                                  <div style={{textAlign:"right"}}>
+                                    <span style={{fontSize:12,fontWeight:800,color:m.tipo==="carga"?"#16a34a":"#dc2626"}}>{m.tipo==="carga"?"+":"-"}{m.litros}L</span>
+                                    {m.tipo==="consumo"&&m.precio_ppp>0&&<div style={{fontSize:10,color:"#dc2626",fontWeight:700}}>${Math.round(m.litros*m.precio_ppp).toLocaleString("es-AR")}</div>}
                                   </div>
                                 </div>
                               ))}
@@ -892,74 +928,96 @@ export default function StockPage() {
                   );
                 })}
               </div>
-            )}
+            }
           </div>
         )}
 
-        {/* ===== VARIOS ===== */}
-        {tab==="varios" && (
-          <div>
-            <div className="flex justify-end mb-4"><button onClick={()=>{setShowFormVarios(!showFormVarios);setEditandoVarios(null);setForm({});}} className="px-4 py-2 rounded-xl bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[#A78BFA] font-mono text-sm hover:bg-[#A78BFA]/20">+ Cargar Item</button></div>
-            {showFormVarios && (
-              <div className="bg-[#0a1628]/80 border border-[#A78BFA]/30 rounded-xl p-5 mb-5">
-                <h3 className="text-[#A78BFA] font-mono text-sm font-bold mb-4">{editandoVarios?"✏️ EDITAR":"+"} ITEM</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div><label className={lCls}>Nombre</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Categoría</label><input type="text" value={form.categoria??""} onChange={e=>setForm({...form,categoria:e.target.value})} className={iCls} placeholder="Repuesto, herramienta..."/></div>
-                  <div><label className={lCls}>Cantidad</label><input type="number" value={form.cantidad??""} onChange={e=>setForm({...form,cantidad:e.target.value})} className={iCls}/></div>
-                  <div><label className={lCls}>Unidad</label><input type="text" value={form.unidad??""} onChange={e=>setForm({...form,unidad:e.target.value})} className={iCls} placeholder="kg, unidad, m..."/></div>
-                  <div><label className={lCls}>Ubicación</label><input type="text" value={form.ubicacion??""} onChange={e=>setForm({...form,ubicacion:e.target.value})} className={iCls}/></div>
+        {/* ══════════════════════════════
+            VARIOS
+        ══════════════════════════════ */}
+        {tab==="varios"&&(
+          <div className="fade-in">
+            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+              <button onClick={()=>{setShowFormVarios(!showFormVarios);setEditandoVarios(null);setForm({});}} className="bbtn">+ Cargar Item</button>
+            </div>
+            {showFormVarios&&(
+              <div className="card fade-in" style={{padding:14,marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:800,color:"#7c3aed",marginBottom:12}}>{editandoVarios?"✏️ Editar":"+"} Item</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:10,marginBottom:12}}>
+                  <div><label className={lCls}>Nombre</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Categoría</label><input type="text" value={form.categoria??""} onChange={e=>setForm({...form,categoria:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Repuesto, herramienta..."/></div>
+                  <div><label className={lCls}>Cantidad</label><input type="number" value={form.cantidad??""} onChange={e=>setForm({...form,cantidad:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Unidad</label><input type="text" value={form.unidad??""} onChange={e=>setForm({...form,unidad:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="kg, unidad, m..."/></div>
+                  <div><label className={lCls}>Ubicación</label><input type="text" value={form.ubicacion??""} onChange={e=>setForm({...form,ubicacion:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                 </div>
-                <div className="flex gap-3 mt-4">
-                  <button onClick={guardarVarios} className="bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[#A78BFA] font-bold px-6 py-2.5 rounded-xl text-sm font-mono">▶ Guardar</button>
-                  <button onClick={()=>{setShowFormVarios(false);setEditandoVarios(null);setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">Cancelar</button>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={guardarVarios} className="bbtn">Guardar</button>
+                  <button onClick={()=>{setShowFormVarios(false);setEditandoVarios(null);setForm({});}} className="abtn">Cancelar</button>
                 </div>
               </div>
             )}
-            <div className="bg-[#0a1628]/80 border border-[#A78BFA]/15 rounded-xl overflow-hidden">
-              {varios.length===0?<div className="text-center py-16 text-[#4B5563] font-mono">Sin items registrados</div>:(
-                <table className="w-full"><thead><tr className="border-b border-[#A78BFA]/10">{["Producto","Categoría","Cantidad","Ubicación",""].map(h=><th key={h} className="text-left px-5 py-3 text-xs text-[#4B5563] uppercase font-mono">{h}</th>)}</tr></thead>
+            <div className="card" style={{padding:0,overflow:"hidden"}}>
+              {varios.length===0
+                ?<div style={{textAlign:"center",padding:"40px 20px",color:"#6b8aaa",fontSize:14}}><div style={{fontSize:40,opacity:0.12,marginBottom:10}}>🔧</div>Sin items registrados</div>
+                :<table style={{width:"100%",fontSize:12,borderCollapse:"collapse"}}>
+                  <thead><tr style={{borderBottom:"1px solid rgba(0,60,140,0.08)"}}>{["Producto","Categoría","Cantidad","Ubicación",""].map(h=><th key={h} style={{textAlign:"left",padding:"10px 12px",fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                   <tbody>{varios.map(v=>(
-                    <tr key={v.id} className="border-b border-[#A78BFA]/5 hover:bg-[#A78BFA]/5">
-                      <td className="px-5 py-3 text-sm text-[#E5E7EB] font-mono font-bold">{v.nombre}</td>
-                      <td className="px-5 py-3"><span className="text-xs bg-[#A78BFA]/10 text-[#A78BFA] px-2 py-1 rounded font-mono">{v.categoria}</span></td>
-                      <td className="px-5 py-3 text-sm text-[#00FF80] font-mono font-bold">{v.cantidad} {v.unidad}</td>
-                      <td className="px-5 py-3 text-xs text-[#9CA3AF] font-mono">{v.ubicacion||"—"}</td>
-                      <td className="px-5 py-3"><div className="flex items-center gap-2">
-                        <button onClick={()=>{setEditandoVarios(v.id);setForm({nombre:v.nombre,categoria:v.categoria,cantidad:String(v.cantidad),unidad:v.unidad,ubicacion:v.ubicacion});setShowFormVarios(true);}} className="text-xs text-[#C9A227] font-mono hover:underline">✏️</button>
-                        <button onClick={()=>eliminarItem("stock_varios",v.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button>
-                      </div></td>
+                    <tr key={v.id} className="row-s" style={{borderBottom:"1px solid rgba(0,60,140,0.05)",transition:"background 0.15s"}}>
+                      <td style={{padding:"9px 12px",fontWeight:800,color:"#0d2137"}}>{v.nombre}</td>
+                      <td style={{padding:"9px 12px"}}><span style={{fontSize:10,padding:"2px 8px",borderRadius:6,background:"rgba(124,58,237,0.10)",color:"#7c3aed",fontWeight:700}}>{v.categoria}</span></td>
+                      <td style={{padding:"9px 12px",fontWeight:800,color:"#7c3aed"}}>{v.cantidad} {v.unidad}</td>
+                      <td style={{padding:"9px 12px",color:"#6b8aaa"}}>{v.ubicacion||"—"}</td>
+                      <td style={{padding:"9px 12px"}}>
+                        <div style={{display:"flex",gap:6}}>
+                          <button onClick={()=>{setEditandoVarios(v.id);setForm({nombre:v.nombre,categoria:v.categoria,cantidad:String(v.cantidad),unidad:v.unidad,ubicacion:v.ubicacion});setShowFormVarios(true);}} style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:13}}>✏️</button>
+                          <button onClick={()=>eliminarItem("stock_varios",v.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:14}}>✕</button>
+                        </div>
+                      </td>
                     </tr>
                   ))}</tbody>
                 </table>
-              )}
+              }
             </div>
           </div>
         )}
       </div>
 
-      {vozPanel && (
-        <div className="fixed bottom-44 right-6 z-50 w-80 bg-[#0a1628]/97 border border-[#00FF80]/30 rounded-2xl shadow-2xl overflow-hidden backdrop-blur-sm">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#00FF80]/20"><div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full" style={{background:VOZ_COLOR[vozEstado]}}/><span className="text-[#00FF80] text-xs font-mono font-bold">🎤 ASISTENTE DE STOCK</span></div><button onClick={()=>{setVozPanel(false);window.speechSynthesis?.cancel();recRef.current?.stop();setVozEstado("idle");}} className="text-[#4B5563] hover:text-white text-sm">✕</button></div>
-          <div className="px-4 pt-3 pb-2 min-h-24">
-            {vozEstado==="escuchando"&&<div className="flex items-center gap-3 py-3"><div className="flex gap-1 items-end h-8">{[1,2,3,4,5].map(i=><div key={i} className="w-1.5 rounded-full bg-[#F87171]" style={{height:`${10+i*5}px`,animation:`wave ${0.3+i*0.1}s ease-in-out infinite alternate`}}/>)}</div><span className="text-[#F87171] text-sm font-mono">Escuchando...</span></div>}
-            {vozEstado==="procesando"&&<div className="flex items-center gap-3 py-3"><div className="w-5 h-5 border-2 border-[#C9A227] border-t-transparent rounded-full" style={{animation:"spin 0.8s linear infinite"}}/><div><p className="text-[#C9A227] text-xs font-mono">Procesando...</p>{vozTranscripcion&&<p className="text-[#4B5563] text-xs font-mono italic mt-0.5">"{vozTranscripcion}"</p>}</div></div>}
-            {vozTranscripcion&&vozEstado!=="escuchando"&&vozEstado!=="procesando"&&<div className="bg-[#020810]/60 rounded-lg px-3 py-2 mb-2"><p className="text-[#4B5563] text-xs font-mono">Dijiste:</p><p className="text-[#9CA3AF] text-xs font-mono italic">"{vozTranscripcion}"</p></div>}
-            {vozRespuesta&&<div className="bg-[#00FF80]/8 border border-[#00FF80]/20 rounded-lg px-3 py-2 mb-2"><p className="text-[#E5E7EB] text-sm font-mono leading-relaxed">{vozRespuesta}</p></div>}
-            {!vozRespuesta&&!vozTranscripcion&&vozEstado==="idle"&&<div className="space-y-1 py-1">{["¿Cuánto gasoil tengo?","¿Qué insumos me quedan?","¿Cuánto stock de soja tengo?","Usé 200 litros de gasoil hoy"].map(q=><button key={q} onClick={()=>{setVozTranscripcion(q);interpretarVoz(q);}} className="w-full text-left text-xs text-[#4B6B5B] hover:text-[#00FF80] border border-[#00FF80]/10 hover:border-[#00FF80]/30 px-3 py-2 rounded-lg font-mono transition-all">💬 {q}</button>)}</div>}
+      {/* Panel voz */}
+      {vozPanel&&(
+        <div style={{position:"fixed",bottom:80,right:16,zIndex:50,width:288,borderRadius:18,overflow:"hidden",background:"rgba(255,255,255,0.94)",backdropFilter:"blur(16px)",border:"1px solid rgba(255,255,255,0.95)",boxShadow:"0 12px 36px rgba(20,80,160,0.16)"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 13px",borderBottom:"1px solid rgba(0,60,140,0.07)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:6,height:6,borderRadius:"50%",background:VOZ_COLOR[vozEstado]}}/><span style={{fontSize:12,fontWeight:700,color:"#0d2137"}}>🎤 Asistente de Stock</span></div>
+            <button onClick={()=>{setVozPanel(false);window.speechSynthesis?.cancel();recRef.current?.stop();setVozEstado("idle");}} style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:18}}>✕</button>
           </div>
-          <div className="px-3 pb-3 flex gap-2 border-t border-[#00FF80]/10 pt-3">
-            <input value={vozInput} onChange={e=>setVozInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&vozInput.trim()){setVozTranscripcion(vozInput);interpretarVoz(vozInput);setVozInput("");}}} placeholder="Escribí o hablá..." className="flex-1 bg-[#020810]/80 border border-[#00FF80]/20 rounded-lg px-3 py-2 text-[#E5E7EB] text-xs font-mono focus:outline-none focus:border-[#00FF80]"/>
-            <button onClick={()=>{if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else escucharVoz();}} className="px-3 py-2 rounded-lg text-sm font-mono font-bold" style={{background:VOZ_COLOR[vozEstado]+"20",border:`1px solid ${VOZ_COLOR[vozEstado]}`,color:VOZ_COLOR[vozEstado]}}>{VOZ_ICON[vozEstado]}</button>
-            {vozInput&&<button onClick={()=>{setVozTranscripcion(vozInput);interpretarVoz(vozInput);setVozInput("");}} className="px-3 py-2 rounded-lg bg-[#00FF80]/10 border border-[#00FF80]/30 text-[#00FF80] text-xs font-mono">▶</button>}
+          <div style={{padding:"10px 12px",minHeight:72}}>
+            {vozEstado==="escuchando"&&<div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:12,color:"#dc2626",fontWeight:700}}>🔴 Escuchando...</span></div>}
+            {vozEstado==="procesando"&&<p style={{fontSize:12,color:"#d97706",fontWeight:700}}>⚙️ Procesando...</p>}
+            {vozTranscripcion&&vozEstado!=="escuchando"&&vozEstado!=="procesando"&&<div style={{padding:"6px 10px",borderRadius:8,background:"rgba(0,60,140,0.05)",marginBottom:6}}><p style={{fontSize:11,color:"#6b8aaa",margin:0,fontStyle:"italic"}}>"{vozTranscripcion}"</p></div>}
+            {vozRespuesta&&<div style={{background:"rgba(22,163,74,0.08)",border:"1px solid rgba(22,163,74,0.20)",borderRadius:10,padding:"8px 12px",marginBottom:6}}><p style={{fontSize:12,color:"#0d2137",margin:0,lineHeight:1.5}}>{vozRespuesta}</p></div>}
+            {!vozRespuesta&&!vozTranscripcion&&vozEstado==="idle"&&(
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {["¿Cuánto gasoil tengo?","¿Qué insumos me quedan?","Usé 200 litros de gasoil","¿Cuánto stock de soja?"].map(q=>(
+                  <button key={q} onClick={()=>{setVozTranscripcion(q);interpretarVoz(q);}} style={{textAlign:"left",fontSize:11,color:"#4a6a8a",padding:"6px 10px",borderRadius:8,background:"rgba(255,255,255,0.70)",border:"1px solid rgba(255,255,255,0.90)",cursor:"pointer"}}>💬 {q}</button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div style={{padding:"6px 10px 10px",display:"flex",gap:6,borderTop:"1px solid rgba(0,60,140,0.07)"}}>
+            <input value={vozInput} onChange={e=>setVozInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&vozInput.trim()){setVozTranscripcion(vozInput);interpretarVoz(vozInput);setVozInput("");}}} placeholder="Escribí o hablá..." className={iCls} style={{flex:1,padding:"7px 11px",fontSize:12}}/>
+            <button onClick={()=>{if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else escucharVoz();}} style={{padding:"7px 11px",borderRadius:10,fontSize:14,background:VOZ_COLOR[vozEstado]+"20",border:`1px solid ${VOZ_COLOR[vozEstado]}40`,color:VOZ_COLOR[vozEstado],cursor:"pointer"}}>{VOZ_ICON[vozEstado]}</button>
+            {vozInput&&<button onClick={()=>{setVozTranscripcion(vozInput);interpretarVoz(vozInput);setVozInput("");}} className="bbtn" style={{padding:"7px 11px",fontSize:12}}>→</button>}
           </div>
         </div>
       )}
 
-      <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}} className="fixed bottom-24 right-6 z-40 w-14 h-14 rounded-full flex items-center justify-center text-xl shadow-lg transition-all" style={{background:VOZ_COLOR[vozEstado]+"18",border:`2px solid ${VOZ_COLOR[vozEstado]}`,color:VOZ_COLOR[vozEstado],animation:vozEstado==="idle"?"float 3s ease-in-out infinite":vozEstado==="escuchando"?"pulse-ring 1s infinite":"none"}}>{VOZ_ICON[vozEstado]}</button>
+      {/* Botón voz flotante */}
+      <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}}
+        style={{position:"fixed",bottom:20,right:16,zIndex:40,width:52,height:52,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,cursor:"pointer",backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",backgroundPosition:"center",color:"white",border:"2px solid rgba(180,220,255,0.70)",boxShadow:"0 4px 22px rgba(33,150,243,0.55)",animation:vozEstado==="idle"?"float 3s ease-in-out infinite":"none",transition:"all 0.2s ease"}}>
+        {VOZ_ICON[vozEstado]}
+      </button>
 
-      <p className="relative z-10 text-center text-[#0a2a1a] text-xs pb-4 tracking-[0.3em] font-mono mt-6">© AGROGESTION PRO · STOCK</p>
-      {empresaId && <EscanerIA empresaId={empresaId}/>}
+      <p style={{textAlign:"center",fontSize:11,color:"rgba(30,58,90,0.45)",fontWeight:600,letterSpacing:"0.20em",paddingBottom:16,paddingTop:4}}>© AgroGestión PRO · STOCK</p>
+      {empresaId&&<EscanerIA empresaId={empresaId}/>}
     </div>
   );
 }
