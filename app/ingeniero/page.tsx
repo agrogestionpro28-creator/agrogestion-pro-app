@@ -17,7 +17,7 @@ const getSB = () => {
   return _sb;
 };
 
-type Seccion = "general"|"productores"|"cobranza"|"vehiculo"|"ia_campo";
+type Seccion = "general"|"productores"|"cobranza"|"varios"|"ia_campo";
 type ProductorIng = { id:string; nombre:string; telefono:string; email:string; localidad:string; provincia:string; hectareas_total:number; observaciones:string; empresa_id:string|null; tiene_cuenta:boolean; honorario_tipo:string; honorario_monto:number; };
 type Campana = { id:string; nombre:string; activa:boolean; año_inicio?:number; año_fin?:number; };
 type Cobranza = { id:string; productor_id:string; concepto:string; monto:number; fecha:string; estado:string; metodo_pago:string; };
@@ -59,7 +59,6 @@ function getCultivoInfo(raw: string): { label:string; color:string } {
   const r = raw.toLowerCase().trim();
   const c = CULTIVOS.find(x => x.key === r || x.label.toLowerCase() === r || r.includes(x.key.replace("_"," ")));
   if (c) return { label: c.label, color: c.color };
-  // Intentar por nombre parcial
   if (r.includes("soja")) return { label: r.includes("2")?"Soja 2º":"Soja 1º", color: r.includes("2")?"#86efac":"#22c55e" };
   if (r.includes("maiz")||r.includes("maíz")) return { label: r.includes("2")?"Maíz 2º":"Maíz 1º", color: r.includes("2")?"#fde047":"#eab308" };
   if (r.includes("trigo")) return { label:"Trigo", color:"#f59e0b" };
@@ -81,10 +80,9 @@ const NAV = [
   { k:"general",    icon:"📊", label:"General" },
   { k:"productores",icon:"👨‍🌾", label:"Productores" },
   { k:"cobranza",   icon:"💰", label:"Cobranza" },
-  { k:"vehiculo",   icon:"🚗", label:"Vehículo" },
+  { k:"varios",     icon:"📁", label:"Varios" },
 ];
 
-// ── Selector cultivo standalone (fuera del componente) ──
 const _iClsSel = "w-full bg-white/60 border border-white/30 rounded-xl px-3 py-2.5 text-gray-800 text-sm focus:outline-none focus:border-blue-400 transition-all";
 function SelectorCultivo({value, onChange}:{value:string,onChange:(v:string)=>void}) {
   const isLibre = value?.startsWith("__libre__:");
@@ -112,7 +110,6 @@ function SelectorCultivo({value, onChange}:{value:string,onChange:(v:string)=>vo
   );
 }
 
-// ── ÍCONOS SVG MODERNOS POR CULTIVO ──
 function CultivoIcon({cultivo, size=32}:{cultivo:string, size?:number}) {
   const l = cultivo.toLowerCase();
   const s = size;
@@ -193,7 +190,6 @@ function CultivoIcon({cultivo, size=32}:{cultivo:string, size?:number}) {
     );
   }
   
-  // Soja (1ra verde, 2da celeste, default verde)
   const esSoja2 = l.includes("2");
   const colSoja = esSoja2?"#0288d1":"#4CAF50";
   const colSoja2 = esSoja2?"#29b6f6":"#66BB6A";
@@ -213,6 +209,7 @@ function CultivoIcon({cultivo, size=32}:{cultivo:string, size?:number}) {
 
 export default function IngenieroPanel() {
   const [seccion, setSeccion] = useState<Seccion>("general");
+  const [variosTab, setVariosTab] = useState<"vehiculos"|"recetas"|"notas">("vehiculos");
   const [ingId, setIngId] = useState("");
   const [ingNombre, setIngNombre] = useState("");
   const [ingData, setIngData] = useState<any>({});
@@ -260,7 +257,6 @@ export default function IngenieroPanel() {
 
   useEffect(() => {
     init();
-    // Leer sección desde URL ?s=productores
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const s = params.get("s");
@@ -286,8 +282,6 @@ export default function IngenieroPanel() {
 
   const fetchProds = async (iid: string) => {
     const sb = getSB();
-
-    // Query 1: productores (1 query)
     const { data: prods } = await sb
       .from("ing_productores")
       .select("*")
@@ -300,7 +294,6 @@ export default function IngenieroPanel() {
     const eids = prods.map((p:any) => p.empresa_id).filter(Boolean);
     if (!eids.length) return;
 
-    // Queries 2 y 3 en PARALELO — campañas y lotes al mismo tiempo
     const [{ data: todasCamps }, { data: todosLotes }] = await Promise.all([
       sb.from("campanas")
         .select("id,nombre,activa,año_inicio,año_fin,empresa_id")
@@ -312,18 +305,15 @@ export default function IngenieroPanel() {
         .eq("es_segundo_cultivo", false)
     ]);
 
-    // Procesar en memoria (sin más queries)
     const cpMap: Record<string,any[]> = {};
     const csMap: Record<string,string> = {};
     const lotesAll: LoteResumen[] = [];
 
-    // Agrupar campañas por empresa
     for (const c of (todasCamps ?? [])) {
       if (!cpMap[c.empresa_id]) cpMap[c.empresa_id] = [];
       cpMap[c.empresa_id].push(c);
     }
 
-    // Agrupar lotes por empresa y campana
     const lotesPorEmpresa: Record<string, any[]> = {};
     for (const l of (todosLotes ?? [])) {
       if (!lotesPorEmpresa[l.empresa_id]) lotesPorEmpresa[l.empresa_id] = [];
@@ -340,12 +330,10 @@ export default function IngenieroPanel() {
 
       if (campSel) {
         csMap[eid] = campSel.id;
-        // Filtrar lotes de la campaña activa en memoria
         lotesEmpresa
           .filter((l:any) => l.campana_id === campSel.id)
           .forEach((l:any) => lotesAll.push({...l, productor_nombre: p.nombre}));
       } else {
-        // Sin campañas — tomar lotes de la campana_id más reciente
         const campIds = [...new Set(lotesEmpresa.map((l:any) => l.campana_id))];
         const campIdMasReciente = campIds[0] ?? null;
         lotesEmpresa
@@ -368,9 +356,7 @@ export default function IngenieroPanel() {
       .eq("campana_id", campana_id)
       .eq("es_segundo_cultivo", false);
     setLotes(prev => [
-      // Eliminar lotes anteriores de esta empresa
       ...prev.filter(l => (l as any).empresa_id !== eid),
-      // Agregar los nuevos
       ...(ls ?? []).map((l:any) => ({...l, productor_nombre: prod_nombre, empresa_id: eid}))
     ]);
   };
@@ -398,23 +384,20 @@ export default function IngenieroPanel() {
     setPagos(pg ?? []);
   };
 
-  // Guardar acuerdo (1 por productor por campaña)
   const guardarAcuerdo = async () => {
     if(!ingId || !form.prod_ac) { m("❌ Seleccioná un productor"); return; }
     const sb = getSB();
     const prod = productores.find((p:any) => p.id === form.prod_ac);
     const eid = prod?.empresa_id ?? prod?.id;
     const campId = campSelProd[eid] ?? "";
-    // Buscar nombre campaña
     const { data: campData } = await sb.from("campanas").select("nombre").eq("id", campId).single();
     const campNombre = campData?.nombre ?? "";
 
-    // Calcular kg_total y monto_usd según modalidad
     const modalidad = form.modalidad_ac ?? "usd_anual";
     let kg_total = 0, monto_total_usd = 0;
     if(modalidad === "kg_soja_ha" || modalidad === "kg_cultivo_ha") {
       kg_total = Number(form.kg_total_ac ?? 0);
-      monto_total_usd = 0; // se calcula al cobrar
+      monto_total_usd = 0;
     } else if(modalidad === "usd_mensual") {
       monto_total_usd = Number(form.monto_ac ?? 0) * 12;
     } else {
@@ -438,7 +421,6 @@ export default function IngenieroPanel() {
       estado: "activo",
     };
 
-    // Verificar si ya existe acuerdo para esta campaña
     const existente = acuerdos.find((a:any) => a.productor_id === form.prod_ac && a.campana_id === campId);
     if(existente) {
       await sb.from("ing_acuerdos").update(payload).eq("id", existente.id);
@@ -451,7 +433,6 @@ export default function IngenieroPanel() {
     setShowAcuerdo(false); setForm({});
   };
 
-  // Registrar pago parcial
   const registrarPago = async () => {
     if(!acuerdoSel || !ingId) return;
     const sb = getSB();
@@ -486,7 +467,6 @@ export default function IngenieroPanel() {
     setShowPago(false); setForm({});
   };
 
-  // Calcular saldo de un acuerdo
   const calcularSaldo = (ac: Acuerdo) => {
     const pagosAc = pagos.filter((p:any) => p.acuerdo_id === ac.id);
     if(ac.modalidad === "kg_soja_ha" || ac.modalidad === "kg_cultivo_ha") {
@@ -500,11 +480,9 @@ export default function IngenieroPanel() {
     }
   };
 
-  // Copiar acuerdo de campaña anterior
   const copiarAcuerdoAnterior = async (prodId: string) => {
     const anterior = acuerdos.find((a:any) => a.productor_id === prodId && a.estado === "activo");
     if(!anterior) { m("Sin acuerdo anterior para copiar"); return; }
-    const prod = productores.find((p:any) => p.id === prodId);
     setForm({
       prod_ac: prodId,
       modalidad_ac: anterior.modalidad,
@@ -553,7 +531,6 @@ export default function IngenieroPanel() {
     await fetchCobs(ingId); setShowForm(false); setForm({}); m("✅ Cobro registrado");
   };
 
-  // ── Calcular honorario automático por productor ──
   const calcularHonorario = async (p: any) => {
     const sb = getSB();
     const eid = p.empresa_id ?? p.id;
@@ -632,10 +609,8 @@ export default function IngenieroPanel() {
     const ws=XLSX.utils.json_to_sheet(data);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,tipo);XLSX.writeFile(wb,tipo+"_"+new Date().toISOString().slice(0,10)+".xlsx");
   };
 
-  // ── EXPORTAR TODOS LOS LOTES DE TODOS LOS PRODUCTORES (hoja de recorrida) ──
   const exportarRecorrida = async () => {
     const XLSX = await import("xlsx");
-    // Traer todos los lotes de todos los productores con sus datos completos
     const sb = getSB();
     const todosLotes: any[] = [];
     for (const p of productores) {
@@ -659,15 +634,13 @@ export default function IngenieroPanel() {
           FECHA_SIEMBRA:   l.fecha_siembra || "",
           ESTADO:          l.estado || "",
           OBSERVACIONES:   l.observaciones || "",
-          RECORRIDA:       "",   // columna en blanco para anotación manual
-          NOVEDADES:       "",   // ídem
+          RECORRIDA:       "",
+          NOVEDADES:       "",
         });
       });
     }
     if (!todosLotes.length) { m("Sin lotes para exportar"); return; }
-    // Crear hoja con formato para imprimir
     const ws = XLSX.utils.json_to_sheet(todosLotes);
-    // Anchos de columna
     ws["!cols"] = [
       {wch:22},{wch:20},{wch:14},{wch:8},{wch:14},{wch:18},{wch:14},{wch:12},{wch:28},{wch:25},{wch:25}
     ];
@@ -727,13 +700,11 @@ export default function IngenieroPanel() {
     rec.start();
   };
 
-  // KPIs
   const totalHa = lotes.reduce((a,l)=>a+(Number(l.hectareas)||0),0);
   const totPend = cobranzas.filter(c=>c.estado==="pendiente").reduce((a,c)=>a+c.monto,0);
   const totCob = cobranzas.filter(c=>c.estado==="cobrado").reduce((a,c)=>a+c.monto,0);
   const cultivosU = [...new Set(lotes.map(l=>l.cultivo_completo||l.cultivo).filter(Boolean))];
 
-  // Gráfico — agrupar por cultivo
   const haPorCultivo = (() => {
     const mapa: Record<string,{ha:number;color:string}> = {};
     lotes.forEach(l => {
@@ -745,15 +716,9 @@ export default function IngenieroPanel() {
     return Object.entries(mapa).map(([name,v])=>({name,ha:Math.round(v.ha),color:v.color})).sort((a,b)=>b.ha-a.ha);
   })();
 
-  // Inputs
   const iCls = "inp w-full px-3 py-2.5 text-[#1a2a4a] text-sm";
   const lCls = "block text-[10px] font-bold uppercase tracking-wider text-[#6b8aaa] mb-1.5";
   const cardCls = "card";
-
-
-
-
-
 
   const cultivoIcono = (label:string) => {
     const l = label.toLowerCase();
@@ -769,43 +734,30 @@ export default function IngenieroPanel() {
 
   const cultivoColor = (label:string) => {
     const l = label.toLowerCase();
-    // Soja 1° — verde intenso
     if((l.includes("soja")||l.includes("soja 1")||l.includes("soja1"))&&!l.includes("2"))
       return {bar:"linear-gradient(90deg,#2e7d32,#4CAF50)",chip:"rgba(46,125,50,0.14)",border:"rgba(46,125,50,0.35)",text:"#1b5e20",chipBg:"rgba(200,240,200,0.55)"};
-    // Soja 2° — celeste
     if(l.includes("soja")&&l.includes("2"))
       return {bar:"linear-gradient(90deg,#0288d1,#4fc3f7)",chip:"rgba(2,136,209,0.12)",border:"rgba(2,136,209,0.32)",text:"#01579b",chipBg:"rgba(190,230,255,0.55)"};
-    // Maíz 1° — amarillo maíz intenso
     if((l.includes("maíz")||l.includes("maiz"))&&!l.includes("2"))
       return {bar:"linear-gradient(90deg,#f9a825,#fdd835)",chip:"rgba(249,168,37,0.14)",border:"rgba(249,168,37,0.38)",text:"#e65100",chipBg:"rgba(255,240,180,0.60)"};
-    // Maíz 2° — amarillo más suave
     if((l.includes("maíz")||l.includes("maiz"))&&l.includes("2"))
       return {bar:"linear-gradient(90deg,#ffb300,#ffe082)",chip:"rgba(255,179,0,0.12)",border:"rgba(255,179,0,0.30)",text:"#ff6f00",chipBg:"rgba(255,248,210,0.60)"};
-    // Trigo — dorado trigo real
     if(l.includes("trigo"))
       return {bar:"linear-gradient(90deg,#c8860a,#e4a829)",chip:"rgba(200,134,10,0.13)",border:"rgba(200,134,10,0.35)",text:"#7d4e00",chipBg:"rgba(245,220,160,0.58)"};
-    // Girasol — naranja-rojo llamativo
     if(l.includes("girasol"))
       return {bar:"linear-gradient(90deg,#e53935,#ff7043)",chip:"rgba(229,57,53,0.12)",border:"rgba(229,57,53,0.32)",text:"#b71c1c",chipBg:"rgba(255,200,190,0.58)"};
-    // Sorgo 1° — marrón
     if(l.includes("sorgo")&&!l.includes("2"))
       return {bar:"linear-gradient(90deg,#6d4c41,#a1887f)",chip:"rgba(109,76,65,0.13)",border:"rgba(109,76,65,0.32)",text:"#4e342e",chipBg:"rgba(220,195,185,0.58)"};
-    // Sorgo 2° — marrón más suave
     if(l.includes("sorgo")&&l.includes("2"))
       return {bar:"linear-gradient(90deg,#a1887f,#d7ccc8)",chip:"rgba(161,136,127,0.12)",border:"rgba(161,136,127,0.28)",text:"#6d4c41",chipBg:"rgba(235,220,215,0.58)"};
-    // Cebada — violeta
     if(l.includes("cebada"))
       return {bar:"linear-gradient(90deg,#6a1b9a,#ab47bc)",chip:"rgba(106,27,154,0.11)",border:"rgba(106,27,154,0.28)",text:"#4a148c",chipBg:"rgba(220,190,240,0.55)"};
-    // Arveja — verde agua
     if(l.includes("arveja"))
       return {bar:"linear-gradient(90deg,#00796b,#4db6ac)",chip:"rgba(0,121,107,0.11)",border:"rgba(0,121,107,0.28)",text:"#004d40",chipBg:"rgba(180,235,230,0.55)"};
-    // Carinata/Camelina — azul pizarra
     if(l.includes("carin")||l.includes("camel"))
       return {bar:"linear-gradient(90deg,#37474f,#78909c)",chip:"rgba(55,71,79,0.11)",border:"rgba(55,71,79,0.25)",text:"#263238",chipBg:"rgba(200,215,220,0.55)"};
-    // Pastura — verde pasto
     if(l.includes("pastura")||l.includes("alfalfa")||l.includes("festuca"))
       return {bar:"linear-gradient(90deg,#33691e,#8bc34a)",chip:"rgba(51,105,30,0.12)",border:"rgba(51,105,30,0.28)",text:"#1b5e20",chipBg:"rgba(200,235,170,0.55)"};
-    // Otros — azul grisáceo
     return {bar:"linear-gradient(90deg,#455a64,#90a4ae)",chip:"rgba(69,90,100,0.10)",border:"rgba(69,90,100,0.24)",text:"#263238",chipBg:"rgba(200,215,225,0.55)"};
   };
 
@@ -824,7 +776,6 @@ export default function IngenieroPanel() {
     if(!vex)await sb.from("vinculaciones").insert({profesional_id:ingId,empresa_id:emp.id,activa:true,rol_profesional:"ingeniero"});
     m("✅ "+u.nombre+" vinculado"); await fetchProds(ingId); setShowVincular(false); setForm({});
   };
-
 
   const crearEmpresaVirtual = async (sb: any, nombre: string): Promise<string|null> => {
     const { data: emp } = await sb.from("empresas")
@@ -912,7 +863,6 @@ export default function IngenieroPanel() {
         @keyframes shine{0%{left:-50%}100%{left:120%}}
         @keyframes twinkle{0%,100%{opacity:0.3;transform:scale(0.8)}50%{opacity:1;transform:scale(1.1)}}
 
-        /* ── CARD CON FON.png DE FONDO ── */
         .card{
           background-image: url('/FON.png');
           background-size: cover;
@@ -920,25 +870,11 @@ export default function IngenieroPanel() {
           border:1.5px solid rgba(255,255,255,0.90);
           border-top:2px solid rgba(255,255,255,1);
           border-radius:20px;
-          box-shadow:
-            0 8px 32px rgba(20,80,160,0.18),
-            0 2px 8px rgba(0,0,0,0.07),
-            inset 0 2px 0 rgba(255,255,255,0.95);
+          box-shadow:0 8px 32px rgba(20,80,160,0.18),0 2px 8px rgba(0,0,0,0.07),inset 0 2px 0 rgba(255,255,255,0.95);
           position:relative;overflow:hidden;
         }
-        /* Capa blanca encima para legibilidad */
-        .card::before{
-          content:"";position:absolute;inset:0;
-          background:rgba(255,255,255,0.64);
-          border-radius:20px;
-          pointer-events:none;z-index:0;
-        }
-        /* Reflejo superior */
-        .card::after{
-          content:"";position:absolute;top:0;left:0;right:0;height:42%;
-          background:linear-gradient(180deg,rgba(255,255,255,0.55) 0%,transparent 100%);
-          border-radius:20px 20px 0 0;pointer-events:none;z-index:1;
-        }
+        .card::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.64);border-radius:20px;pointer-events:none;z-index:0;}
+        .card::after{content:"";position:absolute;top:0;left:0;right:0;height:42%;background:linear-gradient(180deg,rgba(255,255,255,0.55) 0%,transparent 100%);border-radius:20px 20px 0 0;pointer-events:none;z-index:1;}
         .card>*{position:relative;z-index:2;}
 
         .card-sm{
@@ -951,19 +887,10 @@ export default function IngenieroPanel() {
           box-shadow:0 4px 18px rgba(20,80,160,0.13),inset 0 2px 0 rgba(255,255,255,0.90);
           position:relative;overflow:hidden;
         }
-        .card-sm::before{
-          content:"";position:absolute;inset:0;
-          background:rgba(255,255,255,0.60);
-          border-radius:16px;pointer-events:none;z-index:0;
-        }
-        .card-sm::after{
-          content:"";position:absolute;top:0;left:0;right:0;height:42%;
-          background:linear-gradient(180deg,rgba(255,255,255,0.45) 0%,transparent 100%);
-          border-radius:16px 16px 0 0;pointer-events:none;z-index:1;
-        }
+        .card-sm::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.60);border-radius:16px;pointer-events:none;z-index:0;}
+        .card-sm::after{content:"";position:absolute;top:0;left:0;right:0;height:42%;background:linear-gradient(180deg,rgba(255,255,255,0.45) 0%,transparent 100%);border-radius:16px 16px 0 0;pointer-events:none;z-index:1;}
         .card-sm>*{position:relative;z-index:2;}
 
-        /* ── TOPBAR ── */
         .topbar{
           background-image: url('/FON.png');
           background-size: cover;
@@ -972,14 +899,9 @@ export default function IngenieroPanel() {
           box-shadow:0 2px 16px rgba(20,80,160,0.12);
           position:relative;
         }
-        .topbar::before{
-          content:"";position:absolute;inset:0;
-          background:rgba(255,255,255,0.30);
-          pointer-events:none;z-index:0;
-        }
+        .topbar::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.30);pointer-events:none;z-index:0;}
         .topbar>*{position:relative;z-index:1;}
 
-        /* ── NAV TAB ── */
         .nav-tab{
           padding:9px 18px;border-radius:12px;font-size:13px;font-weight:700;
           cursor:pointer;transition:all 0.18s ease;white-space:nowrap;
@@ -988,26 +910,15 @@ export default function IngenieroPanel() {
           border:1.5px solid rgba(255,255,255,0.92);
           color:#1e3a5f;
           box-shadow:0 3px 12px rgba(20,80,160,0.12);
+          position:relative;
         }
-        .nav-tab::before{
-          content:"";position:absolute;inset:0;
-          background:rgba(255,255,255,0.42);
-          border-radius:12px;pointer-events:none;z-index:0;
-          transition:background 0.18s;
-        }
+        .nav-tab::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.42);border-radius:12px;pointer-events:none;z-index:0;transition:background 0.18s;}
         .nav-tab>*,.nav-tab span{position:relative;z-index:1;}
         .nav-tab:hover::before{background:rgba(255,255,255,0.88);}
         .nav-tab:hover{color:#0d47a1;transform:translateY(-1px);}
-        .nav-tab.active{
-          background-image:none;
-          background:linear-gradient(145deg,#1976d2,#0d47a1);
-          border:1.5px solid rgba(100,160,255,0.40);
-          color:white !important;
-          box-shadow:0 5px 18px rgba(13,71,161,0.45),inset 0 1px 0 rgba(255,255,255,0.25);
-        }
+        .nav-tab.active{background-image:none;background:linear-gradient(145deg,#1976d2,#0d47a1);border:1.5px solid rgba(100,160,255,0.40);color:white !important;box-shadow:0 5px 18px rgba(13,71,161,0.45),inset 0 1px 0 rgba(255,255,255,0.25);}
         .nav-tab.active::before{display:none;}
 
-        /* ── ACTION BTN ── */
         .abtn{
           background-image:url('/FON.png');
           background-size:cover;background-position:center;
@@ -1021,22 +932,12 @@ export default function IngenieroPanel() {
           display:flex;align-items:center;justify-content:center;gap:7px;padding:12px 16px;
           position:relative;overflow:hidden;
         }
-        .abtn::before{
-          content:"";position:absolute;inset:0;
-          background:rgba(255,255,255,0.62);
-          border-radius:16px;pointer-events:none;z-index:0;
-        }
-        .abtn::after{
-          content:"";position:absolute;top:0;left:0;right:0;height:42%;
-          background:linear-gradient(180deg,rgba(255,255,255,0.50) 0%,transparent 100%);
-          border-radius:16px 16px 0 0;pointer-events:none;z-index:1;
-          transition:none;transform:none;
-        }
+        .abtn::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.62);border-radius:16px;pointer-events:none;z-index:0;}
+        .abtn::after{content:"";position:absolute;top:0;left:0;right:0;height:42%;background:linear-gradient(180deg,rgba(255,255,255,0.50) 0%,transparent 100%);border-radius:16px 16px 0 0;pointer-events:none;z-index:1;transition:none;transform:none;}
         .abtn>*{position:relative;z-index:2;}
         .abtn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(20,80,160,0.18);}
         .abtn:active{transform:scale(0.97);}
 
-        /* ── BTN AZUL con AZUL.png ── */
         .bbtn{
           background-image:url('/AZUL.png');
           background-size:cover;
@@ -1050,40 +951,19 @@ export default function IngenieroPanel() {
           position:relative;overflow:hidden;
           text-shadow:0 1px 3px rgba(0,40,120,0.35);
         }
-        .bbtn::before{
-          content:"";position:absolute;top:0;left:0;right:0;height:45%;
-          background:linear-gradient(180deg,rgba(255,255,255,0.22) 0%,transparent 100%);
-          border-radius:14px 14px 0 0;pointer-events:none;
-        }
+        .bbtn::before{content:"";position:absolute;top:0;left:0;right:0;height:45%;background:linear-gradient(180deg,rgba(255,255,255,0.22) 0%,transparent 100%);border-radius:14px 14px 0 0;pointer-events:none;}
         .bbtn>*{position:relative;z-index:1;}
         .bbtn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(25,118,210,0.60);filter:brightness(1.08);}
         .bbtn:active{transform:scale(0.97);}
 
-        /* ── INPUT ── */
-        .inp{
-          background:rgba(255,255,255,0.75);
-          border:1px solid rgba(180,210,240,0.55);
-          border-radius:11px;
-          box-shadow:inset 0 1px 3px rgba(0,60,140,0.04);
-          transition:all 0.18s;
-          color:#1a2a4a;
-        }
+        .inp{background:rgba(255,255,255,0.75);border:1px solid rgba(180,210,240,0.55);border-radius:11px;box-shadow:inset 0 1px 3px rgba(0,60,140,0.04);transition:all 0.18s;color:#1a2a4a;}
         .inp::placeholder{color:rgba(80,120,160,0.50);}
         .inp:focus{background:rgba(255,255,255,0.97);border-color:rgba(25,118,210,0.40);outline:none;box-shadow:0 0 0 3px rgba(25,118,210,0.10);}
         .inp option{background:white;color:#1a2a4a;}
 
-        /* ── SEL ── */
-        .sel{
-          background:rgba(255,255,255,0.75);
-          border:1px solid rgba(180,210,240,0.55);
-          border-radius:11px;color:#1a2a4a;
-          padding:8px 12px;font-size:13px;font-weight:500;
-          -webkit-appearance:none;cursor:pointer;
-          box-shadow:inset 0 1px 3px rgba(0,60,140,0.04);
-        }
+        .sel{background:rgba(255,255,255,0.75);border:1px solid rgba(180,210,240,0.55);border-radius:11px;color:#1a2a4a;padding:8px 12px;font-size:13px;font-weight:500;-webkit-appearance:none;cursor:pointer;box-shadow:inset 0 1px 3px rgba(0,60,140,0.04);}
         .sel option{background:white;color:#1a2a4a;}
 
-        /* ── KPI CARD con FON.png ── */
         .kpi{
           background-image: url('/FON.png');
           background-size: cover;
@@ -1095,72 +975,49 @@ export default function IngenieroPanel() {
           padding:16px;text-align:center;
           position:relative;overflow:hidden;
         }
-        .kpi::before{
-          content:"";position:absolute;inset:0;
-          background:rgba(255,255,255,0.66);
-          border-radius:16px;pointer-events:none;z-index:0;
-        }
-        .kpi::after{
-          content:"";position:absolute;top:0;left:0;right:0;height:42%;
-          background:linear-gradient(180deg,rgba(255,255,255,0.50) 0%,transparent 100%);
-          border-radius:16px 16px 0 0;pointer-events:none;z-index:1;
-        }
+        .kpi::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.66);border-radius:16px;pointer-events:none;z-index:0;}
+        .kpi::after{content:"";position:absolute;top:0;left:0;right:0;height:42%;background:linear-gradient(180deg,rgba(255,255,255,0.50) 0%,transparent 100%);border-radius:16px 16px 0 0;pointer-events:none;z-index:1;}
         .kpi>*{position:relative;z-index:2;}
 
-        /* ── BARRA CULTIVO ── */
-        .bar-track{
-          flex:1;height:9px;border-radius:10px;
-          background:rgba(0,60,140,0.07);overflow:hidden;
-          box-shadow:inset 0 1px 2px rgba(0,60,140,0.08);
-        }
-        .bar-fill{
-          height:100%;border-radius:10px;
-          position:relative;overflow:hidden;transition:width 0.7s ease;
-        }
-        .bar-fill::after{
-          content:"";position:absolute;
-          width:40%;height:100%;left:-50%;top:0;
-          background:linear-gradient(90deg,transparent,rgba(255,255,255,0.55),transparent);
-          animation:shine 2.5s ease-in-out infinite;
-        }
+        .bar-track{flex:1;height:9px;border-radius:10px;background:rgba(0,60,140,0.07);overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,60,140,0.08);}
+        .bar-fill{height:100%;border-radius:10px;position:relative;overflow:hidden;transition:width 0.7s ease;}
+        .bar-fill::after{content:"";position:absolute;width:40%;height:100%;left:-50%;top:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.55),transparent);animation:shine 2.5s ease-in-out infinite;}
 
-        /* ── CHIP CULTIVO (imagen grande) ── */
-        .cult-chip{
-          display:flex;align-items:center;gap:12px;
-          border-radius:16px;padding:14px 16px;
-          border:1.5px solid;cursor:default;
-          position:relative;overflow:hidden;
-          transition:all 0.18s ease;
-          box-shadow:0 3px 12px rgba(0,0,0,0.07),inset 0 1px 0 rgba(255,255,255,0.7);
-        }
-        .cult-chip::before{
-          content:"";position:absolute;top:0;left:0;right:0;height:50%;
-          background:linear-gradient(180deg,rgba(255,255,255,0.40) 0%,transparent 100%);
-          border-radius:14px 14px 0 0;pointer-events:none;
-        }
+        .cult-chip{display:flex;align-items:center;gap:12px;border-radius:16px;padding:14px 16px;border:1.5px solid;cursor:default;position:relative;overflow:hidden;transition:all 0.18s ease;box-shadow:0 3px 12px rgba(0,0,0,0.07),inset 0 1px 0 rgba(255,255,255,0.7);}
+        .cult-chip::before{content:"";position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.40) 0%,transparent 100%);border-radius:14px 14px 0 0;pointer-events:none;}
         .cult-chip:hover{transform:translateY(-2px);}
         .cult-chip>*{position:relative;}
 
-        /* ── PARTÍCULAS ── */
-        .star{
-          position:fixed;border-radius:50%;
-          background:white;pointer-events:none;
-          animation:twinkle var(--d,3s) ease-in-out infinite;
-          animation-delay:var(--delay,0s);
-        }
+        .star{position:fixed;border-radius:50%;background:white;pointer-events:none;animation:twinkle var(--d,3s) ease-in-out infinite;animation-delay:var(--delay,0s);}
 
-        /* ── MISC ── */
         .fade-in{animation:fadeIn 0.22s ease;}
         ::-webkit-scrollbar{width:3px}
         ::-webkit-scrollbar-thumb{background:rgba(25,118,210,0.20);border-radius:3px}
         input[type=date]::-webkit-calendar-picker-indicator{opacity:0.4}
 
-        /* ── NUM PRO ── */
         .num-big{font-size:36px;font-weight:800;color:#0D47A1;line-height:1;}
         .num-med{font-size:24px;font-weight:700;color:#0D47A1;line-height:1;}
+
+        /* Sub-tabs dentro de Varios */
+        .sub-tab{
+          padding:8px 16px;border-radius:10px;font-size:12px;font-weight:700;
+          cursor:pointer;transition:all 0.18s ease;white-space:nowrap;
+          background:rgba(255,255,255,0.55);
+          border:1.5px solid rgba(255,255,255,0.90);
+          color:#1e3a5f;
+          box-shadow:0 2px 8px rgba(20,80,160,0.10);
+          position:relative;
+        }
+        .sub-tab.active{
+          background-image:url('/AZUL.png');background-size:cover;background-position:center;
+          border:1.5px solid rgba(100,180,255,0.45);
+          color:white;font-weight:800;
+          box-shadow:0 4px 14px rgba(25,118,210,0.40);
+          text-shadow:0 1px 3px rgba(0,40,120,0.35);
+        }
       `}</style>
 
-      {/* ESTRELLAS/PARTÍCULAS de fondo */}
+      {/* ESTRELLAS */}
       {[[8,12,4,2.5,0],[22,45,3,3.5,0.5],[65,8,5,4,0.8],[80,30,3,2.8,1.2],
         [15,70,4,3.2,0.3],[50,55,3,4.5,1.5],[90,65,5,3,0.7],[35,85,3,2.5,2],
         [72,20,4,3.8,1],[5,40,3,4.2,0.4],[45,15,5,3.5,1.8],[88,80,3,2.8,0.6]
@@ -1199,7 +1056,7 @@ export default function IngenieroPanel() {
             </button>
           </div>
         </div>
-        {/* NAV */}
+        {/* NAV PRINCIPAL */}
         <div style={{display:"flex",gap:6,padding:"0 12px 10px",overflowX:"auto",scrollbarWidth:"none",justifyContent:"center"}}>
           {NAV.map(item=>(
             <button key={item.k}
@@ -1234,7 +1091,6 @@ export default function IngenieroPanel() {
         {/* ══ GENERAL ══ */}
         {seccion==="general"&&(
           <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:12}}>
-            {/* KPIs 2x2 */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               {[
                 {l:"Productores",v:productores.length,icon:"👨‍🌾",color:"#1976d2"},
@@ -1250,7 +1106,6 @@ export default function IngenieroPanel() {
               ))}
             </div>
 
-            {/* Botón Hoja de Recorrida */}
             <button onClick={exportarRecorrida}
               style={{width:"100%",padding:"13px 18px",
                 backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",backgroundPosition:"center",
@@ -1265,7 +1120,6 @@ export default function IngenieroPanel() {
               <span style={{fontSize:12,opacity:0.75}}>· todos los lotes</span>
             </button>
 
-            {/* Distribución cultivos */}
             {haPorCultivo.length>0&&(
               <div className="card" style={{padding:16}}>
                 <div style={{fontSize:11,fontWeight:800,color:"#1e3a5f",textTransform:"uppercase",letterSpacing:1.2,marginBottom:14}}>Distribución de Cultivos</div>
@@ -1289,7 +1143,6 @@ export default function IngenieroPanel() {
               </div>
             )}
 
-            {/* Chips cultivos 2x2 */}
             {haPorCultivo.length>0&&(
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                 {haPorCultivo.slice(0,4).map((d,i)=>{
@@ -1307,7 +1160,6 @@ export default function IngenieroPanel() {
               </div>
             )}
 
-            {/* Cobranza */}
             <div className="card" style={{padding:14}}>
               <div style={{fontSize:11,fontWeight:700,letterSpacing:1.2,color:"#6b8aaa",textTransform:"uppercase",marginBottom:10}}>💰 Cobranza</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
@@ -1327,8 +1179,6 @@ export default function IngenieroPanel() {
         {/* ══ PRODUCTORES ══ */}
         {seccion==="productores"&&(
           <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:10}}>
-
-            {/* Acciones */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
               {[
                 {icon:"➕",l:"Nuevo",fn:()=>{setShowForm(!showForm);setEditProd(null);setForm({provincia:"Santa Fe",honorario_tipo:"mensual"});}},
@@ -1342,7 +1192,6 @@ export default function IngenieroPanel() {
               ))}
             </div>
 
-            {/* Vincular */}
             <button onClick={()=>{setShowVincular(!showVincular);setForm({});}}
               style={{background:"none",border:"none",cursor:"pointer",color:"#1565c0",fontSize:14,fontWeight:700,textAlign:"left",display:"flex",alignItems:"center",gap:6,padding:"2px 0"}}>
               🔗 Vincular productor por código
@@ -1418,7 +1267,6 @@ export default function IngenieroPanel() {
               </div>
             )}
 
-            {/* Filtros exportar */}
             {lotes.length>0&&(
               <div className="card" style={{padding:"10px 12px"}}>
                 <div style={{display:"flex",flexWrap:"wrap",gap:7,alignItems:"center"}}>
@@ -1433,7 +1281,6 @@ export default function IngenieroPanel() {
               </div>
             )}
 
-            {/* Lista productores */}
             {productores.length===0
               ?<div className="card" style={{padding:"48px 20px",textAlign:"center"}}><div style={{fontSize:48,opacity:0.15,marginBottom:12}}>👨‍🌾</div><p style={{color:"#6b8aaa",fontSize:14}}>Sin productores — agregá el primero</p></div>
               :<div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -1446,7 +1293,6 @@ export default function IngenieroPanel() {
                   const cultivosProd=[...new Set(lotesP.map(l=>l.cultivo_completo||l.cultivo).filter(Boolean))];
                   return(
                     <div key={p.id} className="card" style={{padding:0}}>
-                      {/* Header */}
                       <div style={{padding:"14px 14px 12px",borderBottom:"1px solid rgba(0,60,140,0.07)",display:"flex",alignItems:"flex-start",gap:12}}>
                         <div style={{width:44,height:44,borderRadius:"50%",backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",backgroundPosition:"center",border:"2px solid rgba(180,220,255,0.80)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:800,color:"white",flexShrink:0,boxShadow:"0 3px 12px rgba(25,118,210,0.40)",textShadow:"0 1px 3px rgba(0,40,120,0.40)"}}>
                           {p.nombre.charAt(0)}
@@ -1468,7 +1314,6 @@ export default function IngenieroPanel() {
                       </div>
 
                       <div style={{padding:"12px 14px",display:"flex",flexDirection:"column",gap:12}}>
-                        {/* Campaña */}
                         <div>
                           <div style={{fontSize:10,fontWeight:800,color:"#4a6a8a",textTransform:"uppercase",letterSpacing:1.2,marginBottom:6}}>Campaña</div>
                           <div style={{display:"flex",gap:8}}>
@@ -1490,7 +1335,6 @@ export default function IngenieroPanel() {
                           <div style={{fontSize:12,color:"#4a6a8a",marginTop:5,fontWeight:700}}>{lotesP.length} lotes · {haReales.toLocaleString("es-AR")} ha</div>
                         </div>
 
-                        {/* KPIs */}
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                           <div className="kpi">
                             <div style={{fontSize:12,fontWeight:700,color:"#4a6a8a",marginBottom:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>🌿 Hectáreas</div>
@@ -1504,7 +1348,6 @@ export default function IngenieroPanel() {
                           </div>
                         </div>
 
-                        {/* Distribución cultivos */}
                         {cultivosProd.length>0&&(
                           <div className="card-sm" style={{padding:"12px 12px"}}>
                             <div style={{fontSize:10,fontWeight:800,color:"#4a6a8a",textTransform:"uppercase",letterSpacing:1.2,marginBottom:10}}>Distribución de Cultivos</div>
@@ -1526,8 +1369,6 @@ export default function IngenieroPanel() {
                                 );
                               })}
                             </div>
-
-                            {/* Chips cultivo */}
                             {cultivosProd.length>0&&(
                               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginTop:12}}>
                                 {cultivosProd.slice(0,4).map(c=>{
@@ -1544,7 +1385,6 @@ export default function IngenieroPanel() {
                           </div>
                         )}
 
-                        {/* CTA Mis Lotes */}
                         <button onClick={()=>entrar(p)}
                           style={{width:"100%",padding:"14px 20px",borderRadius:16,
                             backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",backgroundPosition:"center",
@@ -1574,15 +1414,12 @@ export default function IngenieroPanel() {
         {/* ══ COBRANZA ══ */}
         {seccion==="cobranza"&&(
           <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:12}}>
-
-            {/* Header + acciones */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
               <div>
                 <h2 style={{fontSize:18,fontWeight:800,color:"#0d2137",margin:0}}>Cobranza</h2>
                 <p style={{fontSize:12,color:"#6b8aaa",margin:"2px 0 0"}}>1 acuerdo por productor por campaña · los pagos van descontando el saldo</p>
               </div>
               <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                {/* Filtro campaña */}
                 <select value={campanaFiltro} onChange={e=>setCampanaFiltro(e.target.value)}
                   className="inp" style={{padding:"7px 12px",fontSize:12,fontWeight:600,color:"#1565c0"}}>
                   <option value="todas">Todas las campañas</option>
@@ -1596,12 +1433,9 @@ export default function IngenieroPanel() {
               </div>
             </div>
 
-            {/* Form nuevo acuerdo */}
             {showAcuerdo&&(
               <div className="card fade-in" style={{padding:16}}>
-                <div style={{fontSize:13,fontWeight:800,color:"#0d2137",marginBottom:14}}>
-                  📋 Configurar acuerdo de honorario
-                </div>
+                <div style={{fontSize:13,fontWeight:800,color:"#0d2137",marginBottom:14}}>📋 Configurar acuerdo de honorario</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
                   <div>
                     <label className={lCls}>Productor</label>
@@ -1626,7 +1460,6 @@ export default function IngenieroPanel() {
                     </select>
                   </div>
 
-                  {/* U$S mensual */}
                   {form.modalidad_ac==="usd_mensual"&&(
                     <>
                       <div>
@@ -1641,7 +1474,6 @@ export default function IngenieroPanel() {
                     </>
                   )}
 
-                  {/* U$S anual / otro */}
                   {(form.modalidad_ac==="usd_anual"||form.modalidad_ac==="otro")&&(
                     <div>
                       <label className={lCls}>Monto U$S {form.modalidad_ac==="usd_anual"?"/ campaña":""}</label>
@@ -1649,7 +1481,6 @@ export default function IngenieroPanel() {
                     </div>
                   )}
 
-                  {/* Kg soja/ha */}
                   {form.modalidad_ac==="kg_soja_ha"&&(
                     <>
                       {form.prod_ac&&(()=>{
@@ -1673,7 +1504,6 @@ export default function IngenieroPanel() {
                     </>
                   )}
 
-                  {/* Kg cultivo/ha */}
                   {form.modalidad_ac==="kg_cultivo_ha"&&(
                     <>
                       {form.prod_ac&&(()=>{
@@ -1727,12 +1557,11 @@ export default function IngenieroPanel() {
                       background:"rgba(255,255,255,0.75)",border:"1.5px solid rgba(255,255,255,0.95)",color:"#4a6a8a"}}>
                     📋 Copiar campaña anterior
                   </button>}
-                  <button onClick={()=>{setShowAcuerdo(false);setForm({});}} className="btn-cancel" style={{padding:"10px 16px",fontSize:13}}>Cancelar</button>
+                  <button onClick={()=>{setShowAcuerdo(false);setForm({});}} style={{padding:"10px 16px",fontSize:13,borderRadius:12,fontWeight:600,cursor:"pointer",background:"rgba(255,255,255,0.70)",border:"1.5px solid rgba(255,255,255,0.95)",color:"#4a6a8a"}}>Cancelar</button>
                 </div>
               </div>
             )}
 
-            {/* Form registrar pago */}
             {showPago&&acuerdoSel&&(()=>{
               const saldo=calcularSaldo(acuerdoSel);
               const esKg=acuerdoSel.modalidad==="kg_soja_ha"||acuerdoSel.modalidad==="kg_cultivo_ha";
@@ -1744,7 +1573,6 @@ export default function IngenieroPanel() {
                       <div style={{fontSize:13,fontWeight:800,color:"#0d2137"}}>💸 Registrar pago — {prod?.nombre}</div>
                       <div style={{fontSize:12,color:"#6b8aaa",marginTop:2}}>{acuerdoSel.concepto} · {acuerdoSel.campana_nombre}</div>
                     </div>
-                    {/* Saldo actual */}
                     <div style={{padding:"8px 14px",borderRadius:12,background:saldo.completo?"rgba(22,163,74,0.10)":"rgba(220,38,38,0.08)",
                       border:`1px solid ${saldo.completo?"rgba(22,163,74,0.25)":"rgba(220,38,38,0.20)"}`}}>
                       <div style={{fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase"}}>Saldo restante</div>
@@ -1833,16 +1661,13 @@ export default function IngenieroPanel() {
 
                   <div style={{display:"flex",gap:8}}>
                     <button onClick={registrarPago} className="bbtn">✓ Registrar pago</button>
-                    <button onClick={()=>{setShowPago(false);setAcuerdoSel(null);setForm({});}} className="btn-cancel" style={{padding:"10px 16px",fontSize:13}}>Cancelar</button>
+                    <button onClick={()=>{setShowPago(false);setAcuerdoSel(null);setForm({});}} style={{padding:"10px 16px",fontSize:13,borderRadius:12,fontWeight:600,cursor:"pointer",background:"rgba(255,255,255,0.70)",border:"1.5px solid rgba(255,255,255,0.95)",color:"#4a6a8a"}}>Cancelar</button>
                   </div>
                 </div>
               );
             })()}
 
-            {/* Lista acuerdos por campaña */}
-            {acuerdos
-              .filter((a:any)=>campanaFiltro==="todas"||a.campana_nombre===campanaFiltro)
-              .length===0?(
+            {acuerdos.filter((a:any)=>campanaFiltro==="todas"||a.campana_nombre===campanaFiltro).length===0?(
               <div className="card" style={{padding:"48px 20px",textAlign:"center"}}>
                 <div style={{fontSize:40,opacity:0.12,marginBottom:12}}>📋</div>
                 <p style={{color:"#6b8aaa",fontSize:14,marginBottom:12}}>Sin acuerdos configurados</p>
@@ -1850,9 +1675,7 @@ export default function IngenieroPanel() {
               </div>
             ):(
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                {acuerdos
-                  .filter((a:any)=>campanaFiltro==="todas"||a.campana_nombre===campanaFiltro)
-                  .map((ac:any)=>{
+                {acuerdos.filter((a:any)=>campanaFiltro==="todas"||a.campana_nombre===campanaFiltro).map((ac:any)=>{
                   const saldo=calcularSaldo(ac);
                   const esKg=ac.modalidad==="kg_soja_ha"||ac.modalidad==="kg_cultivo_ha";
                   const prod=productores.find((p:any)=>p.id===ac.productor_id);
@@ -1864,7 +1687,6 @@ export default function IngenieroPanel() {
 
                   return(
                     <div key={ac.id} className="card" style={{padding:0}}>
-                      {/* Header acuerdo */}
                       <div style={{padding:"12px 14px",borderBottom:"1px solid rgba(0,60,140,0.08)",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
                         <div style={{width:38,height:38,borderRadius:"50%",backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",
                           border:"2px solid rgba(180,220,255,0.80)",display:"flex",alignItems:"center",justifyContent:"center",
@@ -1879,7 +1701,6 @@ export default function IngenieroPanel() {
                             {ac.concepto&&<span>· {ac.concepto}</span>}
                           </div>
                         </div>
-                        {/* Total pactado */}
                         <div style={{textAlign:"right",flexShrink:0}}>
                           <div style={{fontSize:11,color:"#6b8aaa",fontWeight:600}}>Pactado</div>
                           <div style={{fontSize:14,fontWeight:800,color:"#0d2137"}}>
@@ -1900,7 +1721,6 @@ export default function IngenieroPanel() {
                         </div>
                       </div>
 
-                      {/* Barra de progreso */}
                       <div style={{padding:"10px 14px"}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
                           <div style={{display:"flex",gap:16}}>
@@ -1913,7 +1733,6 @@ export default function IngenieroPanel() {
                           </div>
                           <span style={{fontSize:12,fontWeight:800,color:saldo.completo?"#166534":"#1565c0"}}>{pct}%</span>
                         </div>
-                        {/* Barra */}
                         <div style={{height:8,borderRadius:10,background:"rgba(0,60,140,0.08)",overflow:"hidden"}}>
                           <div style={{height:"100%",borderRadius:10,
                             background:saldo.completo?"linear-gradient(90deg,#22c55e,#4ade80)":"linear-gradient(90deg,#1976d2,#42a5f5)",
@@ -1924,7 +1743,6 @@ export default function IngenieroPanel() {
                           </div>
                         </div>
 
-                        {/* Historial de pagos del acuerdo */}
                         {pagosAc.length>0&&(
                           <div style={{marginTop:10}}>
                             <div style={{fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:6}}>Pagos registrados</div>
@@ -1952,88 +1770,150 @@ export default function IngenieroPanel() {
               </div>
             )}
 
-            {/* Ref para scroll */}
             <div ref={formCobRef}/>
-
           </div>
         )}
 
-        {/* ══ VEHICULO ══ */}
-        {seccion==="vehiculo"&&(
+        {/* ══ VARIOS ══ */}
+        {seccion==="varios"&&(
           <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:10}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-              <h2 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>Mi Vehículo</h2>
-              {!vehiculoSel?<button onClick={()=>{setShowForm(true);setForm({});}} className="bbtn">+ Agregar</button>
-                :<div style={{display:"flex",gap:8}}>
-                  <button onClick={()=>{setShowForm(true);setForm({});}} className="abtn" style={{padding:"8px 14px",fontSize:12}}>+ Service</button>
-                  <button onClick={()=>{setVehiculoSel(null);setServicios([]);setShowForm(false);}} className="abtn" style={{padding:"8px 14px",fontSize:12}}>← Volver</button>
-                </div>
-              }
+
+            {/* Sub-tabs */}
+            <div style={{display:"flex",gap:6,padding:"2px 0"}}>
+              {[
+                {k:"vehiculos", icon:"🚗", label:"Vehículos"},
+                {k:"recetas",   icon:"📋", label:"Recetas"},
+                {k:"notas",     icon:"📝", label:"Notas"},
+              ].map(t=>(
+                <button key={t.k}
+                  onClick={()=>{setVariosTab(t.k as any);setShowForm(false);setForm({});setVehiculoSel(null);}}
+                  className={`sub-tab${variosTab===t.k?" active":""}`}>
+                  <span>{t.icon}</span> <span style={{marginLeft:4}}>{t.label}</span>
+                </button>
+              ))}
             </div>
-            {showForm&&!vehiculoSel&&(
-              <div className="card fade-in" style={{padding:14}}>
-                <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"#0d2137"}}>+ Nuevo vehículo</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-                  {[["nombre","Nombre","Toyota Hilux","text"],["marca","Marca","","text"],["modelo","Modelo","","text"],["anio","Año","","number"],["patente","Patente","","text"],["seg_comp","Compañía seguro","","text"],["seg_venc","Venc. seguro","","date"],["vtv_venc","Venc. VTV","","date"],["km","Km actuales","","number"],["prox_km","Próx. service km","","number"]].map(([k,l,ph,t])=>(
-                    <div key={k as string}><label className={lCls}>{l as string}</label><input type={t as string} value={form[k as string]??""} onChange={e=>setForm({...form,[k as string]:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder={ph as string}/></div>
-                  ))}
-                </div>
-                <div style={{display:"flex",gap:8}}><button onClick={guardarVeh} className="bbtn">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="abtn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button></div>
-              </div>
-            )}
-            {!vehiculoSel?(
-              vehiculos.length===0?<div className="card" style={{padding:"48px 20px",textAlign:"center"}}><div style={{fontSize:48,opacity:0.12,marginBottom:12}}>🚗</div><p style={{color:"#6b8aaa",fontSize:14}}>Sin vehículos</p></div>:(
-                <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                  {vehiculos.map((v:any)=>{const sV=v.seguro_vencimiento&&new Date(v.seguro_vencimiento)<new Date();const vV=v.vtv_vencimiento&&new Date(v.vtv_vencimiento)<new Date();return(
-                    <div key={v.id} className="card" style={{padding:14,cursor:"pointer"}} onClick={async()=>{setVehiculoSel(v);const sb=getSB();const{data}=await sb.from("ing_vehiculo_service").select("*").eq("vehiculo_id",v.id).order("fecha",{ascending:false});setServicios(data??[]);}}>
-                      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
-                        <div style={{width:46,height:46,borderRadius:14,background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>🚗</div>
-                        <div style={{flex:1}}><div style={{fontWeight:700,color:"#0d2137",fontSize:15}}>{v.nombre}</div><div style={{fontSize:11,color:"#6b8aaa",marginTop:2}}>{v.marca} {v.modelo} · {v.anio} · {v.patente}</div></div>
-                        <button onClick={e=>{e.stopPropagation();(async()=>{const sb=getSB();await sb.from("ing_vehiculos").delete().eq("id",v.id);await fetchVehs(ingId);})();}} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:18}}>✕</button>
-                      </div>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-                        <div className="kpi" style={{padding:"10px 12px"}}><div style={{fontSize:10,color:"#6b8aaa",marginBottom:3}}>Km actuales</div><div style={{fontSize:18,fontWeight:700,color:"#0D47A1"}}>{(v.km_actuales||0).toLocaleString()}</div></div>
-                        <div className="kpi" style={{padding:"10px 12px",background:"rgba(251,191,36,0.08)"}}><div style={{fontSize:10,color:"#6b8aaa",marginBottom:3}}>Próx. service</div><div style={{fontSize:16,fontWeight:700,color:"#f57f17"}}>{v.proximo_service_km?(v.proximo_service_km.toLocaleString()+" km"):"—"}</div></div>
-                      </div>
-                      <div style={{display:"flex",gap:8}}>
-                        <span style={{flex:1,fontSize:11,padding:"7px 10px",borderRadius:10,fontWeight:700,textAlign:"center",background:sV?"rgba(220,38,38,0.08)":"rgba(22,163,74,0.08)",color:sV?"#dc2626":"#16a34a",border:`1px solid ${sV?"rgba(220,38,38,0.18)":"rgba(22,163,74,0.18)"}`}}>🛡 {sV?"VENCIDO":v.seguro_vencimiento||"—"}</span>
-                        <span style={{flex:1,fontSize:11,padding:"7px 10px",borderRadius:10,fontWeight:700,textAlign:"center",background:vV?"rgba(220,38,38,0.08)":"rgba(22,163,74,0.08)",color:vV?"#dc2626":"#16a34a",border:`1px solid ${vV?"rgba(220,38,38,0.18)":"rgba(22,163,74,0.18)"}`}}>📋 {vV?"VTV VENCIDA":v.vtv_vencimiento||"—"}</span>
-                      </div>
-                    </div>
-                  );})}
-                </div>
-              )
-            ):(
+
+            {/* ── Vehículos ── */}
+            {variosTab==="vehiculos"&&(
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                <div className="card" style={{padding:14,display:"flex",alignItems:"center",gap:12}}>
-                  <div style={{width:46,height:46,borderRadius:14,background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🚗</div>
-                  <div><div style={{fontWeight:700,color:"#0d2137"}}>{vehiculoSel.nombre}</div><div style={{fontSize:11,color:"#6b8aaa"}}>{vehiculoSel.marca} {vehiculoSel.modelo} · {(vehiculoSel as any).anio} · {vehiculoSel.patente}</div></div>
-                </div>
-                {showForm&&vehiculoSel&&(
-                  <div className="card fade-in" style={{padding:14}}>
-                    <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"#0d2137"}}>+ Service</div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-                      <div><label className={lCls}>Tipo</label><select value={form.tipo_s??"service"} onChange={e=>setForm({...form,tipo_s:e.target.value})} className="sel" style={{width:"100%"}}><option value="service">Service</option><option value="reparacion">Reparación</option><option value="vtv">VTV</option><option value="otro">Otro</option></select></div>
-                      <div><label className={lCls}>Descripción</label><input type="text" value={form.desc_s??""} onChange={e=>setForm({...form,desc_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
-                      <div><label className={lCls}>Taller</label><input type="text" value={form.taller??""} onChange={e=>setForm({...form,taller:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
-                      <div><label className={lCls}>Km</label><input type="number" value={form.km_s??""} onChange={e=>setForm({...form,km_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
-                      <div><label className={lCls}>Costo</label><input type="number" value={form.costo_s??""} onChange={e=>setForm({...form,costo_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
-                      <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_s??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                  <h2 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>Vehículos</h2>
+                  {!vehiculoSel
+                    ?<button onClick={()=>{setShowForm(true);setForm({});}} className="bbtn">+ Agregar</button>
+                    :<div style={{display:"flex",gap:8}}>
+                      <button onClick={()=>{setShowForm(true);setForm({});}} className="abtn" style={{padding:"8px 14px",fontSize:12}}>+ Service</button>
+                      <button onClick={()=>{setVehiculoSel(null);setServicios([]);setShowForm(false);}} className="abtn" style={{padding:"8px 14px",fontSize:12}}>← Volver</button>
                     </div>
-                    <div style={{display:"flex",gap:8}}><button onClick={guardarService} className="bbtn">Guardar</button><button onClick={()=>{setShowForm(false);setForm({});}} className="abtn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button></div>
+                  }
+                </div>
+
+                {showForm&&!vehiculoSel&&(
+                  <div className="card fade-in" style={{padding:14}}>
+                    <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"#0d2137"}}>+ Nuevo vehículo</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                      {[["nombre","Nombre","Toyota Hilux","text"],["marca","Marca","","text"],["modelo","Modelo","","text"],["anio","Año","","number"],["patente","Patente","","text"],["seg_comp","Compañía seguro","","text"],["seg_venc","Venc. seguro","","date"],["vtv_venc","Venc. VTV","","date"],["km","Km actuales","","number"],["prox_km","Próx. service km","","number"]].map(([k,l,ph,t])=>(
+                        <div key={k as string}><label className={lCls}>{l as string}</label><input type={t as string} value={form[k as string]??""} onChange={e=>setForm({...form,[k as string]:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder={ph as string}/></div>
+                      ))}
+                    </div>
+                    <div style={{display:"flex",gap:8}}>
+                      <button onClick={guardarVeh} className="bbtn">Guardar</button>
+                      <button onClick={()=>{setShowForm(false);setForm({});}} className="abtn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button>
+                    </div>
                   </div>
                 )}
-                <div className="card" style={{overflow:"hidden",padding:0}}>
-                  <div style={{padding:"10px 14px",borderBottom:"1px solid rgba(0,60,140,0.07)",fontSize:13,fontWeight:700,color:"#0d2137"}}>🔧 Historial</div>
-                  {servicios.length===0?<div style={{textAlign:"center",padding:"32px 20px",color:"#6b8aaa",fontSize:13}}>Sin historial</div>:(
-                    <div style={{overflowX:"auto"}}><table style={{width:"100%",fontSize:12,minWidth:440,borderCollapse:"collapse"}}>
-                      <thead><tr style={{borderBottom:"1px solid rgba(0,60,140,0.07)"}}>{["Fecha","Tipo","Descripción","Km","Costo",""].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontSize:10,color:"#6b8aaa",fontWeight:600,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
-                      <tbody>{servicios.map(s=><tr key={s.id} style={{borderBottom:"1px solid rgba(0,60,140,0.05)"}}><td style={{padding:"9px 12px",color:"#6b8aaa",fontSize:11}}>{s.fecha}</td><td style={{padding:"9px 12px"}}><span style={{fontSize:10,padding:"3px 7px",borderRadius:6,fontWeight:700,background:"rgba(251,191,36,0.12)",color:"#f57f17"}}>{s.tipo}</span></td><td style={{padding:"9px 12px",color:"#4a6a8a",fontSize:11}}>{s.descripcion}</td><td style={{padding:"9px 12px",color:"#6b8aaa",fontSize:11}}>{s.km?(s.km.toLocaleString()+" km"):"—"}</td><td style={{padding:"9px 12px",fontWeight:700,color:"#dc2626",fontSize:12}}>${Number(s.costo).toLocaleString("es-AR")}</td><td style={{padding:"9px 12px"}}><button onClick={async()=>{const sb=getSB();await sb.from("ing_vehiculo_service").delete().eq("id",s.id);const sb2=getSB();const{data}=await sb2.from("ing_vehiculo_service").select("*").eq("vehiculo_id",vehiculoSel!.id).order("fecha",{ascending:false});setServicios(data??[]);}} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:15}}>✕</button></td></tr>)}</tbody>
-                    </table></div>
-                  )}
+
+                {!vehiculoSel?(
+                  vehiculos.length===0
+                    ?<div className="card" style={{padding:"48px 20px",textAlign:"center"}}><div style={{fontSize:48,opacity:0.12,marginBottom:12}}>🚗</div><p style={{color:"#6b8aaa",fontSize:14}}>Sin vehículos</p></div>
+                    :<div style={{display:"flex",flexDirection:"column",gap:10}}>
+                      {vehiculos.map((v:any)=>{
+                        const sV=v.seguro_vencimiento&&new Date(v.seguro_vencimiento)<new Date();
+                        const vV=v.vtv_vencimiento&&new Date(v.vtv_vencimiento)<new Date();
+                        return(
+                          <div key={v.id} className="card" style={{padding:14,cursor:"pointer"}} onClick={async()=>{setVehiculoSel(v);const sb=getSB();const{data}=await sb.from("ing_vehiculo_service").select("*").eq("vehiculo_id",v.id).order("fecha",{ascending:false});setServicios(data??[]);}}>
+                            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+                              <div style={{width:46,height:46,borderRadius:14,background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>🚗</div>
+                              <div style={{flex:1}}><div style={{fontWeight:700,color:"#0d2137",fontSize:15}}>{v.nombre}</div><div style={{fontSize:11,color:"#6b8aaa",marginTop:2}}>{v.marca} {v.modelo} · {v.anio} · {v.patente}</div></div>
+                              <button onClick={e=>{e.stopPropagation();(async()=>{const sb=getSB();await sb.from("ing_vehiculos").delete().eq("id",v.id);await fetchVehs(ingId);})();}} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:18}}>✕</button>
+                            </div>
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+                              <div className="kpi" style={{padding:"10px 12px"}}><div style={{fontSize:10,color:"#6b8aaa",marginBottom:3}}>Km actuales</div><div style={{fontSize:18,fontWeight:700,color:"#0D47A1"}}>{(v.km_actuales||0).toLocaleString()}</div></div>
+                              <div className="kpi" style={{padding:"10px 12px",background:"rgba(251,191,36,0.08)"}}><div style={{fontSize:10,color:"#6b8aaa",marginBottom:3}}>Próx. service</div><div style={{fontSize:16,fontWeight:700,color:"#f57f17"}}>{v.proximo_service_km?(v.proximo_service_km.toLocaleString()+" km"):"—"}</div></div>
+                            </div>
+                            <div style={{display:"flex",gap:8}}>
+                              <span style={{flex:1,fontSize:11,padding:"7px 10px",borderRadius:10,fontWeight:700,textAlign:"center",background:sV?"rgba(220,38,38,0.08)":"rgba(22,163,74,0.08)",color:sV?"#dc2626":"#16a34a",border:`1px solid ${sV?"rgba(220,38,38,0.18)":"rgba(22,163,74,0.18)"}`}}>🛡 {sV?"VENCIDO":v.seguro_vencimiento||"—"}</span>
+                              <span style={{flex:1,fontSize:11,padding:"7px 10px",borderRadius:10,fontWeight:700,textAlign:"center",background:vV?"rgba(220,38,38,0.08)":"rgba(22,163,74,0.08)",color:vV?"#dc2626":"#16a34a",border:`1px solid ${vV?"rgba(220,38,38,0.18)":"rgba(22,163,74,0.18)"}`}}>📋 {vV?"VTV VENCIDA":v.vtv_vencimiento||"—"}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                ):(
+                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                    <div className="card" style={{padding:14,display:"flex",alignItems:"center",gap:12}}>
+                      <div style={{width:46,height:46,borderRadius:14,background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🚗</div>
+                      <div><div style={{fontWeight:700,color:"#0d2137"}}>{vehiculoSel.nombre}</div><div style={{fontSize:11,color:"#6b8aaa"}}>{vehiculoSel.marca} {vehiculoSel.modelo} · {(vehiculoSel as any).anio} · {vehiculoSel.patente}</div></div>
+                    </div>
+                    {showForm&&vehiculoSel&&(
+                      <div className="card fade-in" style={{padding:14}}>
+                        <div style={{fontSize:13,fontWeight:700,marginBottom:12,color:"#0d2137"}}>+ Service</div>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                          <div><label className={lCls}>Tipo</label><select value={form.tipo_s??"service"} onChange={e=>setForm({...form,tipo_s:e.target.value})} className="sel" style={{width:"100%"}}><option value="service">Service</option><option value="reparacion">Reparación</option><option value="vtv">VTV</option><option value="otro">Otro</option></select></div>
+                          <div><label className={lCls}>Descripción</label><input type="text" value={form.desc_s??""} onChange={e=>setForm({...form,desc_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                          <div><label className={lCls}>Taller</label><input type="text" value={form.taller??""} onChange={e=>setForm({...form,taller:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                          <div><label className={lCls}>Km</label><input type="number" value={form.km_s??""} onChange={e=>setForm({...form,km_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                          <div><label className={lCls}>Costo</label><input type="number" value={form.costo_s??""} onChange={e=>setForm({...form,costo_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                          <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_s??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_s:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                        </div>
+                        <div style={{display:"flex",gap:8}}>
+                          <button onClick={guardarService} className="bbtn">Guardar</button>
+                          <button onClick={()=>{setShowForm(false);setForm({});}} className="abtn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button>
+                        </div>
+                      </div>
+                    )}
+                    <div className="card" style={{overflow:"hidden",padding:0}}>
+                      <div style={{padding:"10px 14px",borderBottom:"1px solid rgba(0,60,140,0.07)",fontSize:13,fontWeight:700,color:"#0d2137"}}>🔧 Historial</div>
+                      {servicios.length===0
+                        ?<div style={{textAlign:"center",padding:"32px 20px",color:"#6b8aaa",fontSize:13}}>Sin historial</div>
+                        :<div style={{overflowX:"auto"}}><table style={{width:"100%",fontSize:12,minWidth:440,borderCollapse:"collapse"}}>
+                          <thead><tr style={{borderBottom:"1px solid rgba(0,60,140,0.07)"}}>{["Fecha","Tipo","Descripción","Km","Costo",""].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontSize:10,color:"#6b8aaa",fontWeight:600,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
+                          <tbody>{servicios.map(s=><tr key={s.id} style={{borderBottom:"1px solid rgba(0,60,140,0.05)"}}><td style={{padding:"9px 12px",color:"#6b8aaa",fontSize:11}}>{s.fecha}</td><td style={{padding:"9px 12px"}}><span style={{fontSize:10,padding:"3px 7px",borderRadius:6,fontWeight:700,background:"rgba(251,191,36,0.12)",color:"#f57f17"}}>{s.tipo}</span></td><td style={{padding:"9px 12px",color:"#4a6a8a",fontSize:11}}>{s.descripcion}</td><td style={{padding:"9px 12px",color:"#6b8aaa",fontSize:11}}>{s.km?(s.km.toLocaleString()+" km"):"—"}</td><td style={{padding:"9px 12px",fontWeight:700,color:"#dc2626",fontSize:12}}>${Number(s.costo).toLocaleString("es-AR")}</td><td style={{padding:"9px 12px"}}><button onClick={async()=>{const sb=getSB();await sb.from("ing_vehiculo_service").delete().eq("id",s.id);const sb2=getSB();const{data}=await sb2.from("ing_vehiculo_service").select("*").eq("vehiculo_id",vehiculoSel!.id).order("fecha",{ascending:false});setServicios(data??[]);}} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:15}}>✕</button></td></tr>)}</tbody>
+                        </table></div>
+                      }
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Recetas ── */}
+            {variosTab==="recetas"&&(
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <h2 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>Recetas</h2>
+                </div>
+                <div className="card" style={{padding:"48px 20px",textAlign:"center"}}>
+                  <div style={{fontSize:48,opacity:0.15,marginBottom:12}}>📋</div>
+                  <p style={{color:"#6b8aaa",fontSize:14,fontWeight:600,marginBottom:4}}>Próximamente</p>
+                  <p style={{color:"#aab8c8",fontSize:12}}>Guardá tus recetas de fitosanitarios y fertilizantes</p>
                 </div>
               </div>
             )}
+
+            {/* ── Notas ── */}
+            {variosTab==="notas"&&(
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <h2 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>Notas</h2>
+                </div>
+                <div className="card" style={{padding:"48px 20px",textAlign:"center"}}>
+                  <div style={{fontSize:48,opacity:0.15,marginBottom:12}}>📝</div>
+                  <p style={{color:"#6b8aaa",fontSize:14,fontWeight:600,marginBottom:4}}>Próximamente</p>
+                  <p style={{color:"#aab8c8",fontSize:12}}>Anotá recordatorios, observaciones de campo y más</p>
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 
@@ -2116,7 +1996,7 @@ export default function IngenieroPanel() {
         </div>
       )}
 
-      {/* Botón IA flotante (verde) */}
+      {/* Botón IA flotante */}
       <button onClick={()=>{setAiPanel(!aiPanel);if(!aiPanel)setVozPanel(false);}}
         style={{position:"fixed",bottom:80,right:16,zIndex:40,width:52,height:52,borderRadius:"50%",
           display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",
@@ -2126,7 +2006,7 @@ export default function IngenieroPanel() {
         🌾
       </button>
 
-      {/* Botón VOZ flotante (azul) */}
+      {/* Botón VOZ flotante */}
       <button onClick={()=>{if(vozEstado==="idle"){setVozPanel(true);escucharVoz();}else if(vozEstado==="escuchando"){recRef.current?.stop();setVozEstado("idle");}else setVozPanel(!vozPanel);}}
         style={{position:"fixed",bottom:20,right:16,zIndex:40,width:54,height:54,borderRadius:"50%",
           display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,cursor:"pointer",
@@ -2141,5 +2021,4 @@ export default function IngenieroPanel() {
       </button>
     </div>
   );
-
 }
