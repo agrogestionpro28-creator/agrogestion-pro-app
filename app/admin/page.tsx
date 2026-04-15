@@ -16,7 +16,6 @@ type VinculacionDetalle = {
   id: string; profesional_nombre: string; rol_profesional: string;
   empresa_id: string; honorario_tipo: string; honorario_monto: number; activa: boolean;
 };
-
 type EmpresaDetalle = {
   id: string; nombre: string; propietario_id: string;
   propietario_nombre: string; propietario_email: string;
@@ -28,14 +27,14 @@ type EmpresaDetalle = {
   socios: string; empleados: string; observaciones: string;
 };
 
-const ROL_PREFIJOS: Record<string, { prefix: number; label: string; color: string; icon: string }> = {
-  admin:       { prefix: 0,     label: "Admin",       color: "#F87171", icon: "👑" },
-  productor:   { prefix: 10000, label: "Productor",   color: "#4ADE80", icon: "👨‍🌾" },
-  ingeniero:   { prefix: 20000, label: "Ingeniero",   color: "#60A5FA", icon: "👨‍💼" },
-  veterinario: { prefix: 30000, label: "Veterinario", color: "#A78BFA", icon: "🩺" },
-  empleado:    { prefix: 40000, label: "Empleado",    color: "#FB923C", icon: "👷" },
-  aplicador:   { prefix: 50000, label: "Aplicador",   color: "#C9A227", icon: "💧" },
-  sembrador:   { prefix: 60000, label: "Sembrador",   color: "#4ADE80", icon: "🌱" },
+const ROL_PREFIJOS: Record<string, { prefix: number; label: string; color: string; icon: string; accentColor: string }> = {
+  admin:       { prefix: 0,     label: "Admin",       color: "#dc2626", icon: "👑", accentColor: "rgba(220,38,38,0.12)" },
+  productor:   { prefix: 10000, label: "Productor",   color: "#16a34a", icon: "👨‍🌾", accentColor: "rgba(22,163,74,0.12)" },
+  ingeniero:   { prefix: 20000, label: "Ingeniero",   color: "#1976d2", icon: "👨‍💼", accentColor: "rgba(25,118,210,0.12)" },
+  veterinario: { prefix: 30000, label: "Veterinario", color: "#7c3aed", icon: "🩺", accentColor: "rgba(124,58,237,0.12)" },
+  empleado:    { prefix: 40000, label: "Empleado",    color: "#d97706", icon: "👷", accentColor: "rgba(217,119,6,0.12)" },
+  aplicador:   { prefix: 50000, label: "Aplicador",   color: "#0891b2", icon: "💧", accentColor: "rgba(8,145,178,0.12)" },
+  sembrador:   { prefix: 60000, label: "Sembrador",   color: "#15803d", icon: "🌱", accentColor: "rgba(21,128,61,0.12)" },
 };
 
 export default function AdminPanel() {
@@ -55,11 +54,14 @@ export default function AdminPanel() {
   const [msg, setMsg] = useState("");
   const [ingenieros, setIngenieros] = useState<Usuario[]>([]);
   const [adminId, setAdminId] = useState<string>("");
+  const [busqueda, setBusqueda] = useState("");
 
   const getSB = async () => {
     const { createClient } = await import("@supabase/supabase-js");
     return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
   };
+
+  const m = (t: string) => { setMsg(t); setTimeout(() => setMsg(""), 4000); };
 
   useEffect(() => { init(); }, []);
 
@@ -79,8 +81,6 @@ export default function AdminPanel() {
     const { data: us } = await sb.from("usuarios").select("*").order("codigo");
     setUsuarios(us ?? []);
     setIngenieros((us ?? []).filter(u => u.rol === "ingeniero"));
-
-    // Empresas con datos completos del propietario
     const { data: emps } = await sb.from("empresas").select("*");
     if (emps && us) {
       const empresasDetalle: EmpresaDetalle[] = emps.map((e: any) => {
@@ -100,8 +100,6 @@ export default function AdminPanel() {
       });
       setEmpresas(empresasDetalle);
     }
-
-    // Vinculaciones
     const { data: vincs } = await sb.from("vinculaciones").select("id,activa,ingeniero_id,empresa_id");
     if (vincs && emps && us) {
       const vincsC: Vinculacion[] = (vincs ?? []).map((v: any) => {
@@ -124,40 +122,38 @@ export default function AdminPanel() {
   };
 
   const crearUsuario = async () => {
-    if (!form.nombre?.trim() || !form.email?.trim() || !form.password?.trim()) { setMsg("❌ Completá nombre, email y contraseña"); return; }
-    setMsg("Creando usuario...");
+    if (!form.nombre?.trim() || !form.email?.trim() || !form.password?.trim()) { m("❌ Completá nombre, email y contraseña"); return; }
+    m("Creando usuario...");
     try {
       const sb = await getSB();
       const codigo = generarCodigo(form.rol || "productor");
       const { data, error } = await sb.auth.signUp({ email: form.email, password: form.password, options: { data: { nombre: form.nombre } } });
-      if (error) { setMsg("❌ " + error.message); return; }
-      if (!data.user) { setMsg("❌ Error al crear usuario"); return; }
+      if (error) { m("❌ " + error.message); return; }
+      if (!data.user) { m("❌ Error al crear usuario"); return; }
       await sb.from("usuarios").insert({ auth_id: data.user.id, nombre: form.nombre, email: form.email, rol: form.rol || "productor", codigo, activo: true });
       if (form.rol === "productor") {
         const { data: nuevoUser } = await sb.from("usuarios").select("id").eq("auth_id", data.user.id).single();
-        if (nuevoUser) {
-          await sb.from("empresas").insert({ nombre: form.nombre_empresa || "Empresa de " + form.nombre, propietario_id: nuevoUser.id });
-        }
+        if (nuevoUser) await sb.from("empresas").insert({ nombre: form.nombre_empresa || "Empresa de " + form.nombre, propietario_id: nuevoUser.id });
       }
-      setMsg("✅ Usuario creado — Código: " + codigo);
+      m("✅ Usuario creado — Código: " + codigo);
       await fetchAll(); setShowForm(false); setForm({});
-    } catch { setMsg("❌ Error inesperado"); }
+    } catch { m("❌ Error inesperado"); }
   };
 
   const toggleUsuario = async (id: string, activo: boolean, esAdmin: boolean) => {
-    if (esAdmin) { setMsg("❌ No se puede desactivar al administrador"); return; }
+    if (esAdmin) { m("❌ No se puede desactivar al administrador"); return; }
     const sb = await getSB();
     await sb.from("usuarios").update({ activo: !activo }).eq("id", id);
     await fetchAll();
   };
 
   const crearVinculacion = async () => {
-    if (!form.ingeniero_id || !form.empresa_id) { setMsg("❌ Seleccioná ingeniero y productor"); return; }
+    if (!form.ingeniero_id || !form.empresa_id) { m("❌ Seleccioná ingeniero y productor"); return; }
     const sb = await getSB();
     const { data: existe } = await sb.from("vinculaciones").select("id").eq("ingeniero_id", form.ingeniero_id).eq("empresa_id", form.empresa_id).single();
-    if (existe) { setMsg("❌ Ya existe esa vinculación"); return; }
+    if (existe) { m("❌ Ya existe esa vinculación"); return; }
     await sb.from("vinculaciones").insert({ ingeniero_id: form.ingeniero_id, empresa_id: form.empresa_id, activa: true, honorario_tipo: form.honorario_tipo ?? "mensual", honorario_monto: Number(form.honorario_monto ?? 0) });
-    setMsg("✅ Vinculación creada");
+    m("✅ Vinculación creada");
     await fetchAll(); setShowVincForm(false); setForm({});
   };
 
@@ -175,28 +171,19 @@ export default function AdminPanel() {
     const detalle: VinculacionDetalle[] = [];
     for (const v of vincs) {
       const { data: u } = await sb.from("usuarios").select("nombre,rol").eq("id", v.ingeniero_id).single();
-      detalle.push({
-        id: v.id, profesional_nombre: u?.nombre ?? "—",
-        rol_profesional: u?.rol ?? "ingeniero",
-        empresa_id: v.empresa_id, honorario_tipo: v.honorario_tipo ?? "mensual",
-        honorario_monto: v.honorario_monto ?? 0, activa: v.activa,
-      });
+      detalle.push({ id: v.id, profesional_nombre: u?.nombre ?? "—", rol_profesional: u?.rol ?? "ingeniero", empresa_id: v.empresa_id, honorario_tipo: v.honorario_tipo ?? "mensual", honorario_monto: v.honorario_monto ?? 0, activa: v.activa });
     }
     setVinculacionesEmpresa(detalle);
   };
 
   const vincularProfesionalAEmpresa = async () => {
-    if (!empresaActiva || !formVinc.usuario_id) { setMsg("❌ Selecciona un profesional"); return; }
+    if (!empresaActiva || !formVinc.usuario_id) { m("❌ Selecciona un profesional"); return; }
     const sb = await getSB();
-    const [usuarioId, rol] = formVinc.usuario_id.split("||");
+    const [usuarioId] = formVinc.usuario_id.split("||");
     const { data: existe } = await sb.from("vinculaciones").select("id").eq("ingeniero_id", usuarioId).eq("empresa_id", empresaActiva.id).single();
-    if (existe) { setMsg("❌ Ya esta vinculado"); return; }
-    await sb.from("vinculaciones").insert({
-      ingeniero_id: usuarioId, empresa_id: empresaActiva.id, activa: true,
-      honorario_tipo: formVinc.honorario_tipo ?? "mensual",
-      honorario_monto: Number(formVinc.honorario_monto ?? 0),
-    });
-    setMsg("✅ VINCULADO CORRECTAMENTE");
+    if (existe) { m("❌ Ya está vinculado"); return; }
+    await sb.from("vinculaciones").insert({ ingeniero_id: usuarioId, empresa_id: empresaActiva.id, activa: true, honorario_tipo: formVinc.honorario_tipo ?? "mensual", honorario_monto: Number(formVinc.honorario_monto ?? 0) });
+    m("✅ Vinculado correctamente");
     setFormVinc({}); setShowVincLocal(false);
     await fetchVinculacionesEmpresa(empresaActiva.id);
     await fetchAll();
@@ -205,44 +192,23 @@ export default function AdminPanel() {
   const guardarUsuarioProfesional = async () => {
     if (!usuarioEditar) return;
     const sb = await getSB();
-    await sb.from("usuarios").update({
-      nombre: form.nombre ?? usuarioEditar.nombre,
-      telefono: form.telefono ?? "",
-      matricula: form.matricula ?? "",
-      especialidad: form.especialidad ?? "",
-      cuit: form.cuit ?? "",
-      localidad: form.localidad ?? "",
-      provincia: form.provincia ?? "",
-    }).eq("id", usuarioEditar.id);
-    // Vincular a productor por codigo si se ingreso
+    await sb.from("usuarios").update({ nombre: form.nombre ?? usuarioEditar.nombre, telefono: form.telefono ?? "", matricula: form.matricula ?? "", especialidad: form.especialidad ?? "", cuit: form.cuit ?? "", localidad: form.localidad ?? "", provincia: form.provincia ?? "" }).eq("id", usuarioEditar.id);
     if (form.codigo_vincular?.trim()) {
       const { data: prod } = await sb.from("usuarios").select("id,nombre").eq("codigo", form.codigo_vincular.trim()).single();
       if (prod) {
         let { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", prod.id).single();
-        if (!emp) {
-          const { data: newEmp } = await sb.from("empresas").insert({ nombre: "Empresa de " + prod.nombre, propietario_id: prod.id }).select().single();
-          emp = newEmp;
-        }
+        if (!emp) { const { data: newEmp } = await sb.from("empresas").insert({ nombre: "Empresa de " + prod.nombre, propietario_id: prod.id }).select().single(); emp = newEmp; }
         if (emp) {
           const { data: vincExiste } = await sb.from("vinculaciones").select("id").eq("profesional_id", usuarioEditar.id).eq("empresa_id", emp.id).single();
-          if (!vincExiste) {
-            await sb.from("vinculaciones").insert({ profesional_id: usuarioEditar.id, empresa_id: emp.id, activa: true, rol_profesional: usuarioEditar.rol });
-          }
-          // Si es ingeniero, tambien crear en ing_productores
+          if (!vincExiste) await sb.from("vinculaciones").insert({ profesional_id: usuarioEditar.id, empresa_id: emp.id, activa: true, rol_profesional: usuarioEditar.rol });
           if (usuarioEditar.rol === "ingeniero") {
             const { data: ingProd } = await sb.from("ing_productores").select("id").eq("ingeniero_id", usuarioEditar.id).eq("empresa_id", emp.id).single();
-            if (!ingProd) {
-              await sb.from("ing_productores").insert({ ingeniero_id: usuarioEditar.id, nombre: prod.nombre, empresa_id: emp.id, tiene_cuenta: true, activo: true });
-            }
+            if (!ingProd) await sb.from("ing_productores").insert({ ingeniero_id: usuarioEditar.id, nombre: prod.nombre, empresa_id: emp.id, tiene_cuenta: true, activo: true });
           }
-          setMsg("✅ DATOS GUARDADOS Y VINCULADO CON " + prod.nombre.toUpperCase());
+          m("✅ Guardado y vinculado con " + prod.nombre);
         }
-      } else {
-        setMsg("⚠️ DATOS GUARDADOS — CODIGO DE PRODUCTOR NO ENCONTRADO");
-      }
-    } else {
-      setMsg("✅ DATOS GUARDADOS");
-    }
+      } else { m("⚠️ Guardado — Código de productor no encontrado"); }
+    } else { m("✅ Datos guardados"); }
     await fetchAll();
     setUsuarioEditar(null); setForm({});
   };
@@ -250,93 +216,82 @@ export default function AdminPanel() {
   const guardarEmpresaDetalle = async () => {
     if (!empresaActiva) return;
     const sb = await getSB();
-    await sb.from("empresas").update({
-      cuit: form.cuit ?? "", direccion: form.direccion ?? "",
-      localidad: form.localidad ?? "", provincia: form.provincia ?? "",
-      telefono: form.telefono ?? "", email: form.email_empresa ?? "",
-      razon_social: form.razon_social ?? "", condicion_iva: form.condicion_iva ?? "",
-      ingresos_brutos: form.ingresos_brutos ?? "", inicio_actividades: form.inicio_actividades ?? "",
-      socios: form.socios ?? "", empleados: form.empleados ?? "",
-      observaciones: form.observaciones ?? "",
-    }).eq("id", empresaActiva.id);
-    setMsg("✅ DATOS GUARDADOS");
+    await sb.from("empresas").update({ cuit: form.cuit ?? "", direccion: form.direccion ?? "", localidad: form.localidad ?? "", provincia: form.provincia ?? "", telefono: form.telefono ?? "", email: form.email_empresa ?? "", razon_social: form.razon_social ?? "", condicion_iva: form.condicion_iva ?? "", ingresos_brutos: form.ingresos_brutos ?? "", inicio_actividades: form.inicio_actividades ?? "", socios: form.socios ?? "", empleados: form.empleados ?? "", observaciones: form.observaciones ?? "" }).eq("id", empresaActiva.id);
+    m("✅ Datos guardados");
     await fetchAll();
-    // Actualizar empresa activa
-    const sb2 = await getSB();
-    const { data: updated } = await sb2.from("empresas").select("*").eq("id", empresaActiva.id).single();
-    if (updated) {
-      const prop = usuarios.find(u => u.id === updated.propietario_id);
-      setEmpresaActiva({ ...empresaActiva, ...updated, propietario_nombre: prop?.nombre ?? "—", propietario_email: prop?.email ?? "—" });
-    }
   };
 
-  const iCls = "w-full bg-[#0a1628]/80 border border-[#00FF80]/20 rounded-xl px-4 py-2.5 text-[#E5E7EB] text-sm focus:outline-none focus:border-[#00FF80] font-mono transition-all";
-  const lCls = "block text-xs text-[#4B6B5B] uppercase tracking-widest mb-1 font-mono";
+  const iCls = "inp w-full px-3 py-2.5 text-[#1a2a4a] text-sm";
+  const lCls = "block text-[10px] font-bold uppercase tracking-wider text-[#6b8aaa] mb-1.5";
 
   const empresasDeProductores = empresas.filter(e => {
     const prop = usuarios.find(u => u.id === e.propietario_id);
     return prop?.rol === "productor";
   });
 
-  if (loading) return <div className="min-h-screen bg-[#020810] flex items-center justify-center text-[#00FF80] font-mono animate-pulse">▶ Cargando Panel Admin...</div>;
+  const usuariosFiltrados = usuarios.filter(u =>
+    !busqueda || u.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+    u.email.toLowerCase().includes(busqueda.toLowerCase()) ||
+    u.codigo?.includes(busqueda)
+  );
 
-  // Vista editar profesional (ing, vet, aplicador, etc)
+  if (loading) return (
+    <div style={{minHeight:"100vh",background:"url('/FON.png') center/cover fixed",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:12}}>
+        <div style={{width:36,height:36,border:"3px solid #1976d2",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+        <span style={{color:"#1565c0",fontWeight:600,fontSize:14}}>Cargando panel admin...</span>
+      </div>
+    </div>
+  );
+
+  // ── Vista editar profesional ──
   if (usuarioEditar) {
-    const config = ROL_PREFIJOS[usuarioEditar.rol] ?? { label: usuarioEditar.rol, color: "#60A5FA", icon: "👤" };
-    // Vinculaciones actuales de este profesional
+    const config = ROL_PREFIJOS[usuarioEditar.rol] ?? { label: usuarioEditar.rol, color: "#1976d2", icon: "👤", accentColor: "rgba(25,118,210,0.12)" };
     const vincsProf = vinculaciones.filter(v => v.ingeniero_nombre === usuarioEditar.nombre);
     return (
-      <div className="relative min-h-screen bg-[#020810] text-[#E5E7EB]">
-        <div className="absolute inset-0 z-0"><Image src="/login-bg.png" alt="" fill style={{objectFit:"cover"}}/><div className="absolute inset-0 bg-[#020810]/92"/></div>
-        <div className="relative z-10 bg-[#020810]/95 border-b border-[#00FF80]/20 px-6 py-3 flex items-center gap-4">
-          <button onClick={()=>setUsuarioEditar(null)} className="text-[#4B5563] hover:text-[#00FF80] font-mono text-sm">← VOLVER</button>
-          <div className="flex-1"/>
-          <span className="text-xs text-[#F87171] font-mono border border-[#F87171]/30 px-3 py-1 rounded-lg">👑 ADMINISTRADOR</span>
+      <div style={{minHeight:"100vh",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",backgroundImage:"url('/FON.png')",backgroundSize:"cover",backgroundPosition:"center"}}>
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');@keyframes spin{to{transform:rotate(360deg)}}.inp{background:rgba(255,255,255,0.75);border:1px solid rgba(180,210,240,0.55);border-radius:11px;box-shadow:inset 0 1px 3px rgba(0,60,140,0.04);transition:all 0.18s;color:#1a2a4a;}.inp:focus{background:rgba(255,255,255,0.97);border-color:rgba(25,118,210,0.40);outline:none;box-shadow:0 0 0 3px rgba(25,118,210,0.10);}.card{background-image:url('/FON.png');background-size:cover;background-position:center;border:1.5px solid rgba(255,255,255,0.90);border-radius:20px;box-shadow:0 8px 32px rgba(20,80,160,0.18);position:relative;overflow:hidden;}.card::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.64);border-radius:20px;pointer-events:none;z-index:0;}.card>*{position:relative;z-index:2;}.bbtn{background-image:url('/AZUL.png');background-size:cover;background-position:center;border:1.5px solid rgba(100,180,255,0.50);border-radius:14px;color:white;font-weight:800;font-size:13px;cursor:pointer;padding:10px 18px;text-shadow:0 1px 3px rgba(0,40,120,0.35);}.abtn{background:rgba(255,255,255,0.70);border:1.5px solid rgba(255,255,255,0.92);border-radius:14px;color:#1e3a5f;font-weight:700;font-size:13px;cursor:pointer;padding:10px 18px;}.sel{background:rgba(255,255,255,0.75);border:1px solid rgba(180,210,240,0.55);border-radius:11px;color:#1a2a4a;padding:8px 12px;font-size:13px;}`}</style>
+        <div style={{background:"rgba(255,255,255,0.30)",backdropFilter:"blur(10px)",borderBottom:"1px solid rgba(255,255,255,0.40)",padding:"12px 20px",display:"flex",alignItems:"center",gap:12,position:"sticky",top:0,zIndex:20}}>
+          <button onClick={()=>setUsuarioEditar(null)} style={{background:"none",border:"none",cursor:"pointer",color:"#4a6a8a",fontSize:13,fontWeight:700}}>← Volver</button>
+          <div style={{flex:1}}/>
+          <span style={{fontSize:12,fontWeight:800,color:"white",backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",padding:"4px 14px",borderRadius:8}}>👑 Admin</span>
         </div>
-        <div className="relative z-10 max-w-4xl mx-auto p-6">
-          {msg && <div className={"mb-4 px-4 py-2 rounded-lg text-sm font-mono border flex items-center justify-between "+(msg.startsWith("✅")?"border-[#4ADE80]/30 text-[#4ADE80] bg-[#4ADE80]/5":"border-[#F87171]/30 text-[#F87171] bg-[#F87171]/5")}>{msg}<button onClick={()=>setMsg("")}>✕</button></div>}
+        <div style={{maxWidth:700,margin:"0 auto",padding:"20px 16px"}}>
+          {msg&&<div style={{marginBottom:12,padding:"10px 14px",borderRadius:12,fontSize:13,fontWeight:600,color:msg.startsWith("✅")?"#16a34a":"#dc2626",background:msg.startsWith("✅")?"rgba(220,252,231,0.90)":"rgba(254,226,226,0.90)",border:`1px solid ${msg.startsWith("✅")?"rgba(22,163,74,0.25)":"rgba(220,38,38,0.20)"}`,display:"flex",justifyContent:"space-between"}}>{msg}<button onClick={()=>setMsg("")} style={{background:"none",border:"none",cursor:"pointer"}}>✕</button></div>}
 
-          {/* Header */}
-          <div className="bg-[#0a1628]/80 border rounded-xl p-5 mb-5" style={{borderColor:config.color+"30"}}>
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl" style={{background:config.color+"15",border:"1px solid "+config.color+"50"}}>{config.icon}</div>
+          <div className="card" style={{padding:16,marginBottom:14}}>
+            <div style={{display:"flex",alignItems:"center",gap:14}}>
+              <div style={{width:48,height:48,borderRadius:"50%",background:config.accentColor,border:`2px solid ${config.color}40`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{config.icon}</div>
               <div>
-                <div className="text-xl font-bold text-[#E5E7EB] font-mono uppercase">{usuarioEditar.nombre}</div>
-                <div className="text-xs font-mono" style={{color:config.color}}>{config.label} · COD {usuarioEditar.codigo} · {usuarioEditar.email}</div>
+                <div style={{fontSize:18,fontWeight:800,color:"#0d2137"}}>{usuarioEditar.nombre}</div>
+                <div style={{fontSize:12,fontWeight:600,color:config.color,marginTop:2}}>{config.label} · Cód {usuarioEditar.codigo}</div>
+                <div style={{fontSize:11,color:"#6b8aaa"}}>{usuarioEditar.email}</div>
               </div>
             </div>
           </div>
 
-          {/* Datos profesionales */}
-          <div className="bg-[#0a1628]/80 border border-[#00FF80]/15 rounded-xl p-5 mb-5">
-            <h3 className="text-[#00FF80] font-mono text-sm font-bold mb-4">📋 DATOS PROFESIONALES</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div><label className={lCls}>NOMBRE</label><input type="text" value={form.nombre??usuarioEditar.nombre} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls}/></div>
-              <div><label className={lCls}>TELEFONO</label><input type="text" value={form.telefono??""} onChange={e=>setForm({...form,telefono:e.target.value})} className={iCls} placeholder="3400..."/></div>
-              <div><label className={lCls}>MATRICULA</label><input type="text" value={form.matricula??""} onChange={e=>setForm({...form,matricula:e.target.value})} className={iCls} placeholder="MAT 1234"/></div>
-              <div><label className={lCls}>ESPECIALIDAD</label><input type="text" value={form.especialidad??""} onChange={e=>setForm({...form,especialidad:e.target.value})} className={iCls}/></div>
-              <div><label className={lCls}>CUIT</label><input type="text" value={form.cuit??""} onChange={e=>setForm({...form,cuit:e.target.value})} className={iCls} placeholder="20-12345678-9"/></div>
-              <div><label className={lCls}>LOCALIDAD</label><input type="text" value={form.localidad??""} onChange={e=>setForm({...form,localidad:e.target.value})} className={iCls}/></div>
-              <div><label className={lCls}>PROVINCIA</label><input type="text" value={form.provincia??""} onChange={e=>setForm({...form,provincia:e.target.value})} className={iCls}/></div>
+          <div className="card" style={{padding:16,marginBottom:14}}>
+            <div style={{fontSize:12,fontWeight:800,color:"#1e3a5f",textTransform:"uppercase",letterSpacing:1,marginBottom:14}}>📋 Datos Profesionales</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              {[["nombre","Nombre",usuarioEditar.nombre,"text"],["telefono","Teléfono","3400...","text"],["matricula","Matrícula","MAT 1234","text"],["especialidad","Especialidad","","text"],["cuit","CUIT","20-123-9","text"],["localidad","Localidad","","text"],["provincia","Provincia","","text"]].map(([k,l,ph,t])=>(
+                <div key={k}><label className={lCls}>{l}</label><input type={t} value={form[k]??(k==="nombre"?usuarioEditar.nombre:"")} onChange={e=>setForm({...form,[k]:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder={ph}/></div>
+              ))}
             </div>
           </div>
 
-          {/* Vincular a productor por codigo */}
-          <div className="bg-[#0a1628]/80 border border-[#60A5FA]/20 rounded-xl p-5 mb-5">
-            <h3 className="text-[#60A5FA] font-mono text-sm font-bold mb-2">🔗 VINCULAR A PRODUCTOR</h3>
-            <p className="text-xs text-[#4B5563] font-mono mb-3">Ingresa el codigo del productor para vincularlo automaticamente (ej: 10001)</p>
-            <div className="flex gap-3 items-end">
-              <div className="flex-1"><label className={lCls}>CODIGO DEL PRODUCTOR</label><input type="text" value={form.codigo_vincular??""} onChange={e=>setForm({...form,codigo_vincular:e.target.value})} className={iCls} placeholder="10001"/></div>
-            </div>
-            {vincsProf.length > 0 && (
-              <div className="mt-4">
-                <div className="text-xs text-[#4B5563] font-mono mb-2">VINCULACIONES ACTUALES:</div>
-                <div className="flex flex-wrap gap-2">
+          <div className="card" style={{padding:16,marginBottom:14}}>
+            <div style={{fontSize:12,fontWeight:800,color:"#1565c0",textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>🔗 Vincular a Productor</div>
+            <p style={{fontSize:12,color:"#6b8aaa",marginBottom:10}}>Ingresá el código del productor para vincularlo automáticamente</p>
+            <div><label className={lCls}>Código del Productor</label><input type="text" value={form.codigo_vincular??""} onChange={e=>setForm({...form,codigo_vincular:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="10001"/></div>
+            {vincsProf.length>0&&(
+              <div style={{marginTop:12}}>
+                <div style={{fontSize:11,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",marginBottom:8}}>Vinculaciones actuales</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                   {vincsProf.map(v=>(
-                    <div key={v.id} className="flex items-center gap-2 px-3 py-2 bg-[#020810]/60 border border-[#60A5FA]/20 rounded-lg">
-                      <span className="text-[#4ADE80] text-xs font-mono font-bold">👨‍🌾 {v.propietario_nombre}</span>
-                      <span className={"text-xs px-1.5 py-0.5 rounded font-mono "+(v.activa?"bg-[#4ADE80]/10 text-[#4ADE80]":"bg-[#F87171]/10 text-[#F87171]")}>{v.activa?"Activa":"Inactiva"}</span>
-                      <button onClick={()=>toggleVinculacion(v.id,v.activa)} className="text-xs text-[#4B5563] hover:text-[#9CA3AF] font-mono">{v.activa?"Desact.":"Activar"}</button>
+                    <div key={v.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 12px",borderRadius:10,background:"rgba(25,118,210,0.07)",border:"1px solid rgba(25,118,210,0.18)"}}>
+                      <span style={{fontSize:12,fontWeight:700,color:"#16a34a"}}>👨‍🌾 {v.propietario_nombre}</span>
+                      <span style={{fontSize:10,padding:"1px 6px",borderRadius:5,fontWeight:700,background:v.activa?"rgba(22,163,74,0.10)":"rgba(220,38,38,0.08)",color:v.activa?"#16a34a":"#dc2626"}}>{v.activa?"Activa":"Inactiva"}</span>
+                      <button onClick={()=>toggleVinculacion(v.id,v.activa)} style={{fontSize:11,color:"#6b8aaa",background:"none",border:"none",cursor:"pointer"}}>{v.activa?"Desact.":"Activar"}</button>
                     </div>
                   ))}
                 </div>
@@ -344,289 +299,280 @@ export default function AdminPanel() {
             )}
           </div>
 
-          <div className="flex gap-3">
-            <button onClick={guardarUsuarioProfesional} className="bg-[#00FF80]/10 border border-[#00FF80]/30 text-[#00FF80] font-bold px-6 py-2.5 rounded-xl text-sm font-mono hover:bg-[#00FF80]/20">▶ GUARDAR{form.codigo_vincular?" Y VINCULAR":""}</button>
-            <button onClick={()=>{setUsuarioEditar(null);setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">CANCELAR</button>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={guardarUsuarioProfesional} className="bbtn">✓ Guardar{form.codigo_vincular?" y Vincular":""}</button>
+            <button onClick={()=>{setUsuarioEditar(null);setForm({});}} className="abtn">Cancelar</button>
           </div>
         </div>
       </div>
     );
   }
 
-  // Vista detalle empresa/productor
+  // ── Vista detalle empresa ──
   if (empresaActiva) {
     return (
-      <div className="relative min-h-screen bg-[#020810] text-[#E5E7EB]">
-        <div className="absolute inset-0 z-0"><Image src="/login-bg.png" alt="" fill style={{objectFit:"cover"}}/><div className="absolute inset-0 bg-[#020810]/92"/></div>
-        <div className="relative z-10 bg-[#020810]/95 border-b border-[#00FF80]/20 px-6 py-3 flex items-center gap-4">
-          <button onClick={()=>setEmpresaActiva(null)} className="text-[#4B5563] hover:text-[#00FF80] font-mono text-sm">← VOLVER</button>
-          <div className="flex-1"/>
-          <span className="text-xs text-[#F87171] font-mono border border-[#F87171]/30 px-3 py-1 rounded-lg">👑 ADMINISTRADOR</span>
+      <div style={{minHeight:"100vh",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",backgroundImage:"url('/FON.png')",backgroundSize:"cover",backgroundPosition:"center"}}>
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');.inp{background:rgba(255,255,255,0.75);border:1px solid rgba(180,210,240,0.55);border-radius:11px;box-shadow:inset 0 1px 3px rgba(0,60,140,0.04);transition:all 0.18s;color:#1a2a4a;}.inp:focus{background:rgba(255,255,255,0.97);border-color:rgba(25,118,210,0.40);outline:none;}.card{background-image:url('/FON.png');background-size:cover;background-position:center;border:1.5px solid rgba(255,255,255,0.90);border-radius:20px;box-shadow:0 8px 32px rgba(20,80,160,0.18);position:relative;overflow:hidden;}.card::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.64);border-radius:20px;pointer-events:none;z-index:0;}.card>*{position:relative;z-index:2;}.bbtn{background-image:url('/AZUL.png');background-size:cover;background-position:center;border:1.5px solid rgba(100,180,255,0.50);border-radius:14px;color:white;font-weight:800;font-size:13px;cursor:pointer;padding:10px 18px;text-shadow:0 1px 3px rgba(0,40,120,0.35);}.abtn{background:rgba(255,255,255,0.70);border:1.5px solid rgba(255,255,255,0.92);border-radius:14px;color:#1e3a5f;font-weight:700;font-size:13px;cursor:pointer;padding:10px 18px;}.sel{background:rgba(255,255,255,0.75);border:1px solid rgba(180,210,240,0.55);border-radius:11px;color:#1a2a4a;padding:8px 12px;font-size:13px;}`}</style>
+        <div style={{background:"rgba(255,255,255,0.30)",backdropFilter:"blur(10px)",borderBottom:"1px solid rgba(255,255,255,0.40)",padding:"12px 20px",display:"flex",alignItems:"center",gap:12,position:"sticky",top:0,zIndex:20}}>
+          <button onClick={()=>setEmpresaActiva(null)} style={{background:"none",border:"none",cursor:"pointer",color:"#4a6a8a",fontSize:13,fontWeight:700}}>← Volver</button>
+          <div style={{flex:1}}/>
+          <span style={{fontSize:12,fontWeight:800,color:"white",backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",padding:"4px 14px",borderRadius:8}}>👑 Admin</span>
         </div>
-        <div className="relative z-10 max-w-4xl mx-auto p-6">
-          {msg && <div className={"mb-4 px-4 py-2 rounded-lg text-sm font-mono border flex items-center justify-between "+(msg.startsWith("✅")?"border-[#4ADE80]/30 text-[#4ADE80] bg-[#4ADE80]/5":"border-[#F87171]/30 text-[#F87171] bg-[#F87171]/5")}>{msg}<button onClick={()=>setMsg("")}>✕</button></div>}
+        <div style={{maxWidth:700,margin:"0 auto",padding:"20px 16px"}}>
+          {msg&&<div style={{marginBottom:12,padding:"10px 14px",borderRadius:12,fontSize:13,fontWeight:600,color:msg.startsWith("✅")?"#16a34a":"#dc2626",background:msg.startsWith("✅")?"rgba(220,252,231,0.90)":"rgba(254,226,226,0.90)",border:`1px solid ${msg.startsWith("✅")?"rgba(22,163,74,0.25)":"rgba(220,38,38,0.20)"}`,display:"flex",justifyContent:"space-between"}}>{msg}<button onClick={()=>setMsg("")} style={{background:"none",border:"none",cursor:"pointer"}}>✕</button></div>}
 
-          {/* Header productor */}
-          <div className="bg-[#0a1628]/80 border border-[#4ADE80]/20 rounded-xl p-5 mb-5">
-            <div className="flex items-center gap-4 mb-3">
-              <div className="w-12 h-12 rounded-full bg-[#4ADE80]/10 border border-[#4ADE80]/30 flex items-center justify-center text-2xl">👨‍🌾</div>
-              <div>
-                <div className="text-xl font-bold text-[#E5E7EB] font-mono uppercase">{empresaActiva.propietario_nombre}</div>
-                <div className="text-xs text-[#4ADE80] font-mono">CÓDIGO: {empresaActiva.propietario_codigo} · {empresaActiva.propietario_email}</div>
+          <div className="card" style={{padding:16,marginBottom:14}}>
+            <div style={{display:"flex",alignItems:"center",gap:14}}>
+              <div style={{width:48,height:48,borderRadius:"50%",background:"rgba(22,163,74,0.12)",border:"2px solid rgba(22,163,74,0.30)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>👨‍🌾</div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:18,fontWeight:800,color:"#0d2137"}}>{empresaActiva.propietario_nombre}</div>
+                <div style={{fontSize:12,color:"#16a34a",fontWeight:600}}>Código: {empresaActiva.propietario_codigo}</div>
+                <div style={{fontSize:11,color:"#6b8aaa"}}>{empresaActiva.propietario_email}</div>
               </div>
-              <div className="ml-auto text-right">
-                <div className="text-xs text-[#4B5563] font-mono">EMPRESA</div>
-                <div className="text-sm font-bold text-[#C9A227] font-mono uppercase">{empresaActiva.nombre}</div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:10,color:"#6b8aaa",fontWeight:600,textTransform:"uppercase"}}>Empresa</div>
+                <div style={{fontSize:13,fontWeight:800,color:"#d97706"}}>{empresaActiva.nombre}</div>
               </div>
             </div>
           </div>
 
-          {/* Datos completos */}
-          <div className="bg-[#0a1628]/80 border border-[#00FF80]/15 rounded-xl p-5">
-            <h3 className="text-[#00FF80] font-mono text-sm font-bold mb-5">📋 DATOS COMPLETOS DEL PRODUCTOR</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-              <div><label className={lCls}>CUIT</label><input type="text" value={form.cuit??empresaActiva.cuit} onChange={e=>setForm({...form,cuit:e.target.value})} className={iCls} placeholder="20-12345678-9"/></div>
-              <div><label className={lCls}>RAZÓN SOCIAL</label><input type="text" value={form.razon_social??empresaActiva.razon_social} onChange={e=>setForm({...form,razon_social:e.target.value})} className={iCls}/></div>
-              <div><label className={lCls}>CONDICIÓN IVA</label>
-                <select value={form.condicion_iva??empresaActiva.condicion_iva} onChange={e=>setForm({...form,condicion_iva:e.target.value})} className={iCls}>
+          <div className="card" style={{padding:16,marginBottom:14}}>
+            <div style={{fontSize:12,fontWeight:800,color:"#1e3a5f",textTransform:"uppercase",letterSpacing:1,marginBottom:14}}>📋 Datos Completos del Productor</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+              {[["cuit","CUIT","20-123-9"],["razon_social","Razón Social",""],["telefono","Teléfono",""],["email_empresa","Email Empresa",""],["direccion","Dirección",""],["localidad","Localidad",""],["provincia","Provincia","Santa Fe"],["ingresos_brutos","Ingresos Brutos",""]].map(([k,l,ph])=>(
+                <div key={k}><label className={lCls}>{l}</label><input type="text" value={form[k]??(empresaActiva as any)[k]??""} onChange={e=>setForm({...form,[k]:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder={ph}/></div>
+              ))}
+              <div><label className={lCls}>Condición IVA</label>
+                <select value={form.condicion_iva??empresaActiva.condicion_iva} onChange={e=>setForm({...form,condicion_iva:e.target.value})} className="sel" style={{width:"100%"}}>
                   <option value="">—</option>
-                  <option value="Responsable Inscripto">Responsable Inscripto</option>
-                  <option value="Monotributo">Monotributo</option>
-                  <option value="Exento">Exento</option>
-                  <option value="No Responsable">No Responsable</option>
+                  {["Responsable Inscripto","Monotributo","Exento","No Responsable"].map(o=><option key={o}>{o}</option>)}
                 </select>
               </div>
-              <div><label className={lCls}>INGRESOS BRUTOS</label><input type="text" value={form.ingresos_brutos??empresaActiva.ingresos_brutos} onChange={e=>setForm({...form,ingresos_brutos:e.target.value})} className={iCls} placeholder="Nro. IIBB"/></div>
-              <div><label className={lCls}>INICIO ACTIVIDADES</label><input type="date" value={form.inicio_actividades??empresaActiva.inicio_actividades} onChange={e=>setForm({...form,inicio_actividades:e.target.value})} className={iCls}/></div>
-              <div><label className={lCls}>TELÉFONO</label><input type="text" value={form.telefono??empresaActiva.telefono} onChange={e=>setForm({...form,telefono:e.target.value})} className={iCls} placeholder="3400..."/></div>
-              <div><label className={lCls}>EMAIL EMPRESA</label><input type="email" value={form.email_empresa??empresaActiva.email_empresa} onChange={e=>setForm({...form,email_empresa:e.target.value})} className={iCls}/></div>
-              <div><label className={lCls}>DIRECCIÓN</label><input type="text" value={form.direccion??empresaActiva.direccion} onChange={e=>setForm({...form,direccion:e.target.value})} className={iCls}/></div>
-              <div><label className={lCls}>LOCALIDAD</label><input type="text" value={form.localidad??empresaActiva.localidad} onChange={e=>setForm({...form,localidad:e.target.value})} className={iCls}/></div>
-              <div><label className={lCls}>PROVINCIA</label><input type="text" value={form.provincia??empresaActiva.provincia} onChange={e=>setForm({...form,provincia:e.target.value})} className={iCls} placeholder="Santa Fe"/></div>
+              <div><label className={lCls}>Inicio Actividades</label><input type="date" value={form.inicio_actividades??empresaActiva.inicio_actividades} onChange={e=>setForm({...form,inicio_actividades:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
             </div>
-            <div className="border-t border-[#00FF80]/10 pt-4 mt-2">
-              <h4 className="text-xs text-[#C9A227] font-mono font-bold mb-3 uppercase">SOCIOS Y EMPLEADOS</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><label className={lCls}>SOCIOS <span className="normal-case text-[#4B5563]">(nombre, DNI, %)</span></label>
-                  <textarea value={form.socios??empresaActiva.socios} onChange={e=>setForm({...form,socios:e.target.value})} className={iCls+" h-24 resize-none"} placeholder={"Juan Perez, DNI 12345678, 50%\nMaria Lopez, DNI 87654321, 50%"}/>
-                </div>
-                <div><label className={lCls}>EMPLEADOS <span className="normal-case text-[#4B5563]">(nombre, rol)</span></label>
-                  <textarea value={form.empleados??empresaActiva.empleados} onChange={e=>setForm({...form,empleados:e.target.value})} className={iCls+" h-24 resize-none"} placeholder={"Pedro Martinez, Encargado\nCarlos Gomez, Operario"}/>
-                </div>
-              </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+              <div><label className={lCls}>Socios (nombre, DNI, %)</label><textarea value={form.socios??empresaActiva.socios} onChange={e=>setForm({...form,socios:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",minHeight:80,resize:"vertical"}} placeholder="Juan Pérez, DNI 12345678, 50%"/></div>
+              <div><label className={lCls}>Empleados (nombre, rol)</label><textarea value={form.empleados??empresaActiva.empleados} onChange={e=>setForm({...form,empleados:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",minHeight:80,resize:"vertical"}} placeholder="Pedro Martínez, Encargado"/></div>
             </div>
-            <div className="mt-4">
-              <label className={lCls}>OBSERVACIONES</label>
-              <textarea value={form.observaciones??empresaActiva.observaciones} onChange={e=>setForm({...form,observaciones:e.target.value})} className={iCls+" h-16 resize-none"} placeholder="Notas internas..."/>
-            </div>
-            <div className="flex gap-3 mt-5">
-              <button onClick={guardarEmpresaDetalle} className="bg-[#00FF80]/10 border border-[#00FF80]/30 text-[#00FF80] font-bold px-6 py-2.5 rounded-xl text-sm font-mono hover:bg-[#00FF80]/20">▶ GUARDAR DATOS</button>
-              <button onClick={()=>setEmpresaActiva(null)} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">CANCELAR</button>
+            <div style={{marginBottom:14}}><label className={lCls}>Observaciones</label><textarea value={form.observaciones??empresaActiva.observaciones} onChange={e=>setForm({...form,observaciones:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",minHeight:56,resize:"vertical"}}/></div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={guardarEmpresaDetalle} className="bbtn">✓ Guardar Datos</button>
+              <button onClick={()=>setEmpresaActiva(null)} className="abtn">Cancelar</button>
             </div>
           </div>
 
-          {/* Vinculaciones de este productor — todos los roles */}
-          <div className="bg-[#0a1628]/80 border border-[#60A5FA]/15 rounded-xl p-5 mt-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-[#60A5FA] font-mono text-sm font-bold">🔗 PROFESIONALES VINCULADOS</h3>
-              <button onClick={()=>setShowVincLocal(!showVincLocal)} className="text-xs text-[#60A5FA] border border-[#60A5FA]/30 px-3 py-1.5 rounded-lg font-mono hover:bg-[#60A5FA]/10 font-bold">
-                {showVincLocal?"CANCELAR":"+ VINCULAR"}
-              </button>
+          {/* Vinculaciones */}
+          <div className="card" style={{padding:16}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+              <div style={{fontSize:12,fontWeight:800,color:"#1565c0",textTransform:"uppercase",letterSpacing:1}}>🔗 Profesionales Vinculados</div>
+              <button onClick={()=>setShowVincLocal(!showVincLocal)} className="bbtn" style={{padding:"7px 14px",fontSize:12}}>+ Vincular</button>
             </div>
-
-            {showVincLocal && (
-              <div className="bg-[#020810]/60 border border-[#60A5FA]/20 rounded-xl p-4 mb-4">
-                <p className="text-xs text-[#4B5563] font-mono mb-3">Vinculá cualquier profesional con este productor</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div><label className={lCls}>PROFESIONAL</label>
-                    <select value={formVinc.usuario_id??""} onChange={e=>setFormVinc({...formVinc,usuario_id:e.target.value})} className={iCls}>
-                      <option value="">Seleccionar</option>
+            {showVincLocal&&(
+              <div style={{padding:14,borderRadius:14,background:"rgba(255,255,255,0.60)",border:"1px solid rgba(180,210,240,0.45)",marginBottom:14}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                  <div><label className={lCls}>Profesional</label>
+                    <select value={formVinc.usuario_id??""} onChange={e=>setFormVinc({...formVinc,usuario_id:e.target.value})} className="sel" style={{width:"100%"}}>
+                      <option value="">Seleccionar...</option>
                       {usuarios.filter(u=>u.rol!=="admin"&&u.rol!=="productor").map(u=>(
                         <option key={u.id} value={u.id+"||"+u.rol}>{ROL_PREFIJOS[u.rol]?.icon} {u.nombre} ({ROL_PREFIJOS[u.rol]?.label}) — {u.codigo}</option>
                       ))}
                     </select>
                   </div>
-                  <div><label className={lCls}>TIPO HONORARIO</label>
-                    <select value={formVinc.honorario_tipo??"mensual"} onChange={e=>setFormVinc({...formVinc,honorario_tipo:e.target.value})} className={iCls}>
-                      <option value="mensual">Mensual</option><option value="por_ha">Por HA</option>
-                      <option value="por_campana">Por campaña</option><option value="por_servicio">Por servicio</option><option value="otro">Otro</option>
+                  <div><label className={lCls}>Tipo Honorario</label>
+                    <select value={formVinc.honorario_tipo??"mensual"} onChange={e=>setFormVinc({...formVinc,honorario_tipo:e.target.value})} className="sel" style={{width:"100%"}}>
+                      {["mensual","por_ha","por_campana","por_servicio","otro"].map(o=><option key={o} value={o}>{o.replace("_"," ")}</option>)}
                     </select>
                   </div>
-                  <div><label className={lCls}>MONTO $</label><input type="number" value={formVinc.honorario_monto??""} onChange={e=>setFormVinc({...formVinc,honorario_monto:e.target.value})} className={iCls} placeholder="0"/></div>
-                  <div className="flex items-end"><button onClick={vincularProfesionalAEmpresa} className="w-full py-2.5 rounded-xl bg-[#60A5FA]/10 border border-[#60A5FA]/30 text-[#60A5FA] font-mono text-sm font-bold hover:bg-[#60A5FA]/20">▶ VINCULAR</button></div>
+                  <div><label className={lCls}>Monto $</label><input type="number" value={formVinc.honorario_monto??""} onChange={e=>setFormVinc({...formVinc,honorario_monto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={vincularProfesionalAEmpresa} className="bbtn" style={{padding:"8px 16px",fontSize:12}}>Vincular</button>
+                  <button onClick={()=>{setShowVincLocal(false);setFormVinc({});}} className="abtn" style={{padding:"8px 14px",fontSize:12}}>Cancelar</button>
                 </div>
               </div>
             )}
-
-            {vinculacionesEmpresa.length === 0 ? (
-              <p className="text-xs text-[#4B5563] font-mono">Sin profesionales vinculados todavía.</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {vinculacionesEmpresa.length===0
+              ?<p style={{color:"#6b8aaa",fontSize:13}}>Sin profesionales vinculados todavía.</p>
+              :<div style={{display:"flex",flexDirection:"column",gap:8}}>
                 {vinculacionesEmpresa.map(v=>{
-                  const config = ROL_PREFIJOS[v.rol_profesional] ?? ROL_PREFIJOS["ingeniero"];
+                  const cfg=ROL_PREFIJOS[v.rol_profesional]??ROL_PREFIJOS["ingeniero"];
                   return(
-                    <div key={v.id} className="flex items-center justify-between px-4 py-3 bg-[#020810]/60 border border-[#60A5FA]/15 rounded-xl">
-                      <div className="flex items-center gap-3">
-                        <span className="text-lg">{config.icon}</span>
+                    <div key={v.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderRadius:12,background:"rgba(255,255,255,0.65)",border:"1px solid rgba(180,210,240,0.40)"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <span style={{fontSize:18}}>{cfg.icon}</span>
                         <div>
-                          <div className="text-sm font-bold font-mono" style={{color:config.color}}>{v.profesional_nombre}</div>
-                          <div className="text-xs text-[#4B5563] font-mono">{config.label} · {v.honorario_tipo?.replace("_"," ")} ${Number(v.honorario_monto||0).toLocaleString("es-AR")}</div>
+                          <div style={{fontSize:13,fontWeight:700,color:cfg.color}}>{v.profesional_nombre}</div>
+                          <div style={{fontSize:11,color:"#6b8aaa"}}>{cfg.label} · {v.honorario_tipo?.replace("_"," ")} ${Number(v.honorario_monto||0).toLocaleString("es-AR")}</div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className={"text-xs px-2 py-0.5 rounded font-mono "+(v.activa?"bg-[#4ADE80]/10 text-[#4ADE80]":"bg-[#F87171]/10 text-[#F87171]")}>{v.activa?"Activa":"Inactiva"}</span>
-                        <button onClick={()=>toggleVinculacion(v.id,v.activa)} className="text-xs text-[#4B5563] hover:text-[#9CA3AF] font-mono">{v.activa?"Desact.":"Activar"}</button>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <span style={{fontSize:10,padding:"2px 8px",borderRadius:6,fontWeight:700,background:v.activa?"rgba(22,163,74,0.10)":"rgba(220,38,38,0.08)",color:v.activa?"#16a34a":"#dc2626"}}>{v.activa?"Activa":"Inactiva"}</span>
+                        <button onClick={()=>toggleVinculacion(v.id,v.activa)} style={{fontSize:11,color:"#6b8aaa",background:"none",border:"none",cursor:"pointer"}}>{v.activa?"Desact.":"Activar"}</button>
                       </div>
                     </div>
                   );
                 })}
               </div>
-            )}
+            }
           </div>
         </div>
       </div>
     );
   }
 
+  // ── Panel principal ──
   return (
-    <div className="relative min-h-screen bg-[#020810] text-[#E5E7EB]">
+    <div style={{minHeight:"100vh",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",backgroundImage:"url('/FON.png')",backgroundSize:"cover",backgroundPosition:"center",backgroundAttachment:"scroll"}}>
       <style>{`
-        .tab-a{border-color:#00FF80!important;color:#00FF80!important;background:rgba(0,255,128,0.08)!important}
-        .user-row:hover{background:rgba(0,255,128,0.03)}
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        .inp{background:rgba(255,255,255,0.75);border:1px solid rgba(180,210,240,0.55);border-radius:11px;box-shadow:inset 0 1px 3px rgba(0,60,140,0.04);transition:all 0.18s;color:#1a2a4a;}
+        .inp::placeholder{color:rgba(80,120,160,0.50);}
+        .inp:focus{background:rgba(255,255,255,0.97);border-color:rgba(25,118,210,0.40);outline:none;box-shadow:0 0 0 3px rgba(25,118,210,0.10);}
+        .sel{background:rgba(255,255,255,0.75);border:1px solid rgba(180,210,240,0.55);border-radius:11px;color:#1a2a4a;padding:8px 12px;font-size:13px;}
+        .card{background-image:url('/FON.png');background-size:cover;background-position:center;border:1.5px solid rgba(255,255,255,0.90);border-top:2px solid rgba(255,255,255,1);border-radius:20px;box-shadow:0 8px 32px rgba(20,80,160,0.18),inset 0 2px 0 rgba(255,255,255,0.95);position:relative;overflow:hidden;}
+        .card::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.64);border-radius:20px;pointer-events:none;z-index:0;}
+        .card::after{content:"";position:absolute;top:0;left:0;right:0;height:42%;background:linear-gradient(180deg,rgba(255,255,255,0.55) 0%,transparent 100%);border-radius:20px 20px 0 0;pointer-events:none;z-index:1;}
+        .card>*{position:relative;z-index:2;}
+        .bbtn{background-image:url('/AZUL.png');background-size:cover;background-position:center;border:1.5px solid rgba(100,180,255,0.50);border-top:2px solid rgba(180,220,255,0.70);border-radius:14px;color:white;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 4px 18px rgba(25,118,210,0.45);padding:10px 18px;text-shadow:0 1px 3px rgba(0,40,120,0.35);transition:all 0.18s;}
+        .bbtn:hover{transform:translateY(-2px);filter:brightness(1.08);}
+        .abtn{background:rgba(255,255,255,0.70);border:1.5px solid rgba(255,255,255,0.92);border-radius:14px;color:#1e3a5f;font-weight:700;font-size:13px;cursor:pointer;padding:10px 18px;transition:all 0.18s;}
+        .abtn:hover{background:rgba(255,255,255,0.90);}
+        .nav-tab{padding:9px 18px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.18s ease;white-space:nowrap;background:rgba(255,255,255,0.55);border:1.5px solid rgba(255,255,255,0.92);color:#1e3a5f;}
+        .nav-tab.active{background-image:url('/AZUL.png');background-size:cover;background-position:center;border:1.5px solid rgba(100,180,255,0.45);color:white;font-weight:800;box-shadow:0 5px 18px rgba(25,118,210,0.45);text-shadow:0 1px 3px rgba(0,40,120,0.35);}
+        .row-u:hover{background:rgba(255,255,255,0.80)!important;}
+        .topbar{background-image:url('/FON.png');background-size:cover;background-position:top center;border-bottom:1px solid rgba(255,255,255,0.40);box-shadow:0 2px 16px rgba(20,80,160,0.12);position:relative;}
+        .topbar::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.30);pointer-events:none;}
+        .topbar>*{position:relative;z-index:1;}
+        .kpi{background-image:url('/FON.png');background-size:cover;background-position:center;border:1.5px solid rgba(255,255,255,0.92);border-radius:16px;box-shadow:0 4px 18px rgba(20,80,160,0.13);padding:14px;text-align:center;position:relative;overflow:hidden;}
+        .kpi::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.66);border-radius:16px;pointer-events:none;}
+        .kpi>*{position:relative;}
+        .fade-in{animation:fadeIn 0.22s ease;}
+        ::-webkit-scrollbar{width:3px}
+        ::-webkit-scrollbar-thumb{background:rgba(25,118,210,0.20);border-radius:3px}
       `}</style>
-      <div className="absolute inset-0 z-0"><Image src="/login-bg.png" alt="" fill style={{objectFit:"cover"}}/><div className="absolute inset-0 bg-[#020810]/90"/></div>
-      <div className="absolute inset-0 z-1 pointer-events-none opacity-[0.03]" style={{backgroundImage:"linear-gradient(rgba(0,255,128,1) 1px,transparent 1px),linear-gradient(90deg,rgba(0,255,128,1) 1px,transparent 1px)",backgroundSize:"50px 50px"}}/>
 
-      {/* Header */}
-      <div className="relative z-10 border-b border-[#00FF80]/20 bg-[#020810]/80 px-6 py-3 flex items-center gap-4">
-        <Image src="/logo.png" alt="Logo" width={100} height={35} className="object-contain"/>
-        <div className="flex-1"/>
-        <span className="text-xs text-[#F87171] font-mono border border-[#F87171]/30 px-3 py-1 rounded-lg">👑 ADMINISTRADOR</span>
-        <button onClick={async()=>{const sb=await getSB();await sb.auth.signOut();window.location.href="/login";}} className="text-xs text-[#4B5563] hover:text-red-400 font-mono">Salir</button>
+      {/* TOPBAR */}
+      <div className="topbar" style={{position:"sticky",top:0,zIndex:20}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 20px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <Image src="/logo.png" alt="Logo" width={34} height={34} style={{borderRadius:10,objectFit:"contain"}}/>
+            <div>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <span style={{fontSize:18,fontWeight:800,color:"#0a1a3a"}}>AgroGestión</span>
+                <span style={{fontSize:10,fontWeight:800,backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",borderRadius:5,padding:"2px 8px",color:"white",letterSpacing:0.8,border:"1px solid rgba(100,180,255,0.45)"}}>ADMIN</span>
+              </div>
+              <div style={{fontSize:11,color:"#3a5a7a",marginTop:1,fontWeight:600}}>Panel de Administración</div>
+            </div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{width:36,height:36,borderRadius:"50%",backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",border:"2px solid rgba(255,255,255,0.90)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,color:"white"}}>👑</div>
+            <button onClick={async()=>{const sb=await getSB();await sb.auth.signOut();window.location.href="/login";}} style={{color:"#4a6a8a",fontSize:13,fontWeight:600,background:"none",border:"none",cursor:"pointer"}}>Salir ⎋</button>
+          </div>
+        </div>
+        {/* Tabs */}
+        <div style={{display:"flex",gap:6,padding:"0 16px 10px"}}>
+          {[{k:"usuarios",l:"👥 Usuarios",c:usuarios.length},{k:"vinculaciones",l:"🔗 Vinculaciones",c:vinculaciones.length}].map(t=>(
+            <button key={t.k} onClick={()=>{setTab(t.k as any);setShowForm(false);setShowVincForm(false);}} className={`nav-tab${tab===t.k?" active":""}`}>
+              {t.l} <span style={{opacity:0.65,fontSize:11,marginLeft:4}}>({t.c})</span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-[#E5E7EB] font-mono">◆ PANEL ADMINISTRADOR</h1>
-          <p className="text-[#00FF80] text-xs tracking-widest font-mono mt-1">GESTION GLOBAL DEL SISTEMA</p>
-        </div>
+      <div style={{maxWidth:1100,margin:"0 auto",padding:"16px 16px 80px"}}>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 mb-6">
-          {Object.keys(ROL_PREFIJOS).map(r=>{
+        {/* Toast */}
+        {msg&&<div className="fade-in" style={{marginBottom:12,padding:"10px 14px",borderRadius:12,fontSize:13,fontWeight:600,color:msg.startsWith("✅")?"#16a34a":"#dc2626",background:msg.startsWith("✅")?"rgba(220,252,231,0.90)":"rgba(254,226,226,0.90)",border:`1px solid ${msg.startsWith("✅")?"rgba(22,163,74,0.25)":"rgba(220,38,38,0.20)"}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>{msg}<button onClick={()=>setMsg("")} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,opacity:0.5}}>✕</button></div>}
+
+        {/* KPIs por rol */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))",gap:8,marginBottom:16}}>
+          {Object.entries(ROL_PREFIJOS).map(([r,cfg])=>{
             const count=usuarios.filter(u=>u.rol===r).length;
-            const config=ROL_PREFIJOS[r];
             return(
-              <div key={r} className="bg-[#0a1628]/80 border border-[#00FF80]/10 rounded-xl p-3 text-center">
-                <div className="text-xl mb-1">{config.icon}</div>
-                <div className="text-xl font-bold font-mono" style={{color:config.color}}>{count}</div>
-                <div className="text-xs text-[#4B5563] font-mono">{config.label}</div>
-                <div className="text-xs text-[#1a3a2a] font-mono">{config.prefix > 0 ? config.prefix+"+" : "—"}</div>
+              <div key={r} className="kpi">
+                <div style={{fontSize:20,marginBottom:4}}>{cfg.icon}</div>
+                <div style={{fontSize:22,fontWeight:800,color:cfg.color}}>{count}</div>
+                <div style={{fontSize:10,color:"#6b8aaa",fontWeight:600,marginTop:2}}>{cfg.label}</div>
               </div>
             );
           })}
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6">
-          {[{k:"usuarios",l:"👥 USUARIOS",c:usuarios.length},{k:"vinculaciones",l:"🔗 VINCULACIONES",c:vinculaciones.length}].map(t=>(
-            <button key={t.k} onClick={()=>{setTab(t.k as any);setShowForm(false);setShowVincForm(false);}}
-              className={"px-5 py-2 rounded-xl border border-[#00FF80]/15 text-sm font-mono transition-all "+(tab===t.k?"tab-a":"text-[#4B5563] hover:text-[#9CA3AF]")}>
-              {t.l} <span className="ml-1 opacity-60">({t.c})</span>
-            </button>
-          ))}
-        </div>
-
-        {msg && <div className={"mb-4 px-4 py-2 rounded-lg text-sm font-mono border flex items-center justify-between "+(msg.startsWith("✅")?"border-[#4ADE80]/30 text-[#4ADE80] bg-[#4ADE80]/5":"border-[#F87171]/30 text-[#F87171] bg-[#F87171]/5")}>{msg}<button onClick={()=>setMsg("")}>✕</button></div>}
-
-        {/* ===== USUARIOS ===== */}
-        {tab==="usuarios" && (
-          <div>
-            <div className="flex justify-end mb-4">
-              <button onClick={()=>{setShowForm(!showForm);setForm({rol:"productor"});setMsg("");}}
-                className="px-4 py-2 rounded-xl bg-[#00FF80]/10 border border-[#00FF80]/30 text-[#00FF80] hover:bg-[#00FF80]/20 font-mono text-sm font-bold">
-                + Crear Usuario
-              </button>
+        {/* ══ USUARIOS ══ */}
+        {tab==="usuarios"&&(
+          <div className="fade-in">
+            <div style={{display:"flex",gap:10,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
+              <input type="text" value={busqueda} onChange={e=>setBusqueda(e.target.value)} className="inp" style={{flex:1,minWidth:180,padding:"9px 14px"}} placeholder="🔍 Buscar por nombre, email o código..."/>
+              <button onClick={()=>{setShowForm(!showForm);setForm({rol:"productor"});setMsg("");}} className="bbtn">+ Crear Usuario</button>
             </div>
 
-            {showForm && (
-              <div className="bg-[#0a1628]/80 border border-[#00FF80]/30 rounded-xl p-5 mb-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <h3 className="text-[#00FF80] font-mono text-sm font-bold">+ NUEVO USUARIO</h3>
-                  {form.rol && (
-                    <span className="text-xs font-mono px-2 py-0.5 rounded border" style={{color:ROL_PREFIJOS[form.rol]?.color,borderColor:ROL_PREFIJOS[form.rol]?.color,background:(ROL_PREFIJOS[form.rol]?.color||"")+"15"}}>
-                      Código asignado: {generarCodigo(form.rol)}
-                    </span>
-                  )}
+            {showForm&&(
+              <div className="card fade-in" style={{padding:16,marginBottom:14}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+                  <div style={{fontSize:13,fontWeight:800,color:"#0d2137"}}>+ Nuevo Usuario</div>
+                  {form.rol&&<span style={{fontSize:11,padding:"2px 10px",borderRadius:8,fontWeight:700,background:(ROL_PREFIJOS[form.rol]?.accentColor||"rgba(25,118,210,0.10)"),color:(ROL_PREFIJOS[form.rol]?.color||"#1565c0"),border:`1px solid ${(ROL_PREFIJOS[form.rol]?.color||"#1565c0")}30`}}>Código asignado: {generarCodigo(form.rol)}</span>}
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div><label className={lCls}>ROL</label>
-                    <select value={form.rol??"productor"} onChange={e=>setForm({...form,rol:e.target.value})} className={iCls}>
-                      {Object.keys(ROL_PREFIJOS).filter(r=>r!=="admin").map(r=>(
-                        <option key={r} value={r}>{ROL_PREFIJOS[r].icon} {ROL_PREFIJOS[r].label}</option>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+                  <div><label className={lCls}>Rol</label>
+                    <select value={form.rol??"productor"} onChange={e=>setForm({...form,rol:e.target.value})} className="sel" style={{width:"100%"}}>
+                      {Object.entries(ROL_PREFIJOS).filter(([r])=>r!=="admin").map(([r,cfg])=>(
+                        <option key={r} value={r}>{cfg.icon} {cfg.label}</option>
                       ))}
                     </select>
                   </div>
-                  <div><label className={lCls}>NOMBRE COMPLETO</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls} placeholder="Nombre y apellido"/></div>
-                  <div><label className={lCls}>EMAIL</label><input type="email" value={form.email??""} onChange={e=>setForm({...form,email:e.target.value})} className={iCls} placeholder="email@ejemplo.com"/></div>
-                  <div><label className={lCls}>CONTRASEÑA INICIAL</label><input type="text" value={form.password??""} onChange={e=>setForm({...form,password:e.target.value})} className={iCls} placeholder="Clave temporal"/></div>
-                  {form.rol==="productor" && (
-                    <div><label className={lCls}>NOMBRE DE LA EMPRESA</label><input type="text" value={form.nombre_empresa??""} onChange={e=>setForm({...form,nombre_empresa:e.target.value})} className={iCls} placeholder="Ej: Establecimiento Don Juan"/></div>
-                  )}
+                  <div><label className={lCls}>Nombre Completo</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Nombre y apellido"/></div>
+                  <div><label className={lCls}>Email</label><input type="email" value={form.email??""} onChange={e=>setForm({...form,email:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="email@ejemplo.com"/></div>
+                  <div><label className={lCls}>Contraseña Inicial</label><input type="text" value={form.password??""} onChange={e=>setForm({...form,password:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Clave temporal"/></div>
+                  {form.rol==="productor"&&<div><label className={lCls}>Nombre de la Empresa</label><input type="text" value={form.nombre_empresa??""} onChange={e=>setForm({...form,nombre_empresa:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Establecimiento Don Juan"/></div>}
                 </div>
-                <div className="flex gap-3 mt-5">
-                  <button onClick={crearUsuario} className="bg-[#00FF80]/10 border border-[#00FF80]/30 text-[#00FF80] font-bold px-6 py-2.5 rounded-xl text-sm font-mono hover:bg-[#00FF80]/20">▶ CREAR</button>
-                  <button onClick={()=>{setShowForm(false);setForm({});setMsg("");}} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">CANCELAR</button>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={crearUsuario} className="bbtn">✓ Crear</button>
+                  <button onClick={()=>{setShowForm(false);setForm({});}} className="abtn">Cancelar</button>
                 </div>
               </div>
             )}
 
-            <div className="bg-[#0a1628]/80 border border-[#00FF80]/15 rounded-xl overflow-hidden">
-              <table className="w-full">
-                <thead><tr className="border-b border-[#00FF80]/10">
-                  {["CÓDIGO","NOMBRE","EMAIL","ROL","ESTADO","",""].map(h=>(
-                    <th key={h} className="text-left px-5 py-3 text-xs text-[#4B5563] uppercase tracking-widest font-mono">{h}</th>
-                  ))}
-                </tr></thead>
+            <div className="card" style={{padding:0,overflow:"hidden"}}>
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead>
+                  <tr style={{borderBottom:"1px solid rgba(0,60,140,0.08)"}}>
+                    {["Código","Nombre","Email","Rol","Estado","",""].map(h=>(
+                      <th key={h} style={{textAlign:"left",padding:"10px 14px",fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase",letterSpacing:0.8}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
                 <tbody>
-                  {usuarios.map(u=>{
-                    const config=ROL_PREFIJOS[u.rol];
-                    const esAdmin = u.rol === "admin";
-                    const empDeEsteUser = empresasDeProductores.find(e=>e.propietario_id===u.id);
+                  {usuariosFiltrados.map(u=>{
+                    const cfg=ROL_PREFIJOS[u.rol];
+                    const esAdmin=u.rol==="admin";
+                    const empDeEsteUser=empresasDeProductores.find(e=>e.propietario_id===u.id);
                     return(
-                      <tr key={u.id} className="user-row border-b border-[#00FF80]/5 transition-colors">
-                        <td className="px-5 py-3 text-sm font-bold font-mono text-[#00FF80]">{u.codigo}</td>
-                        <td className="px-5 py-3 text-sm text-[#E5E7EB] font-mono">{u.nombre}</td>
-                        <td className="px-5 py-3 text-xs text-[#4B5563] font-mono">{u.email}</td>
-                        <td className="px-5 py-3">
-                          <span className="text-xs px-2 py-1 rounded font-mono border" style={{color:config?.color??"#9CA3AF",borderColor:config?.color??"#9CA3AF",background:(config?.color??"#9CA3AF")+"15"}}>
-                            {config?.icon} {config?.label??u.rol}
+                      <tr key={u.id} className="row-u" style={{borderBottom:"1px solid rgba(0,60,140,0.05)",background:"transparent",transition:"background 0.15s"}}>
+                        <td style={{padding:"10px 14px",fontSize:13,fontWeight:800,color:"#1565c0"}}>{u.codigo}</td>
+                        <td style={{padding:"10px 14px",fontSize:13,fontWeight:600,color:"#0d2137"}}>{u.nombre}</td>
+                        <td style={{padding:"10px 14px",fontSize:11,color:"#6b8aaa"}}>{u.email}</td>
+                        <td style={{padding:"10px 14px"}}>
+                          <span style={{fontSize:11,padding:"3px 9px",borderRadius:7,fontWeight:700,background:cfg?.accentColor||"rgba(25,118,210,0.10)",color:cfg?.color||"#1565c0",border:`1px solid ${(cfg?.color||"#1565c0")}30`}}>
+                            {cfg?.icon} {cfg?.label??u.rol}
                           </span>
                         </td>
-                        <td className="px-5 py-3">
-                          <span className={"text-xs px-2 py-0.5 rounded font-mono "+(u.activo?"bg-[#4ADE80]/10 text-[#4ADE80]":"bg-[#F87171]/10 text-[#F87171]")}>
+                        <td style={{padding:"10px 14px"}}>
+                          <span style={{fontSize:10,padding:"2px 8px",borderRadius:6,fontWeight:700,background:u.activo?"rgba(22,163,74,0.10)":"rgba(220,38,38,0.08)",color:u.activo?"#16a34a":"#dc2626"}}>
                             {u.activo?"Activo":"Inactivo"}
                           </span>
                         </td>
-                        <td className="px-5 py-3">
-                          {!esAdmin && (
-                            <button onClick={()=>toggleUsuario(u.id,u.activo,esAdmin)} className="text-xs text-[#4B5563] hover:text-[#9CA3AF] font-mono transition-colors">
-                              {u.activo?"Desactivar":"Activar"}
-                            </button>
-                          )}
-                          {esAdmin && <span className="text-xs text-[#4B5563] font-mono opacity-40">—</span>}
+                        <td style={{padding:"10px 14px"}}>
+                          {!esAdmin&&<button onClick={()=>toggleUsuario(u.id,u.activo,esAdmin)} style={{fontSize:11,color:"#6b8aaa",background:"none",border:"none",cursor:"pointer"}}>{u.activo?"Desactivar":"Activar"}</button>}
                         </td>
-                        <td className="px-5 py-3">
-                          <div className="flex gap-2">
-                            {empDeEsteUser && (
-                              <button onClick={async()=>{setEmpresaActiva(empDeEsteUser);setForm({});setShowVincLocal(false);setFormVinc({});await fetchVinculacionesEmpresa(empDeEsteUser.id);}} className="text-xs text-[#C9A227] font-mono border border-[#C9A227]/30 px-2 py-1 rounded hover:bg-[#C9A227]/10">
-                                📋 Datos
-                              </button>
+                        <td style={{padding:"10px 14px"}}>
+                          <div style={{display:"flex",gap:6}}>
+                            {empDeEsteUser&&(
+                              <button onClick={async()=>{setEmpresaActiva(empDeEsteUser);setForm({});setShowVincLocal(false);setFormVinc({});await fetchVinculacionesEmpresa(empDeEsteUser.id);}} style={{fontSize:11,padding:"3px 10px",borderRadius:8,background:"rgba(217,119,6,0.10)",border:"1px solid rgba(217,119,6,0.25)",color:"#d97706",cursor:"pointer",fontWeight:700}}>📋 Datos</button>
                             )}
-                            {u.rol !== "admin" && u.rol !== "productor" && (
-                              <button onClick={()=>{setUsuarioEditar(u);setForm({nombre:u.nombre,telefono:u.telefono??"",matricula:u.matricula??"",especialidad:u.especialidad??"",cuit:u.cuit??"",localidad:u.localidad??"",provincia:u.provincia??"",codigo_vincular:""});}} className="text-xs text-[#60A5FA] font-mono border border-[#60A5FA]/30 px-2 py-1 rounded hover:bg-[#60A5FA]/10">
-                                ✏️ Editar
-                              </button>
+                            {u.rol!=="admin"&&u.rol!=="productor"&&(
+                              <button onClick={()=>{setUsuarioEditar(u);setForm({nombre:u.nombre,telefono:u.telefono??"",matricula:u.matricula??"",especialidad:u.especialidad??"",cuit:u.cuit??"",localidad:u.localidad??"",provincia:u.provincia??"",codigo_vincular:""});}} style={{fontSize:11,padding:"3px 10px",borderRadius:8,background:"rgba(25,118,210,0.10)",border:"1px solid rgba(25,118,210,0.25)",color:"#1565c0",cursor:"pointer",fontWeight:700}}>✏️ Editar</button>
                             )}
                           </div>
                         </td>
@@ -635,77 +581,78 @@ export default function AdminPanel() {
                   })}
                 </tbody>
               </table>
-              {usuarios.length===0&&<div className="text-center py-16 text-[#4B5563] font-mono">Sin usuarios registrados</div>}
+              {usuariosFiltrados.length===0&&<div style={{textAlign:"center",padding:"48px 20px",color:"#6b8aaa",fontSize:14}}>Sin usuarios{busqueda?" que coincidan con la búsqueda":""}</div>}
             </div>
           </div>
         )}
 
-        {/* ===== VINCULACIONES ===== */}
-        {tab==="vinculaciones" && (
-          <div>
-            <div className="flex justify-end mb-4">
-              <button onClick={()=>{setShowVincForm(!showVincForm);setForm({});setMsg("");}}
-                className="px-4 py-2 rounded-xl bg-[#00FF80]/10 border border-[#00FF80]/30 text-[#00FF80] hover:bg-[#00FF80]/20 font-mono text-sm font-bold">
-                + Nueva Vinculación
-              </button>
+        {/* ══ VINCULACIONES ══ */}
+        {tab==="vinculaciones"&&(
+          <div className="fade-in">
+            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+              <button onClick={()=>{setShowVincForm(!showVincForm);setForm({});}} className="bbtn">+ Nueva Vinculación</button>
             </div>
 
-            {showVincForm && (
-              <div className="bg-[#0a1628]/80 border border-[#00FF80]/30 rounded-xl p-5 mb-6">
-                <h3 className="text-[#00FF80] font-mono text-sm font-bold mb-4">🔗 VINCULAR INGENIERO ↔ PRODUCTOR</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div><label className={lCls}>INGENIERO</label>
-                    <select value={form.ingeniero_id??""} onChange={e=>setForm({...form,ingeniero_id:e.target.value})} className={iCls}>
-                      <option value="">Seleccionar</option>
+            {showVincForm&&(
+              <div className="card fade-in" style={{padding:16,marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:800,color:"#0d2137",marginBottom:14}}>🔗 Vincular Ingeniero ↔ Productor</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+                  <div><label className={lCls}>Ingeniero</label>
+                    <select value={form.ingeniero_id??""} onChange={e=>setForm({...form,ingeniero_id:e.target.value})} className="sel" style={{width:"100%"}}>
+                      <option value="">Seleccionar...</option>
                       {ingenieros.map(i=><option key={i.id} value={i.id}>{i.nombre} ({i.codigo})</option>)}
                     </select>
                   </div>
-                  <div><label className={lCls}>PRODUCTOR</label>
-                    <select value={form.empresa_id??""} onChange={e=>setForm({...form,empresa_id:e.target.value})} className={iCls}>
-                      <option value="">Seleccionar</option>
+                  <div><label className={lCls}>Productor</label>
+                    <select value={form.empresa_id??""} onChange={e=>setForm({...form,empresa_id:e.target.value})} className="sel" style={{width:"100%"}}>
+                      <option value="">Seleccionar...</option>
                       {empresasDeProductores.map(e=><option key={e.id} value={e.id}>{e.propietario_nombre} — {e.nombre}</option>)}
                     </select>
                   </div>
-                  <div><label className={lCls}>TIPO HONORARIO</label>
-                    <select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className={iCls}>
-                      <option value="mensual">Mensual</option><option value="por_ha">Por hectárea</option>
-                      <option value="por_campana">Por campaña</option><option value="otro">Otro</option>
+                  <div><label className={lCls}>Tipo Honorario</label>
+                    <select value={form.honorario_tipo??"mensual"} onChange={e=>setForm({...form,honorario_tipo:e.target.value})} className="sel" style={{width:"100%"}}>
+                      {["mensual","por_ha","por_campana","otro"].map(o=><option key={o} value={o}>{o.replace("_"," ")}</option>)}
                     </select>
                   </div>
-                  <div><label className={lCls}>MONTO HONORARIO</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls} placeholder="0"/></div>
+                  <div><label className={lCls}>Monto Honorario</label><input type="number" value={form.honorario_monto??""} onChange={e=>setForm({...form,honorario_monto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="0"/></div>
                 </div>
-                <div className="flex gap-3 mt-4">
-                  <button onClick={crearVinculacion} className="bg-[#00FF80]/10 border border-[#00FF80]/30 text-[#00FF80] font-bold px-6 py-2.5 rounded-xl text-sm font-mono hover:bg-[#00FF80]/20">▶ VINCULAR</button>
-                  <button onClick={()=>{setShowVincForm(false);setForm({});setMsg("");}} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">CANCELAR</button>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={crearVinculacion} className="bbtn">✓ Vincular</button>
+                  <button onClick={()=>{setShowVincForm(false);setForm({});}} className="abtn">Cancelar</button>
                 </div>
               </div>
             )}
 
-            <div className="bg-[#0a1628]/80 border border-[#00FF80]/15 rounded-xl overflow-hidden">
-              <table className="w-full">
-                <thead><tr className="border-b border-[#00FF80]/10">
-                  {["INGENIERO","PRODUCTOR","EMPRESA","ESTADO",""].map(h=>(
-                    <th key={h} className="text-left px-5 py-3 text-xs text-[#4B5563] uppercase tracking-widest font-mono">{h}</th>
-                  ))}
-                </tr></thead>
+            <div className="card" style={{padding:0,overflow:"hidden"}}>
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead>
+                  <tr style={{borderBottom:"1px solid rgba(0,60,140,0.08)"}}>
+                    {["Ingeniero","Productor","Empresa","Estado",""].map(h=>(
+                      <th key={h} style={{textAlign:"left",padding:"10px 14px",fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase",letterSpacing:0.8}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
                 <tbody>
                   {vinculaciones.map(v=>(
-                    <tr key={v.id} className="user-row border-b border-[#00FF80]/5 transition-colors">
-                      <td className="px-5 py-3 text-sm text-[#60A5FA] font-mono">👨‍💼 {v.ingeniero_nombre}</td>
-                      <td className="px-5 py-3 text-sm text-[#4ADE80] font-mono">👨‍🌾 {v.propietario_nombre}</td>
-                      <td className="px-5 py-3 text-xs text-[#9CA3AF] font-mono">{v.empresa_nombre}</td>
-                      <td className="px-5 py-3"><span className={"text-xs px-2 py-0.5 rounded font-mono "+(v.activa?"bg-[#4ADE80]/10 text-[#4ADE80]":"bg-[#F87171]/10 text-[#F87171]")}>{v.activa?"Activa":"Inactiva"}</span></td>
-                      <td className="px-5 py-3"><button onClick={()=>toggleVinculacion(v.id,v.activa)} className="text-xs text-[#4B5563] hover:text-[#9CA3AF] font-mono">{v.activa?"Desactivar":"Activar"}</button></td>
+                    <tr key={v.id} className="row-u" style={{borderBottom:"1px solid rgba(0,60,140,0.05)",background:"transparent",transition:"background 0.15s"}}>
+                      <td style={{padding:"10px 14px",fontSize:13,color:"#1976d2",fontWeight:600}}>👨‍💼 {v.ingeniero_nombre}</td>
+                      <td style={{padding:"10px 14px",fontSize:13,color:"#16a34a",fontWeight:600}}>👨‍🌾 {v.propietario_nombre}</td>
+                      <td style={{padding:"10px 14px",fontSize:11,color:"#6b8aaa"}}>{v.empresa_nombre}</td>
+                      <td style={{padding:"10px 14px"}}>
+                        <span style={{fontSize:10,padding:"2px 8px",borderRadius:6,fontWeight:700,background:v.activa?"rgba(22,163,74,0.10)":"rgba(220,38,38,0.08)",color:v.activa?"#16a34a":"#dc2626"}}>{v.activa?"Activa":"Inactiva"}</span>
+                      </td>
+                      <td style={{padding:"10px 14px"}}>
+                        <button onClick={()=>toggleVinculacion(v.id,v.activa)} style={{fontSize:11,color:"#6b8aaa",background:"none",border:"none",cursor:"pointer"}}>{v.activa?"Desactivar":"Activar"}</button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {vinculaciones.length===0&&<div className="text-center py-16 text-[#4B5563] font-mono">Sin vinculaciones registradas</div>}
+              {vinculaciones.length===0&&<div style={{textAlign:"center",padding:"48px 20px",color:"#6b8aaa",fontSize:14}}>Sin vinculaciones registradas</div>}
             </div>
           </div>
         )}
       </div>
-      <p className="relative z-10 text-center text-[#0a2a1a] text-xs pb-4 tracking-widest font-mono">© AGROGESTION PRO · PANEL ADMINISTRADOR</p>
     </div>
   );
 }
