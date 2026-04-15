@@ -207,6 +207,623 @@ function CultivoIcon({cultivo, size=32}:{cultivo:string, size?:number}) {
   );
 }
 
+// ══════════════════════════════════════════════
+// SECCIÓN RECETAS
+// ══════════════════════════════════════════════
+const PROVINCIAS_AR = ["Buenos Aires","CABA","Catamarca","Chaco","Chubut","Córdoba","Corrientes","Entre Ríos","Formosa","Jujuy","La Pampa","La Rioja","Mendoza","Misiones","Neuquén","Río Negro","Salta","San Juan","San Luis","Santa Cruz","Santa Fe","Santiago del Estero","Tierra del Fuego","Tucumán"];
+const TIPOS_RECETA = ["Aplicación","Venta","Aplicación y Venta"];
+const TIPOS_PRODUCTO = ["Herbicida","Fungicida","Insecticida","Fertilizante foliar","Fertilizante base","Bioestimulante","Otros"];
+
+function SeccionRecetas({ingId, productores, iCls, lCls, m}:any) {
+  const [recetas, setRecetas] = useState<any[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState<string|null>(null);
+  const [form, setForm] = useState<any>({provincia:"Santa Fe", tipo:"Aplicación", productos:[{nombre:"",tipo:"Herbicida",dosis:"",unidad:"l/ha",pc_nombre:"",nro_registro:""}]});
+  const [filtro, setFiltro] = useState("todas");
+  const [recetaSel, setRecetaSel] = useState<any|null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(()=>{if(ingId)fetchRecetas();},[ingId]);
+
+  const fetchRecetas = async () => {
+    try {
+      const sb = getSB();
+      const {data} = await sb.from("ing_recetas").select("*").eq("ingeniero_id",ingId).order("created_at",{ascending:false});
+      setRecetas(data??[]);
+    } catch{}
+    setLoading(false);
+  };
+
+  const addProducto = () => setForm((f:any)=>({...f, productos:[...f.productos,{nombre:"",tipo:"Herbicida",dosis:"",unidad:"l/ha",pc_nombre:"",nro_registro:""}]}));
+  const removeProducto = (i:number) => setForm((f:any)=>({...f,productos:f.productos.filter((_:any,idx:number)=>idx!==i)}));
+  const updateProducto = (i:number, k:string, v:string) => setForm((f:any)=>{const p=[...f.productos];p[i]={...p[i],[k]:v};return{...f,productos:p};});
+
+  const guardar = async () => {
+    if(!ingId||!form.nombre?.trim()){m("❌ Ingresá el nombre de la receta");return;}
+    const sb=getSB();
+    const payload={
+      ingeniero_id:ingId,
+      nombre:form.nombre,
+      tipo:form.tipo??"Aplicación",
+      provincia:form.provincia??"Santa Fe",
+      productor_id:form.productor_id||null,
+      cultivo:form.cultivo??"",
+      superficie_ha:Number(form.superficie_ha??0),
+      fecha:form.fecha??new Date().toISOString().split("T")[0],
+      establecimiento:form.establecimiento??"",
+      lote:form.lote??"",
+      observaciones:form.observaciones??"",
+      productos:form.productos??[],
+      estado:"activa",
+    };
+    if(editId){
+      await sb.from("ing_recetas").update(payload).eq("id",editId);
+      m("✅ Receta actualizada");
+    } else {
+      await sb.from("ing_recetas").insert(payload);
+      m("✅ Receta guardada");
+    }
+    await fetchRecetas();
+    setShowForm(false); setEditId(null);
+    setForm({provincia:"Santa Fe",tipo:"Aplicación",productos:[{nombre:"",tipo:"Herbicida",dosis:"",unidad:"l/ha",pc_nombre:"",nro_registro:""}]});
+  };
+
+  const eliminar = async (id:string) => {
+    if(!confirm("¿Eliminar receta?"))return;
+    await getSB().from("ing_recetas").delete().eq("id",id);
+    await fetchRecetas(); setRecetaSel(null);
+    m("✅ Receta eliminada");
+  };
+
+  const editar = (r:any) => {
+    setForm({...r, productos: r.productos?.length?r.productos:[{nombre:"",tipo:"Herbicida",dosis:"",unidad:"l/ha",pc_nombre:"",nro_registro:""}]});
+    setEditId(r.id); setShowForm(true); setRecetaSel(null);
+  };
+
+  const recetasFiltradas = filtro==="todas"?recetas:recetas.filter(r=>r.tipo===filtro);
+
+  const TIPO_COLOR:any = {
+    "Aplicación":{bg:"rgba(25,118,210,0.10)",color:"#1565c0",border:"rgba(25,118,210,0.25)"},
+    "Venta":{bg:"rgba(22,163,74,0.10)",color:"#15803d",border:"rgba(22,163,74,0.25)"},
+    "Aplicación y Venta":{bg:"rgba(124,58,237,0.10)",color:"#6d28d9",border:"rgba(124,58,237,0.25)"},
+  };
+
+  if(recetaSel) return (
+    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <button onClick={()=>setRecetaSel(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#6b8aaa",fontWeight:700}}>← Volver</button>
+        <h2 style={{fontSize:18,fontWeight:800,color:"#0d2137",margin:0,flex:1}}>{recetaSel.nombre}</h2>
+        <button onClick={()=>editar(recetaSel)} className="abtn" style={{padding:"7px 12px",fontSize:12}}>✏️ Editar</button>
+        <button onClick={()=>eliminar(recetaSel.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:18}}>✕</button>
+      </div>
+
+      <div className="card" style={{padding:16}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+          {[
+            {l:"Tipo",v:<span style={{padding:"3px 10px",borderRadius:8,fontSize:12,fontWeight:700,...TIPO_COLOR[recetaSel.tipo]}}>{recetaSel.tipo}</span>},
+            {l:"Provincia",v:recetaSel.provincia},
+            {l:"Cultivo",v:recetaSel.cultivo||"—"},
+            {l:"Superficie",v:recetaSel.superficie_ha?(recetaSel.superficie_ha+" ha"):"—"},
+            {l:"Fecha",v:recetaSel.fecha||"—"},
+            {l:"Establecimiento",v:recetaSel.establecimiento||"—"},
+            {l:"Lote",v:recetaSel.lote||"—"},
+            {l:"Productor",v:productores.find((p:any)=>p.id===recetaSel.productor_id)?.nombre||"—"},
+          ].map(({l,v})=>(
+            <div key={l}>
+              <div style={{fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:3}}>{l}</div>
+              <div style={{fontSize:13,fontWeight:600,color:"#0d2137"}}>{v}</div>
+            </div>
+          ))}
+        </div>
+
+        {recetaSel.observaciones&&(
+          <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(255,255,255,0.70)",border:"1px solid rgba(180,210,240,0.40)",marginBottom:14}}>
+            <div style={{fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",marginBottom:4}}>Observaciones</div>
+            <div style={{fontSize:13,color:"#1a2a4a"}}>{recetaSel.observaciones}</div>
+          </div>
+        )}
+
+        <div style={{fontSize:11,fontWeight:800,color:"#1e3a5f",textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>🧪 Productos</div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {(recetaSel.productos??[]).map((p:any,i:number)=>(
+            <div key={i} style={{padding:"12px 14px",borderRadius:14,background:"rgba(255,255,255,0.75)",border:"1px solid rgba(180,210,240,0.45)"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+                <span style={{fontSize:14,fontWeight:800,color:"#0d2137"}}>{p.nombre||"—"}</span>
+                <span style={{fontSize:11,padding:"2px 8px",borderRadius:6,fontWeight:700,background:"rgba(25,118,210,0.08)",color:"#1565c0"}}>{p.tipo}</span>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                {[["Dosis",p.dosis?(p.dosis+" "+p.unidad):"—"],["P.C. / Nombre comercial",p.pc_nombre||"—"],["Nro. Registro",p.nro_registro||"—"]].map(([l,v])=>(
+                  <div key={l}>
+                    <div style={{fontSize:10,color:"#6b8aaa",fontWeight:600}}>{l}</div>
+                    <div style={{fontSize:12,fontWeight:600,color:"#1a2a4a"}}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+        <h2 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>📋 Recetas</h2>
+        <button onClick={()=>{setShowForm(!showForm);setEditId(null);setForm({provincia:"Santa Fe",tipo:"Aplicación",productos:[{nombre:"",tipo:"Herbicida",dosis:"",unidad:"l/ha",pc_nombre:"",nro_registro:""}]});}} className="bbtn">+ Nueva receta</button>
+      </div>
+
+      {/* Filtro tipo */}
+      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+        {["todas",...TIPOS_RECETA].map(t=>(
+          <button key={t} onClick={()=>setFiltro(t)}
+            style={{padding:"6px 14px",borderRadius:10,fontSize:12,fontWeight:700,cursor:"pointer",
+              background:filtro===t?"linear-gradient(145deg,#1976d2,#0d47a1)":"rgba(255,255,255,0.70)",
+              color:filtro===t?"white":"#4a6a8a",border:filtro===t?"1px solid rgba(100,180,255,0.4)":"1.5px solid rgba(255,255,255,0.90)",
+              boxShadow:filtro===t?"0 3px 10px rgba(25,118,210,0.30)":"none"}}>
+            {t==="todas"?"Todas":t}
+          </button>
+        ))}
+      </div>
+
+      {/* Formulario nueva/editar receta */}
+      {showForm&&(
+        <div className="card" style={{padding:16}}>
+          <div style={{fontSize:14,fontWeight:800,color:"#0d2137",marginBottom:14}}>{editId?"✏️ Editar":"+ Nueva"} Receta</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+            <div style={{gridColumn:"1/-1"}}>
+              <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:4}}>Nombre de la receta *</label>
+              <input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls} style={{width:"100%",padding:"9px 12px"}} placeholder="Ej: Herbicida soja 1° lote norte"/>
+            </div>
+            <div>
+              <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:4}}>Tipo de receta</label>
+              <select value={form.tipo??"Aplicación"} onChange={e=>setForm({...form,tipo:e.target.value})} className="sel" style={{width:"100%"}}>
+                {TIPOS_RECETA.map(t=><option key={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:4}}>Provincia</label>
+              <select value={form.provincia??"Santa Fe"} onChange={e=>setForm({...form,provincia:e.target.value})} className="sel" style={{width:"100%"}}>
+                {PROVINCIAS_AR.map(p=><option key={p}>{p}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:4}}>Productor</label>
+              <select value={form.productor_id??""} onChange={e=>setForm({...form,productor_id:e.target.value})} className="sel" style={{width:"100%"}}>
+                <option value="">— General —</option>
+                {productores.map((p:any)=><option key={p.id} value={p.id}>{p.nombre}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:4}}>Cultivo</label>
+              <input type="text" value={form.cultivo??""} onChange={e=>setForm({...form,cultivo:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Soja 1°, Maíz..."/>
+            </div>
+            <div>
+              <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:4}}>Superficie (ha)</label>
+              <input type="number" value={form.superficie_ha??""} onChange={e=>setForm({...form,superficie_ha:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="0"/>
+            </div>
+            <div>
+              <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:4}}>Establecimiento</label>
+              <input type="text" value={form.establecimiento??""} onChange={e=>setForm({...form,establecimiento:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Nombre estancia/campo"/>
+            </div>
+            <div>
+              <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:4}}>Lote</label>
+              <input type="text" value={form.lote??""} onChange={e=>setForm({...form,lote:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Nombre del lote"/>
+            </div>
+            <div>
+              <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:4}}>Fecha</label>
+              <input type="date" value={form.fecha??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/>
+            </div>
+            <div style={{gridColumn:"1/-1"}}>
+              <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:4}}>Observaciones</label>
+              <textarea value={form.observaciones??""} onChange={e=>setForm({...form,observaciones:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px",minHeight:64,resize:"vertical"}} placeholder="Condiciones de aplicación, momento fenológico, etc."/>
+            </div>
+          </div>
+
+          {/* Productos */}
+          <div style={{marginBottom:14}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+              <div style={{fontSize:12,fontWeight:800,color:"#1e3a5f",textTransform:"uppercase",letterSpacing:0.8}}>🧪 Productos</div>
+              <button onClick={addProducto} className="abtn" style={{padding:"6px 12px",fontSize:12}}>+ Agregar</button>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {(form.productos??[]).map((p:any,i:number)=>(
+                <div key={i} style={{padding:"12px 14px",borderRadius:14,background:"rgba(255,255,255,0.70)",border:"1px solid rgba(180,210,240,0.45)",position:"relative"}}>
+                  <button onClick={()=>removeProducto(i)} style={{position:"absolute",top:8,right:8,background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:16}}>✕</button>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    <div style={{gridColumn:"1/-1"}}>
+                      <label style={{fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",display:"block",marginBottom:3}}>Nombre del producto *</label>
+                      <input type="text" value={p.nombre??""} onChange={e=>updateProducto(i,"nombre",e.target.value)} className={iCls} style={{width:"100%",padding:"7px 12px",fontSize:13}} placeholder="Ej: Roundup Max, Glifosato 48%..."/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",display:"block",marginBottom:3}}>Tipo</label>
+                      <select value={p.tipo??"Herbicida"} onChange={e=>updateProducto(i,"tipo",e.target.value)} className="sel" style={{width:"100%",fontSize:12}}>
+                        {TIPOS_PRODUCTO.map(t=><option key={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",display:"block",marginBottom:3}}>Nombre comercial / P.C.</label>
+                      <input type="text" value={p.pc_nombre??""} onChange={e=>updateProducto(i,"pc_nombre",e.target.value)} className={iCls} style={{width:"100%",padding:"7px 12px",fontSize:12}} placeholder="Ej: Roundup Max"/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",display:"block",marginBottom:3}}>Dosis</label>
+                      <input type="text" value={p.dosis??""} onChange={e=>updateProducto(i,"dosis",e.target.value)} className={iCls} style={{width:"100%",padding:"7px 12px",fontSize:12}} placeholder="Ej: 2"/>
+                    </div>
+                    <div>
+                      <label style={{fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",display:"block",marginBottom:3}}>Unidad</label>
+                      <select value={p.unidad??"l/ha"} onChange={e=>updateProducto(i,"unidad",e.target.value)} className="sel" style={{width:"100%",fontSize:12}}>
+                        {["l/ha","kg/ha","cc/ha","g/ha","ml/ha","l/100l","kg/100kg"].map(u=><option key={u}>{u}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",display:"block",marginBottom:3}}>Nro. Registro SENASA</label>
+                      <input type="text" value={p.nro_registro??""} onChange={e=>updateProducto(i,"nro_registro",e.target.value)} className={iCls} style={{width:"100%",padding:"7px 12px",fontSize:12}} placeholder="Opcional"/>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={guardar} className="bbtn">✓ {editId?"Actualizar":"Guardar"} receta</button>
+            <button onClick={()=>{setShowForm(false);setEditId(null);setForm({provincia:"Santa Fe",tipo:"Aplicación",productos:[{nombre:"",tipo:"Herbicida",dosis:"",unidad:"l/ha",pc_nombre:"",nro_registro:""}]});}} className="abtn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {/* Lista recetas */}
+      {loading?<div style={{textAlign:"center",padding:32,color:"#6b8aaa"}}>Cargando...</div>
+        :recetasFiltradas.length===0
+          ?<div className="card" style={{padding:"48px 20px",textAlign:"center"}}>
+            <div style={{fontSize:48,opacity:0.12,marginBottom:12}}>📋</div>
+            <p style={{color:"#6b8aaa",fontSize:14}}>Sin recetas — creá la primera</p>
+          </div>
+          :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {recetasFiltradas.map((r:any)=>{
+              const tc=TIPO_COLOR[r.tipo]??TIPO_COLOR["Aplicación"];
+              const prod=productores.find((p:any)=>p.id===r.productor_id);
+              return(
+                <div key={r.id} className="card" style={{padding:14,cursor:"pointer"}} onClick={()=>setRecetaSel(r)}>
+                  <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
+                    <div style={{width:42,height:42,borderRadius:13,background:tc.bg,border:`1.5px solid ${tc.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>📋</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:15,fontWeight:800,color:"#0d2137",marginBottom:4}}>{r.nombre}</div>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:6,alignItems:"center"}}>
+                        <span style={{fontSize:11,padding:"2px 9px",borderRadius:7,fontWeight:700,...tc}}>{r.tipo}</span>
+                        <span style={{fontSize:11,color:"#6b8aaa",fontWeight:600}}>📍 {r.provincia}</span>
+                        {r.cultivo&&<span style={{fontSize:11,color:"#4a6a8a",fontWeight:600}}>🌱 {r.cultivo}</span>}
+                        {r.superficie_ha>0&&<span style={{fontSize:11,color:"#4a6a8a"}}>· {r.superficie_ha} ha</span>}
+                        {prod&&<span style={{fontSize:11,color:"#1565c0",fontWeight:600}}>👨‍🌾 {prod.nombre}</span>}
+                      </div>
+                      {r.productos?.length>0&&(
+                        <div style={{marginTop:6,display:"flex",flexWrap:"wrap",gap:4}}>
+                          {r.productos.slice(0,3).map((p:any,i:number)=>(
+                            <span key={i} style={{fontSize:10,padding:"2px 7px",borderRadius:6,background:"rgba(25,118,210,0.07)",color:"#1565c0",fontWeight:600,border:"1px solid rgba(25,118,210,0.12)"}}>
+                              {p.nombre||p.tipo} {p.dosis?`· ${p.dosis} ${p.unidad}`:""}
+                            </span>
+                          ))}
+                          {r.productos.length>3&&<span style={{fontSize:10,color:"#6b8aaa"}}>+{r.productos.length-3} más</span>}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{display:"flex",gap:4,flexShrink:0}}>
+                      <button onClick={e=>{e.stopPropagation();editar(r);}} style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:14,padding:"4px"}}>✏️</button>
+                      <button onClick={e=>{e.stopPropagation();eliminar(r.id);}} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:16,padding:"4px"}}>✕</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+      }
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════
+// SECCIÓN NOTAS
+// ══════════════════════════════════════════════
+const CATEGORIAS_NOTA = [
+  {k:"recordatorio", label:"Recordatorio", icon:"⏰", color:"#dc2626", bg:"rgba(220,38,38,0.09)", border:"rgba(220,38,38,0.22)"},
+  {k:"campo",        label:"Campo",        icon:"🌾", color:"#15803d", bg:"rgba(22,163,74,0.09)", border:"rgba(22,163,74,0.22)"},
+  {k:"financiero",   label:"Financiero",   icon:"💰", color:"#b45309", bg:"rgba(245,158,11,0.09)",border:"rgba(245,158,11,0.22)"},
+  {k:"reunion",      label:"Reunión",      icon:"🤝", color:"#7c3aed", bg:"rgba(124,58,237,0.09)",border:"rgba(124,58,237,0.22)"},
+  {k:"general",      label:"General",      icon:"📝", color:"#1565c0", bg:"rgba(25,118,210,0.09)",border:"rgba(25,118,210,0.22)"},
+];
+
+const PRIORIDADES = [
+  {k:"alta",  label:"Alta",  color:"#dc2626", dot:"#ef4444"},
+  {k:"media", label:"Media", color:"#d97706", dot:"#f59e0b"},
+  {k:"baja",  label:"Baja",  color:"#16a34a", dot:"#22c55e"},
+];
+
+function SeccionNotas({ingId, productores, iCls, lCls, m}:any) {
+  const [notas, setNotas] = useState<any[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState<string|null>(null);
+  const [form, setForm] = useState<any>({categoria:"general",prioridad:"media",fecha_recordatorio:""});
+  const [filtroCategoria, setFiltroCategoria] = useState("todas");
+  const [filtroPrioridad, setFiltroPrioridad] = useState("todas");
+  const [filtroEstado, setFiltroEstado] = useState("activas");
+  const [busqueda, setBusqueda] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(()=>{if(ingId)fetchNotas();},[ingId]);
+
+  const fetchNotas = async () => {
+    try{
+      const sb=getSB();
+      const{data}=await sb.from("ing_notas").select("*").eq("ingeniero_id",ingId).order("created_at",{ascending:false});
+      setNotas(data??[]);
+    }catch{}
+    setLoading(false);
+  };
+
+  const guardar = async () => {
+    if(!ingId||!form.titulo?.trim()){m("❌ Ingresá el título");return;}
+    const sb=getSB();
+    const payload={
+      ingeniero_id:ingId,
+      titulo:form.titulo,
+      contenido:form.contenido??"",
+      categoria:form.categoria??"general",
+      prioridad:form.prioridad??"media",
+      productor_id:form.productor_id||null,
+      fecha_recordatorio:form.fecha_recordatorio||null,
+      completada:false,
+    };
+    if(editId){
+      await sb.from("ing_notas").update(payload).eq("id",editId);
+      m("✅ Nota actualizada");
+    }else{
+      await sb.from("ing_notas").insert(payload);
+      m("✅ Nota guardada");
+    }
+    await fetchNotas();
+    setShowForm(false); setEditId(null);
+    setForm({categoria:"general",prioridad:"media",fecha_recordatorio:""});
+  };
+
+  const toggleCompletada = async (id:string, actual:boolean) => {
+    await getSB().from("ing_notas").update({completada:!actual}).eq("id",id);
+    setNotas(prev=>prev.map(n=>n.id===id?{...n,completada:!actual}:n));
+  };
+
+  const eliminar = async (id:string) => {
+    if(!confirm("¿Eliminar nota?"))return;
+    await getSB().from("ing_notas").delete().eq("id",id);
+    await fetchNotas(); m("✅ Nota eliminada");
+  };
+
+  const editar = (n:any) => {
+    setForm({...n,fecha_recordatorio:n.fecha_recordatorio?.split("T")[0]??""});
+    setEditId(n.id); setShowForm(true);
+    setTimeout(()=>window.scrollTo({top:0,behavior:"smooth"}),100);
+  };
+
+  const notasFiltradas = notas.filter(n=>{
+    if(filtroEstado==="activas"&&n.completada) return false;
+    if(filtroEstado==="completadas"&&!n.completada) return false;
+    if(filtroCategoria!=="todas"&&n.categoria!==filtroCategoria) return false;
+    if(filtroPrioridad!=="todas"&&n.prioridad!==filtroPrioridad) return false;
+    if(busqueda&&!n.titulo.toLowerCase().includes(busqueda.toLowerCase())&&!n.contenido?.toLowerCase().includes(busqueda.toLowerCase())) return false;
+    return true;
+  });
+
+  const hoyStr = new Date().toISOString().split("T")[0];
+  const vencenHoy = notas.filter(n=>!n.completada&&n.fecha_recordatorio?.startsWith(hoyStr));
+  const vencenProximo = notas.filter(n=>{
+    if(n.completada||!n.fecha_recordatorio) return false;
+    const diff=(new Date(n.fecha_recordatorio).getTime()-Date.now())/(1000*60*60*24);
+    return diff>0&&diff<=3;
+  });
+
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+        <h2 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>📝 Notas</h2>
+        <button onClick={()=>{setShowForm(!showForm);setEditId(null);setForm({categoria:"general",prioridad:"media",fecha_recordatorio:""});}} className="bbtn">+ Nueva nota</button>
+      </div>
+
+      {/* Alertas de recordatorios */}
+      {(vencenHoy.length>0||vencenProximo.length>0)&&(
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {vencenHoy.map(n=>(
+            <div key={n.id} style={{padding:"10px 14px",borderRadius:12,background:"rgba(220,38,38,0.08)",border:"1px solid rgba(220,38,38,0.22)",display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:16}}>⏰</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:12,fontWeight:800,color:"#dc2626"}}>Recordatorio HOY</div>
+                <div style={{fontSize:12,color:"#1a2a4a",fontWeight:600}}>{n.titulo}</div>
+              </div>
+              <button onClick={()=>toggleCompletada(n.id,n.completada)} style={{fontSize:11,padding:"4px 10px",borderRadius:8,background:"rgba(220,38,38,0.12)",border:"1px solid rgba(220,38,38,0.25)",color:"#dc2626",cursor:"pointer",fontWeight:700}}>Marcar hecho</button>
+            </div>
+          ))}
+          {vencenProximo.map(n=>(
+            <div key={n.id} style={{padding:"10px 14px",borderRadius:12,background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.22)",display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:16}}>📅</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:12,fontWeight:800,color:"#d97706"}}>Próximo recordatorio</div>
+                <div style={{fontSize:12,color:"#1a2a4a",fontWeight:600}}>{n.titulo} · {n.fecha_recordatorio}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Formulario */}
+      {showForm&&(
+        <div className="card" style={{padding:16}}>
+          <div style={{fontSize:14,fontWeight:800,color:"#0d2137",marginBottom:14}}>{editId?"✏️ Editar":"+ Nueva"} Nota</div>
+          <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:14}}>
+            <div>
+              <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:4}}>Título *</label>
+              <input type="text" value={form.titulo??""} onChange={e=>setForm({...form,titulo:e.target.value})} className={iCls} style={{width:"100%",padding:"9px 12px"}} placeholder="¿De qué trata esta nota?"/>
+            </div>
+            <div>
+              <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:4}}>Contenido</label>
+              <textarea value={form.contenido??""} onChange={e=>setForm({...form,contenido:e.target.value})} className={iCls} style={{width:"100%",padding:"9px 12px",minHeight:100,resize:"vertical",lineHeight:1.6}} placeholder="Escribí el detalle de la nota..."/>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div>
+                <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:4}}>Categoría</label>
+                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                  {CATEGORIAS_NOTA.map(c=>(
+                    <button key={c.k} onClick={()=>setForm({...form,categoria:c.k})}
+                      style={{padding:"5px 10px",borderRadius:9,fontSize:11,fontWeight:700,cursor:"pointer",
+                        background:form.categoria===c.k?c.bg:"rgba(255,255,255,0.70)",
+                        color:form.categoria===c.k?c.color:"#6b8aaa",
+                        border:`1.5px solid ${form.categoria===c.k?c.border:"rgba(255,255,255,0.90)"}`}}>
+                      {c.icon} {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:4}}>Prioridad</label>
+                <div style={{display:"flex",gap:5}}>
+                  {PRIORIDADES.map(p=>(
+                    <button key={p.k} onClick={()=>setForm({...form,prioridad:p.k})}
+                      style={{flex:1,padding:"6px 8px",borderRadius:9,fontSize:11,fontWeight:700,cursor:"pointer",
+                        background:form.prioridad===p.k?`rgba(${p.k==="alta"?"220,38,38":p.k==="media"?"217,119,6":"22,163,74"},0.12)`:"rgba(255,255,255,0.70)",
+                        color:form.prioridad===p.k?p.color:"#6b8aaa",
+                        border:`1.5px solid ${form.prioridad===p.k?p.dot+"55":"rgba(255,255,255,0.90)"}`}}>
+                      <span style={{display:"block",width:6,height:6,borderRadius:"50%",background:form.prioridad===p.k?p.dot:"#d1d5db",margin:"0 auto 3px"}}/>
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:4}}>Productor (opcional)</label>
+                <select value={form.productor_id??""} onChange={e=>setForm({...form,productor_id:e.target.value})} className="sel" style={{width:"100%",fontSize:12}}>
+                  <option value="">— General —</option>
+                  {productores.map((p:any)=><option key={p.id} value={p.id}>{p.nombre}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:4}}>⏰ Recordatorio (fecha)</label>
+                <input type="date" value={form.fecha_recordatorio??""} onChange={e=>setForm({...form,fecha_recordatorio:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/>
+              </div>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={guardar} className="bbtn">✓ {editId?"Actualizar":"Guardar"}</button>
+            <button onClick={()=>{setShowForm(false);setEditId(null);setForm({categoria:"general",prioridad:"media",fecha_recordatorio:""});}} className="abtn" style={{padding:"9px 16px",fontSize:13}}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      {/* Filtros */}
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        <input type="text" value={busqueda} onChange={e=>setBusqueda(e.target.value)} className={iCls} style={{width:"100%",padding:"9px 14px"}} placeholder="🔍 Buscar notas..."/>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+          {[{k:"activas",l:"Activas"},{k:"completadas",l:"Completadas"},{k:"todas",l:"Todas"}].map(e=>(
+            <button key={e.k} onClick={()=>setFiltroEstado(e.k)}
+              style={{padding:"5px 12px",borderRadius:9,fontSize:11,fontWeight:700,cursor:"pointer",
+                background:filtroEstado===e.k?"linear-gradient(145deg,#1976d2,#0d47a1)":"rgba(255,255,255,0.70)",
+                color:filtroEstado===e.k?"white":"#4a6a8a",border:filtroEstado===e.k?"none":"1.5px solid rgba(255,255,255,0.90)"}}>
+              {e.l}
+            </button>
+          ))}
+          <div style={{width:1,background:"rgba(0,60,140,0.10)",margin:"0 2px"}}/>
+          {[{k:"todas",l:"📌 Todas"},...CATEGORIAS_NOTA.map(c=>({k:c.k,l:c.icon+" "+c.label}))].map(c=>(
+            <button key={c.k} onClick={()=>setFiltroCategoria(c.k)}
+              style={{padding:"5px 12px",borderRadius:9,fontSize:11,fontWeight:700,cursor:"pointer",
+                background:filtroCategoria===c.k?"rgba(25,118,210,0.12)":"rgba(255,255,255,0.60)",
+                color:filtroCategoria===c.k?"#1565c0":"#6b8aaa",
+                border:filtroCategoria===c.k?"1px solid rgba(25,118,210,0.25)":"1px solid rgba(255,255,255,0.80)"}}>
+              {c.l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Resumen rápido */}
+      {notas.length>0&&(
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+          {[
+            {l:"Total",v:notas.filter(n=>!n.completada).length,icon:"📝",color:"#1565c0"},
+            {l:"Alta prioridad",v:notas.filter(n=>!n.completada&&n.prioridad==="alta").length,icon:"🔴",color:"#dc2626"},
+            {l:"Completadas",v:notas.filter(n=>n.completada).length,icon:"✅",color:"#16a34a"},
+          ].map(s=>(
+            <div key={s.l} className="kpi" style={{padding:"10px 8px"}}>
+              <div style={{fontSize:16,marginBottom:3}}>{s.icon}</div>
+              <div style={{fontSize:20,fontWeight:800,color:s.color}}>{s.v}</div>
+              <div style={{fontSize:10,color:"#6b8aaa",fontWeight:600,marginTop:2}}>{s.l}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Lista notas */}
+      {loading?<div style={{textAlign:"center",padding:32,color:"#6b8aaa"}}>Cargando...</div>
+        :notasFiltradas.length===0
+          ?<div className="card" style={{padding:"48px 20px",textAlign:"center"}}>
+            <div style={{fontSize:48,opacity:0.12,marginBottom:12}}>📝</div>
+            <p style={{color:"#6b8aaa",fontSize:14}}>Sin notas — creá la primera</p>
+          </div>
+          :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {notasFiltradas.map((n:any)=>{
+              const cat=CATEGORIAS_NOTA.find(c=>c.k===n.categoria)??CATEGORIAS_NOTA[4];
+              const prio=PRIORIDADES.find(p=>p.k===n.prioridad)??PRIORIDADES[1];
+              const prod=productores.find((p:any)=>p.id===n.productor_id);
+              const venceHoy=n.fecha_recordatorio?.startsWith(hoyStr);
+              const vencido=n.fecha_recordatorio&&new Date(n.fecha_recordatorio)<new Date()&&!venceHoy;
+              return(
+                <div key={n.id} className="card" style={{padding:14,opacity:n.completada?0.65:1}}>
+                  <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
+                    {/* Checkbox */}
+                    <button onClick={()=>toggleCompletada(n.id,n.completada)}
+                      style={{width:22,height:22,borderRadius:7,flexShrink:0,marginTop:2,cursor:"pointer",
+                        background:n.completada?"linear-gradient(145deg,#22c55e,#16a34a)":"rgba(255,255,255,0.80)",
+                        border:n.completada?"none":`2px solid ${prio.dot}`,
+                        display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,
+                        boxShadow:n.completada?"0 2px 8px rgba(22,163,74,0.30)":"none"}}>
+                      {n.completada&&<span style={{color:"white",fontSize:12}}>✓</span>}
+                    </button>
+
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap",marginBottom:5}}>
+                        <span style={{fontSize:15,fontWeight:800,color:n.completada?"#9aabb8":"#0d2137",textDecoration:n.completada?"line-through":"none"}}>{n.titulo}</span>
+                        {/* Categoría chip */}
+                        <span style={{fontSize:10,padding:"2px 8px",borderRadius:6,fontWeight:700,background:cat.bg,color:cat.color,border:`1px solid ${cat.border}`}}>{cat.icon} {cat.label}</span>
+                        {/* Prioridad dot */}
+                        <span style={{display:"flex",alignItems:"center",gap:3,fontSize:10,color:prio.color,fontWeight:700}}>
+                          <span style={{width:6,height:6,borderRadius:"50%",background:prio.dot,display:"inline-block"}}/>
+                          {prio.label}
+                        </span>
+                      </div>
+
+                      {n.contenido&&<p style={{fontSize:12,color:"#4a6a8a",margin:"0 0 6px",lineHeight:1.55,WebkitLineClamp:2,overflow:"hidden",display:"-webkit-box",WebkitBoxOrient:"vertical"}}>{n.contenido}</p>}
+
+                      <div style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center",fontSize:11}}>
+                        {prod&&<span style={{color:"#1565c0",fontWeight:600}}>👨‍🌾 {prod.nombre}</span>}
+                        {n.fecha_recordatorio&&(
+                          <span style={{fontWeight:700,color:vencido?"#dc2626":venceHoy?"#d97706":"#6b8aaa",
+                            background:vencido?"rgba(220,38,38,0.08)":venceHoy?"rgba(245,158,11,0.08)":"transparent",
+                            padding:vencido||venceHoy?"2px 7px":"0",borderRadius:6,
+                            border:vencido?"1px solid rgba(220,38,38,0.20)":venceHoy?"1px solid rgba(245,158,11,0.20)":"none"}}>
+                            ⏰ {vencido?"VENCIDO · ":venceHoy?"HOY · ":""}{n.fecha_recordatorio}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{display:"flex",gap:4,flexShrink:0}}>
+                      <button onClick={()=>editar(n)} style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:14,padding:"4px"}}>✏️</button>
+                      <button onClick={()=>eliminar(n.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:16,padding:"4px"}}>✕</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+      }
+    </div>
+  );
+}
+
 export default function IngenieroPanel() {
   const [seccion, setSeccion] = useState<Seccion>("general");
   const [variosTab, setVariosTab] = useState<"vehiculos"|"recetas"|"notas">("vehiculos");
@@ -1887,32 +2504,10 @@ export default function IngenieroPanel() {
             )}
 
             {/* ── Recetas ── */}
-            {variosTab==="recetas"&&(
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                  <h2 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>Recetas</h2>
-                </div>
-                <div className="card" style={{padding:"48px 20px",textAlign:"center"}}>
-                  <div style={{fontSize:48,opacity:0.15,marginBottom:12}}>📋</div>
-                  <p style={{color:"#6b8aaa",fontSize:14,fontWeight:600,marginBottom:4}}>Próximamente</p>
-                  <p style={{color:"#aab8c8",fontSize:12}}>Guardá tus recetas de fitosanitarios y fertilizantes</p>
-                </div>
-              </div>
-            )}
+            {variosTab==="recetas"&&<SeccionRecetas ingId={ingId} productores={productores} iCls={iCls} lCls={lCls} m={m}/>}
 
             {/* ── Notas ── */}
-            {variosTab==="notas"&&(
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                  <h2 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>Notas</h2>
-                </div>
-                <div className="card" style={{padding:"48px 20px",textAlign:"center"}}>
-                  <div style={{fontSize:48,opacity:0.15,marginBottom:12}}>📝</div>
-                  <p style={{color:"#6b8aaa",fontSize:14,fontWeight:600,marginBottom:4}}>Próximamente</p>
-                  <p style={{color:"#aab8c8",fontSize:12}}>Anotá recordatorios, observaciones de campo y más</p>
-                </div>
-              </div>
-            )}
+            {variosTab==="notas"&&<SeccionNotas ingId={ingId} productores={productores} iCls={iCls} lCls={lCls} m={m}/>}
 
           </div>
         )}
