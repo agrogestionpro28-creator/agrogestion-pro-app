@@ -34,7 +34,7 @@ type Costo = {
 const CATEGORIAS = ["ternero","ternera","vaquillona","novillo","toro","vaca"];
 const CAT_COLORS: Record<string,string> = {
   ternero:"#60A5FA", ternera:"#F472B6", vaquillona:"#4ADE80",
-  novillo:"#C9A227", toro:"#F87171", vaca:"#A78BFA"
+  novillo:"#d97706", toro:"#ef4444", vaca:"#a78bfa"
 };
 const CAT_ICONS: Record<string,string> = {
   ternero:"🐄", ternera:"🐄", vaquillona:"🐮", novillo:"🐂", toro:"🐃", vaca:"🐄"
@@ -43,16 +43,16 @@ const TIPO_SANIDAD = ["vacuna","desparasitacion","vitamina","medicamento","otro"
 const TIPO_COSTO = ["alimentacion","sanidad","flete","mano_obra","estructura","otro"];
 const TIPO_MOV = ["compra","venta","traslado","muerte","nacimiento"];
 const MOV_COLORS: Record<string,string> = {
-  compra:"#4ADE80", venta:"#60A5FA", traslado:"#C9A227", muerte:"#F87171", nacimiento:"#A78BFA"
+  compra:"#22c55e", venta:"#60a5fa", traslado:"#d97706", muerte:"#ef4444", nacimiento:"#a78bfa"
 };
 
 const SUBTABS: { key: SubTab; label: string; icon: string; color: string }[] = [
-  { key:"dashboard", label:"Dashboard", icon:"📊", color:"#00FF80" },
-  { key:"animales", label:"Animales", icon:"🐄", color:"#C9A227" },
-  { key:"sanidad", label:"Sanidad", icon:"💉", color:"#4ADE80" },
-  { key:"reproduccion", label:"Reproducción", icon:"❤️", color:"#F472B6" },
-  { key:"movimientos", label:"Movimientos", icon:"📦", color:"#60A5FA" },
-  { key:"costos", label:"Costos", icon:"💰", color:"#A78BFA" },
+  { key:"dashboard",    label:"Dashboard",   icon:"📊", color:"#22c55e" },
+  { key:"animales",     label:"Animales",    icon:"🐄", color:"#d97706" },
+  { key:"sanidad",      label:"Sanidad",     icon:"💉", color:"#22c55e" },
+  { key:"reproduccion", label:"Reproducción",icon:"❤️", color:"#f472b6" },
+  { key:"movimientos",  label:"Movimientos", icon:"📦", color:"#60a5fa" },
+  { key:"costos",       label:"Costos",      icon:"💰", color:"#a78bfa" },
 ];
 
 export default function HaciendaPage() {
@@ -111,12 +111,11 @@ export default function HaciendaPage() {
     setCostos(cos.data ?? []);
   };
 
-  // KPIs calculados
+  // ── KPIs (lógica original) ──
   const totalCabezas = animales.length;
   const pesoPromedio = totalCabezas > 0 ? animales.reduce((a,x) => a + x.peso_actual, 0) / totalCabezas : 0;
   const kgTotales = animales.reduce((a,x) => a + x.peso_actual, 0);
 
-  // ADPV por animal (usando últimas 2 pesadas)
   const calcADPV = () => {
     if (pesadas.length < 2) return 0;
     const ultimas = pesadas.slice(0, 20);
@@ -135,24 +134,20 @@ export default function HaciendaPage() {
   const mortandadPct = movimientos.length > 0
     ? (movimientos.filter(m => m.tipo === "muerte").reduce((a,m) => a + m.cantidad, 0) / Math.max(1, totalCabezas + movimientos.filter(m=>m.tipo==="muerte").reduce((a,m)=>a+m.cantidad,0))) * 100
     : 0;
-
-  const preñezPct = reproduccion.length > 0
-    ? (reproduccion.filter(r => r.preñada).length / reproduccion.length) * 100
-    : 0;
-
+  const preñezPct = reproduccion.length > 0 ? (reproduccion.filter(r => r.preñada).length / reproduccion.length) * 100 : 0;
   const costoTotal = costos.reduce((a,c) => a + c.monto, 0);
   const kgProducidos = movimientos.filter(m => m.tipo === "venta").reduce((a,m) => a + m.kg_total, 0);
   const costoPorKg = kgProducidos > 0 ? costoTotal / kgProducidos : 0;
   const ingresoVentas = movimientos.filter(m => m.tipo === "venta").reduce((a,m) => a + m.monto_total, 0);
   const margenBruto = ingresoVentas - costos.filter(c => ["alimentacion","sanidad"].includes(c.tipo)).reduce((a,c) => a + c.monto, 0);
 
-  // Alertas sanitarias
   const alertasSanidad = sanidad.filter(s => {
     if (!s.proxima_fecha) return false;
     const dias = (new Date(s.proxima_fecha).getTime() - Date.now()) / (1000*60*60*24);
     return dias <= 30;
   });
 
+  // ── CRUD (lógica original) ──
   const guardarAnimal = async () => {
     if (!empresaId) return;
     const sb = await getSB();
@@ -200,7 +195,6 @@ export default function HaciendaPage() {
       proxima_fecha: form.proxima_fecha || null,
       observaciones: form.observaciones ?? "",
     });
-    // Registrar también en costos hacienda
     if (costo > 0) {
       await sb.from("hacienda_costos").insert({
         empresa_id: empresaId, fecha: form.fecha ?? new Date().toISOString().split("T")[0],
@@ -290,142 +284,179 @@ export default function HaciendaPage() {
     setAiLoading(false);
   };
 
-  const inputClass = "w-full bg-[#0a1628]/80 border border-[#00FF80]/20 rounded-xl px-4 py-2.5 text-[#E5E7EB] text-sm focus:outline-none focus:border-[#4ADE80] font-mono transition-all";
-  const labelClass = "block text-xs text-[#4B6B5B] uppercase tracking-widest mb-1 font-mono";
+  // ── Estilos nuevos ──
+  const iCls = "inp w-full px-3 py-2.5 text-[#1a2a4a] text-sm";
+  const lCls = "block text-[10px] font-bold uppercase tracking-wider text-[#6b8aaa] mb-1.5";
 
-  if (loading) return <div className="min-h-screen bg-[#020810] flex items-center justify-center text-[#4ADE80] font-mono animate-pulse">▶ Cargando Hacienda...</div>;
+  if (loading) return (
+    <div style={{minHeight:"100vh",backgroundImage:"url('/FON.png')",backgroundSize:"cover",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{display:"flex",alignItems:"center",gap:12}}>
+        <div style={{width:32,height:32,border:"3px solid #16a34a",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+        <span style={{color:"#16a34a",fontWeight:600}}>Cargando Hacienda PRO...</span>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="relative min-h-screen bg-[#020810] text-[#E5E7EB]">
+    <div style={{minHeight:"100vh",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",backgroundImage:"url('/FON.png')",backgroundSize:"cover",backgroundPosition:"center",backgroundAttachment:"scroll"}}>
       <style>{`
-        @keyframes gradient-flow{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-        .card-hac:hover{border-color:rgba(74,222,128,0.4)!important;transform:translateY(-2px)}
-        .card-hac{transition:all 0.2s ease}
-        .tab-hac-active{border-color:#4ADE80!important;color:#4ADE80!important;background:rgba(74,222,128,0.08)!important}
-        .btn-float{animation:float 3s ease-in-out infinite}
-        .logo-btn:hover{filter:drop-shadow(0 0 12px rgba(74,222,128,0.8));transform:scale(1.03)}
-        .logo-btn{transition:all 0.2s ease;cursor:pointer}
-        .kpi-card{background:rgba(10,22,40,0.85);border:1px solid rgba(74,222,128,0.15);border-radius:12px;padding:16px;transition:all 0.2s}
-        .kpi-card:hover{border-color:rgba(74,222,128,0.35);transform:translateY(-2px)}
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+
+        .inp{background:rgba(255,255,255,0.75);border:1px solid rgba(180,210,240,0.55);border-radius:11px;box-shadow:inset 0 1px 3px rgba(0,60,140,0.04);transition:all 0.18s;color:#1a2a4a;}
+        .inp::placeholder{color:rgba(80,120,160,0.50);}
+        .inp:focus{background:rgba(255,255,255,0.97);border-color:rgba(25,118,210,0.40);outline:none;box-shadow:0 0 0 3px rgba(25,118,210,0.10);}
+        .inp option{background:white;color:#1a2a4a;}
+        .sel{background:rgba(255,255,255,0.75);border:1px solid rgba(180,210,240,0.55);border-radius:11px;color:#1a2a4a;padding:9px 12px;font-size:13px;width:100%;}
+
+        .topbar-h{background-image:url('/FON.png');background-size:cover;background-position:top center;border-bottom:1px solid rgba(255,255,255,0.40);box-shadow:0 2px 16px rgba(20,80,160,0.12);position:relative;}
+        .topbar-h::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.30);pointer-events:none;}
+        .topbar-h>*{position:relative;z-index:1;}
+
+        .card-g{background-image:url('/FON.png');background-size:cover;background-position:center;border:1.5px solid rgba(255,255,255,0.90);border-top:2px solid rgba(255,255,255,1);border-radius:18px;box-shadow:0 6px 24px rgba(20,80,160,0.14),inset 0 2px 0 rgba(255,255,255,0.90);position:relative;overflow:hidden;}
+        .card-g::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.62);pointer-events:none;z-index:0;}
+        .card-g>*{position:relative;z-index:1;}
+
+        .sec-w{background:rgba(255,255,255,0.88);border:1.5px solid rgba(255,255,255,0.92);border-radius:16px;box-shadow:0 4px 18px rgba(20,80,160,0.10);overflow:hidden;}
+
+        .kpi-h{background:rgba(255,255,255,0.88);border:1.5px solid rgba(255,255,255,0.90);border-radius:14px;padding:14px;transition:all 0.18s;box-shadow:0 3px 10px rgba(20,80,160,0.08);}
+        .kpi-h:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(20,80,160,0.14);}
+
+        .bbtn{background-image:url('/AZUL.png');background-size:cover;background-position:center;border:1.5px solid rgba(100,180,255,0.50);border-top:2px solid rgba(180,220,255,0.70);border-radius:12px;color:white;font-weight:800;font-size:12px;cursor:pointer;padding:8px 16px;text-shadow:0 1px 3px rgba(0,40,120,0.35);box-shadow:0 3px 12px rgba(25,118,210,0.35);transition:all 0.18s;}
+        .bbtn:hover{transform:translateY(-1px);filter:brightness(1.08);}
+        .abtn{background:rgba(255,255,255,0.70);border:1.5px solid rgba(255,255,255,0.92);border-radius:12px;color:#1e3a5f;font-weight:700;font-size:12px;cursor:pointer;padding:8px 14px;transition:all 0.18s;}
+        .abtn:hover{background:rgba(255,255,255,0.95);}
+
+        .tab-h{padding:8px 14px;border-radius:12px;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;white-space:nowrap;border:1.5px solid rgba(255,255,255,0.88);background:rgba(255,255,255,0.65);color:#4a6a8a;}
+        .tab-h.on{background-image:url('/AZUL.png');background-size:cover;background-position:center;color:white;border:1.5px solid rgba(100,180,255,0.45);text-shadow:0 1px 3px rgba(0,40,120,0.35);box-shadow:0 3px 12px rgba(25,118,210,0.35);}
+
+        .row-h:hover{background:rgba(255,255,255,0.95)!important;}
+        .fade-in{animation:fadeIn 0.20s ease;}
+        ::-webkit-scrollbar{width:3px;height:3px}
+        ::-webkit-scrollbar-thumb{background:rgba(25,118,210,0.20);border-radius:3px}
       `}</style>
 
-      <div className="absolute inset-0 z-0"><Image src="/dashboard-bg.png" alt="bg" fill style={{objectFit:"cover"}}/><div className="absolute inset-0 bg-[#020810]/88"/></div>
-      <div className="absolute inset-0 z-1 pointer-events-none opacity-[0.02]" style={{backgroundImage:`linear-gradient(rgba(74,222,128,0.5) 1px,transparent 1px),linear-gradient(90deg,rgba(74,222,128,0.5) 1px,transparent 1px)`,backgroundSize:"50px 50px"}}/>
-
-      {/* HEADER */}
-      <div className="relative z-10">
-        <div className="absolute bottom-0 left-0 right-0 h-[1px]" style={{background:"linear-gradient(90deg,transparent,#4ADE80,#00FF80,#4ADE80,transparent)",backgroundSize:"200% 100%",animation:"gradient-flow 4s ease infinite"}}/>
-        <div className="absolute inset-0" style={{background:"linear-gradient(135deg,rgba(2,8,16,0.95) 0%,rgba(0,15,5,0.90) 50%,rgba(2,8,16,0.95) 100%)"}}/>
-        <div className="relative px-6 py-4 flex items-center gap-4">
-          <button onClick={()=>animalDetalle?setAnimalDetalle(null):window.location.href="/productor/dashboard"} className="text-[#4B5563] hover:text-[#4ADE80] transition-colors font-mono text-sm">
-            ← {animalDetalle?"Volver":"Dashboard"}
+      {/* TOPBAR */}
+      <div className="topbar-h" style={{position:"sticky",top:0,zIndex:20}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,padding:"11px 16px"}}>
+          <button onClick={()=>animalDetalle?setAnimalDetalle(null):window.location.href="/productor/dashboard"}
+            style={{background:"none",border:"none",cursor:"pointer",color:"#4a6a8a",fontSize:13,fontWeight:700}}>
+            ← {animalDetalle?"Volver al rodeo":"Dashboard"}
           </button>
-          <div className="flex-1"/>
-          <div className="logo-btn" onClick={()=>window.location.href="/productor/dashboard"}><Image src="/logo.png" alt="Logo" width={110} height={38} className="object-contain"/></div>
+          <div style={{flex:1}}/>
+          <div style={{fontSize:13,fontWeight:800,color:"#0d2137"}}>🐄 Hacienda PRO</div>
+          <button onClick={()=>window.location.href="/productor/dashboard"} style={{background:"none",border:"none",cursor:"pointer"}}>
+            <Image src="/logo.png" alt="Logo" width={90} height={32} style={{objectFit:"contain"}}/>
+          </button>
         </div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto p-6">
-        {/* Title */}
-        <div className="mb-5 flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 className="text-3xl font-bold font-mono"><span className="text-[#E5E7EB]">🐄 Hacienda </span><span className="text-[#4ADE80]">PRO</span></h1>
-            <p className="text-[#4B5563] text-sm font-mono">{totalCabezas} cabezas activas · {pesoPromedio.toFixed(0)} kg promedio</p>
-          </div>
+      <div style={{maxWidth:1200,margin:"0 auto",padding:"14px 14px 80px"}}>
+
+        {/* Título */}
+        <div style={{marginBottom:14}}>
+          <h1 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>🐄 Hacienda <span style={{color:"#16a34a"}}>PRO</span></h1>
+          <p style={{fontSize:11,color:"#6b8aaa",margin:"2px 0 0",fontWeight:600}}>{totalCabezas} cabezas activas · {pesoPromedio.toFixed(0)} kg promedio</p>
         </div>
 
         {/* SUBTABS */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
+        <div style={{display:"flex",gap:7,marginBottom:14,overflowX:"auto",paddingBottom:4}}>
           {SUBTABS.map(t=>(
             <button key={t.key} onClick={()=>{setSubTab(t.key);setShowForm(false);setForm({});setAnimalDetalle(null);}}
-              className={`px-4 py-2 rounded-xl border text-sm font-mono whitespace-nowrap transition-all ${subTab===t.key?"tab-hac-active":"border-[#4ADE80]/15 text-[#4B5563] hover:text-[#9CA3AF]"}`}>
+              className={`tab-h${subTab===t.key?" on":""}`}>
               {t.icon} {t.label}
             </button>
           ))}
         </div>
 
-        {/* ===== DASHBOARD ===== */}
-        {subTab==="dashboard" && (
-          <div>
+        {/* ══════════════════════════════
+            DASHBOARD
+        ══════════════════════════════ */}
+        {subTab==="dashboard"&&(
+          <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:14}}>
+
             {/* KPIs principales */}
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:10}}>
               {[
-                {label:"STOCK TOTAL",value:`${totalCabezas}`,sub:"cabezas",color:"#4ADE80",icon:"🐄"},
-                {label:"KG TOTALES",value:`${kgTotales.toLocaleString("es-AR")}`,sub:"kg en pie",color:"#C9A227",icon:"⚖️"},
-                {label:"ADPV",value:`${adpv.toFixed(2)}`,sub:"kg/día",color:"#60A5FA",icon:"📈"},
-                {label:"MORTANDAD",value:`${mortandadPct.toFixed(1)}%`,sub:"del stock",color:mortandadPct>3?"#F87171":"#4ADE80",icon:"⚠️"},
-                {label:"ÍNDICE PREÑEZ",value:`${preñezPct.toFixed(0)}%`,sub:"diagnóstico",color:preñezPct>80?"#4ADE80":"#C9A227",icon:"❤️"},
-                {label:"COSTO/KG",value:`$${costoPorKg.toFixed(0)}`,sub:"producido",color:"#A78BFA",icon:"💰"},
+                {label:"STOCK TOTAL",value:`${totalCabezas}`,sub:"cabezas",color:"#16a34a",icon:"🐄"},
+                {label:"KG TOTALES",value:kgTotales.toLocaleString("es-AR"),sub:"kg en pie",color:"#d97706",icon:"⚖️"},
+                {label:"ADPV",value:`${adpv.toFixed(2)}`,sub:"kg/día",color:"#1565c0",icon:"📈"},
+                {label:"MORTANDAD",value:`${mortandadPct.toFixed(1)}%`,sub:"del stock",color:mortandadPct>3?"#dc2626":"#16a34a",icon:"⚠️"},
+                {label:"ÍNDICE PREÑEZ",value:`${preñezPct.toFixed(0)}%`,sub:"diagnóstico",color:preñezPct>80?"#16a34a":"#d97706",icon:"❤️"},
+                {label:"COSTO/KG",value:`$${costoPorKg.toFixed(0)}`,sub:"producido",color:"#7c3aed",icon:"💰"},
               ].map(s=>(
-                <div key={s.label} className="kpi-card">
-                  <div className="flex items-center justify-between mb-2"><span className="text-xs text-[#4B5563] font-mono">{s.label}</span><span>{s.icon}</span></div>
-                  <div className="text-2xl font-bold font-mono" style={{color:s.color}}>{s.value}</div>
-                  <div className="text-xs text-[#4B5563] font-mono">{s.sub}</div>
+                <div key={s.label} className="kpi-h">
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                    <span style={{fontSize:9,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase",letterSpacing:0.8}}>{s.label}</span>
+                    <span style={{fontSize:16}}>{s.icon}</span>
+                  </div>
+                  <div style={{fontSize:20,fontWeight:800,color:s.color}}>{s.value}</div>
+                  <div style={{fontSize:10,color:"#6b8aaa",fontWeight:600}}>{s.sub}</div>
                 </div>
               ))}
             </div>
 
             {/* Stats secundarios */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
               {[
-                {label:"PESO PROMEDIO",value:`${pesoPromedio.toFixed(0)} kg`,color:"#E5E7EB"},
-                {label:"MARGEN BRUTO",value:`$${margenBruto.toLocaleString("es-AR")}`,color:margenBruto>=0?"#4ADE80":"#F87171"},
-                {label:"INGRESOS VENTAS",value:`$${ingresoVentas.toLocaleString("es-AR")}`,color:"#60A5FA"},
-                {label:"COSTO TOTAL",value:`$${costoTotal.toLocaleString("es-AR")}`,color:"#F87171"},
+                {label:"PESO PROMEDIO",value:`${pesoPromedio.toFixed(0)} kg`,color:"#0d2137"},
+                {label:"MARGEN BRUTO",value:`$${margenBruto.toLocaleString("es-AR")}`,color:margenBruto>=0?"#16a34a":"#dc2626"},
+                {label:"INGRESOS VENTAS",value:`$${ingresoVentas.toLocaleString("es-AR")}`,color:"#1565c0"},
+                {label:"COSTO TOTAL",value:`$${costoTotal.toLocaleString("es-AR")}`,color:"#dc2626"},
               ].map(s=>(
-                <div key={s.label} className="kpi-card">
-                  <div className="text-xs text-[#4B5563] font-mono mb-2">{s.label}</div>
-                  <div className="text-xl font-bold font-mono" style={{color:s.color}}>{s.value}</div>
+                <div key={s.label} className="kpi-h">
+                  <div style={{fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase",marginBottom:6}}>{s.label}</div>
+                  <div style={{fontSize:18,fontWeight:800,color:s.color}}>{s.value}</div>
                 </div>
               ))}
             </div>
 
-            {/* Stock por categoría */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-              <div className="bg-[#0a1628]/80 border border-[#4ADE80]/15 rounded-xl p-5">
-                <h3 className="text-[#4ADE80] font-mono text-sm font-bold mb-4">🐄 STOCK POR CATEGORÍA</h3>
-                <div className="space-y-3">
+            {/* Stock por categoría + Alertas */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+              <div className="sec-w" style={{padding:14}}>
+                <div style={{fontSize:12,fontWeight:800,color:"#16a34a",marginBottom:12}}>🐄 Stock por Categoría</div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
                   {CATEGORIAS.map(cat=>{
                     const count=animales.filter(a=>a.categoria===cat).length;
                     if(count===0) return null;
                     const pct=totalCabezas>0?count/totalCabezas*100:0;
-                    return (
+                    return(
                       <div key={cat}>
-                        <div className="flex justify-between text-xs font-mono mb-1">
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,fontWeight:700,marginBottom:3}}>
                           <span style={{color:CAT_COLORS[cat]}}>{CAT_ICONS[cat]} {cat.toUpperCase()}</span>
-                          <span className="text-[#E5E7EB] font-bold">{count} cab · {pct.toFixed(0)}%</span>
+                          <span style={{color:"#0d2137"}}>{count} cab · {pct.toFixed(0)}%</span>
                         </div>
-                        <div className="h-2 bg-[#020810]/60 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full transition-all" style={{width:`${pct}%`,background:CAT_COLORS[cat]}}/>
+                        <div style={{height:6,borderRadius:4,background:"rgba(0,60,140,0.08)",overflow:"hidden"}}>
+                          <div style={{height:"100%",borderRadius:4,background:CAT_COLORS[cat],width:`${pct}%`,transition:"width 0.3s"}}/>
                         </div>
                       </div>
                     );
                   })}
-                  {totalCabezas===0&&<p className="text-[#4B5563] font-mono text-sm text-center py-4">Sin animales registrados</p>}
+                  {totalCabezas===0&&<p style={{color:"#6b8aaa",fontSize:13,textAlign:"center",padding:"16px 0"}}>Sin animales registrados</p>}
                 </div>
               </div>
 
-              {/* Alertas sanitarias */}
-              <div className="bg-[#0a1628]/80 border border-[#F87171]/20 rounded-xl p-5">
-                <h3 className="text-[#F87171] font-mono text-sm font-bold mb-4">⚠️ ALERTAS SANITARIAS</h3>
+              <div className="sec-w" style={{padding:14}}>
+                <div style={{fontSize:12,fontWeight:800,color:"#dc2626",marginBottom:12}}>⚠️ Alertas Sanitarias</div>
                 {alertasSanidad.length===0?(
-                  <div className="text-center py-6">
-                    <div className="text-3xl mb-2">✅</div>
-                    <p className="text-[#4ADE80] font-mono text-sm">Sin alertas pendientes</p>
+                  <div style={{textAlign:"center",padding:"20px 0"}}>
+                    <div style={{fontSize:28,marginBottom:6}}>✅</div>
+                    <p style={{color:"#16a34a",fontSize:12,fontWeight:600}}>Sin alertas pendientes</p>
                   </div>
                 ):(
-                  <div className="space-y-2">
+                  <div style={{display:"flex",flexDirection:"column",gap:7}}>
                     {alertasSanidad.map(s=>{
                       const dias=Math.round((new Date(s.proxima_fecha).getTime()-Date.now())/(1000*60*60*24));
-                      return (
-                        <div key={s.id} className={`flex items-center gap-3 p-3 rounded-lg border ${dias<=7?"border-[#F87171]/30 bg-[#F87171]/5":"border-[#C9A227]/30 bg-[#C9A227]/5"}`}>
-                          <div className="w-2 h-2 rounded-full animate-pulse" style={{background:dias<=7?"#F87171":"#C9A227"}}/>
-                          <div className="flex-1">
-                            <div className="text-xs font-mono font-bold text-[#E5E7EB]">{s.producto}</div>
-                            <div className="text-xs text-[#4B5563] font-mono">{s.lote||"Todo el rodeo"} · {s.proxima_fecha}</div>
+                      return(
+                        <div key={s.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:10,border:`1px solid ${dias<=7?"rgba(220,38,38,0.25)":"rgba(217,119,6,0.25)"}`,background:dias<=7?"rgba(220,38,38,0.05)":"rgba(217,119,6,0.05)"}}>
+                          <div style={{width:7,height:7,borderRadius:"50%",background:dias<=7?"#dc2626":"#d97706",flexShrink:0}}/>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:12,fontWeight:700,color:"#0d2137"}}>{s.producto}</div>
+                            <div style={{fontSize:10,color:"#6b8aaa"}}>{s.lote||"Todo el rodeo"} · {s.proxima_fecha}</div>
                           </div>
-                          <span className="text-xs font-mono" style={{color:dias<=7?"#F87171":"#C9A227"}}>{dias}d</span>
+                          <span style={{fontSize:11,fontWeight:800,color:dias<=7?"#dc2626":"#d97706"}}>{dias}d</span>
                         </div>
                       );
                     })}
@@ -434,17 +465,16 @@ export default function HaciendaPage() {
               </div>
             </div>
 
-            {/* Botones acceso rápido */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+            {/* Accesos rápidos */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
               {[
-                {label:"Gestión Animal",icon:"🐄",tab:"animales" as SubTab,color:"#4ADE80"},
-                {label:"Reproducción",icon:"❤️",tab:"reproduccion" as SubTab,color:"#F472B6"},
-                {label:"Movimientos",icon:"📦",tab:"movimientos" as SubTab,color:"#60A5FA"},
-                {label:"Plan Sanitario",icon:"💉",tab:"sanidad" as SubTab,color:"#C9A227"},
+                {label:"Gestión Animal",icon:"🐄",tab:"animales" as SubTab,color:"#16a34a"},
+                {label:"Reproducción",icon:"❤️",tab:"reproduccion" as SubTab,color:"#f472b6"},
+                {label:"Movimientos",icon:"📦",tab:"movimientos" as SubTab,color:"#1565c0"},
+                {label:"Plan Sanitario",icon:"💉",tab:"sanidad" as SubTab,color:"#d97706"},
               ].map(b=>(
                 <button key={b.label} onClick={()=>setSubTab(b.tab)}
-                  className="flex items-center justify-between px-5 py-4 rounded-xl border font-mono text-sm font-bold transition-all hover:opacity-80"
-                  style={{borderColor:b.color+"40",background:b.color+"10",color:b.color}}>
+                  style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",borderRadius:14,border:`1px solid ${b.color}40`,background:`${b.color}10`,color:b.color,fontWeight:700,fontSize:13,cursor:"pointer",transition:"all 0.18s"}}>
                   <span>{b.icon} {b.label}</span>
                   <span>→</span>
                 </button>
@@ -452,89 +482,85 @@ export default function HaciendaPage() {
             </div>
 
             {/* Últimos movimientos */}
-            <div className="bg-[#0a1628]/80 border border-[#4ADE80]/15 rounded-xl overflow-hidden">
-              <div className="px-5 py-3 border-b border-[#4ADE80]/10 flex items-center justify-between">
-                <span className="text-[#4ADE80] font-mono text-sm font-bold">📦 ÚLTIMOS MOVIMIENTOS</span>
-                <button onClick={()=>setSubTab("movimientos")} className="text-xs text-[#4B5563] hover:text-[#4ADE80] font-mono">Ver todos →</button>
+            <div className="sec-w">
+              <div style={{padding:"12px 14px",borderBottom:"1px solid rgba(0,60,140,0.06)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:12,fontWeight:800,color:"#0d2137"}}>📦 Últimos Movimientos</span>
+                <button onClick={()=>setSubTab("movimientos")} style={{fontSize:11,color:"#6b8aaa",background:"none",border:"none",cursor:"pointer"}}>Ver todos →</button>
               </div>
               {movimientos.slice(0,5).map(m=>(
-                <div key={m.id} className="px-5 py-3 border-b border-[#4ADE80]/5 flex items-center justify-between hover:bg-[#4ADE80]/5 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs px-2 py-0.5 rounded font-mono" style={{background:MOV_COLORS[m.tipo]+"20",color:MOV_COLORS[m.tipo]}}>{m.tipo}</span>
+                <div key={m.id} className="row-h" style={{padding:"10px 14px",borderBottom:"1px solid rgba(0,60,140,0.04)",display:"flex",alignItems:"center",justifyContent:"space-between",transition:"background 0.15s"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,fontWeight:700,background:`${MOV_COLORS[m.tipo]}20`,color:MOV_COLORS[m.tipo]}}>{m.tipo}</span>
                     <div>
-                      <div className="text-sm font-mono text-[#E5E7EB]">{m.cantidad} {m.categoria} · {m.kg_total}kg</div>
-                      <div className="text-xs text-[#4B5563] font-mono">{m.fecha} · {m.origen||m.destino}</div>
+                      <div style={{fontSize:12,fontWeight:600,color:"#0d2137"}}>{m.cantidad} {m.categoria} · {m.kg_total}kg</div>
+                      <div style={{fontSize:10,color:"#6b8aaa"}}>{m.fecha} · {m.origen||m.destino}</div>
                     </div>
                   </div>
-                  {m.monto_total>0&&<span className="text-[#4ADE80] font-bold font-mono text-sm">${Number(m.monto_total).toLocaleString("es-AR")}</span>}
+                  {m.monto_total>0&&<span style={{color:"#16a34a",fontWeight:800,fontSize:12}}>${Number(m.monto_total).toLocaleString("es-AR")}</span>}
                 </div>
               ))}
-              {movimientos.length===0&&<div className="text-center py-8 text-[#4B5563] font-mono text-sm">Sin movimientos</div>}
+              {movimientos.length===0&&<div style={{textAlign:"center",padding:32,color:"#6b8aaa",fontSize:13}}>Sin movimientos</div>}
             </div>
           </div>
         )}
 
-        {/* ===== ANIMALES ===== */}
-        {subTab==="animales" && !animalDetalle && (
-          <div>
-            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-              <div className="flex gap-2 text-xs font-mono flex-wrap">
+        {/* ══════════════════════════════
+            ANIMALES — LISTA
+        ══════════════════════════════ */}
+        {subTab==="animales"&&!animalDetalle&&(
+          <div className="fade-in">
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,flexWrap:"wrap",gap:8}}>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                 {CATEGORIAS.map(cat=>{
                   const count=animales.filter(a=>a.categoria===cat).length;
                   if(count===0) return null;
-                  return <span key={cat} className="px-2 py-1 rounded-lg" style={{background:CAT_COLORS[cat]+"15",color:CAT_COLORS[cat]}}>{CAT_ICONS[cat]} {count} {cat}</span>;
+                  return<span key={cat} style={{fontSize:10,padding:"3px 10px",borderRadius:20,fontWeight:700,background:`${CAT_COLORS[cat]}15`,color:CAT_COLORS[cat]}}>{CAT_ICONS[cat]} {count} {cat}</span>;
                 })}
               </div>
-              <button onClick={()=>{setShowForm(!showForm);setForm({categoria:"novillo"});}} className="px-4 py-2 rounded-xl bg-[#4ADE80]/10 border border-[#4ADE80]/30 text-[#4ADE80] font-mono text-sm hover:bg-[#4ADE80]/20 transition-all">+ Nuevo Animal</button>
+              <button onClick={()=>{setShowForm(!showForm);setForm({categoria:"novillo"});}} className="bbtn">+ Nuevo Animal</button>
             </div>
 
-            {showForm && (
-              <div className="bg-[#0a1628]/80 border border-[#4ADE80]/30 rounded-xl p-5 mb-5">
-                <h3 className="text-[#4ADE80] font-mono text-sm font-bold mb-4">+ NUEVO ANIMAL</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div><label className={labelClass}>Caravana / ID</label><input type="text" value={form.caravana??""} onChange={e=>setForm({...form,caravana:e.target.value})} className={inputClass} placeholder="Ej: 123456"/></div>
-                  <div><label className={labelClass}>Categoría</label>
-                    <select value={form.categoria??"novillo"} onChange={e=>setForm({...form,categoria:e.target.value})} className={inputClass}>
-                      {CATEGORIAS.map(c=><option key={c} value={c}>{CAT_ICONS[c]} {c}</option>)}
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Raza</label><input type="text" value={form.raza??""} onChange={e=>setForm({...form,raza:e.target.value})} className={inputClass} placeholder="Ej: Hereford, Angus"/></div>
-                  <div><label className={labelClass}>Fecha nacimiento</label><input type="date" value={form.fecha_nacimiento??""} onChange={e=>setForm({...form,fecha_nacimiento:e.target.value})} className={inputClass}/></div>
-                  <div><label className={labelClass}>Peso actual (kg)</label><input type="number" value={form.peso_actual??""} onChange={e=>setForm({...form,peso_actual:e.target.value})} className={inputClass} placeholder="0"/></div>
-                  <div><label className={labelClass}>Estado corporal (1-5)</label><input type="number" value={form.estado_corporal??""} onChange={e=>setForm({...form,estado_corporal:e.target.value})} className={inputClass} min="1" max="5" placeholder="3"/></div>
-                  <div><label className={labelClass}>Lote / Potrero</label><input type="text" value={form.lote_potrero??""} onChange={e=>setForm({...form,lote_potrero:e.target.value})} className={inputClass} placeholder="Ej: Potrero Norte"/></div>
-                  <div><label className={labelClass}>Propietario</label><input type="text" value={form.propietario??""} onChange={e=>setForm({...form,propietario:e.target.value})} className={inputClass} placeholder="Propio / Hotelería"/></div>
-                  <div className="md:col-span-4"><label className={labelClass}>Observaciones</label><input type="text" value={form.observaciones??""} onChange={e=>setForm({...form,observaciones:e.target.value})} className={inputClass}/></div>
+            {showForm&&(
+              <div className="card-g fade-in" style={{padding:14,marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:800,color:"#0d2137",marginBottom:12}}>+ Nuevo Animal</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:12}}>
+                  <div><label className={lCls}>Caravana / ID</label><input type="text" value={form.caravana??""} onChange={e=>setForm({...form,caravana:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Ej: 123456"/></div>
+                  <div><label className={lCls}>Categoría</label><select value={form.categoria??"novillo"} onChange={e=>setForm({...form,categoria:e.target.value})} className="sel">{CATEGORIAS.map(c=><option key={c} value={c}>{CAT_ICONS[c]} {c}</option>)}</select></div>
+                  <div><label className={lCls}>Raza</label><input type="text" value={form.raza??""} onChange={e=>setForm({...form,raza:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Hereford, Angus..."/></div>
+                  <div><label className={lCls}>Fecha nacimiento</label><input type="date" value={form.fecha_nacimiento??""} onChange={e=>setForm({...form,fecha_nacimiento:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Peso actual (kg)</label><input type="number" value={form.peso_actual??""} onChange={e=>setForm({...form,peso_actual:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Estado corporal (1-5)</label><input type="number" value={form.estado_corporal??""} onChange={e=>setForm({...form,estado_corporal:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} min="1" max="5"/></div>
+                  <div><label className={lCls}>Lote / Potrero</label><input type="text" value={form.lote_potrero??""} onChange={e=>setForm({...form,lote_potrero:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Potrero Norte"/></div>
+                  <div><label className={lCls}>Propietario</label><input type="text" value={form.propietario??""} onChange={e=>setForm({...form,propietario:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Propio / Hotelería"/></div>
+                  <div style={{gridColumn:"span 2"}}><label className={lCls}>Observaciones</label><input type="text" value={form.observaciones??""} onChange={e=>setForm({...form,observaciones:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                 </div>
-                <div className="flex gap-3 mt-4">
-                  <button onClick={guardarAnimal} className="bg-[#4ADE80]/10 border border-[#4ADE80]/30 text-[#4ADE80] font-bold px-6 py-2.5 rounded-xl text-sm font-mono">▶ Guardar</button>
-                  <button onClick={()=>{setShowForm(false);setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">Cancelar</button>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={guardarAnimal} className="bbtn">▶ Guardar</button>
+                  <button onClick={()=>{setShowForm(false);setForm({});}} className="abtn">Cancelar</button>
                 </div>
               </div>
             )}
 
             {animales.length===0?(
-              <div className="text-center py-20 bg-[#0a1628]/60 border border-[#4ADE80]/15 rounded-xl">
-                <div className="text-5xl mb-4 opacity-20">🐄</div>
-                <p className="text-[#4B5563] font-mono">Sin animales registrados</p>
+              <div className="card-g" style={{padding:"48px 20px",textAlign:"center"}}>
+                <div style={{fontSize:48,opacity:0.12,marginBottom:12}}>🐄</div>
+                <p style={{color:"#6b8aaa",fontSize:14}}>Sin animales registrados</p>
               </div>
             ):(
-              <div className="bg-[#0a1628]/80 border border-[#4ADE80]/15 rounded-xl overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead><tr className="border-b border-[#4ADE80]/10">
-                      {["Caravana","Categoría","Raza","Peso","E.Corp","Lote","Propietario",""].map(h=><th key={h} className="text-left px-4 py-3 text-xs text-[#4B5563] font-mono uppercase tracking-widest">{h}</th>)}
-                    </tr></thead>
+              <div className="sec-w">
+                <div style={{overflowX:"auto"}}>
+                  <table style={{width:"100%",fontSize:12,borderCollapse:"collapse"}}>
+                    <thead><tr style={{borderBottom:"1px solid rgba(0,60,140,0.06)"}}>{["Caravana","Categoría","Raza","Peso","E.Corp","Lote","Propietario",""].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                     <tbody>{animales.map(a=>(
-                      <tr key={a.id} className="border-b border-[#4ADE80]/5 hover:bg-[#4ADE80]/5 transition-colors cursor-pointer" onClick={()=>setAnimalDetalle(a)}>
-                        <td className="px-4 py-3 text-sm text-[#E5E7EB] font-mono font-bold">{a.caravana||"—"}</td>
-                        <td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded font-mono" style={{background:CAT_COLORS[a.categoria]+"20",color:CAT_COLORS[a.categoria]}}>{CAT_ICONS[a.categoria]} {a.categoria}</span></td>
-                        <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{a.raza||"—"}</td>
-                        <td className="px-4 py-3 text-sm font-bold text-[#C9A227] font-mono">{a.peso_actual} kg</td>
-                        <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{a.estado_corporal||"—"}/5</td>
-                        <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{a.lote_potrero||"—"}</td>
-                        <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{a.propietario||"Propio"}</td>
-                        <td className="px-4 py-3"><button onClick={e=>{e.stopPropagation();eliminar("hacienda_animales",a.id);}} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button></td>
+                      <tr key={a.id} className="row-h" style={{borderBottom:"1px solid rgba(0,60,140,0.04)",cursor:"pointer",transition:"background 0.15s"}} onClick={()=>setAnimalDetalle(a)}>
+                        <td style={{padding:"9px 12px",fontWeight:800,color:"#0d2137"}}>{a.caravana||"—"}</td>
+                        <td style={{padding:"9px 12px"}}><span style={{fontSize:10,padding:"2px 8px",borderRadius:20,fontWeight:700,background:`${CAT_COLORS[a.categoria]}20`,color:CAT_COLORS[a.categoria]}}>{CAT_ICONS[a.categoria]} {a.categoria}</span></td>
+                        <td style={{padding:"9px 12px",color:"#6b8aaa"}}>{a.raza||"—"}</td>
+                        <td style={{padding:"9px 12px",fontWeight:800,color:"#d97706"}}>{a.peso_actual} kg</td>
+                        <td style={{padding:"9px 12px",color:"#6b8aaa"}}>{a.estado_corporal||"—"}/5</td>
+                        <td style={{padding:"9px 12px",color:"#6b8aaa"}}>{a.lote_potrero||"—"}</td>
+                        <td style={{padding:"9px 12px",color:"#6b8aaa"}}>{a.propietario||"Propio"}</td>
+                        <td style={{padding:"9px 12px"}}><button onClick={e=>{e.stopPropagation();eliminar("hacienda_animales",a.id);}} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:14}}>✕</button></td>
                       </tr>
                     ))}</tbody>
                   </table>
@@ -544,149 +570,151 @@ export default function HaciendaPage() {
           </div>
         )}
 
-        {/* ===== FICHA INDIVIDUAL ===== */}
-        {subTab==="animales" && animalDetalle && (
-          <div>
-            <button onClick={()=>setAnimalDetalle(null)} className="text-[#4B5563] hover:text-[#4ADE80] font-mono text-sm mb-4">← Volver al rodeo</button>
-            <div className="bg-[#0a1628]/80 border rounded-xl p-5 mb-4" style={{borderColor:CAT_COLORS[animalDetalle.categoria]+"30"}}>
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-4xl" style={{background:CAT_COLORS[animalDetalle.categoria]+"15",border:`1px solid ${CAT_COLORS[animalDetalle.categoria]}30`}}>
+        {/* ══════════════════════════════
+            FICHA INDIVIDUAL
+        ══════════════════════════════ */}
+        {subTab==="animales"&&animalDetalle&&(
+          <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:12}}>
+            <button onClick={()=>setAnimalDetalle(null)} style={{background:"none",border:"none",cursor:"pointer",color:"#4a6a8a",fontSize:13,fontWeight:700,textAlign:"left"}}>← Volver al rodeo</button>
+
+            {/* Header animal */}
+            <div className="card-g" style={{padding:14}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
+                <div style={{display:"flex",alignItems:"center",gap:12}}>
+                  <div style={{width:56,height:56,borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,background:`${CAT_COLORS[animalDetalle.categoria]}15`,border:`1px solid ${CAT_COLORS[animalDetalle.categoria]}30`}}>
                     {CAT_ICONS[animalDetalle.categoria]}
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-[#E5E7EB] font-mono">Caravana {animalDetalle.caravana||"Sin ID"}</h2>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs px-2 py-0.5 rounded font-mono" style={{background:CAT_COLORS[animalDetalle.categoria]+"20",color:CAT_COLORS[animalDetalle.categoria]}}>{animalDetalle.categoria}</span>
-                      {animalDetalle.raza&&<span className="text-xs text-[#4B5563] font-mono">{animalDetalle.raza}</span>}
+                    <h2 style={{fontSize:18,fontWeight:800,color:"#0d2137",margin:0}}>Caravana {animalDetalle.caravana||"Sin ID"}</h2>
+                    <div style={{display:"flex",gap:6,marginTop:4}}>
+                      <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,fontWeight:700,background:`${CAT_COLORS[animalDetalle.categoria]}20`,color:CAT_COLORS[animalDetalle.categoria]}}>{animalDetalle.categoria}</span>
+                      {animalDetalle.raza&&<span style={{fontSize:11,color:"#6b8aaa"}}>{animalDetalle.raza}</span>}
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div><div className="text-xs text-[#4B5563] font-mono">PESO</div><div className="text-xl font-bold text-[#C9A227] font-mono">{animalDetalle.peso_actual} kg</div></div>
-                  <div><div className="text-xs text-[#4B5563] font-mono">E.CORP</div><div className="text-xl font-bold text-[#4ADE80] font-mono">{animalDetalle.estado_corporal||"—"}/5</div></div>
-                  <div><div className="text-xs text-[#4B5563] font-mono">LOTE</div><div className="text-sm font-bold text-[#E5E7EB] font-mono">{animalDetalle.lote_potrero||"—"}</div></div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,textAlign:"center"}}>
+                  {[{l:"PESO",v:`${animalDetalle.peso_actual} kg`,c:"#d97706"},{l:"E.CORP",v:`${animalDetalle.estado_corporal||"—"}/5`,c:"#16a34a"},{l:"LOTE",v:animalDetalle.lote_potrero||"—",c:"#0d2137"}].map(s=>(
+                    <div key={s.l} className="kpi-h">
+                      <div style={{fontSize:9,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase"}}>{s.l}</div>
+                      <div style={{fontSize:14,fontWeight:800,color:s.c,marginTop:2}}>{s.v}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
 
-            {/* Historial pesadas */}
-            <div className="bg-[#0a1628]/80 border border-[#C9A227]/15 rounded-xl p-5 mb-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[#C9A227] font-mono text-sm font-bold">⚖️ HISTORIAL DE PESADAS</h3>
-                <button onClick={()=>setShowForm(showForm?false:true)} className="text-xs text-[#C9A227] border border-[#C9A227]/20 px-3 py-1.5 rounded-lg font-mono hover:bg-[#C9A227]/10">+ Pesada</button>
+            {/* Pesadas */}
+            <div className="sec-w" style={{padding:14}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                <div style={{fontSize:12,fontWeight:800,color:"#d97706"}}>⚖️ Historial de Pesadas</div>
+                <button onClick={()=>setShowForm(!showForm)} style={{fontSize:11,padding:"5px 12px",borderRadius:8,background:"rgba(217,119,6,0.08)",border:"1px solid rgba(217,119,6,0.25)",color:"#d97706",cursor:"pointer",fontWeight:700}}>+ Pesada</button>
               </div>
-              {showForm && (
-                <div className="flex items-end gap-3 mb-4 flex-wrap">
-                  <div><label className={labelClass}>Fecha</label><input type="date" value={form.fecha_pesada??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_pesada:e.target.value})} className={inputClass+" w-36"}/></div>
-                  <div><label className={labelClass}>Peso (kg)</label><input type="number" value={form.peso_pesada??""} onChange={e=>setForm({...form,peso_pesada:e.target.value})} className={inputClass+" w-28"} placeholder="0"/></div>
-                  <button onClick={()=>guardarPesada(animalDetalle.id)} className="bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-bold px-4 py-2.5 rounded-xl text-sm font-mono">▶ Guardar</button>
-                  <button onClick={()=>setShowForm(false)} className="text-[#4B5563] text-sm font-mono">✕</button>
+              {showForm&&(
+                <div style={{display:"flex",alignItems:"flex-end",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+                  <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_pesada??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_pesada:e.target.value})} className={iCls} style={{padding:"7px 12px",width:140}}/></div>
+                  <div><label className={lCls}>Peso (kg)</label><input type="number" value={form.peso_pesada??""} onChange={e=>setForm({...form,peso_pesada:e.target.value})} className={iCls} style={{padding:"7px 12px",width:110}}/></div>
+                  <button onClick={()=>guardarPesada(animalDetalle.id)} className="bbtn" style={{fontSize:11,padding:"7px 14px"}}>▶ Guardar</button>
+                  <button onClick={()=>setShowForm(false)} style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:16}}>✕</button>
                 </div>
               )}
-              {pesadas.filter(p=>p.animal_id===animalDetalle.id).length===0?(
-                <p className="text-[#4B5563] font-mono text-sm">Sin pesadas registradas</p>
-              ):(
-                <div className="space-y-2">
+              {pesadas.filter(p=>p.animal_id===animalDetalle.id).length===0
+                ?<p style={{color:"#6b8aaa",fontSize:13}}>Sin pesadas registradas</p>
+                :<div style={{display:"flex",flexDirection:"column",gap:6}}>
                   {pesadas.filter(p=>p.animal_id===animalDetalle.id).map((p,i,arr)=>{
                     const prev=arr[i+1];
                     const adpvLocal=prev?((p.peso_kg-prev.peso_kg)/Math.max(1,(new Date(p.fecha).getTime()-new Date(prev.fecha).getTime())/(1000*60*60*24))):null;
-                    return (
-                      <div key={p.id} className="flex items-center justify-between bg-[#020810]/40 rounded-lg px-4 py-2.5">
-                        <span className="text-xs text-[#9CA3AF] font-mono">{p.fecha}</span>
-                        <span className="text-sm font-bold text-[#C9A227] font-mono">{p.peso_kg} kg</span>
-                        {adpvLocal!==null&&<span className="text-xs font-mono" style={{color:adpvLocal>=0?"#4ADE80":"#F87171"}}>{adpvLocal.toFixed(2)} kg/d</span>}
-                        <button onClick={()=>eliminar("hacienda_pesadas",p.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button>
+                    return(
+                      <div key={p.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 12px",borderRadius:10,background:"rgba(255,255,255,0.60)"}}>
+                        <span style={{fontSize:11,color:"#6b8aaa"}}>{p.fecha}</span>
+                        <span style={{fontSize:13,fontWeight:800,color:"#d97706"}}>{p.peso_kg} kg</span>
+                        {adpvLocal!==null&&<span style={{fontSize:11,fontWeight:700,color:adpvLocal>=0?"#16a34a":"#dc2626"}}>{adpvLocal.toFixed(2)} kg/d</span>}
+                        <button onClick={()=>eliminar("hacienda_pesadas",p.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:13}}>✕</button>
                       </div>
                     );
                   })}
                 </div>
-              )}
+              }
             </div>
 
-            {/* Historial reproducción */}
-            <div className="bg-[#0a1628]/80 border border-[#F472B6]/15 rounded-xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[#F472B6] font-mono text-sm font-bold">❤️ REPRODUCCIÓN</h3>
-              </div>
-              {reproduccion.filter(r=>r.animal_id===animalDetalle.id).length===0?(
-                <p className="text-[#4B5563] font-mono text-sm">Sin registros de reproducción</p>
-              ):(
-                <div className="space-y-2">
+            {/* Reproducción */}
+            <div className="sec-w" style={{padding:14}}>
+              <div style={{fontSize:12,fontWeight:800,color:"#f472b6",marginBottom:10}}>❤️ Reproducción</div>
+              {reproduccion.filter(r=>r.animal_id===animalDetalle.id).length===0
+                ?<p style={{color:"#6b8aaa",fontSize:13}}>Sin registros de reproducción</p>
+                :<div style={{display:"flex",flexDirection:"column",gap:6}}>
                   {reproduccion.filter(r=>r.animal_id===animalDetalle.id).map(r=>(
-                    <div key={r.id} className="flex items-center justify-between bg-[#020810]/40 rounded-lg px-4 py-2.5 flex-wrap gap-2">
-                      <span className="text-xs text-[#9CA3AF] font-mono">{r.fecha_servicio}</span>
-                      <span className="text-xs font-mono text-[#E5E7EB]">{r.tipo_servicio}</span>
-                      {r.preñada!==null&&<span className="text-xs px-2 py-0.5 rounded font-mono" style={{background:r.preñada?"rgba(74,222,128,0.15)":"rgba(248,113,113,0.15)",color:r.preñada?"#4ADE80":"#F87171"}}>{r.preñada?"✓ Preñada":"✗ Vacía"}</span>}
-                      {r.fecha_parto&&<span className="text-xs text-[#F472B6] font-mono">Parto: {r.fecha_parto}</span>}
+                    <div key={r.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,padding:"8px 12px",borderRadius:10,background:"rgba(255,255,255,0.60)"}}>
+                      <span style={{fontSize:11,color:"#6b8aaa"}}>{r.fecha_servicio}</span>
+                      <span style={{fontSize:11,fontWeight:600,color:"#0d2137"}}>{r.tipo_servicio}</span>
+                      {r.preñada!==null&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:20,fontWeight:700,background:r.preñada?"rgba(22,163,74,0.12)":"rgba(220,38,38,0.10)",color:r.preñada?"#16a34a":"#dc2626"}}>{r.preñada?"✓ Preñada":"✗ Vacía"}</span>}
+                      {r.fecha_parto&&<span style={{fontSize:11,color:"#f472b6",fontWeight:600}}>Parto: {r.fecha_parto}</span>}
                     </div>
                   ))}
                 </div>
-              )}
+              }
             </div>
           </div>
         )}
 
-        {/* ===== SANIDAD ===== */}
-        {subTab==="sanidad" && (
-          <div>
-            <div className="flex justify-end mb-4">
-              <button onClick={()=>{setShowForm(!showForm);setForm({tipo_sanidad:"vacuna",fecha:new Date().toISOString().split("T")[0]});}}
-                className="px-4 py-2 rounded-xl bg-[#4ADE80]/10 border border-[#4ADE80]/30 text-[#4ADE80] font-mono text-sm hover:bg-[#4ADE80]/20 transition-all">
-                + Nuevo Registro Sanitario
-              </button>
+        {/* ══════════════════════════════
+            SANIDAD
+        ══════════════════════════════ */}
+        {subTab==="sanidad"&&(
+          <div className="fade-in">
+            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+              <button onClick={()=>{setShowForm(!showForm);setForm({tipo_sanidad:"vacuna",fecha:new Date().toISOString().split("T")[0]});}} className="bbtn">+ Nuevo Registro Sanitario</button>
             </div>
-            {showForm && (
-              <div className="bg-[#0a1628]/80 border border-[#4ADE80]/30 rounded-xl p-5 mb-5">
-                <h3 className="text-[#4ADE80] font-mono text-sm font-bold mb-4">+ REGISTRO SANITARIO</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div><label className={labelClass}>Tipo</label>
-                    <select value={form.tipo_sanidad??"vacuna"} onChange={e=>setForm({...form,tipo_sanidad:e.target.value})} className={inputClass}>
-                      {TIPO_SANIDAD.map(t=><option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Producto</label><input type="text" value={form.producto??""} onChange={e=>setForm({...form,producto:e.target.value})} className={inputClass} placeholder="Ej: Aftosa, Ivermectina..."/></div>
-                  <div><label className={labelClass}>Dosis</label><input type="text" value={form.dosis??""} onChange={e=>setForm({...form,dosis:e.target.value})} className={inputClass} placeholder="Ej: 2 ml"/></div>
-                  <div><label className={labelClass}>Fecha</label><input type="date" value={form.fecha??""} onChange={e=>setForm({...form,fecha:e.target.value})} className={inputClass}/></div>
-                  <div><label className={labelClass}>Lote / Potrero</label><input type="text" value={form.lote??""} onChange={e=>setForm({...form,lote:e.target.value})} className={inputClass} placeholder="Ej: Todo el rodeo"/></div>
-                  <div><label className={labelClass}>Cantidad animales</label><input type="number" value={form.cantidad_animales??""} onChange={e=>setForm({...form,cantidad_animales:e.target.value})} className={inputClass}/></div>
-                  <div><label className={labelClass}>Responsable</label><input type="text" value={form.responsable??""} onChange={e=>setForm({...form,responsable:e.target.value})} className={inputClass} placeholder="Veterinario / Encargado"/></div>
-                  <div><label className={labelClass}>Costo total</label><input type="number" value={form.costo_total??""} onChange={e=>setForm({...form,costo_total:e.target.value})} className={inputClass} placeholder="0"/></div>
-                  <div><label className={labelClass}>Próxima fecha</label><input type="date" value={form.proxima_fecha??""} onChange={e=>setForm({...form,proxima_fecha:e.target.value})} className={inputClass}/></div>
-                  <div className="md:col-span-3"><label className={labelClass}>Observaciones</label><input type="text" value={form.observaciones??""} onChange={e=>setForm({...form,observaciones:e.target.value})} className={inputClass}/></div>
+            {showForm&&(
+              <div className="card-g fade-in" style={{padding:14,marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:800,color:"#16a34a",marginBottom:12}}>+ Registro Sanitario</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:12}}>
+                  <div><label className={lCls}>Tipo</label><select value={form.tipo_sanidad??"vacuna"} onChange={e=>setForm({...form,tipo_sanidad:e.target.value})} className="sel">{TIPO_SANIDAD.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
+                  <div><label className={lCls}>Producto</label><input type="text" value={form.producto??""} onChange={e=>setForm({...form,producto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Aftosa, Ivermectina..."/></div>
+                  <div><label className={lCls}>Dosis</label><input type="text" value={form.dosis??""} onChange={e=>setForm({...form,dosis:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="2 ml"/></div>
+                  <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha??""} onChange={e=>setForm({...form,fecha:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Lote / Potrero</label><input type="text" value={form.lote??""} onChange={e=>setForm({...form,lote:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Todo el rodeo"/></div>
+                  <div><label className={lCls}>Cantidad animales</label><input type="number" value={form.cantidad_animales??""} onChange={e=>setForm({...form,cantidad_animales:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Responsable</label><input type="text" value={form.responsable??""} onChange={e=>setForm({...form,responsable:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Veterinario / Encargado"/></div>
+                  <div><label className={lCls}>Costo total</label><input type="number" value={form.costo_total??""} onChange={e=>setForm({...form,costo_total:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Próxima fecha</label><input type="date" value={form.proxima_fecha??""} onChange={e=>setForm({...form,proxima_fecha:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div style={{gridColumn:"span 3"}}><label className={lCls}>Observaciones</label><input type="text" value={form.observaciones??""} onChange={e=>setForm({...form,observaciones:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                 </div>
-                <div className="flex gap-3 mt-4">
-                  <button onClick={guardarSanidad} className="bg-[#4ADE80]/10 border border-[#4ADE80]/30 text-[#4ADE80] font-bold px-6 py-2.5 rounded-xl text-sm font-mono">▶ Guardar</button>
-                  <button onClick={()=>{setShowForm(false);setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">Cancelar</button>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={guardarSanidad} className="bbtn">▶ Guardar</button>
+                  <button onClick={()=>{setShowForm(false);setForm({});}} className="abtn">Cancelar</button>
                 </div>
               </div>
             )}
-            {/* Alertas */}
+
             {alertasSanidad.length>0&&(
-              <div className="bg-[#F87171]/5 border border-[#F87171]/20 rounded-xl p-4 mb-4">
-                <div className="flex items-center gap-2 mb-2"><div className="w-2 h-2 rounded-full bg-[#F87171] animate-pulse"/><span className="text-[#F87171] text-xs font-mono font-bold">⚠️ PRÓXIMAS APLICACIONES</span></div>
-                <div className="flex flex-wrap gap-2">
-                  {alertasSanidad.map(s=>{const dias=Math.round((new Date(s.proxima_fecha).getTime()-Date.now())/(1000*60*60*24));return<div key={s.id} className="text-xs border px-3 py-1 rounded-lg font-mono" style={{borderColor:dias<=7?"rgba(248,113,113,0.3)":"rgba(201,162,39,0.3)",color:dias<=7?"#F87171":"#C9A227"}}>{s.producto} · {dias}d · {s.lote||"Rodeo"}</div>;})}
+              <div style={{padding:"10px 14px",marginBottom:12,borderRadius:12,background:"rgba(220,38,38,0.06)",border:"1px solid rgba(220,38,38,0.20)"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                  <div style={{width:7,height:7,borderRadius:"50%",background:"#dc2626"}}/>
+                  <span style={{fontSize:11,fontWeight:800,color:"#dc2626"}}>⚠️ PRÓXIMAS APLICACIONES</span>
+                </div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
+                  {alertasSanidad.map(s=>{const dias=Math.round((new Date(s.proxima_fecha).getTime()-Date.now())/(1000*60*60*24));return<div key={s.id} style={{fontSize:10,padding:"3px 10px",borderRadius:7,fontWeight:700,border:`1px solid ${dias<=7?"rgba(220,38,38,0.30)":"rgba(217,119,6,0.30)"}`,color:dias<=7?"#dc2626":"#d97706"}}>{s.producto} · {dias}d · {s.lote||"Rodeo"}</div>;})}
                 </div>
               </div>
             )}
-            <div className="bg-[#0a1628]/80 border border-[#4ADE80]/15 rounded-xl overflow-hidden">
-              {sanidad.length===0?<div className="text-center py-16 text-[#4B5563] font-mono">Sin registros sanitarios</div>:(
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead><tr className="border-b border-[#4ADE80]/10">{["Fecha","Tipo","Producto","Dosis","Lote","Animales","Costo","Responsable","Próxima",""].map(h=><th key={h} className="text-left px-4 py-3 text-xs text-[#4B5563] font-mono">{h}</th>)}</tr></thead>
+
+            <div className="sec-w">
+              {sanidad.length===0?<div style={{textAlign:"center",padding:48,color:"#6b8aaa",fontSize:13}}>Sin registros sanitarios</div>:(
+                <div style={{overflowX:"auto"}}>
+                  <table style={{width:"100%",fontSize:12,borderCollapse:"collapse",minWidth:800}}>
+                    <thead><tr style={{borderBottom:"1px solid rgba(0,60,140,0.06)"}}>{["Fecha","Tipo","Producto","Dosis","Lote","Animales","Costo","Responsable","Próxima",""].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                     <tbody>{sanidad.map(s=>(
-                      <tr key={s.id} className="border-b border-[#4ADE80]/5 hover:bg-[#4ADE80]/5">
-                        <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{s.fecha}</td>
-                        <td className="px-4 py-3"><span className="text-xs bg-[#4ADE80]/10 text-[#4ADE80] px-2 py-0.5 rounded font-mono">{s.tipo}</span></td>
-                        <td className="px-4 py-3 text-sm text-[#E5E7EB] font-mono font-bold">{s.producto}</td>
-                        <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{s.dosis}</td>
-                        <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{s.lote||"—"}</td>
-                        <td className="px-4 py-3 text-sm text-[#C9A227] font-mono font-bold">{s.cantidad_animales}</td>
-                        <td className="px-4 py-3 text-sm text-[#C9A227] font-mono">{s.costo_total>0?`$${Number(s.costo_total).toLocaleString("es-AR")}`:"-"}</td>
-                        <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{s.responsable||"—"}</td>
-                        <td className="px-4 py-3 text-xs font-mono" style={{color:s.proxima_fecha&&(new Date(s.proxima_fecha).getTime()-Date.now())/(1000*60*60*24)<=30?"#F87171":"#9CA3AF"}}>{s.proxima_fecha||"—"}</td>
-                        <td className="px-4 py-3"><button onClick={()=>eliminar("hacienda_sanidad",s.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button></td>
+                      <tr key={s.id} className="row-h" style={{borderBottom:"1px solid rgba(0,60,140,0.04)",transition:"background 0.15s"}}>
+                        <td style={{padding:"8px 12px",fontSize:11,color:"#6b8aaa"}}>{s.fecha}</td>
+                        <td style={{padding:"8px 12px"}}><span style={{fontSize:10,padding:"2px 8px",borderRadius:20,fontWeight:700,background:"rgba(22,163,74,0.10)",color:"#16a34a"}}>{s.tipo}</span></td>
+                        <td style={{padding:"8px 12px",fontWeight:700,color:"#0d2137"}}>{s.producto}</td>
+                        <td style={{padding:"8px 12px",color:"#6b8aaa"}}>{s.dosis}</td>
+                        <td style={{padding:"8px 12px",color:"#6b8aaa"}}>{s.lote||"—"}</td>
+                        <td style={{padding:"8px 12px",fontWeight:800,color:"#d97706"}}>{s.cantidad_animales}</td>
+                        <td style={{padding:"8px 12px",color:"#d97706",fontWeight:700}}>{s.costo_total>0?`$${Number(s.costo_total).toLocaleString("es-AR")}`:"-"}</td>
+                        <td style={{padding:"8px 12px",color:"#6b8aaa"}}>{s.responsable||"—"}</td>
+                        <td style={{padding:"8px 12px",fontSize:11,fontWeight:600,color:s.proxima_fecha&&(new Date(s.proxima_fecha).getTime()-Date.now())/(1000*60*60*24)<=30?"#dc2626":"#6b8aaa"}}>{s.proxima_fecha||"—"}</td>
+                        <td style={{padding:"8px 12px"}}><button onClick={()=>eliminar("hacienda_sanidad",s.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:14}}>✕</button></td>
                       </tr>
                     ))}</tbody>
                   </table>
@@ -696,95 +724,73 @@ export default function HaciendaPage() {
           </div>
         )}
 
-        {/* ===== REPRODUCCIÓN ===== */}
-        {subTab==="reproduccion" && (
-          <div>
-            <div className="flex justify-end mb-4">
-              <button onClick={()=>{setShowForm(!showForm);setForm({tipo_servicio:"natural",tipo_parto:"normal"});}}
-                className="px-4 py-2 rounded-xl bg-[#F472B6]/10 border border-[#F472B6]/30 text-[#F472B6] font-mono text-sm hover:bg-[#F472B6]/20 transition-all">
-                + Nuevo Registro Reproductivo
-              </button>
+        {/* ══════════════════════════════
+            REPRODUCCIÓN
+        ══════════════════════════════ */}
+        {subTab==="reproduccion"&&(
+          <div className="fade-in">
+            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+              <button onClick={()=>{setShowForm(!showForm);setForm({tipo_servicio:"natural",tipo_parto:"normal"});}} className="bbtn">+ Nuevo Registro Reproductivo</button>
             </div>
-            {/* Stats reproducción */}
-            <div className="grid grid-cols-3 gap-3 mb-5">
+
+            {/* Stats */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
               {[
-                {label:"DIAGNÓSTICOS",value:reproduccion.length,color:"#E5E7EB"},
-                {label:"% PREÑEZ",value:`${preñezPct.toFixed(0)}%`,color:preñezPct>80?"#4ADE80":"#F87171"},
-                {label:"PARTOS",value:reproduccion.filter(r=>r.fecha_parto).length,color:"#F472B6"},
+                {label:"DIAGNÓSTICOS",value:reproduccion.length,color:"#0d2137"},
+                {label:"% PREÑEZ",value:`${preñezPct.toFixed(0)}%`,color:preñezPct>80?"#16a34a":"#dc2626"},
+                {label:"PARTOS",value:reproduccion.filter(r=>r.fecha_parto).length,color:"#f472b6"},
               ].map(s=>(
-                <div key={s.label} className="kpi-card text-center">
-                  <div className="text-xs text-[#4B5563] font-mono">{s.label}</div>
-                  <div className="text-2xl font-bold font-mono mt-1" style={{color:s.color}}>{s.value}</div>
+                <div key={s.label} className="kpi-h" style={{textAlign:"center"}}>
+                  <div style={{fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase"}}>{s.label}</div>
+                  <div style={{fontSize:22,fontWeight:800,color:s.color,marginTop:4}}>{s.value}</div>
                 </div>
               ))}
             </div>
-            {showForm && (
-              <div className="bg-[#0a1628]/80 border border-[#F472B6]/30 rounded-xl p-5 mb-5">
-                <h3 className="text-[#F472B6] font-mono text-sm font-bold mb-4">+ REGISTRO REPRODUCTIVO</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div><label className={labelClass}>Animal (caravana)</label>
-                    <select value={form.animal_id??""} onChange={e=>setForm({...form,animal_id:e.target.value})} className={inputClass}>
-                      <option value="">Seleccionar</option>
-                      {animales.filter(a=>a.categoria==="vaca"||a.categoria==="vaquillona").map(a=><option key={a.id} value={a.id}>{a.caravana||a.id.slice(0,8)} · {a.categoria}</option>)}
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Tipo servicio</label>
-                    <select value={form.tipo_servicio??"natural"} onChange={e=>setForm({...form,tipo_servicio:e.target.value})} className={inputClass}>
-                      <option value="natural">Natural</option><option value="inseminacion">Inseminación</option>
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Fecha servicio</label><input type="date" value={form.fecha_servicio??""} onChange={e=>setForm({...form,fecha_servicio:e.target.value})} className={inputClass}/></div>
-                  <div><label className={labelClass}>Fecha tacto</label><input type="date" value={form.fecha_tacto??""} onChange={e=>setForm({...form,fecha_tacto:e.target.value})} className={inputClass}/></div>
-                  <div><label className={labelClass}>Resultado tacto</label>
-                    <select value={form.preñada??""} onChange={e=>setForm({...form,preñada:e.target.value})} className={inputClass}>
-                      <option value="">Sin diagnóstico</option><option value="si">✓ Preñada</option><option value="no">✗ Vacía</option>
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Fecha parto</label><input type="date" value={form.fecha_parto??""} onChange={e=>setForm({...form,fecha_parto:e.target.value})} className={inputClass}/></div>
-                  <div><label className={labelClass}>Tipo parto</label>
-                    <select value={form.tipo_parto??"normal"} onChange={e=>setForm({...form,tipo_parto:e.target.value})} className={inputClass}>
-                      <option value="normal">Normal</option><option value="asistido">Asistido</option><option value="cesarea">Cesárea</option>
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Sexo cría</label>
-                    <select value={form.sexo_cria??""} onChange={e=>setForm({...form,sexo_cria:e.target.value})} className={inputClass}>
-                      <option value="">—</option><option value="macho">Macho</option><option value="hembra">Hembra</option>
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Peso al nacer (kg)</label><input type="number" value={form.peso_nacimiento??""} onChange={e=>setForm({...form,peso_nacimiento:e.target.value})} className={inputClass} placeholder="0"/></div>
-                  <div className="md:col-span-3"><label className={labelClass}>Observaciones</label><input type="text" value={form.observaciones??""} onChange={e=>setForm({...form,observaciones:e.target.value})} className={inputClass}/></div>
+
+            {showForm&&(
+              <div className="card-g fade-in" style={{padding:14,marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:800,color:"#f472b6",marginBottom:12}}>+ Registro Reproductivo</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:12}}>
+                  <div><label className={lCls}>Animal (caravana)</label><select value={form.animal_id??""} onChange={e=>setForm({...form,animal_id:e.target.value})} className="sel"><option value="">Seleccionar</option>{animales.filter(a=>a.categoria==="vaca"||a.categoria==="vaquillona").map(a=><option key={a.id} value={a.id}>{a.caravana||a.id.slice(0,8)} · {a.categoria}</option>)}</select></div>
+                  <div><label className={lCls}>Tipo servicio</label><select value={form.tipo_servicio??"natural"} onChange={e=>setForm({...form,tipo_servicio:e.target.value})} className="sel"><option value="natural">Natural</option><option value="inseminacion">Inseminación</option></select></div>
+                  <div><label className={lCls}>Fecha servicio</label><input type="date" value={form.fecha_servicio??""} onChange={e=>setForm({...form,fecha_servicio:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Fecha tacto</label><input type="date" value={form.fecha_tacto??""} onChange={e=>setForm({...form,fecha_tacto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Resultado tacto</label><select value={form.preñada??""} onChange={e=>setForm({...form,preñada:e.target.value})} className="sel"><option value="">Sin diagnóstico</option><option value="si">✓ Preñada</option><option value="no">✗ Vacía</option></select></div>
+                  <div><label className={lCls}>Fecha parto</label><input type="date" value={form.fecha_parto??""} onChange={e=>setForm({...form,fecha_parto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Tipo parto</label><select value={form.tipo_parto??"normal"} onChange={e=>setForm({...form,tipo_parto:e.target.value})} className="sel"><option value="normal">Normal</option><option value="asistido">Asistido</option><option value="cesarea">Cesárea</option></select></div>
+                  <div><label className={lCls}>Sexo cría</label><select value={form.sexo_cria??""} onChange={e=>setForm({...form,sexo_cria:e.target.value})} className="sel"><option value="">—</option><option value="macho">Macho</option><option value="hembra">Hembra</option></select></div>
+                  <div><label className={lCls}>Peso al nacer (kg)</label><input type="number" value={form.peso_nacimiento??""} onChange={e=>setForm({...form,peso_nacimiento:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div style={{gridColumn:"span 3"}}><label className={lCls}>Observaciones</label><input type="text" value={form.observaciones??""} onChange={e=>setForm({...form,observaciones:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                 </div>
-                <div className="flex gap-3 mt-4">
+                <div style={{display:"flex",gap:8}}>
                   <button onClick={()=>{
                     if (!empresaId) return;
                     const animalSel = animales.find(a=>a.id===form.animal_id);
                     setAnimalDetalle(animalSel||null);
                     if(animalSel) guardarReproduccion();
-                    else { getSB().then(sb=>sb.from("hacienda_reproduccion").insert({empresa_id:empresaId,animal_id:form.animal_id||null,...{tipo_servicio:form.tipo_servicio??"natural",fecha_servicio:form.fecha_servicio||null,fecha_tacto:form.fecha_tacto||null,preñada:form.preñada==="si",fecha_parto:form.fecha_parto||null,tipo_parto:form.tipo_parto??"normal",sexo_cria:form.sexo_cria??"",peso_nacimiento:Number(form.peso_nacimiento??0),observaciones:form.observaciones??""}})).then(()=>fetchAll(empresaId)).then(()=>{setShowForm(false);setForm({});});
-                    }
-                  }} className="bg-[#F472B6]/10 border border-[#F472B6]/30 text-[#F472B6] font-bold px-6 py-2.5 rounded-xl text-sm font-mono">▶ Guardar</button>
-                  <button onClick={()=>{setShowForm(false);setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">Cancelar</button>
+                    else { getSB().then(sb=>sb.from("hacienda_reproduccion").insert({empresa_id:empresaId,animal_id:form.animal_id||null,...{tipo_servicio:form.tipo_servicio??"natural",fecha_servicio:form.fecha_servicio||null,fecha_tacto:form.fecha_tacto||null,preñada:form.preñada==="si",fecha_parto:form.fecha_parto||null,tipo_parto:form.tipo_parto??"normal",sexo_cria:form.sexo_cria??"",peso_nacimiento:Number(form.peso_nacimiento??0),observaciones:form.observaciones??""}})).then(()=>fetchAll(empresaId)).then(()=>{setShowForm(false);setForm({});});}
+                  }} className="bbtn">▶ Guardar</button>
+                  <button onClick={()=>{setShowForm(false);setForm({});}} className="abtn">Cancelar</button>
                 </div>
               </div>
             )}
-            <div className="bg-[#0a1628]/80 border border-[#F472B6]/15 rounded-xl overflow-hidden">
-              {reproduccion.length===0?<div className="text-center py-16 text-[#4B5563] font-mono">Sin registros reproductivos</div>:(
-                <table className="w-full">
-                  <thead><tr className="border-b border-[#F472B6]/10">{["Animal","Servicio","F.Servicio","F.Tacto","Resultado","Parto","Cría",""].map(h=><th key={h} className="text-left px-4 py-3 text-xs text-[#4B5563] font-mono">{h}</th>)}</tr></thead>
+
+            <div className="sec-w">
+              {reproduccion.length===0?<div style={{textAlign:"center",padding:48,color:"#6b8aaa",fontSize:13}}>Sin registros reproductivos</div>:(
+                <table style={{width:"100%",fontSize:12,borderCollapse:"collapse"}}>
+                  <thead><tr style={{borderBottom:"1px solid rgba(0,60,140,0.06)"}}>{["Animal","Servicio","F.Servicio","F.Tacto","Resultado","Parto","Cría",""].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                   <tbody>{reproduccion.map(r=>{
                     const an=animales.find(a=>a.id===r.animal_id);
-                    return (
-                      <tr key={r.id} className="border-b border-[#F472B6]/5 hover:bg-[#F472B6]/5">
-                        <td className="px-4 py-3 text-sm text-[#E5E7EB] font-mono">{an?.caravana||r.animal_id?.slice(0,8)||"—"}</td>
-                        <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{r.tipo_servicio}</td>
-                        <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{r.fecha_servicio||"—"}</td>
-                        <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{r.fecha_tacto||"—"}</td>
-                        <td className="px-4 py-3">
-                          {r.preñada!==null?<span className="text-xs px-2 py-0.5 rounded font-mono" style={{background:r.preñada?"rgba(74,222,128,0.15)":"rgba(248,113,113,0.15)",color:r.preñada?"#4ADE80":"#F87171"}}>{r.preñada?"Preñada":"Vacía"}</span>:<span className="text-xs text-[#4B5563] font-mono">—</span>}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-[#F472B6] font-mono">{r.fecha_parto||"—"}</td>
-                        <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{r.sexo_cria?`${r.sexo_cria} · ${r.peso_nacimiento}kg`:"—"}</td>
-                        <td className="px-4 py-3"><button onClick={()=>eliminar("hacienda_reproduccion",r.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button></td>
+                    return(
+                      <tr key={r.id} className="row-h" style={{borderBottom:"1px solid rgba(0,60,140,0.04)",transition:"background 0.15s"}}>
+                        <td style={{padding:"8px 12px",fontWeight:600,color:"#0d2137"}}>{an?.caravana||r.animal_id?.slice(0,8)||"—"}</td>
+                        <td style={{padding:"8px 12px",color:"#6b8aaa"}}>{r.tipo_servicio}</td>
+                        <td style={{padding:"8px 12px",color:"#6b8aaa"}}>{r.fecha_servicio||"—"}</td>
+                        <td style={{padding:"8px 12px",color:"#6b8aaa"}}>{r.fecha_tacto||"—"}</td>
+                        <td style={{padding:"8px 12px"}}>{r.preñada!==null?<span style={{fontSize:10,padding:"2px 8px",borderRadius:20,fontWeight:700,background:r.preñada?"rgba(22,163,74,0.12)":"rgba(220,38,38,0.10)",color:r.preñada?"#16a34a":"#dc2626"}}>{r.preñada?"Preñada":"Vacía"}</span>:<span style={{color:"#6b8aaa"}}>—</span>}</td>
+                        <td style={{padding:"8px 12px",color:"#f472b6",fontWeight:600}}>{r.fecha_parto||"—"}</td>
+                        <td style={{padding:"8px 12px",color:"#6b8aaa"}}>{r.sexo_cria?`${r.sexo_cria} · ${r.peso_nacimiento}kg`:"—"}</td>
+                        <td style={{padding:"8px 12px"}}><button onClick={()=>eliminar("hacienda_reproduccion",r.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:14}}>✕</button></td>
                       </tr>
                     );
                   })}</tbody>
@@ -794,68 +800,60 @@ export default function HaciendaPage() {
           </div>
         )}
 
-        {/* ===== MOVIMIENTOS ===== */}
-        {subTab==="movimientos" && (
-          <div>
-            <div className="flex justify-end mb-4">
-              <button onClick={()=>{setShowForm(!showForm);setForm({tipo_mov:"compra",fecha:new Date().toISOString().split("T")[0]});}}
-                className="px-4 py-2 rounded-xl bg-[#60A5FA]/10 border border-[#60A5FA]/30 text-[#60A5FA] font-mono text-sm hover:bg-[#60A5FA]/20 transition-all">
-                + Nuevo Movimiento
-              </button>
+        {/* ══════════════════════════════
+            MOVIMIENTOS
+        ══════════════════════════════ */}
+        {subTab==="movimientos"&&(
+          <div className="fade-in">
+            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+              <button onClick={()=>{setShowForm(!showForm);setForm({tipo_mov:"compra",fecha:new Date().toISOString().split("T")[0]});}} className="bbtn">+ Nuevo Movimiento</button>
             </div>
-            {showForm && (
-              <div className="bg-[#0a1628]/80 border border-[#60A5FA]/30 rounded-xl p-5 mb-5">
-                <h3 className="text-[#60A5FA] font-mono text-sm font-bold mb-4">+ MOVIMIENTO DE HACIENDA</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div><label className={labelClass}>Tipo</label>
-                    <select value={form.tipo_mov??"compra"} onChange={e=>setForm({...form,tipo_mov:e.target.value})} className={inputClass}>
-                      {TIPO_MOV.map(t=><option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Fecha</label><input type="date" value={form.fecha??""} onChange={e=>setForm({...form,fecha:e.target.value})} className={inputClass}/></div>
-                  <div><label className={labelClass}>Categoría</label>
-                    <select value={form.categoria??""} onChange={e=>setForm({...form,categoria:e.target.value})} className={inputClass}>
-                      <option value="">Seleccionar</option>
-                      {CATEGORIAS.map(c=><option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Cantidad (cabezas)</label><input type="number" value={form.cantidad??""} onChange={e=>setForm({...form,cantidad:e.target.value})} className={inputClass}/></div>
-                  <div><label className={labelClass}>Kg totales</label><input type="number" value={form.kg_total??""} onChange={e=>setForm({...form,kg_total:e.target.value})} className={inputClass}/></div>
-                  <div><label className={labelClass}>Precio/kg</label><input type="number" value={form.precio_kg??""} onChange={e=>setForm({...form,precio_kg:e.target.value})} className={inputClass}/></div>
-                  <div><label className={labelClass}>Origen</label><input type="text" value={form.origen??""} onChange={e=>setForm({...form,origen:e.target.value})} className={inputClass} placeholder="Establecimiento origen"/></div>
-                  <div><label className={labelClass}>Destino</label><input type="text" value={form.destino??""} onChange={e=>setForm({...form,destino:e.target.value})} className={inputClass} placeholder="Frigorífico / Mercado"/></div>
-                  <div><label className={labelClass}>Flete ($)</label><input type="number" value={form.flete??""} onChange={e=>setForm({...form,flete:e.target.value})} className={inputClass} placeholder="0"/></div>
-                  <div className="md:col-span-3"><label className={labelClass}>Observaciones</label><input type="text" value={form.observaciones??""} onChange={e=>setForm({...form,observaciones:e.target.value})} className={inputClass}/></div>
+
+            {showForm&&(
+              <div className="card-g fade-in" style={{padding:14,marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:800,color:"#1565c0",marginBottom:12}}>+ Movimiento de Hacienda</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:10}}>
+                  <div><label className={lCls}>Tipo</label><select value={form.tipo_mov??"compra"} onChange={e=>setForm({...form,tipo_mov:e.target.value})} className="sel">{TIPO_MOV.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
+                  <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha??""} onChange={e=>setForm({...form,fecha:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Categoría</label><select value={form.categoria??""} onChange={e=>setForm({...form,categoria:e.target.value})} className="sel"><option value="">Seleccionar</option>{CATEGORIAS.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
+                  <div><label className={lCls}>Cantidad (cabezas)</label><input type="number" value={form.cantidad??""} onChange={e=>setForm({...form,cantidad:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Kg totales</label><input type="number" value={form.kg_total??""} onChange={e=>setForm({...form,kg_total:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Precio/kg</label><input type="number" value={form.precio_kg??""} onChange={e=>setForm({...form,precio_kg:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Origen</label><input type="text" value={form.origen??""} onChange={e=>setForm({...form,origen:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Establecimiento origen"/></div>
+                  <div><label className={lCls}>Destino</label><input type="text" value={form.destino??""} onChange={e=>setForm({...form,destino:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Frigorífico / Mercado"/></div>
+                  <div><label className={lCls}>Flete ($)</label><input type="number" value={form.flete??""} onChange={e=>setForm({...form,flete:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div style={{gridColumn:"span 3"}}><label className={lCls}>Observaciones</label><input type="text" value={form.observaciones??""} onChange={e=>setForm({...form,observaciones:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                 </div>
                 {form.kg_total&&form.precio_kg&&(
-                  <div className="mt-3 p-3 bg-[#60A5FA]/5 border border-[#60A5FA]/20 rounded-lg text-xs font-mono text-[#60A5FA]">
+                  <div style={{marginBottom:10,padding:"8px 12px",borderRadius:10,background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.20)",fontSize:11,color:"#1565c0",fontWeight:600}}>
                     Total operación: ${(Number(form.kg_total)*Number(form.precio_kg)).toLocaleString("es-AR")}
                     {form.flete&&Number(form.flete)>0&&` · Neto: $${(Number(form.kg_total)*Number(form.precio_kg)-Number(form.flete)).toLocaleString("es-AR")}`}
                   </div>
                 )}
-                <div className="flex gap-3 mt-4">
-                  <button onClick={guardarMovimiento} className="bg-[#60A5FA]/10 border border-[#60A5FA]/30 text-[#60A5FA] font-bold px-6 py-2.5 rounded-xl text-sm font-mono">▶ Guardar</button>
-                  <button onClick={()=>{setShowForm(false);setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">Cancelar</button>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={guardarMovimiento} className="bbtn">▶ Guardar</button>
+                  <button onClick={()=>{setShowForm(false);setForm({});}} className="abtn">Cancelar</button>
                 </div>
               </div>
             )}
-            <div className="bg-[#0a1628]/80 border border-[#60A5FA]/15 rounded-xl overflow-hidden">
-              {movimientos.length===0?<div className="text-center py-16 text-[#4B5563] font-mono">Sin movimientos</div>:(
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead><tr className="border-b border-[#60A5FA]/10">{["Fecha","Tipo","Categoría","Cabezas","Kg","$/kg","Total","Flete","Origen/Destino",""].map(h=><th key={h} className="text-left px-4 py-3 text-xs text-[#4B5563] font-mono">{h}</th>)}</tr></thead>
+
+            <div className="sec-w">
+              {movimientos.length===0?<div style={{textAlign:"center",padding:48,color:"#6b8aaa",fontSize:13}}>Sin movimientos</div>:(
+                <div style={{overflowX:"auto"}}>
+                  <table style={{width:"100%",fontSize:12,borderCollapse:"collapse",minWidth:900}}>
+                    <thead><tr style={{borderBottom:"1px solid rgba(0,60,140,0.06)"}}>{["Fecha","Tipo","Categoría","Cabezas","Kg","$/kg","Total","Flete","Origen/Destino",""].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                     <tbody>{movimientos.map(m=>(
-                      <tr key={m.id} className="border-b border-[#60A5FA]/5 hover:bg-[#60A5FA]/5">
-                        <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{m.fecha}</td>
-                        <td className="px-4 py-3"><span className="text-xs px-2 py-0.5 rounded font-mono" style={{background:MOV_COLORS[m.tipo]+"20",color:MOV_COLORS[m.tipo]}}>{m.tipo}</span></td>
-                        <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{m.categoria}</td>
-                        <td className="px-4 py-3 text-sm font-bold text-[#E5E7EB] font-mono">{m.cantidad}</td>
-                        <td className="px-4 py-3 text-sm text-[#C9A227] font-mono">{m.kg_total}</td>
-                        <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{m.precio_kg>0?`$${m.precio_kg}`:"-"}</td>
-                        <td className="px-4 py-3 font-bold text-[#4ADE80] font-mono text-sm">{m.monto_total>0?`$${Number(m.monto_total).toLocaleString("es-AR")}`:"-"}</td>
-                        <td className="px-4 py-3 text-xs text-[#F87171] font-mono">{m.flete>0?`$${Number(m.flete).toLocaleString("es-AR")}`:"-"}</td>
-                        <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{m.origen||m.destino||"—"}</td>
-                        <td className="px-4 py-3"><button onClick={()=>eliminar("hacienda_movimientos",m.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button></td>
+                      <tr key={m.id} className="row-h" style={{borderBottom:"1px solid rgba(0,60,140,0.04)",transition:"background 0.15s"}}>
+                        <td style={{padding:"8px 12px",color:"#6b8aaa",fontSize:11}}>{m.fecha}</td>
+                        <td style={{padding:"8px 12px"}}><span style={{fontSize:10,padding:"2px 8px",borderRadius:20,fontWeight:700,background:`${MOV_COLORS[m.tipo]}20`,color:MOV_COLORS[m.tipo]}}>{m.tipo}</span></td>
+                        <td style={{padding:"8px 12px",color:"#6b8aaa"}}>{m.categoria}</td>
+                        <td style={{padding:"8px 12px",fontWeight:800,color:"#0d2137"}}>{m.cantidad}</td>
+                        <td style={{padding:"8px 12px",color:"#d97706",fontWeight:700}}>{m.kg_total}</td>
+                        <td style={{padding:"8px 12px",color:"#6b8aaa"}}>{m.precio_kg>0?`$${m.precio_kg}`:"-"}</td>
+                        <td style={{padding:"8px 12px",fontWeight:800,color:"#16a34a"}}>{m.monto_total>0?`$${Number(m.monto_total).toLocaleString("es-AR")}`:"-"}</td>
+                        <td style={{padding:"8px 12px",color:"#dc2626",fontSize:11}}>{m.flete>0?`$${Number(m.flete).toLocaleString("es-AR")}`:"-"}</td>
+                        <td style={{padding:"8px 12px",color:"#6b8aaa",fontSize:11}}>{m.origen||m.destino||"—"}</td>
+                        <td style={{padding:"8px 12px"}}><button onClick={()=>eliminar("hacienda_movimientos",m.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:14}}>✕</button></td>
                       </tr>
                     ))}</tbody>
                   </table>
@@ -865,70 +863,68 @@ export default function HaciendaPage() {
           </div>
         )}
 
-        {/* ===== COSTOS ===== */}
-        {subTab==="costos" && (
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-sm font-mono text-[#A78BFA]">Total: <strong>${costoTotal.toLocaleString("es-AR")}</strong> · Por animal: <strong>${totalCabezas>0?(costoTotal/totalCabezas).toFixed(0):"0"}</strong></div>
-              <button onClick={()=>{setShowForm(!showForm);setForm({tipo_costo:"alimentacion",fecha:new Date().toISOString().split("T")[0]});}}
-                className="px-4 py-2 rounded-xl bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[#A78BFA] font-mono text-sm hover:bg-[#A78BFA]/20 transition-all">
-                + Nuevo Costo
-              </button>
+        {/* ══════════════════════════════
+            COSTOS
+        ══════════════════════════════ */}
+        {subTab==="costos"&&(
+          <div className="fade-in">
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+              <span style={{fontSize:12,fontWeight:700,color:"#0d2137"}}>Total: <strong style={{color:"#7c3aed"}}>${costoTotal.toLocaleString("es-AR")}</strong> · Por animal: <strong style={{color:"#7c3aed"}}>${totalCabezas>0?(costoTotal/totalCabezas).toFixed(0):"0"}</strong></span>
+              <button onClick={()=>{setShowForm(!showForm);setForm({tipo_costo:"alimentacion",fecha:new Date().toISOString().split("T")[0]});}} className="bbtn">+ Nuevo Costo</button>
             </div>
-            {showForm && (
-              <div className="bg-[#0a1628]/80 border border-[#A78BFA]/30 rounded-xl p-5 mb-5">
-                <h3 className="text-[#A78BFA] font-mono text-sm font-bold mb-4">+ CARGAR COSTO</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div><label className={labelClass}>Tipo</label>
-                    <select value={form.tipo_costo??"alimentacion"} onChange={e=>setForm({...form,tipo_costo:e.target.value})} className={inputClass}>
-                      {TIPO_COSTO.map(t=><option key={t} value={t}>{t.replace("_"," ")}</option>)}
-                    </select>
-                  </div>
-                  <div><label className={labelClass}>Fecha</label><input type="date" value={form.fecha??""} onChange={e=>setForm({...form,fecha:e.target.value})} className={inputClass}/></div>
-                  <div><label className={labelClass}>Descripción</label><input type="text" value={form.descripcion??""} onChange={e=>setForm({...form,descripcion:e.target.value})} className={inputClass} placeholder="Detalle del costo"/></div>
-                  <div><label className={labelClass}>Lote / Imputación</label><input type="text" value={form.lote??""} onChange={e=>setForm({...form,lote:e.target.value})} className={inputClass} placeholder="Todo el rodeo / Potrero"/></div>
-                  <div><label className={labelClass}>Cantidad animales</label><input type="number" value={form.cantidad_animales??""} onChange={e=>setForm({...form,cantidad_animales:e.target.value})} className={inputClass} placeholder="0"/></div>
-                  <div><label className={labelClass}>Monto total</label><input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value})} className={inputClass}/></div>
-                  <div className="md:col-span-3"><label className={labelClass}>Observaciones</label><input type="text" value={form.observaciones??""} onChange={e=>setForm({...form,observaciones:e.target.value})} className={inputClass}/></div>
+
+            {showForm&&(
+              <div className="card-g fade-in" style={{padding:14,marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:800,color:"#7c3aed",marginBottom:12}}>+ Cargar Costo</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:10}}>
+                  <div><label className={lCls}>Tipo</label><select value={form.tipo_costo??"alimentacion"} onChange={e=>setForm({...form,tipo_costo:e.target.value})} className="sel">{TIPO_COSTO.map(t=><option key={t} value={t}>{t.replace("_"," ")}</option>)}</select></div>
+                  <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha??""} onChange={e=>setForm({...form,fecha:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Descripción</label><input type="text" value={form.descripcion??""} onChange={e=>setForm({...form,descripcion:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Detalle del costo"/></div>
+                  <div><label className={lCls}>Lote / Imputación</label><input type="text" value={form.lote??""} onChange={e=>setForm({...form,lote:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Todo el rodeo"/></div>
+                  <div><label className={lCls}>Cantidad animales</label><input type="number" value={form.cantidad_animales??""} onChange={e=>setForm({...form,cantidad_animales:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Monto total</label><input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div style={{gridColumn:"span 3"}}><label className={lCls}>Observaciones</label><input type="text" value={form.observaciones??""} onChange={e=>setForm({...form,observaciones:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                 </div>
                 {form.monto&&form.cantidad_animales&&Number(form.cantidad_animales)>0&&(
-                  <div className="mt-3 p-3 bg-[#A78BFA]/5 border border-[#A78BFA]/20 rounded-lg text-xs font-mono text-[#A78BFA]">
+                  <div style={{marginBottom:10,padding:"8px 12px",borderRadius:10,background:"rgba(124,58,237,0.08)",border:"1px solid rgba(124,58,237,0.20)",fontSize:11,color:"#7c3aed",fontWeight:600}}>
                     Costo por animal: ${(Number(form.monto)/Number(form.cantidad_animales)).toLocaleString("es-AR")}
                   </div>
                 )}
-                <div className="flex gap-3 mt-4">
-                  <button onClick={guardarCosto} className="bg-[#A78BFA]/10 border border-[#A78BFA]/30 text-[#A78BFA] font-bold px-6 py-2.5 rounded-xl text-sm font-mono">▶ Guardar</button>
-                  <button onClick={()=>{setShowForm(false);setForm({});}} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">Cancelar</button>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={guardarCosto} className="bbtn">▶ Guardar</button>
+                  <button onClick={()=>{setShowForm(false);setForm({});}} className="abtn">Cancelar</button>
                 </div>
               </div>
             )}
-            {/* Por categoría */}
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-4">
+
+            {/* Resumen por tipo */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:8,marginBottom:12}}>
               {TIPO_COSTO.map(tipo=>{
                 const tot=costos.filter(c=>c.tipo===tipo).reduce((a,c)=>a+c.monto,0);
                 if(tot===0) return null;
-                return (
-                  <div key={tipo} className="kpi-card text-center">
-                    <div className="text-xs text-[#4B5563] font-mono mb-1">{tipo.replace("_"," ").toUpperCase()}</div>
-                    <div className="text-sm font-bold text-[#A78BFA] font-mono">${tot.toLocaleString("es-AR")}</div>
+                return(
+                  <div key={tipo} className="kpi-h" style={{textAlign:"center"}}>
+                    <div style={{fontSize:9,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase",marginBottom:4}}>{tipo.replace("_"," ")}</div>
+                    <div style={{fontSize:13,fontWeight:800,color:"#7c3aed"}}>${tot.toLocaleString("es-AR")}</div>
                   </div>
                 );
               })}
             </div>
-            <div className="bg-[#0a1628]/80 border border-[#A78BFA]/15 rounded-xl overflow-hidden">
-              {costos.length===0?<div className="text-center py-16 text-[#4B5563] font-mono">Sin costos registrados</div>:(
-                <table className="w-full">
-                  <thead><tr className="border-b border-[#A78BFA]/10">{["Fecha","Tipo","Descripción","Lote","Animales","Monto","$/animal",""].map(h=><th key={h} className="text-left px-4 py-3 text-xs text-[#4B5563] font-mono">{h}</th>)}</tr></thead>
+
+            <div className="sec-w">
+              {costos.length===0?<div style={{textAlign:"center",padding:48,color:"#6b8aaa",fontSize:13}}>Sin costos registrados</div>:(
+                <table style={{width:"100%",fontSize:12,borderCollapse:"collapse"}}>
+                  <thead><tr style={{borderBottom:"1px solid rgba(0,60,140,0.06)"}}>{["Fecha","Tipo","Descripción","Lote","Animales","Monto","$/animal",""].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase"}}>{h}</th>)}</tr></thead>
                   <tbody>{costos.map(c=>(
-                    <tr key={c.id} className="border-b border-[#A78BFA]/5 hover:bg-[#A78BFA]/5">
-                      <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{c.fecha}</td>
-                      <td className="px-4 py-3"><span className="text-xs bg-[#A78BFA]/10 text-[#A78BFA] px-2 py-0.5 rounded font-mono">{c.tipo.replace("_"," ")}</span></td>
-                      <td className="px-4 py-3 text-sm text-[#E5E7EB] font-mono">{c.descripcion}</td>
-                      <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{c.lote||"—"}</td>
-                      <td className="px-4 py-3 text-sm text-[#C9A227] font-mono">{c.cantidad_animales||"—"}</td>
-                      <td className="px-4 py-3 font-bold text-[#A78BFA] font-mono">${Number(c.monto).toLocaleString("es-AR")}</td>
-                      <td className="px-4 py-3 text-xs text-[#9CA3AF] font-mono">{c.costo_por_animal>0?`$${Number(c.costo_por_animal).toLocaleString("es-AR")}`:"-"}</td>
-                      <td className="px-4 py-3"><button onClick={()=>eliminar("hacienda_costos",c.id)} className="text-[#4B5563] hover:text-red-400 text-xs">✕</button></td>
+                    <tr key={c.id} className="row-h" style={{borderBottom:"1px solid rgba(0,60,140,0.04)",transition:"background 0.15s"}}>
+                      <td style={{padding:"8px 12px",color:"#6b8aaa",fontSize:11}}>{c.fecha}</td>
+                      <td style={{padding:"8px 12px"}}><span style={{fontSize:10,padding:"2px 8px",borderRadius:20,fontWeight:700,background:"rgba(124,58,237,0.10)",color:"#7c3aed"}}>{c.tipo.replace("_"," ")}</span></td>
+                      <td style={{padding:"8px 12px",fontWeight:600,color:"#0d2137"}}>{c.descripcion}</td>
+                      <td style={{padding:"8px 12px",color:"#6b8aaa"}}>{c.lote||"—"}</td>
+                      <td style={{padding:"8px 12px",color:"#d97706",fontWeight:700}}>{c.cantidad_animales||"—"}</td>
+                      <td style={{padding:"8px 12px",fontWeight:800,color:"#7c3aed"}}>${Number(c.monto).toLocaleString("es-AR")}</td>
+                      <td style={{padding:"8px 12px",color:"#6b8aaa"}}>{c.costo_por_animal>0?`$${Number(c.costo_por_animal).toLocaleString("es-AR")}`:"-"}</td>
+                      <td style={{padding:"8px 12px"}}><button onClick={()=>eliminar("hacienda_costos",c.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:14}}>✕</button></td>
                     </tr>
                   ))}</tbody>
                 </table>
@@ -938,39 +934,39 @@ export default function HaciendaPage() {
         )}
       </div>
 
-      <p className="relative z-10 text-center text-[#0a1a08] text-xs pb-4 tracking-[0.3em] font-mono mt-6">© AGROGESTION PRO · HACIENDA PRO</p>
+      <p style={{textAlign:"center",fontSize:11,color:"rgba(30,58,90,0.45)",fontWeight:600,letterSpacing:"0.20em",paddingBottom:16,paddingTop:4}}>© AgroGestión PRO · Hacienda PRO</p>
 
-      {/* Botón IA flotante */}
-      <button onClick={()=>setShowIA(!showIA)} className="btn-float fixed bottom-24 right-6 z-40 w-14 h-14 rounded-full overflow-hidden shadow-lg shadow-[#4ADE80]/30" title="Asesor Ganadero IA">
+      {/* Botón IA */}
+      <button onClick={()=>setShowIA(!showIA)} style={{position:"fixed",bottom:20,right:16,zIndex:40,width:52,height:52,borderRadius:"50%",overflow:"hidden",border:"none",cursor:"pointer",padding:0,boxShadow:"0 6px 22px rgba(22,163,74,0.40)",animation:"float 3s ease-in-out infinite"}}>
         <Image src="/btn-ia.png" alt="IA" fill style={{objectFit:"cover"}}/>
       </button>
 
       {/* Panel IA */}
-      {showIA && (
-        <div className="fixed bottom-44 right-6 z-40 w-80 bg-[#0a1628]/95 border border-[#4ADE80]/30 rounded-2xl shadow-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#4ADE80]/20">
-            <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-[#4ADE80] animate-pulse"/><span className="text-[#4ADE80] text-xs font-mono font-bold">ASESOR GANADERO IA</span></div>
-            <button onClick={()=>{setShowIA(false);setAiMsg("");}} className="text-[#4B5563] text-sm">✕</button>
+      {showIA&&(
+        <div style={{position:"fixed",bottom:80,right:16,zIndex:40,width:300,borderRadius:18,overflow:"hidden",background:"rgba(255,255,255,0.96)",backdropFilter:"blur(16px)",border:"1px solid rgba(255,255,255,0.95)",boxShadow:"0 12px 36px rgba(20,80,160,0.16)"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 13px",borderBottom:"1px solid rgba(0,60,140,0.07)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:6,height:6,borderRadius:"50%",background:"#16a34a"}}/><span style={{fontSize:12,fontWeight:700,color:"#0d2137"}}>Asesor Ganadero IA</span></div>
+            <button onClick={()=>{setShowIA(false);setAiMsg("");}} style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:18}}>✕</button>
           </div>
-          <div className="p-3 max-h-52 overflow-y-auto">
+          <div style={{padding:"10px 12px",maxHeight:200,overflowY:"auto"}}>
             {!aiMsg&&!aiLoading&&(
-              <div className="space-y-1">
-                {["Analizá mi rodeo actual","Cuándo conviene vender?","Costo por kg producido?","Alertas sanitarias"].map(q=>(
-                  <button key={q} onClick={()=>askAI(q)} className="w-full text-left text-xs text-[#4B6B5B] hover:text-[#4ADE80] border border-[#4ADE80]/10 px-3 py-2 rounded-lg font-mono transition-all">💬 {q}</button>
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {["Analizá mi rodeo actual","¿Cuándo conviene vender?","Costo por kg producido?","Alertas sanitarias"].map(q=>(
+                  <button key={q} onClick={()=>askAI(q)} style={{textAlign:"left",fontSize:11,color:"#4a6a8a",padding:"6px 10px",borderRadius:8,background:"rgba(255,255,255,0.70)",border:"1px solid rgba(255,255,255,0.90)",cursor:"pointer"}}>💬 {q}</button>
                 ))}
               </div>
             )}
-            {aiLoading&&<p className="text-[#4ADE80] text-xs font-mono animate-pulse">Analizando rodeo...</p>}
-            {aiMsg&&<p className="text-[#9CA3AF] text-xs font-mono leading-relaxed whitespace-pre-wrap">{aiMsg}</p>}
+            {aiLoading&&<p style={{fontSize:12,color:"#16a34a",fontWeight:700}}>Analizando rodeo...</p>}
+            {aiMsg&&<p style={{fontSize:12,color:"#0d2137",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{aiMsg}</p>}
           </div>
-          <div className="px-3 pb-3 flex gap-2">
-            <input value={aiInput} onChange={e=>setAiInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&aiInput.trim()){askAI(aiInput);setAiInput("");}}} placeholder="Preguntá sobre el rodeo..." className="flex-1 bg-[#020810]/80 border border-[#4ADE80]/20 rounded-lg px-3 py-2 text-[#E5E7EB] text-xs font-mono focus:outline-none"/>
-            <button onClick={()=>{if(aiInput.trim()){askAI(aiInput);setAiInput("");}}} className="px-3 py-2 rounded-lg bg-[#4ADE80]/10 border border-[#4ADE80]/30 text-[#4ADE80] text-xs font-mono">▶</button>
+          <div style={{padding:"6px 10px 10px",display:"flex",gap:6,borderTop:"1px solid rgba(0,60,140,0.07)"}}>
+            <input value={aiInput} onChange={e=>setAiInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&aiInput.trim()){askAI(aiInput);setAiInput("");}}} placeholder="Preguntá sobre el rodeo..." className={iCls} style={{flex:1,padding:"7px 11px",fontSize:12}}/>
+            <button onClick={()=>{if(aiInput.trim()){askAI(aiInput);setAiInput("");}}} className="bbtn" style={{padding:"7px 12px",fontSize:12}}>▶</button>
           </div>
         </div>
       )}
 
-      {empresaId && <EscanerIA empresaId={empresaId}/>}
+      {empresaId&&<EscanerIA empresaId={empresaId}/>}
     </div>
   );
 }
