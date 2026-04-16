@@ -10,7 +10,7 @@ const modulos = [
   { href: "/productor/maquinaria", label: "Maquinarias",      sub: "Equipos",             img: "/mod-maquinaria.png", icon: "🚜" },
   { href: "/productor/hacienda",   label: "Hacienda",         sub: "Ganadería",           img: "/mod-hacienda.png",   icon: "🐄" },
   { href: "/productor/documentos", label: "Documentos",       sub: "Archivos",            img: "/mod-documentos.png", icon: "📁" },
-  { href: "/productor/margen",     label: "Margen Bruto",     sub: "Rentabilidad · MB",   img: "/mod-finanzas.png",   icon: "📊" },
+  { href: "/productor/margen",     label: "Margen Bruto",     sub: "Rentabilidad · MB",   img: "/mod-mb.png",   icon: "📊" },
   { href: "/productor/otros",      label: "Otros",            sub: "Más opciones",        img: "/mod-otros.png",      icon: "⚙️" },
 ];
 
