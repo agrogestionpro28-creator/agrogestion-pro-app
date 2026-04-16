@@ -30,12 +30,12 @@ type Pago = {
 };
 
 const CARPETAS: Record<Carpeta, { label: string; icon: string; color: string; desc: string }> = {
-  factura:    { label: "Facturas y Remitos",    icon: "🧾", color: "#60A5FA", desc: "Facturas, remitos, comprobantes de pago" },
-  hacienda:   { label: "Hacienda",              icon: "🐄", color: "#4ADE80", desc: "DTE, guías de traslado, certificados sanitarios" },
-  agronomica: { label: "Carpeta Agronómica",    icon: "🌱", color: "#00FF80", desc: "Recetas, análisis de suelo, mapas de lotes" },
-  contrato:   { label: "Contratos de Alquiler", icon: "🏘️", color: "#C9A227", desc: "Contratos de campo, acuerdos, escrituras" },
-  empleado:   { label: "Empleados",             icon: "👷", color: "#FB923C", desc: "Legajos, contratos laborales, datos personales" },
-  otro:       { label: "Otros Documentos",      icon: "📁", color: "#A78BFA", desc: "Seguros, impuestos, documentación general" },
+  factura:    { label: "Facturas y Remitos",    icon: "🧾", color: "#1565c0", desc: "Facturas, remitos, comprobantes de pago" },
+  hacienda:   { label: "Hacienda",              icon: "🐄", color: "#16a34a", desc: "DTE, guías de traslado, certificados sanitarios" },
+  agronomica: { label: "Carpeta Agronómica",    icon: "🌱", color: "#22c55e", desc: "Recetas, análisis de suelo, mapas de lotes" },
+  contrato:   { label: "Contratos de Alquiler", icon: "🏘️", color: "#d97706", desc: "Contratos de campo, acuerdos, escrituras" },
+  empleado:   { label: "Empleados",             icon: "👷", color: "#ea580c", desc: "Legajos, contratos laborales, datos personales" },
+  otro:       { label: "Otros Documentos",      icon: "📁", color: "#7c3aed", desc: "Seguros, impuestos, documentación general" },
 };
 
 const CONDICIONES = [
@@ -45,7 +45,6 @@ const CONDICIONES = [
   { value: "porcentaje",  label: "% producción" },
   { value: "otros",       label: "Otros (describir)" },
 ];
-
 const FRECUENCIAS = [
   { value: "mensual",    label: "Mensual" },
   { value: "trimestral", label: "Trimestral" },
@@ -54,10 +53,10 @@ const FRECUENCIAS = [
 ];
 
 export default function DocumentosPage() {
-  const [empresaId, setEmpresaId] = useState<string | null>(null);
-  const [usuarioId, setUsuarioId] = useState<string | null>(null);
-  const [campanaId, setCampanaId] = useState<string | null>(null);
-  const [carpetaActiva, setCarpetaActiva] = useState<Carpeta | null>(null);
+  const [empresaId, setEmpresaId] = useState<string|null>(null);
+  const [usuarioId, setUsuarioId] = useState<string|null>(null);
+  const [campanaId, setCampanaId] = useState<string|null>(null);
+  const [carpetaActiva, setCarpetaActiva] = useState<Carpeta|null>(null);
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [lotes, setLotes] = useState<Lote[]>([]);
@@ -65,18 +64,18 @@ export default function DocumentosPage() {
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [showFormContrato, setShowFormContrato] = useState<string | null>(null);
-  const [showPagos, setShowPagos] = useState<string | null>(null); // contrato_id
-  const [showFormPago, setShowFormPago] = useState<string | null>(null); // contrato_id
-  const [form, setForm] = useState<Record<string, string>>({});
-  const [formPago, setFormPago] = useState<Record<string, string>>({});
+  const [showFormContrato, setShowFormContrato] = useState<string|null>(null);
+  const [showPagos, setShowPagos] = useState<string|null>(null);
+  const [showFormPago, setShowFormPago] = useState<string|null>(null);
+  const [form, setForm] = useState<Record<string,string>>({});
+  const [formPago, setFormPago] = useState<Record<string,string>>({});
   const [msg, setMsg] = useState("");
   const [uploading, setUploading] = useState(false);
   const [busqueda, setBusqueda] = useState("");
-  const [archivoSel, setArchivoSel] = useState<File | null>(null);
+  const [archivoSel, setArchivoSel] = useState<File|null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const contratoFileRef = useRef<HTMLInputElement>(null);
-  const [contratoArchivo, setContratoArchivo] = useState<File | null>(null);
+  const [contratoArchivo, setContratoArchivo] = useState<File|null>(null);
 
   const getSB = async () => {
     const { createClient } = await import("@supabase/supabase-js");
@@ -110,7 +109,7 @@ export default function DocumentosPage() {
     setLoading(false);
   };
 
-  const fetchAll = async (eid: string, campana?: string | null) => {
+  const fetchAll = async (eid: string, campana?: string|null) => {
     const sb = await getSB();
     const cid = campana ?? campanaId;
     const [docs, emps, conts, pgs] = await Promise.all([
@@ -123,28 +122,24 @@ export default function DocumentosPage() {
     setEmpleados(emps.data ?? []);
     setContratos(conts.data ?? []);
     setPagos(pgs.data ?? []);
-
-    // Lotes no propios
     let lotesData: any[] = [];
     if (cid) {
-      const { data } = await sb.from("lotes").select("id, nombre, hectareas, tipo_alquiler, cultivo")
-        .eq("empresa_id", eid).eq("campana_id", cid).neq("tipo_alquiler", "propio").order("nombre");
+      const { data } = await sb.from("lotes").select("id,nombre,hectareas,tipo_alquiler,cultivo").eq("empresa_id", eid).eq("campana_id", cid).neq("tipo_alquiler", "propio").order("nombre");
       lotesData = data ?? [];
     }
     if (lotesData.length === 0) {
-      const { data } = await sb.from("lotes").select("id, nombre, hectareas, tipo_alquiler, cultivo")
-        .eq("empresa_id", eid).neq("tipo_alquiler", "propio").order("nombre");
+      const { data } = await sb.from("lotes").select("id,nombre,hectareas,tipo_alquiler,cultivo").eq("empresa_id", eid).neq("tipo_alquiler", "propio").order("nombre");
       lotesData = data ?? [];
     }
     const vistos = new Set<string>();
     setLotes(lotesData.filter((l: any) => { if (vistos.has(l.nombre)) return false; vistos.add(l.nombre); return true; }));
   };
 
-  const subirArchivo = async (file: File, eid: string): Promise<{ url: string; nombre: string; tipo: string } | null> => {
+  const subirArchivo = async (file: File, eid: string): Promise<{url:string;nombre:string;tipo:string}|null> => {
     const sb = await getSB();
     const path = `${eid}/${Date.now()}-${file.name}`;
     const { error } = await sb.storage.from("documentos").upload(path, file);
-    if (error) { setMsg("Error al subir: " + error.message); return null; }
+    if (error) { setMsg("Error al subir: "+error.message); return null; }
     const { data: urlData } = sb.storage.from("documentos").getPublicUrl(path);
     return { url: urlData.publicUrl, nombre: file.name, tipo: file.type };
   };
@@ -153,24 +148,24 @@ export default function DocumentosPage() {
     if (!empresaId) return;
     setUploading(true);
     const sb = await getSB();
-    let archivoData = { url: "", nombre: "", tipo: "" };
+    let archivoData = { url:"", nombre:"", tipo:"" };
     if (archivoSel) {
       const result = await subirArchivo(archivoSel, empresaId);
       if (!result) { setUploading(false); return; }
       archivoData = result;
     }
     await sb.from("documentos").insert({
-      empresa_id: empresaId, categoria: carpetaActiva ?? "otro",
-      subcategoria: form.subcategoria ?? "",
-      nombre: form.nombre ?? archivoData.nombre ?? "Sin nombre",
-      descripcion: form.descripcion ?? "",
+      empresa_id: empresaId, categoria: carpetaActiva??"otro",
+      subcategoria: form.subcategoria??"",
+      nombre: form.nombre||archivoData.nombre||"Sin nombre",
+      descripcion: form.descripcion??"",
       archivo_url: archivoData.url, archivo_nombre: archivoData.nombre,
-      archivo_tipo: archivoData.tipo, monto: Number(form.monto ?? 0),
-      fecha: form.fecha ?? new Date().toISOString().split("T")[0],
-      fecha_vencimiento: form.fecha_vencimiento || null,
-      proveedor_cliente: form.proveedor_cliente ?? "",
-      numero_documento: form.numero_documento ?? "",
-      tags: form.tags ?? "", activo: true,
+      archivo_tipo: archivoData.tipo, monto: Number(form.monto??0),
+      fecha: form.fecha??new Date().toISOString().split("T")[0],
+      fecha_vencimiento: form.fecha_vencimiento||null,
+      proveedor_cliente: form.proveedor_cliente??"",
+      numero_documento: form.numero_documento??"",
+      tags: form.tags??"", activo: true,
     });
     setMsg("✅ Documento guardado");
     await fetchAll(empresaId);
@@ -188,26 +183,25 @@ export default function DocumentosPage() {
     }
     const existing = contratos.find(c => c.lote_id === loteId);
     const payload = {
-      propietario_nombre: form.propietario_nombre ?? "",
-      propietario_telefono: form.propietario_telefono ?? "",
-      propietario_email: form.propietario_email ?? "",
-      fecha_inicio: form.fecha_inicio || null,
-      fecha_fin: form.fecha_fin || null,
-      condicion: form.condicion ?? "fijo_pesos",
-      monto: Number(form.monto ?? 0),
-      moneda: form.moneda ?? "ARS",
-      unidad: form.unidad ?? "",
-      frecuencia_pago: form.frecuencia_pago ?? "mensual",
-      descuentos_comercializacion: Number(form.descuentos_comercializacion ?? 0),
-      observaciones: form.observaciones ?? "",
-      archivo_url: archivoUrl || existing?.archivo_url || "",
+      propietario_nombre: form.propietario_nombre??"",
+      propietario_telefono: form.propietario_telefono??"",
+      propietario_email: form.propietario_email??"",
+      fecha_inicio: form.fecha_inicio||null,
+      fecha_fin: form.fecha_fin||null,
+      condicion: form.condicion??"fijo_pesos",
+      monto: Number(form.monto??0),
+      moneda: form.moneda??"ARS",
+      unidad: form.unidad??"",
+      frecuencia_pago: form.frecuencia_pago??"mensual",
+      descuentos_comercializacion: Number(form.descuentos_comercializacion??0),
+      observaciones: form.observaciones??"",
+      archivo_url: archivoUrl||existing?.archivo_url||"",
     };
     if (existing) {
       await sb.from("contratos_alquiler").update(payload).eq("id", existing.id);
-      // Generar notificación si vence en 60 días
       await generarNotificacionVencimiento(existing.id, payload.fecha_fin, loteId);
     } else {
-      const { data: nuevo } = await sb.from("contratos_alquiler").insert({ ...payload, empresa_id: empresaId, lote_id: loteId, activo: true }).select().single();
+      const { data: nuevo } = await sb.from("contratos_alquiler").insert({...payload,empresa_id:empresaId,lote_id:loteId,activo:true}).select().single();
       if (nuevo) await generarNotificacionVencimiento(nuevo.id, payload.fecha_fin, loteId);
     }
     setMsg("✅ Contrato guardado");
@@ -219,16 +213,9 @@ export default function DocumentosPage() {
     if (!empresaId || !fechaFin) return;
     const sb = await getSB();
     const lote = lotes.find(l => l.id === loteId);
-    const dias = Math.round((new Date(fechaFin).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    const dias = Math.round((new Date(fechaFin).getTime()-Date.now())/(1000*60*60*24));
     if (dias <= 60) {
-      await sb.from("notificaciones").insert({
-        empresa_id: empresaId,
-        tipo: "contrato_vencimiento",
-        titulo: `Contrato por vencer — ${lote?.nombre ?? ""}`,
-        mensaje: `El contrato de alquiler del lote ${lote?.nombre ?? ""} vence en ${dias} días (${fechaFin})`,
-        leida: false,
-        url_destino: "/productor/documentos",
-      });
+      await sb.from("notificaciones").insert({ empresa_id: empresaId, tipo: "contrato_vencimiento", titulo: `Contrato por vencer — ${lote?.nombre??""}`, mensaje: `El contrato de alquiler del lote ${lote?.nombre??""} vence en ${dias} días (${fechaFin})`, leida: false, url_destino: "/productor/documentos" });
     }
   };
 
@@ -237,39 +224,12 @@ export default function DocumentosPage() {
     const sb = await getSB();
     const contrato = contratos.find(c => c.id === contratoId);
     const lote = lotes.find(l => l.id === contrato?.lote_id);
-
-    // Calcular monto en pesos si es qq
-    const cantQq = Number(formPago.cantidad_qq ?? 0);
-    const precioQq = Number(formPago.precio_qq ?? 0);
-    const descPct = Number(formPago.descuentos_pct ?? contrato?.descuentos_comercializacion ?? 0);
-    // Productor tiene que vender más para cubrir descuentos
-    const qqBrutos = descPct > 0 ? cantQq / (1 - descPct / 100) : cantQq;
-    const montoPesos = Number(formPago.monto_pesos ?? (cantQq * precioQq));
-
-    await sb.from("contrato_pagos").insert({
-      contrato_id: contratoId,
-      empresa_id: empresaId,
-      periodo: formPago.periodo ?? new Date().toISOString().slice(0, 7),
-      fecha_vencimiento: formPago.fecha_vencimiento || null,
-      fecha_pago: formPago.fecha_pago ?? new Date().toISOString().split("T")[0],
-      cantidad_qq: cantQq,
-      precio_qq: precioQq,
-      monto_pesos: montoPesos,
-      descuentos_pct: descPct,
-      estado: "pagado",
-      observaciones: formPago.observaciones ?? "",
-    });
-
-    // Notificación de pago registrado
-    await sb.from("notificaciones").insert({
-      empresa_id: empresaId,
-      tipo: "pago_alquiler",
-      titulo: `Pago registrado — ${lote?.nombre ?? ""}`,
-      mensaje: `Pago del período ${formPago.periodo ?? ""}: ${cantQq} qq · $${montoPesos.toLocaleString("es-AR")}`,
-      leida: false,
-      url_destino: "/productor/documentos",
-    });
-
+    const cantQq = Number(formPago.cantidad_qq??0);
+    const precioQq = Number(formPago.precio_qq??0);
+    const descPct = Number(formPago.descuentos_pct??contrato?.descuentos_comercializacion??0);
+    const montoPesos = Number(formPago.monto_pesos??(cantQq*precioQq));
+    await sb.from("contrato_pagos").insert({ contrato_id: contratoId, empresa_id: empresaId, periodo: formPago.periodo??new Date().toISOString().slice(0,7), fecha_vencimiento: formPago.fecha_vencimiento||null, fecha_pago: formPago.fecha_pago??new Date().toISOString().split("T")[0], cantidad_qq: cantQq, precio_qq: precioQq, monto_pesos: montoPesos, descuentos_pct: descPct, estado: "pagado", observaciones: formPago.observaciones??"" });
+    await sb.from("notificaciones").insert({ empresa_id: empresaId, tipo: "pago_alquiler", titulo: `Pago registrado — ${lote?.nombre??""}`, mensaje: `Pago del período ${formPago.periodo??""}: ${cantQq} qq · $${montoPesos.toLocaleString("es-AR")}`, leida: false, url_destino: "/productor/documentos" });
     setMsg("✅ Pago registrado");
     await fetchAll(empresaId);
     setShowFormPago(null); setFormPago({});
@@ -278,16 +238,7 @@ export default function DocumentosPage() {
   const guardarEmpleado = async () => {
     if (!empresaId) return;
     const sb = await getSB();
-    await sb.from("empleados").insert({
-      empresa_id: empresaId, nombre: form.nombre ?? "",
-      dni: form.dni ?? "", cuil: form.cuil ?? "",
-      categoria: form.categoria ?? "",
-      fecha_ingreso: form.fecha_ingreso || null,
-      sueldo_basico: Number(form.sueldo_basico ?? 0),
-      telefono: form.telefono ?? "", email: form.email ?? "",
-      direccion: form.direccion ?? "", activo: true,
-      observaciones: form.observaciones ?? "",
-    });
+    await sb.from("empleados").insert({ empresa_id: empresaId, nombre: form.nombre??"", dni: form.dni??"", cuil: form.cuil??"", categoria: form.categoria??"", fecha_ingreso: form.fecha_ingreso||null, sueldo_basico: Number(form.sueldo_basico??0), telefono: form.telefono??"", email: form.email??"", direccion: form.direccion??"", activo: true, observaciones: form.observaciones??"" });
     setMsg("✅ Empleado guardado");
     await fetchAll(empresaId);
     setShowForm(false); setForm({});
@@ -322,14 +273,13 @@ export default function DocumentosPage() {
 
   const diasParaVencer = (fecha: string) => {
     if (!fecha) return null;
-    return Math.round((new Date(fecha).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+    return Math.round((new Date(fecha).getTime()-Date.now())/(1000*60*60*24));
   };
 
   const alertasVenc = documentos.filter(d => {
     if (!d.fecha_vencimiento) return false;
-    return (new Date(d.fecha_vencimiento).getTime() - Date.now()) / (1000 * 60 * 60 * 24) <= 30;
+    return (new Date(d.fecha_vencimiento).getTime()-Date.now())/(1000*60*60*24) <= 30;
   });
-
   const alertasContratos = contratos.filter(c => {
     if (!c.fecha_fin) return false;
     const diff = diasParaVencer(c.fecha_fin);
@@ -338,190 +288,222 @@ export default function DocumentosPage() {
 
   const docsFiltrados = documentos.filter(d => {
     const matchCarpeta = carpetaActiva ? d.categoria === carpetaActiva : true;
-    const matchBusqueda = busqueda ? d.nombre.toLowerCase().includes(busqueda.toLowerCase()) || d.proveedor_cliente?.toLowerCase().includes(busqueda.toLowerCase()) : true;
+    const matchBusqueda = busqueda ? d.nombre.toLowerCase().includes(busqueda.toLowerCase())||d.proveedor_cliente?.toLowerCase().includes(busqueda.toLowerCase()) : true;
     return matchCarpeta && matchBusqueda;
   });
 
-  const inputClass = "w-full bg-[#0a1628]/80 border border-[#00FF80]/20 rounded-xl px-4 py-2.5 text-[#E5E7EB] text-sm focus:outline-none focus:border-[#00FF80] font-mono transition-all";
-  const labelClass = "block text-xs text-[#4B6B5B] uppercase tracking-widest mb-1 font-mono";
+  const iCls = "inp w-full px-3 py-2.5 text-[#1a2a4a] text-sm";
+  const lCls = "block text-[10px] font-bold uppercase tracking-wider text-[#6b8aaa] mb-1.5";
   const contPorCarpeta = (c: Carpeta) => documentos.filter(d => d.categoria === c).length;
 
   const formatCondicion = (c: Contrato) => {
     switch(c.condicion) {
       case "fijo_pesos": return `$${Number(c.monto).toLocaleString("es-AR")}/ha`;
       case "fijo_usd": return `USD ${c.monto}/ha`;
-      case "quintales": return `${c.monto} qq ${c.unidad ?? ""}/ha`;
+      case "quintales": return `${c.monto} qq ${c.unidad??""}/ha`;
       case "porcentaje": return `${c.monto}% producción`;
-      default: return c.observaciones || `${c.monto}`;
+      default: return c.observaciones||`${c.monto}`;
     }
   };
 
   const pagosDe = (contratoId: string) => pagos.filter(p => p.contrato_id === contratoId);
 
-  // Calcular cuotas mensuales de un contrato
   const calcularCuotasMensuales = (contrato: Contrato, lote: Lote) => {
-    if (contrato.frecuencia_pago === "anual" || contrato.condicion === "porcentaje" || contrato.condicion === "otros") return null;
-    const mesesPorFrecuencia: Record<string, number> = { mensual: 1, trimestral: 3, semestral: 6, anual: 12 };
-    const meses = mesesPorFrecuencia[contrato.frecuencia_pago] ?? 1;
-    const montoTotal = Number(contrato.monto) * lote.hectareas;
-    return montoTotal / (12 / meses);
+    if (contrato.frecuencia_pago === "anual"||contrato.condicion === "porcentaje"||contrato.condicion === "otros") return null;
+    const mesesPorFrecuencia: Record<string,number> = { mensual:1, trimestral:3, semestral:6, anual:12 };
+    const meses = mesesPorFrecuencia[contrato.frecuencia_pago]??1;
+    const montoTotal = Number(contrato.monto)*lote.hectareas;
+    return montoTotal/(12/meses);
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-[#020810] flex items-center justify-center text-[#00FF80] font-mono animate-pulse">
-      ▶ Cargando Documentos...
+    <div style={{minHeight:"100vh",backgroundImage:"url('/FON.png')",backgroundSize:"cover",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{display:"flex",alignItems:"center",gap:12}}>
+        <div style={{width:32,height:32,border:"3px solid #1976d2",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+        <span style={{color:"#1565c0",fontWeight:600}}>Cargando Documentos...</span>
+      </div>
     </div>
   );
 
   return (
-    <div className="relative min-h-screen bg-[#020810] text-[#E5E7EB]">
+    <div style={{minHeight:"100vh",fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif",backgroundImage:"url('/FON.png')",backgroundSize:"cover",backgroundPosition:"center",backgroundAttachment:"scroll"}}>
       <style>{`
-        .card-doc:hover { border-color: rgba(0,255,128,0.4) !important; transform: translateY(-2px); }
-        .card-doc { transition: all 0.2s ease; }
-        .carpeta-active { border-color: #00FF80 !important; background: rgba(0,255,128,0.08) !important; }
-        @keyframes gradient-flow { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+        .inp{background:rgba(255,255,255,0.75);border:1px solid rgba(180,210,240,0.55);border-radius:11px;box-shadow:inset 0 1px 3px rgba(0,60,140,0.04);transition:all 0.18s;color:#1a2a4a;font-family:'DM Sans',system-ui;}
+        .inp::placeholder{color:rgba(80,120,160,0.50);}
+        .inp:focus{background:rgba(255,255,255,0.97);border-color:rgba(25,118,210,0.40);outline:none;box-shadow:0 0 0 3px rgba(25,118,210,0.10);}
+        .inp option{background:white;color:#1a2a4a;}
+        .sel{background:rgba(255,255,255,0.75);border:1px solid rgba(180,210,240,0.55);border-radius:11px;color:#1a2a4a;padding:9px 12px;font-size:13px;width:100%;}
+
+        .topbar-d{background-image:url('/FON.png');background-size:cover;background-position:top center;border-bottom:1px solid rgba(255,255,255,0.40);box-shadow:0 2px 16px rgba(20,80,160,0.12);position:relative;}
+        .topbar-d::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.30);pointer-events:none;}
+        .topbar-d>*{position:relative;z-index:1;}
+
+        .card-g{background-image:url('/FON.png');background-size:cover;background-position:center;border:1.5px solid rgba(255,255,255,0.90);border-top:2px solid rgba(255,255,255,1);border-radius:18px;box-shadow:0 6px 24px rgba(20,80,160,0.14),inset 0 2px 0 rgba(255,255,255,0.90);position:relative;overflow:hidden;}
+        .card-g::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.62);pointer-events:none;z-index:0;}
+        .card-g>*{position:relative;z-index:1;}
+
+        .sec-w{background:rgba(255,255,255,0.88);border:1.5px solid rgba(255,255,255,0.92);border-radius:16px;box-shadow:0 4px 18px rgba(20,80,160,0.10);overflow:hidden;}
+
+        .sidebar-w{background-image:url('/FON.png');background-size:cover;background-position:center;border:1.5px solid rgba(255,255,255,0.90);border-radius:16px;box-shadow:0 4px 16px rgba(20,80,160,0.12);position:relative;overflow:hidden;}
+        .sidebar-w::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.62);pointer-events:none;}
+        .sidebar-w>*{position:relative;}
+
+        .carpeta-btn{display:flex;align-items:center;justify-content:space-between;width:100%;padding:9px 14px;border:none;background:transparent;cursor:pointer;transition:background 0.15s;border-bottom:1px solid rgba(0,60,140,0.06);}
+        .carpeta-btn:hover{background:rgba(255,255,255,0.60);}
+        .carpeta-btn.activa{background:rgba(25,118,210,0.10);}
+
+        .doc-card{background-image:url('/FON.png');background-size:cover;background-position:center;border-radius:16px;box-shadow:0 4px 14px rgba(20,80,160,0.12);cursor:pointer;transition:all 0.20s;position:relative;overflow:hidden;}
+        .doc-card::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.60);pointer-events:none;}
+        .doc-card>*{position:relative;}
+        .doc-card:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(20,80,160,0.18);}
+
+        .cont-card{background-image:url('/FON.png');background-size:cover;background-position:center;border-radius:16px;box-shadow:0 4px 14px rgba(20,80,160,0.10);position:relative;overflow:hidden;}
+        .cont-card::before{content:"";position:absolute;inset:0;background:rgba(255,255,255,0.62);pointer-events:none;}
+        .cont-card>*{position:relative;}
+
+        .bbtn{background-image:url('/AZUL.png');background-size:cover;background-position:center;border:1.5px solid rgba(100,180,255,0.50);border-top:2px solid rgba(180,220,255,0.70);border-radius:12px;color:white;font-weight:800;font-size:12px;cursor:pointer;padding:8px 16px;text-shadow:0 1px 3px rgba(0,40,120,0.35);box-shadow:0 3px 12px rgba(25,118,210,0.35);transition:all 0.18s;}
+        .bbtn:hover{transform:translateY(-1px);filter:brightness(1.08);}
+        .abtn{background:rgba(255,255,255,0.70);border:1.5px solid rgba(255,255,255,0.92);border-radius:12px;color:#1e3a5f;font-weight:700;font-size:12px;cursor:pointer;padding:8px 14px;transition:all 0.18s;}
+        .abtn:hover{background:rgba(255,255,255,0.95);}
+
+        .kpi-d{background:rgba(255,255,255,0.80);border:1px solid rgba(255,255,255,0.90);border-radius:10px;padding:10px 12px;}
+
+        .fade-in{animation:fadeIn 0.20s ease;}
+        ::-webkit-scrollbar{width:3px;height:3px}
+        ::-webkit-scrollbar-thumb{background:rgba(25,118,210,0.20);border-radius:3px}
+        .row-d:hover{background:rgba(255,255,255,0.90)!important;}
       `}</style>
 
-      <div className="absolute inset-0 z-0"><Image src="/dashboard-bg.png" alt="bg" fill style={{ objectFit: "cover" }} /><div className="absolute inset-0 bg-[#020810]/88" /></div>
-      <div className="absolute inset-0 z-1 pointer-events-none opacity-[0.03]" style={{ backgroundImage: `linear-gradient(rgba(0,255,128,1) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,128,1) 1px, transparent 1px)`, backgroundSize: "50px 50px" }} />
-
-      {/* Header */}
-      <div className="relative z-10">
-        <div className="absolute bottom-0 left-0 right-0 h-[1px]" style={{ background: "linear-gradient(90deg, transparent, #00FF80, #00AAFF, #00FF80, transparent)", backgroundSize: "200% 100%", animation: "gradient-flow 4s ease infinite" }} />
-        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(2,8,16,0.95) 0%, rgba(0,20,10,0.90) 50%, rgba(2,8,16,0.95) 100%)" }} />
-        <div className="relative px-6 py-4 flex items-center gap-4">
-          <button onClick={() => window.location.href = "/productor/dashboard"} className="text-[#4B5563] hover:text-[#00FF80] transition-colors font-mono text-sm">← Dashboard</button>
-          <div className="flex-1" />
-          <div className="cursor-pointer" onClick={() => window.location.href = "/productor/dashboard"}>
-            <Image src="/logo.png" alt="Logo" width={110} height={38} className="object-contain hover:drop-shadow-[0_0_12px_rgba(0,255,128,0.8)] transition-all" />
-          </div>
+      {/* TOPBAR */}
+      <div className="topbar-d" style={{position:"sticky",top:0,zIndex:20}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,padding:"11px 16px"}}>
+          <button onClick={()=>window.location.href="/productor/dashboard"} style={{background:"none",border:"none",cursor:"pointer",color:"#4a6a8a",fontSize:13,fontWeight:700}}>← Dashboard</button>
+          <div style={{flex:1}}/>
+          <div style={{fontSize:13,fontWeight:800,color:"#0d2137"}}>📁 Documentos</div>
+          <button onClick={()=>window.location.href="/productor/dashboard"} style={{background:"none",border:"none",cursor:"pointer"}}>
+            <Image src="/logo.png" alt="Logo" width={90} height={32} style={{objectFit:"contain"}}/>
+          </button>
         </div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto p-6">
+      <div style={{maxWidth:1200,margin:"0 auto",padding:"14px 14px 80px"}}>
 
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+        {/* Título + búsqueda */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
           <div>
-            <h1 className="text-2xl font-bold text-[#E5E7EB] font-mono">📁 DOCUMENTOS</h1>
-            <p className="text-[#00FF80] text-xs tracking-widest font-mono mt-1">◆ GESTIÓN DOCUMENTAL INTEGRAL</p>
+            <h1 style={{fontSize:20,fontWeight:800,color:"#0d2137",margin:0}}>📁 Documentos</h1>
+            <p style={{fontSize:11,color:"#6b8aaa",margin:"2px 0 0",fontWeight:600}}>Gestión documental integral</p>
           </div>
-          <div className="flex gap-3">
-            <input type="text" value={busqueda} onChange={e => setBusqueda(e.target.value)} placeholder="Buscar..." className="bg-[#0a1628]/80 border border-[#00FF80]/20 rounded-xl px-4 py-2 text-[#E5E7EB] text-sm focus:outline-none focus:border-[#00FF80] font-mono w-48" />
-            {carpetaActiva && carpetaActiva !== "contrato" && (
-              <button onClick={() => { setShowForm(!showForm); setForm({ fecha: new Date().toISOString().split("T")[0] }); setMsg(""); }}
-                className="px-4 py-2 rounded-xl bg-[#00FF80]/10 border border-[#00FF80]/30 text-[#00FF80] hover:bg-[#00FF80]/20 font-mono text-sm transition-all">
-                + {carpetaActiva === "empleado" ? "Nuevo Empleado" : "Nuevo Documento"}
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+            <input type="text" value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar..." className="inp" style={{padding:"7px 12px",width:180,fontSize:12}}/>
+            {carpetaActiva&&carpetaActiva!=="contrato"&&(
+              <button onClick={()=>{setShowForm(!showForm);setForm({fecha:new Date().toISOString().split("T")[0]});setMsg("");}} className="bbtn">
+                + {carpetaActiva==="empleado"?"Nuevo Empleado":"Nuevo Documento"}
               </button>
             )}
           </div>
         </div>
 
         {/* Alertas */}
-        {(alertasVenc.length > 0 || alertasContratos.length > 0) && (
-          <div className="bg-[#0a1628]/80 border border-[#F87171]/30 rounded-xl p-4 mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-2 h-2 rounded-full bg-[#F87171] animate-pulse" />
-              <span className="text-[#F87171] text-xs font-mono font-bold">⚠️ ALERTAS ({alertasVenc.length + alertasContratos.length})</span>
+        {(alertasVenc.length>0||alertasContratos.length>0)&&(
+          <div style={{padding:"10px 14px",marginBottom:14,borderRadius:14,background:"rgba(220,38,38,0.06)",border:"1px solid rgba(220,38,38,0.22)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+              <div style={{width:7,height:7,borderRadius:"50%",background:"#dc2626"}}/>
+              <span style={{fontSize:11,fontWeight:800,color:"#dc2626"}}>⚠️ Alertas ({alertasVenc.length+alertasContratos.length})</span>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {alertasContratos.map(c => {
-                const dias = diasParaVencer(c.fecha_fin);
-                const lote = lotes.find(l => l.id === c.lote_id);
-                return (
-                  <div key={c.id} className={`px-3 py-1.5 rounded-lg text-xs font-mono border ${dias !== null && dias <= 30 ? "border-[#F87171]/30 text-[#F87171] bg-[#F87171]/5" : "border-[#C9A227]/30 text-[#C9A227] bg-[#C9A227]/5"}`}>
-                    🏘️ {dias !== null && dias <= 0 ? "VENCIDO" : `${dias} días`} · {lote?.nombre ?? c.propietario_nombre}
-                  </div>
-                );
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {alertasContratos.map(c=>{
+                const dias=diasParaVencer(c.fecha_fin);
+                const lote=lotes.find(l=>l.id===c.lote_id);
+                return<div key={c.id} style={{fontSize:10,padding:"3px 10px",borderRadius:7,fontWeight:700,border:`1px solid ${dias!==null&&dias<=30?"rgba(220,38,38,0.30)":"rgba(217,119,6,0.30)"}`,color:dias!==null&&dias<=30?"#dc2626":"#d97706"}}>🏘️ {dias!==null&&dias<=0?"VENCIDO":`${dias} días`} · {lote?.nombre??c.propietario_nombre}</div>;
               })}
-              {alertasVenc.map(d => {
-                const diff = Math.round((new Date(d.fecha_vencimiento).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-                return (
-                  <div key={d.id} className={`px-3 py-1.5 rounded-lg text-xs font-mono border ${diff <= 7 ? "border-[#F87171]/30 text-[#F87171] bg-[#F87171]/5" : "border-[#C9A227]/30 text-[#C9A227] bg-[#C9A227]/5"}`}>
-                    {diff <= 0 ? "🔴 VENCIDO" : `🟡 ${diff} días`} · {d.nombre}
-                  </div>
-                );
+              {alertasVenc.map(d=>{
+                const diff=Math.round((new Date(d.fecha_vencimiento).getTime()-Date.now())/(1000*60*60*24));
+                return<div key={d.id} style={{fontSize:10,padding:"3px 10px",borderRadius:7,fontWeight:700,border:`1px solid ${diff<=7?"rgba(220,38,38,0.30)":"rgba(217,119,6,0.30)"}`,color:diff<=7?"#dc2626":"#d97706"}}>{diff<=0?"🔴 VENCIDO":`🟡 ${diff} días`} · {d.nombre}</div>;
               })}
             </div>
           </div>
         )}
 
-        {msg && (
-          <div className={`mb-4 px-4 py-2 rounded-lg text-sm font-mono border ${msg.startsWith("✅") ? "border-[#4ADE80]/30 text-[#4ADE80] bg-[#4ADE80]/5" : "border-[#F87171]/30 text-[#F87171] bg-[#F87171]/5"}`}>
-            {msg} <button onClick={() => setMsg("")} className="ml-3 opacity-50 hover:opacity-100">✕</button>
-          </div>
-        )}
+        {/* Toast */}
+        {msg&&<div style={{marginBottom:12,padding:"8px 14px",borderRadius:10,fontSize:13,fontWeight:600,color:msg.startsWith("✅")?"#16a34a":"#dc2626",background:msg.startsWith("✅")?"rgba(220,252,231,0.90)":"rgba(254,226,226,0.90)",border:`1px solid ${msg.startsWith("✅")?"rgba(22,163,74,0.25)":"rgba(220,38,38,0.20)"}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>{msg}<button onClick={()=>setMsg("")} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,opacity:0.5}}>✕</button></div>}
 
-        <div className="flex gap-6">
-          {/* Sidebar */}
-          <div className="w-64 flex-shrink-0">
-            <div className="bg-[#0a1628]/80 border border-[#00FF80]/15 rounded-xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-[#00FF80]/10"><span className="text-[#00FF80] text-xs font-mono tracking-widest">◆ CARPETAS</span></div>
-              <button onClick={() => { setCarpetaActiva(null); setShowForm(false); setBusqueda(""); }}
-                className={`w-full text-left px-4 py-3 border-b border-[#00FF80]/5 transition-all flex items-center justify-between ${!carpetaActiva ? "carpeta-active" : "hover:bg-[#00FF80]/5"}`}>
-                <span className="text-sm font-mono text-[#E5E7EB]">📂 Todos</span>
-                <span className="text-xs text-[#4B5563] font-mono">{documentos.length}</span>
+        <div style={{display:"flex",gap:14}}>
+
+          {/* ── SIDEBAR ── */}
+          <div style={{width:220,flexShrink:0}}>
+            <div className="sidebar-w" style={{marginBottom:12}}>
+              <div style={{padding:"10px 14px",borderBottom:"1px solid rgba(0,60,140,0.08)"}}>
+                <span style={{fontSize:10,fontWeight:800,color:"#0d2137",textTransform:"uppercase",letterSpacing:0.8}}>◆ Carpetas</span>
+              </div>
+              <button className={`carpeta-btn${!carpetaActiva?" activa":""}`} onClick={()=>{setCarpetaActiva(null);setShowForm(false);setBusqueda("");}}>
+                <span style={{fontSize:12,fontWeight:700,color:"#0d2137"}}>📂 Todos</span>
+                <span style={{fontSize:10,color:"#6b8aaa",fontWeight:700}}>{documentos.length}</span>
               </button>
-              {(Object.keys(CARPETAS) as Carpeta[]).map(c => {
-                const config = CARPETAS[c];
-                const count = c === "empleado" ? empleados.length : c === "contrato" ? contratos.length : contPorCarpeta(c);
-                const alertas = c === "contrato" ? alertasContratos.length : alertasVenc.filter(d => d.categoria === c).length;
-                return (
-                  <button key={c} onClick={() => { setCarpetaActiva(c); setShowForm(false); setMsg(""); }}
-                    className={`w-full text-left px-4 py-3 border-b border-[#00FF80]/5 transition-all flex items-center justify-between ${carpetaActiva === c ? "carpeta-active" : "hover:bg-[#00FF80]/5"}`}>
-                    <div className="flex items-center gap-2">
-                      <span>{config.icon}</span>
-                      <span className="text-sm font-mono" style={{ color: carpetaActiva === c ? config.color : "#9CA3AF" }}>{config.label}</span>
+              {(Object.keys(CARPETAS) as Carpeta[]).map(c=>{
+                const config=CARPETAS[c];
+                const count=c==="empleado"?empleados.length:c==="contrato"?contratos.length:contPorCarpeta(c);
+                const alertas=c==="contrato"?alertasContratos.length:alertasVenc.filter(d=>d.categoria===c).length;
+                return(
+                  <button key={c} className={`carpeta-btn${carpetaActiva===c?" activa":""}`} onClick={()=>{setCarpetaActiva(c);setShowForm(false);setMsg("");}}>
+                    <div style={{display:"flex",alignItems:"center",gap:7}}>
+                      <span style={{fontSize:14}}>{config.icon}</span>
+                      <span style={{fontSize:11,fontWeight:700,color:carpetaActiva===c?config.color:"#4a6a8a"}}>{config.label}</span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      {alertas > 0 && <span className="text-xs text-[#F87171] font-mono">⚠️</span>}
-                      <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ background: config.color + "20", color: config.color }}>{count}</span>
+                    <div style={{display:"flex",alignItems:"center",gap:4}}>
+                      {alertas>0&&<span style={{fontSize:10,color:"#dc2626"}}>⚠️</span>}
+                      <span style={{fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:20,background:`${config.color}20`,color:config.color}}>{count}</span>
                     </div>
                   </button>
                 );
               })}
             </div>
-            <div className="mt-4 bg-[#0a1628]/80 border border-[#00FF80]/15 rounded-xl p-4">
-              <div className="text-xs text-[#4B5563] font-mono mb-3">RESUMEN</div>
-              <div className="space-y-2">
-                {[
-                  { label: "Total docs", value: documentos.length, color: "#00FF80" },
-                  { label: "Contratos activos", value: contratos.length, color: "#C9A227" },
-                  { label: "Pagos registrados", value: pagos.length, color: "#60A5FA" },
-                  { label: "Empleados activos", value: empleados.filter(e => e.activo).length, color: "#FB923C" },
-                  { label: "Por vencer", value: alertasVenc.length + alertasContratos.length, color: "#F87171" },
-                ].map(s => (
-                  <div key={s.label} className="flex justify-between text-xs font-mono">
-                    <span className="text-[#4B5563]">{s.label}</span>
-                    <span className="font-bold" style={{ color: s.color }}>{s.value}</span>
-                  </div>
-                ))}
-              </div>
+
+            {/* Resumen */}
+            <div className="sidebar-w" style={{padding:12}}>
+              <div style={{fontSize:10,fontWeight:800,color:"#0d2137",textTransform:"uppercase",marginBottom:10}}>Resumen</div>
+              {[
+                {label:"Total docs",value:documentos.length,color:"#1565c0"},
+                {label:"Contratos activos",value:contratos.length,color:"#d97706"},
+                {label:"Pagos registrados",value:pagos.length,color:"#1565c0"},
+                {label:"Empleados activos",value:empleados.filter(e=>e.activo).length,color:"#ea580c"},
+                {label:"Por vencer",value:alertasVenc.length+alertasContratos.length,color:"#dc2626"},
+              ].map(s=>(
+                <div key={s.label} style={{display:"flex",justifyContent:"space-between",marginBottom:6,fontSize:11}}>
+                  <span style={{color:"#6b8aaa",fontWeight:600}}>{s.label}</span>
+                  <span style={{fontWeight:800,color:s.color}}>{s.value}</span>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Contenido */}
-          <div className="flex-1 min-w-0">
+          {/* ── CONTENIDO ── */}
+          <div style={{flex:1,minWidth:0}}>
 
             {/* Vista general */}
-            {!carpetaActiva && (
-              <div>
-                <h2 className="text-lg font-bold font-mono text-[#E5E7EB] mb-4">📂 TODAS LAS CARPETAS</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {(Object.keys(CARPETAS) as Carpeta[]).map(c => {
-                    const config = CARPETAS[c];
-                    const count = c === "empleado" ? empleados.length : c === "contrato" ? contratos.length : contPorCarpeta(c);
-                    const venc = c === "contrato" ? alertasContratos.length : alertasVenc.filter(d => d.categoria === c).length;
-                    return (
-                      <div key={c} className="card-doc bg-[#0a1628]/80 border border-[#00FF80]/15 rounded-xl p-5 cursor-pointer" onClick={() => { setCarpetaActiva(c); setShowForm(false); }}>
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style={{ background: config.color + "15", border: `1px solid ${config.color}30` }}>{config.icon}</div>
-                          {venc > 0 && <span className="text-xs bg-[#F87171]/10 text-[#F87171] border border-[#F87171]/30 px-2 py-0.5 rounded font-mono">⚠️ {venc}</span>}
+            {!carpetaActiva&&(
+              <div className="fade-in">
+                <div style={{fontSize:14,fontWeight:800,color:"#0d2137",marginBottom:12}}>📂 Todas las Carpetas</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:12}}>
+                  {(Object.keys(CARPETAS) as Carpeta[]).map(c=>{
+                    const config=CARPETAS[c];
+                    const count=c==="empleado"?empleados.length:c==="contrato"?contratos.length:contPorCarpeta(c);
+                    const venc=c==="contrato"?alertasContratos.length:alertasVenc.filter(d=>d.categoria===c).length;
+                    return(
+                      <div key={c} className="doc-card" style={{border:`1.5px solid rgba(255,255,255,0.88)`,padding:16,cursor:"pointer"}} onClick={()=>{setCarpetaActiva(c);setShowForm(false);}}>
+                        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:12}}>
+                          <div style={{width:44,height:44,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,background:`${config.color}15`,border:`1px solid ${config.color}30`}}>{config.icon}</div>
+                          {venc>0&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:20,fontWeight:700,background:"rgba(220,38,38,0.10)",color:"#dc2626",border:"1px solid rgba(220,38,38,0.25)"}}>⚠️ {venc}</span>}
                         </div>
-                        <div className="font-bold text-[#E5E7EB] font-mono mb-1">{config.label}</div>
-                        <div className="text-xs text-[#4B5563] font-mono mb-3">{config.desc}</div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-2xl font-bold font-mono" style={{ color: config.color }}>{count}</span>
-                          <span className="text-xs text-[#4B5563] font-mono">{c === "empleado" ? "empleados" : c === "contrato" ? "contratos" : "documentos"}</span>
+                        <div style={{fontSize:13,fontWeight:800,color:"#0d2137",marginBottom:3}}>{config.label}</div>
+                        <div style={{fontSize:11,color:"#6b8aaa",marginBottom:10,fontWeight:500}}>{config.desc}</div>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                          <span style={{fontSize:24,fontWeight:800,color:config.color}}>{count}</span>
+                          <span style={{fontSize:11,color:"#6b8aaa",fontWeight:600}}>{c==="empleado"?"empleados":c==="contrato"?"contratos":"documentos"}</span>
                         </div>
                       </div>
                     );
@@ -530,297 +512,178 @@ export default function DocumentosPage() {
               </div>
             )}
 
-            {/* ===== CONTRATOS DE ALQUILER ===== */}
-            {carpetaActiva === "contrato" && (
-              <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <span className="text-2xl">🏘️</span>
+            {/* ══ CONTRATOS DE ALQUILER ══ */}
+            {carpetaActiva==="contrato"&&(
+              <div className="fade-in">
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+                  <span style={{fontSize:24}}>🏘️</span>
                   <div>
-                    <h2 className="text-lg font-bold font-mono text-[#E5E7EB]">CONTRATOS DE ALQUILER</h2>
-                    <p className="text-xs text-[#C9A227] font-mono">{lotes.length} lotes no propios · {contratos.length} contratos · {pagos.length} pagos registrados</p>
+                    <div style={{fontSize:15,fontWeight:800,color:"#0d2137"}}>Contratos de Alquiler</div>
+                    <p style={{fontSize:11,color:"#d97706",fontWeight:600,margin:0}}>{lotes.length} lotes no propios · {contratos.length} contratos · {pagos.length} pagos registrados</p>
                   </div>
                 </div>
 
-                {lotes.length === 0 ? (
-                  <div className="text-center py-20 bg-[#0a1628]/60 border border-[#C9A227]/15 rounded-xl">
-                    <div className="text-5xl mb-4 opacity-20">🏘️</div>
-                    <p className="text-[#4B5563] font-mono">No hay lotes alquilados</p>
-                    <p className="text-xs text-[#4B5563] font-mono mt-2">Los lotes con tenencia "Alquilado", "Mixto" o "A porcentaje" aparecen aquí</p>
+                {lotes.length===0?(
+                  <div className="card-g" style={{padding:"48px 20px",textAlign:"center"}}>
+                    <div style={{fontSize:40,opacity:0.12,marginBottom:10}}>🏘️</div>
+                    <p style={{color:"#6b8aaa",fontSize:14}}>No hay lotes alquilados</p>
+                    <p style={{color:"#6b8aaa",fontSize:11,marginTop:4}}>Los lotes con tenencia "Alquilado", "Mixto" o "A porcentaje" aparecen aquí</p>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {lotes.map(lote => {
-                      const contrato = contratos.find(c => c.lote_id === lote.id);
-                      const dias = contrato?.fecha_fin ? diasParaVencer(contrato.fecha_fin) : null;
-                      const vencido = dias !== null && dias <= 0;
-                      const porVencer60 = dias !== null && dias > 0 && dias <= 60;
-                      const porVencer30 = dias !== null && dias > 0 && dias <= 30;
-                      const editando = showFormContrato === lote.id;
-                      const pagosDelContrato = contrato ? pagosDe(contrato.id) : [];
-                      const cuotaMensual = contrato ? calcularCuotasMensuales(contrato, lote) : null;
+                ):(
+                  <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                    {lotes.map(lote=>{
+                      const contrato=contratos.find(c=>c.lote_id===lote.id);
+                      const dias=contrato?.fecha_fin?diasParaVencer(contrato.fecha_fin):null;
+                      const vencido=dias!==null&&dias<=0;
+                      const porVencer60=dias!==null&&dias>0&&dias<=60;
+                      const porVencer30=dias!==null&&dias>0&&dias<=30;
+                      const editando=showFormContrato===lote.id;
+                      const pagosDelContrato=contrato?pagosDe(contrato.id):[];
+                      const cuotaMensual=contrato?calcularCuotasMensuales(contrato,lote):null;
 
-                      return (
-                        <div key={lote.id} className={`bg-[#0a1628]/80 border rounded-xl overflow-hidden ${vencido ? "border-[#F87171]/30" : porVencer30 ? "border-[#F87171]/20" : porVencer60 ? "border-[#C9A227]/30" : "border-[#C9A227]/15"}`}>
+                      return(
+                        <div key={lote.id} className="cont-card" style={{border:`1.5px solid ${vencido?"rgba(220,38,38,0.30)":porVencer30?"rgba(220,38,38,0.20)":porVencer60?"rgba(217,119,6,0.30)":"rgba(255,255,255,0.88)"}`}}>
                           {/* Header lote */}
-                          <div className="px-5 py-4 flex items-center justify-between flex-wrap gap-3">
-                            <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 rounded-xl bg-[#C9A227]/10 border border-[#C9A227]/30 flex items-center justify-center font-bold text-[#C9A227] font-mono text-sm">{lote.hectareas}</div>
+                          <div style={{padding:"12px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+                            <div style={{display:"flex",alignItems:"center",gap:12}}>
+                              <div style={{width:40,height:40,borderRadius:10,background:"rgba(217,119,6,0.10)",border:"1px solid rgba(217,119,6,0.28)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,color:"#d97706",fontSize:12}}>{lote.hectareas}</div>
                               <div>
-                                <div className="font-bold text-[#E5E7EB] font-mono">{lote.nombre}</div>
-                                <div className="flex items-center gap-2 text-xs font-mono">
-                                  <span className="text-[#C9A227]">{lote.hectareas} Ha</span>
-                                  <span className="text-[#4B5563]">·</span>
-                                  <span className="text-[#9CA3AF]">{lote.tipo_alquiler}</span>
-                                  {lote.cultivo && <><span className="text-[#4B5563]">·</span><span className="text-[#00FF80]">{lote.cultivo.toUpperCase()}</span></>}
+                                <div style={{fontSize:14,fontWeight:800,color:"#0d2137"}}>{lote.nombre}</div>
+                                <div style={{display:"flex",gap:8,fontSize:11,fontWeight:600}}>
+                                  <span style={{color:"#d97706"}}>{lote.hectareas} Ha</span>
+                                  <span style={{color:"#6b8aaa"}}>· {lote.tipo_alquiler}</span>
+                                  {lote.cultivo&&<span style={{color:"#16a34a"}}>· {lote.cultivo.toUpperCase()}</span>}
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {!contrato && <span className="text-xs bg-[#4B5563]/20 text-[#4B5563] border border-[#4B5563]/30 px-3 py-1 rounded-full font-mono">Sin contrato</span>}
-                              {contrato && vencido && <span className="text-xs bg-[#F87171]/10 text-[#F87171] border border-[#F87171]/30 px-3 py-1 rounded-full font-mono">🔴 VENCIDO</span>}
-                              {contrato && porVencer30 && !vencido && <span className="text-xs bg-[#F87171]/10 text-[#F87171] border border-[#F87171]/20 px-3 py-1 rounded-full font-mono">⚠️ {dias} días</span>}
-                              {contrato && porVencer60 && !porVencer30 && <span className="text-xs bg-[#C9A227]/10 text-[#C9A227] border border-[#C9A227]/20 px-3 py-1 rounded-full font-mono">🟡 {dias} días</span>}
-                              {contrato && !vencido && !porVencer60 && <span className="text-xs bg-[#4ADE80]/10 text-[#4ADE80] border border-[#4ADE80]/20 px-3 py-1 rounded-full font-mono">✓ Vigente</span>}
-                              {contrato && (
-                                <button onClick={() => setShowPagos(showPagos === contrato.id ? null : contrato.id)}
-                                  className="text-xs px-3 py-1.5 rounded-xl border border-[#60A5FA]/30 text-[#60A5FA] hover:bg-[#60A5FA]/10 font-mono transition-all">
+                            <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
+                              {!contrato&&<span style={{fontSize:10,padding:"3px 10px",borderRadius:20,fontWeight:700,background:"rgba(107,138,170,0.12)",color:"#6b8aaa",border:"1px solid rgba(107,138,170,0.25)"}}>Sin contrato</span>}
+                              {contrato&&vencido&&<span style={{fontSize:10,padding:"3px 10px",borderRadius:20,fontWeight:700,background:"rgba(220,38,38,0.10)",color:"#dc2626",border:"1px solid rgba(220,38,38,0.28)"}}>🔴 VENCIDO</span>}
+                              {contrato&&porVencer30&&!vencido&&<span style={{fontSize:10,padding:"3px 10px",borderRadius:20,fontWeight:700,background:"rgba(220,38,38,0.08)",color:"#dc2626",border:"1px solid rgba(220,38,38,0.20)"}}>⚠️ {dias} días</span>}
+                              {contrato&&porVencer60&&!porVencer30&&<span style={{fontSize:10,padding:"3px 10px",borderRadius:20,fontWeight:700,background:"rgba(217,119,6,0.10)",color:"#d97706",border:"1px solid rgba(217,119,6,0.25)"}}>🟡 {dias} días</span>}
+                              {contrato&&!vencido&&!porVencer60&&<span style={{fontSize:10,padding:"3px 10px",borderRadius:20,fontWeight:700,background:"rgba(22,163,74,0.10)",color:"#16a34a",border:"1px solid rgba(22,163,74,0.25)"}}>✓ Vigente</span>}
+                              {contrato&&(
+                                <button onClick={()=>setShowPagos(showPagos===contrato.id?null:contrato.id)} style={{fontSize:11,padding:"5px 12px",borderRadius:9,fontWeight:700,background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.25)",color:"#1565c0",cursor:"pointer"}}>
                                   💳 {pagosDelContrato.length} pagos
                                 </button>
                               )}
-                              <button onClick={() => {
-                                if (editando) { setShowFormContrato(null); setForm({}); }
-                                else {
+                              <button onClick={()=>{
+                                if(editando){setShowFormContrato(null);setForm({});}
+                                else{
                                   setShowFormContrato(lote.id);
-                                  setForm(contrato ? {
-                                    propietario_nombre: contrato.propietario_nombre ?? "",
-                                    propietario_telefono: contrato.propietario_telefono ?? "",
-                                    propietario_email: contrato.propietario_email ?? "",
-                                    fecha_inicio: contrato.fecha_inicio ?? "",
-                                    fecha_fin: contrato.fecha_fin ?? "",
-                                    condicion: contrato.condicion ?? "fijo_pesos",
-                                    monto: String(contrato.monto ?? 0),
-                                    unidad: contrato.unidad ?? "",
-                                    frecuencia_pago: contrato.frecuencia_pago ?? "mensual",
-                                    descuentos_comercializacion: String(contrato.descuentos_comercializacion ?? 0),
-                                    observaciones: contrato.observaciones ?? "",
-                                  } : { condicion: "quintales", frecuencia_pago: "mensual", unidad: "soja", descuentos_comercializacion: "7" });
+                                  setForm(contrato?{propietario_nombre:contrato.propietario_nombre??"",propietario_telefono:contrato.propietario_telefono??"",propietario_email:contrato.propietario_email??"",fecha_inicio:contrato.fecha_inicio??"",fecha_fin:contrato.fecha_fin??"",condicion:contrato.condicion??"fijo_pesos",monto:String(contrato.monto??0),unidad:contrato.unidad??"",frecuencia_pago:contrato.frecuencia_pago??"mensual",descuentos_comercializacion:String(contrato.descuentos_comercializacion??0),observaciones:contrato.observaciones??""}:{condicion:"quintales",frecuencia_pago:"mensual",unidad:"soja",descuentos_comercializacion:"7"});
                                 }
-                              }} className={`text-xs px-4 py-2 rounded-xl border font-mono transition-all ${editando ? "border-[#4B5563]/30 text-[#4B5563]" : "border-[#C9A227]/30 text-[#C9A227] hover:bg-[#C9A227]/10"}`}>
-                                {editando ? "Cancelar" : contrato ? "✏️ Editar" : "+ Cargar contrato"}
-                              </button>
+                              }} className="abtn" style={{fontSize:11}}>{editando?"Cancelar":contrato?"✏️ Editar":"+ Cargar contrato"}</button>
                             </div>
                           </div>
 
                           {/* Datos contrato */}
-                          {contrato && !editando && (
-                            <div className="px-5 pb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-                              <div className="bg-[#020810]/40 rounded-lg p-3">
-                                <div className="text-xs text-[#4B5563] font-mono mb-1">PROPIETARIO</div>
-                                <div className="text-sm text-[#E5E7EB] font-mono font-bold">{contrato.propietario_nombre || "—"}</div>
-                                {contrato.propietario_telefono && (
-                                  <a href={`https://wa.me/54${contrato.propietario_telefono.replace(/\D/g,"")}?text=Hola ${contrato.propietario_nombre}!`}
-                                    target="_blank" rel="noreferrer" className="text-xs text-[#25D366] font-mono mt-1 block hover:underline">
-                                    💬 {contrato.propietario_telefono}
-                                  </a>
-                                )}
-                              </div>
-                              <div className="bg-[#020810]/40 rounded-lg p-3">
-                                <div className="text-xs text-[#4B5563] font-mono mb-1">CONDICIÓN</div>
-                                <div className="text-sm text-[#C9A227] font-mono font-bold">{formatCondicion(contrato)}</div>
-                                <div className="text-xs text-[#4B5563] font-mono mt-1">
-                                  Total anual: {contrato.condicion === "quintales" ? `${Number(contrato.monto) * lote.hectareas} qq ${contrato.unidad ?? ""}` :
-                                    contrato.condicion === "fijo_usd" ? `USD ${Number(contrato.monto) * lote.hectareas}` :
-                                    contrato.condicion === "fijo_pesos" ? `$${(Number(contrato.monto) * lote.hectareas).toLocaleString("es-AR")}` : "—"}
+                          {contrato&&!editando&&(
+                            <div style={{padding:"0 14px 14px",display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:8}}>
+                              {[
+                                {l:"PROPIETARIO",v:contrato.propietario_nombre||"—",extra:contrato.propietario_telefono?<a href={`https://wa.me/54${contrato.propietario_telefono.replace(/\D/g,"")}?text=Hola ${contrato.propietario_nombre}!`} target="_blank" rel="noreferrer" style={{fontSize:10,color:"#16a34a",display:"block",marginTop:2}}>💬 {contrato.propietario_telefono}</a>:null},
+                                {l:"CONDICIÓN",v:formatCondicion(contrato),extra:<><div style={{fontSize:10,color:"#6b8aaa",marginTop:2}}>{contrato.condicion==="quintales"?`${Number(contrato.monto)*lote.hectareas} qq ${contrato.unidad??""}`:contrato.condicion==="fijo_usd"?`USD ${Number(contrato.monto)*lote.hectareas}`:contrato.condicion==="fijo_pesos"?`$${(Number(contrato.monto)*lote.hectareas).toLocaleString("es-AR")}`:""} total/año</div>{contrato.descuentos_comercializacion>0&&<div style={{fontSize:10,color:"#dc2626",marginTop:1}}>⚠️ Desc. comerc.: {contrato.descuentos_comercializacion}%</div>}</>},
+                                {l:"VIGENCIA",v:`${contrato.fecha_inicio||"—"} al ${contrato.fecha_fin||"—"}`,extra:<div style={{fontSize:10,color:"#1565c0",marginTop:2}}>{contrato.frecuencia_pago??"mensual"}</div>},
+                                {l:"PAGOS",v:`${pagosDelContrato.length} registrados`,extra:<>{contrato.archivo_url&&<a href={contrato.archivo_url} target="_blank" rel="noreferrer" style={{fontSize:10,color:"#16a34a",display:"block",marginTop:2}}>📎 Ver PDF</a>}<button onClick={()=>eliminarContrato(contrato.id)} style={{fontSize:10,color:"#aab8c8",background:"none",border:"none",cursor:"pointer",display:"block",marginTop:2}}>✕ Eliminar</button></>},
+                              ].map(d=>(
+                                <div key={d.l} className="kpi-d">
+                                  <div style={{fontSize:9,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase",letterSpacing:0.8,marginBottom:3}}>{d.l}</div>
+                                  <div style={{fontSize:12,fontWeight:800,color:"#0d2137"}}>{d.v}</div>
+                                  {(d as any).extra}
                                 </div>
-                                {cuotaMensual && (
-                                  <div className="text-xs text-[#9CA3AF] font-mono mt-0.5">
-                                    Por {contrato.frecuencia_pago}: {contrato.condicion === "quintales" ? `${cuotaMensual.toFixed(1)} qq` : `$${cuotaMensual.toLocaleString("es-AR")}`}
-                                  </div>
-                                )}
-                                {contrato.descuentos_comercializacion > 0 && (
-                                  <div className="text-xs text-[#F87171] font-mono mt-0.5">⚠️ Desc. comerc.: {contrato.descuentos_comercializacion}%</div>
-                                )}
-                              </div>
-                              <div className="bg-[#020810]/40 rounded-lg p-3">
-                                <div className="text-xs text-[#4B5563] font-mono mb-1">VIGENCIA</div>
-                                <div className="text-xs text-[#9CA3AF] font-mono">{contrato.fecha_inicio || "—"}</div>
-                                <div className="text-xs text-[#9CA3AF] font-mono">al {contrato.fecha_fin || "—"}</div>
-                                <div className="text-xs text-[#60A5FA] font-mono mt-1">{contrato.frecuencia_pago ?? "mensual"}</div>
-                              </div>
-                              <div className="bg-[#020810]/40 rounded-lg p-3">
-                                <div className="text-xs text-[#4B5563] font-mono mb-1">PAGOS</div>
-                                <div className="text-lg font-bold text-[#60A5FA] font-mono">{pagosDelContrato.length}</div>
-                                <div className="text-xs text-[#4B5563] font-mono">registrados</div>
-                                {contrato.archivo_url && (
-                                  <a href={contrato.archivo_url} target="_blank" rel="noreferrer" className="text-xs text-[#00FF80] font-mono block mt-1 hover:underline">📎 Ver PDF</a>
-                                )}
-                                <button onClick={() => eliminarContrato(contrato.id)} className="text-xs text-[#4B5563] hover:text-red-400 font-mono transition-colors mt-1 block">✕ Eliminar</button>
-                              </div>
+                              ))}
                             </div>
                           )}
 
                           {/* Panel pagos */}
-                          {contrato && showPagos === contrato.id && !editando && (
-                            <div className="border-t border-[#60A5FA]/20 bg-[#020810]/40 p-4">
-                              <div className="flex items-center justify-between mb-3">
-                                <span className="text-[#60A5FA] text-xs font-mono font-bold">💳 HISTORIAL DE PAGOS</span>
-                                <button onClick={() => { setShowFormPago(contrato.id); setFormPago({ periodo: new Date().toISOString().slice(0,7), descuentos_pct: String(contrato.descuentos_comercializacion ?? 0) }); }}
-                                  className="text-xs text-[#60A5FA] border border-[#60A5FA]/30 px-3 py-1 rounded-lg font-mono hover:bg-[#60A5FA]/10 transition-all">
-                                  + Registrar pago
-                                </button>
+                          {contrato&&showPagos===contrato.id&&!editando&&(
+                            <div style={{borderTop:"1px solid rgba(25,118,210,0.15)",background:"rgba(255,255,255,0.50)",padding:"12px 14px"}}>
+                              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                                <span style={{fontSize:11,fontWeight:800,color:"#1565c0"}}>💳 Historial de Pagos</span>
+                                <button onClick={()=>{setShowFormPago(contrato.id);setFormPago({periodo:new Date().toISOString().slice(0,7),descuentos_pct:String(contrato.descuentos_comercializacion??0)});}} style={{fontSize:11,padding:"4px 10px",borderRadius:8,fontWeight:700,background:"rgba(25,118,210,0.08)",border:"1px solid rgba(25,118,210,0.25)",color:"#1565c0",cursor:"pointer"}}>+ Registrar pago</button>
                               </div>
 
-                              {/* Form pago */}
-                              {showFormPago === contrato.id && (
-                                <div className="bg-[#0a1628]/80 border border-[#60A5FA]/30 rounded-xl p-4 mb-3">
-                                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                    <div><label className={labelClass}>Período (YYYY-MM)</label>
-                                      <input type="month" value={formPago.periodo ?? ""} onChange={e => setFormPago({...formPago, periodo: e.target.value})} className={inputClass} />
-                                    </div>
-                                    <div><label className={labelClass}>Fecha de pago</label>
-                                      <input type="date" value={formPago.fecha_pago ?? new Date().toISOString().split("T")[0]} onChange={e => setFormPago({...formPago, fecha_pago: e.target.value})} className={inputClass} />
-                                    </div>
-                                    {contrato.condicion === "quintales" && (
-                                      <>
-                                        <div><label className={labelClass}>Quintales pagados</label>
-                                          <input type="number" value={formPago.cantidad_qq ?? ""} onChange={e => setFormPago({...formPago, cantidad_qq: e.target.value})} className={inputClass} placeholder="0" />
-                                        </div>
-                                        <div><label className={labelClass}>Precio qq ({contrato.unidad}) $/tn</label>
-                                          <input type="number" value={formPago.precio_qq ?? ""} onChange={e => setFormPago({...formPago, precio_qq: e.target.value})} className={inputClass} placeholder="0" />
-                                        </div>
-                                        <div><label className={labelClass}>% Descuentos comerc.</label>
-                                          <input type="number" value={formPago.descuentos_pct ?? ""} onChange={e => setFormPago({...formPago, descuentos_pct: e.target.value})} className={inputClass} placeholder="7" />
-                                        </div>
-                                      </>
-                                    )}
-                                    <div><label className={labelClass}>Monto total en $</label>
-                                      <input type="number" value={formPago.monto_pesos ?? ""} onChange={e => setFormPago({...formPago, monto_pesos: e.target.value})} className={inputClass} placeholder="0" />
-                                    </div>
-                                    <div><label className={labelClass}>Observaciones</label>
-                                      <input type="text" value={formPago.observaciones ?? ""} onChange={e => setFormPago({...formPago, observaciones: e.target.value})} className={inputClass} placeholder="Notas" />
-                                    </div>
+                              {showFormPago===contrato.id&&(
+                                <div className="card-g" style={{padding:12,marginBottom:10}}>
+                                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:10,marginBottom:10}}>
+                                    <div><label className={lCls}>Período</label><input type="month" value={formPago.periodo??""} onChange={e=>setFormPago({...formPago,periodo:e.target.value})} className={iCls} style={{width:"100%",padding:"7px 12px"}}/></div>
+                                    <div><label className={lCls}>Fecha pago</label><input type="date" value={formPago.fecha_pago??new Date().toISOString().split("T")[0]} onChange={e=>setFormPago({...formPago,fecha_pago:e.target.value})} className={iCls} style={{width:"100%",padding:"7px 12px"}}/></div>
+                                    {contrato.condicion==="quintales"&&(<>
+                                      <div><label className={lCls}>Quintales pagados</label><input type="number" value={formPago.cantidad_qq??""} onChange={e=>setFormPago({...formPago,cantidad_qq:e.target.value})} className={iCls} style={{width:"100%",padding:"7px 12px"}}/></div>
+                                      <div><label className={lCls}>Precio qq ({contrato.unidad}) $/tn</label><input type="number" value={formPago.precio_qq??""} onChange={e=>setFormPago({...formPago,precio_qq:e.target.value})} className={iCls} style={{width:"100%",padding:"7px 12px"}}/></div>
+                                      <div><label className={lCls}>% Desc. comerc.</label><input type="number" value={formPago.descuentos_pct??""} onChange={e=>setFormPago({...formPago,descuentos_pct:e.target.value})} className={iCls} style={{width:"100%",padding:"7px 12px"}}/></div>
+                                    </>)}
+                                    <div><label className={lCls}>Monto total $</label><input type="number" value={formPago.monto_pesos??""} onChange={e=>setFormPago({...formPago,monto_pesos:e.target.value})} className={iCls} style={{width:"100%",padding:"7px 12px"}}/></div>
+                                    <div><label className={lCls}>Observaciones</label><input type="text" value={formPago.observaciones??""} onChange={e=>setFormPago({...formPago,observaciones:e.target.value})} className={iCls} style={{width:"100%",padding:"7px 12px"}}/></div>
                                   </div>
-                                  {/* Preview cálculo */}
-                                  {contrato.condicion === "quintales" && formPago.cantidad_qq && formPago.descuentos_pct && (
-                                    <div className="mt-3 p-3 bg-[#C9A227]/5 border border-[#C9A227]/20 rounded-lg">
-                                      <p className="text-xs text-[#C9A227] font-mono">
-                                        Para pagar {formPago.cantidad_qq} qq netos con {formPago.descuentos_pct}% de descuentos → debés vender{" "}
-                                        <span className="font-bold">{(Number(formPago.cantidad_qq) / (1 - Number(formPago.descuentos_pct) / 100)).toFixed(1)} qq brutos</span>
-                                      </p>
+                                  {contrato.condicion==="quintales"&&formPago.cantidad_qq&&formPago.descuentos_pct&&(
+                                    <div style={{marginBottom:10,padding:"7px 10px",borderRadius:8,background:"rgba(217,119,6,0.08)",border:"1px solid rgba(217,119,6,0.20)",fontSize:11,color:"#d97706",fontWeight:600}}>
+                                      Para pagar {formPago.cantidad_qq} qq netos con {formPago.descuentos_pct}% de descuentos → vendés <strong>{(Number(formPago.cantidad_qq)/(1-Number(formPago.descuentos_pct)/100)).toFixed(1)} qq brutos</strong>
                                     </div>
                                   )}
-                                  <div className="flex gap-2 mt-3">
-                                    <button onClick={() => registrarPago(contrato.id)} className="bg-[#60A5FA]/10 border border-[#60A5FA]/30 text-[#60A5FA] font-bold px-4 py-2 rounded-lg text-xs font-mono">▶ Registrar</button>
-                                    <button onClick={() => { setShowFormPago(null); setFormPago({}); }} className="border border-[#1C2128] text-[#4B5563] px-4 py-2 rounded-lg text-xs font-mono">Cancelar</button>
+                                  <div style={{display:"flex",gap:8}}>
+                                    <button onClick={()=>registrarPago(contrato.id)} className="bbtn" style={{fontSize:11,padding:"7px 14px"}}>▶ Registrar</button>
+                                    <button onClick={()=>{setShowFormPago(null);setFormPago({});}} className="abtn" style={{fontSize:11,padding:"7px 12px"}}>Cancelar</button>
                                   </div>
                                 </div>
                               )}
 
-                              {pagosDelContrato.length === 0 ? (
-                                <p className="text-xs text-[#4B5563] font-mono text-center py-4">Sin pagos registrados</p>
-                              ) : (
-                                <div className="space-y-2 max-h-48 overflow-y-auto">
-                                  {pagosDelContrato.map(p => (
-                                    <div key={p.id} className="flex items-center justify-between bg-[#0a1628]/60 rounded-lg px-4 py-2.5">
-                                      <div className="flex items-center gap-3">
-                                        <span className="text-xs font-mono text-[#E5E7EB] font-bold">{p.periodo}</span>
-                                        {p.cantidad_qq > 0 && <span className="text-xs text-[#C9A227] font-mono">{p.cantidad_qq} qq</span>}
-                                        {p.precio_qq > 0 && <span className="text-xs text-[#4B5563] font-mono">@ ${p.precio_qq}/tn</span>}
+                              {pagosDelContrato.length===0
+                                ?<p style={{fontSize:11,color:"#6b8aaa",textAlign:"center",padding:"10px 0"}}>Sin pagos registrados</p>
+                                :<div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:180,overflowY:"auto"}}>
+                                  {pagosDelContrato.map(p=>(
+                                    <div key={p.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 10px",borderRadius:8,background:"rgba(255,255,255,0.65)"}}>
+                                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                                        <span style={{fontSize:11,fontWeight:800,color:"#0d2137"}}>{p.periodo}</span>
+                                        {p.cantidad_qq>0&&<span style={{fontSize:11,color:"#d97706",fontWeight:600}}>{p.cantidad_qq} qq</span>}
+                                        {p.precio_qq>0&&<span style={{fontSize:10,color:"#6b8aaa"}}>@ ${p.precio_qq}/tn</span>}
                                       </div>
-                                      <div className="flex items-center gap-3">
-                                        <span className="text-xs text-[#4ADE80] font-mono font-bold">${Number(p.monto_pesos).toLocaleString("es-AR")}</span>
-                                        <span className="text-xs text-[#4B5563] font-mono">{p.fecha_pago}</span>
-                                        <span className="text-xs bg-[#4ADE80]/10 text-[#4ADE80] px-2 py-0.5 rounded font-mono">✓ Pagado</span>
+                                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                                        <span style={{fontSize:11,fontWeight:800,color:"#16a34a"}}>${Number(p.monto_pesos).toLocaleString("es-AR")}</span>
+                                        <span style={{fontSize:10,color:"#6b8aaa"}}>{p.fecha_pago}</span>
+                                        <span style={{fontSize:9,padding:"2px 7px",borderRadius:20,fontWeight:700,background:"rgba(22,163,74,0.10)",color:"#16a34a"}}>✓ Pagado</span>
                                       </div>
                                     </div>
                                   ))}
                                 </div>
-                              )}
+                              }
                             </div>
                           )}
 
                           {/* Form contrato */}
-                          {editando && (
-                            <div className="px-5 pb-5 border-t border-[#C9A227]/15 pt-4">
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                <div><label className={labelClass}>Propietario del campo</label>
-                                  <input type="text" value={form.propietario_nombre ?? ""} onChange={e => setForm({...form, propietario_nombre: e.target.value})} className={inputClass} placeholder="Nombre y apellido" />
-                                </div>
-                                <div><label className={labelClass}>Teléfono / WhatsApp</label>
-                                  <input type="text" value={form.propietario_telefono ?? ""} onChange={e => setForm({...form, propietario_telefono: e.target.value})} className={inputClass} placeholder="11-1234-5678" />
-                                </div>
-                                <div><label className={labelClass}>Email</label>
-                                  <input type="email" value={form.propietario_email ?? ""} onChange={e => setForm({...form, propietario_email: e.target.value})} className={inputClass} />
-                                </div>
-                                <div><label className={labelClass}>Condición de alquiler</label>
-                                  <select value={form.condicion ?? "quintales"} onChange={e => setForm({...form, condicion: e.target.value})} className={inputClass}>
-                                    {CONDICIONES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                                  </select>
-                                </div>
-                                {form.condicion !== "otros" && form.condicion !== "porcentaje" && (
-                                  <div><label className={labelClass}>
-                                    {form.condicion === "fijo_pesos" ? "Monto $/ha/año" : form.condicion === "fijo_usd" ? "Monto USD/ha/año" : "Quintales/ha/año"}
-                                  </label>
-                                    <input type="number" value={form.monto ?? ""} onChange={e => setForm({...form, monto: e.target.value})} className={inputClass} placeholder="0" />
-                                  </div>
-                                )}
-                                {form.condicion === "porcentaje" && (
-                                  <div><label className={labelClass}>% de producción</label>
-                                    <input type="number" value={form.monto ?? ""} onChange={e => setForm({...form, monto: e.target.value})} className={inputClass} placeholder="0" />
-                                  </div>
-                                )}
-                                {form.condicion === "quintales" && (
-                                  <div><label className={labelClass}>Especie (soja, trigo...)</label>
-                                    <input type="text" value={form.unidad ?? "soja"} onChange={e => setForm({...form, unidad: e.target.value})} className={inputClass} />
-                                  </div>
-                                )}
-                                {form.condicion !== "otros" && (
-                                  <div><label className={labelClass}>Descuentos comerc. (%)</label>
-                                    <input type="number" value={form.descuentos_comercializacion ?? "7"} onChange={e => setForm({...form, descuentos_comercializacion: e.target.value})} className={inputClass} placeholder="Ej: 7" />
-                                  </div>
-                                )}
-                                <div><label className={labelClass}>Frecuencia de pago</label>
-                                  <select value={form.frecuencia_pago ?? "mensual"} onChange={e => setForm({...form, frecuencia_pago: e.target.value})} className={inputClass}>
-                                    {FRECUENCIAS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-                                  </select>
-                                </div>
-                                <div><label className={labelClass}>Inicio del contrato</label>
-                                  <input type="date" value={form.fecha_inicio ?? ""} onChange={e => setForm({...form, fecha_inicio: e.target.value})} className={inputClass} />
-                                </div>
-                                <div><label className={labelClass}>Fin / Vencimiento</label>
-                                  <input type="date" value={form.fecha_fin ?? ""} onChange={e => setForm({...form, fecha_fin: e.target.value})} className={inputClass} />
-                                </div>
-                                <div className="md:col-span-3"><label className={labelClass}>
-                                  {form.condicion === "otros" ? "Descripción de la condición de pago" : "Observaciones"}
-                                </label>
-                                  <input type="text" value={form.observaciones ?? ""} onChange={e => setForm({...form, observaciones: e.target.value})} className={inputClass} placeholder={form.condicion === "otros" ? "Describí la forma de pago acordada..." : "Notas del contrato"} />
-                                </div>
-                                <div className="md:col-span-3">
-                                  <label className={labelClass}>Adjuntar contrato (PDF)</label>
-                                  <div className="flex items-center gap-3">
-                                    <input ref={contratoFileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden" onChange={e => setContratoArchivo(e.target.files?.[0] ?? null)} />
-                                    <button onClick={() => contratoFileRef.current?.click()} className="px-4 py-2 border border-[#C9A227]/30 text-[#C9A227] rounded-xl text-sm font-mono hover:bg-[#C9A227]/10 transition-all">📎 Seleccionar PDF</button>
-                                    {contratoArchivo && <span className="text-xs text-[#4ADE80] font-mono">✓ {contratoArchivo.name}</span>}
+                          {editando&&(
+                            <div style={{padding:"12px 14px 14px",borderTop:"1px solid rgba(217,119,6,0.15)"}}>
+                              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:12}}>
+                                <div><label className={lCls}>Propietario del campo</label><input type="text" value={form.propietario_nombre??""} onChange={e=>setForm({...form,propietario_nombre:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Nombre y apellido"/></div>
+                                <div><label className={lCls}>Teléfono / WhatsApp</label><input type="text" value={form.propietario_telefono??""} onChange={e=>setForm({...form,propietario_telefono:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="11-1234-5678"/></div>
+                                <div><label className={lCls}>Email</label><input type="email" value={form.propietario_email??""} onChange={e=>setForm({...form,propietario_email:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                                <div><label className={lCls}>Condición de alquiler</label><select value={form.condicion??"quintales"} onChange={e=>setForm({...form,condicion:e.target.value})} className="sel">{CONDICIONES.map(c=><option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
+                                {form.condicion!=="otros"&&form.condicion!=="porcentaje"&&<div><label className={lCls}>{form.condicion==="fijo_pesos"?"Monto $/ha/año":form.condicion==="fijo_usd"?"Monto USD/ha/año":"Quintales/ha/año"}</label><input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>}
+                                {form.condicion==="porcentaje"&&<div><label className={lCls}>% de producción</label><input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>}
+                                {form.condicion==="quintales"&&<div><label className={lCls}>Especie (soja, trigo...)</label><input type="text" value={form.unidad??"soja"} onChange={e=>setForm({...form,unidad:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>}
+                                {form.condicion!=="otros"&&<div><label className={lCls}>Descuentos comerc. (%)</label><input type="number" value={form.descuentos_comercializacion??"7"} onChange={e=>setForm({...form,descuentos_comercializacion:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>}
+                                <div><label className={lCls}>Frecuencia de pago</label><select value={form.frecuencia_pago??"mensual"} onChange={e=>setForm({...form,frecuencia_pago:e.target.value})} className="sel">{FRECUENCIAS.map(f=><option key={f.value} value={f.value}>{f.label}</option>)}</select></div>
+                                <div><label className={lCls}>Inicio del contrato</label><input type="date" value={form.fecha_inicio??""} onChange={e=>setForm({...form,fecha_inicio:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                                <div><label className={lCls}>Fin / Vencimiento</label><input type="date" value={form.fecha_fin??""} onChange={e=>setForm({...form,fecha_fin:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                                <div style={{gridColumn:"span 3"}}><label className={lCls}>{form.condicion==="otros"?"Descripción de la condición de pago":"Observaciones"}</label><input type="text" value={form.observaciones??""} onChange={e=>setForm({...form,observaciones:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder={form.condicion==="otros"?"Describí la forma de pago acordada...":"Notas del contrato"}/></div>
+                                <div style={{gridColumn:"span 3"}}>
+                                  <label className={lCls}>Adjuntar contrato (PDF)</label>
+                                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                                    <input ref={contratoFileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" style={{display:"none"}} onChange={e=>setContratoArchivo(e.target.files?.[0]??null)}/>
+                                    <button onClick={()=>contratoFileRef.current?.click()} className="abtn" style={{fontSize:11}}>📎 Seleccionar PDF</button>
+                                    {contratoArchivo&&<span style={{fontSize:11,color:"#16a34a",fontWeight:600}}>✓ {contratoArchivo.name}</span>}
                                   </div>
                                 </div>
                               </div>
-                              {/* Preview total */}
-                              {form.monto && form.condicion !== "otros" && (
-                                <div className="mt-3 p-3 bg-[#C9A227]/5 border border-[#C9A227]/20 rounded-xl">
-                                  <p className="text-xs text-[#C9A227] font-mono">
-                                    Total anual: <span className="font-bold">{form.condicion === "quintales" ? `${Number(form.monto) * lote.hectareas} qq ${form.unidad ?? "soja"}` : form.condicion === "fijo_usd" ? `USD ${Number(form.monto) * lote.hectareas}` : `$${(Number(form.monto) * lote.hectareas).toLocaleString("es-AR")}`}</span>
-                                    {form.descuentos_comercializacion && Number(form.descuentos_comercializacion) > 0 && (
-                                      <span className="text-[#F87171] ml-2">· Con {form.descuentos_comercializacion}% desc. → vendés {form.condicion === "quintales" ? `${(Number(form.monto) * lote.hectareas / (1 - Number(form.descuentos_comercializacion)/100)).toFixed(1)} qq brutos` : "más"}</span>
-                                    )}
-                                  </p>
+                              {form.monto&&form.condicion!=="otros"&&(
+                                <div style={{marginBottom:10,padding:"8px 12px",borderRadius:10,background:"rgba(217,119,6,0.08)",border:"1px solid rgba(217,119,6,0.20)",fontSize:11,color:"#d97706",fontWeight:600}}>
+                                  Total anual: <strong>{form.condicion==="quintales"?`${Number(form.monto)*lote.hectareas} qq ${form.unidad??"soja"}`:form.condicion==="fijo_usd"?`USD ${Number(form.monto)*lote.hectareas}`:`$${(Number(form.monto)*lote.hectareas).toLocaleString("es-AR")}`}</strong>
+                                  {form.descuentos_comercializacion&&Number(form.descuentos_comercializacion)>0&&<span style={{color:"#dc2626",marginLeft:8}}>· Con {form.descuentos_comercializacion}% desc. → vendés {form.condicion==="quintales"?`${(Number(form.monto)*lote.hectareas/(1-Number(form.descuentos_comercializacion)/100)).toFixed(1)} qq brutos`:"más"}</span>}
                                 </div>
                               )}
-                              <div className="flex gap-3 mt-4">
-                                <button onClick={() => guardarContrato(lote.id)} disabled={uploading}
-                                  className="bg-[#C9A227]/10 border border-[#C9A227]/30 text-[#C9A227] font-bold px-6 py-2.5 rounded-xl text-sm font-mono disabled:opacity-50 hover:bg-[#C9A227]/20 transition-all">
-                                  {uploading ? "Guardando..." : "▶ Guardar Contrato"}
-                                </button>
-                                <button onClick={() => { setShowFormContrato(null); setForm({}); setContratoArchivo(null); }} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">Cancelar</button>
+                              <div style={{display:"flex",gap:8}}>
+                                <button onClick={()=>guardarContrato(lote.id)} disabled={uploading} className="bbtn">{uploading?"Guardando...":"▶ Guardar Contrato"}</button>
+                                <button onClick={()=>{setShowFormContrato(null);setForm({});setContratoArchivo(null);}} className="abtn">Cancelar</button>
                               </div>
                             </div>
                           )}
@@ -832,76 +695,66 @@ export default function DocumentosPage() {
               </div>
             )}
 
-            {/* Vista EMPLEADOS */}
-            {carpetaActiva === "empleado" && (
-              <div>
-                <div className="flex items-center gap-3 mb-6">
-                  <span className="text-2xl">👷</span>
+            {/* ══ EMPLEADOS ══ */}
+            {carpetaActiva==="empleado"&&(
+              <div className="fade-in">
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+                  <span style={{fontSize:22}}>👷</span>
                   <div>
-                    <h2 className="text-lg font-bold font-mono text-[#E5E7EB]">EMPLEADOS</h2>
-                    <p className="text-xs text-[#FB923C] font-mono">{empleados.filter(e => e.activo).length} activos · {empleados.filter(e => !e.activo).length} inactivos</p>
+                    <div style={{fontSize:15,fontWeight:800,color:"#0d2137"}}>Empleados</div>
+                    <p style={{fontSize:11,color:"#ea580c",fontWeight:600,margin:0}}>{empleados.filter(e=>e.activo).length} activos · {empleados.filter(e=>!e.activo).length} inactivos</p>
                   </div>
                 </div>
-                {showForm && (
-                  <div className="bg-[#0a1628]/80 border border-[#FB923C]/30 rounded-xl p-5 mb-6">
-                    <h3 className="text-[#FB923C] font-mono text-sm font-bold mb-4">+ NUEVO EMPLEADO</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      <div><label className={labelClass}>Nombre</label><input type="text" value={form.nombre ?? ""} onChange={e => setForm({...form, nombre: e.target.value})} className={inputClass} /></div>
-                      <div><label className={labelClass}>DNI</label><input type="text" value={form.dni ?? ""} onChange={e => setForm({...form, dni: e.target.value})} className={inputClass} /></div>
-                      <div><label className={labelClass}>CUIL</label><input type="text" value={form.cuil ?? ""} onChange={e => setForm({...form, cuil: e.target.value})} className={inputClass} /></div>
-                      <div><label className={labelClass}>Categoría</label>
-                        <select value={form.categoria ?? ""} onChange={e => setForm({...form, categoria: e.target.value})} className={inputClass}>
-                          <option value="">Seleccionar</option>
-                          <option value="peon_general">Peón general</option>
-                          <option value="tractorista">Tractorista</option>
-                          <option value="encargado">Encargado</option>
-                          <option value="ordeñador">Ordeñador</option>
-                          <option value="administrador">Administrador</option>
-                          <option value="otro">Otro</option>
-                        </select>
-                      </div>
-                      <div><label className={labelClass}>Fecha ingreso</label><input type="date" value={form.fecha_ingreso ?? ""} onChange={e => setForm({...form, fecha_ingreso: e.target.value})} className={inputClass} /></div>
-                      <div><label className={labelClass}>Sueldo básico</label><input type="number" value={form.sueldo_basico ?? ""} onChange={e => setForm({...form, sueldo_basico: e.target.value})} className={inputClass} /></div>
-                      <div><label className={labelClass}>Teléfono</label><input type="text" value={form.telefono ?? ""} onChange={e => setForm({...form, telefono: e.target.value})} className={inputClass} /></div>
-                      <div><label className={labelClass}>Email</label><input type="email" value={form.email ?? ""} onChange={e => setForm({...form, email: e.target.value})} className={inputClass} /></div>
-                      <div><label className={labelClass}>Dirección</label><input type="text" value={form.direccion ?? ""} onChange={e => setForm({...form, direccion: e.target.value})} className={inputClass} /></div>
-                      <div className="md:col-span-3"><label className={labelClass}>Observaciones</label><input type="text" value={form.observaciones ?? ""} onChange={e => setForm({...form, observaciones: e.target.value})} className={inputClass} /></div>
+                {showForm&&(
+                  <div className="card-g fade-in" style={{padding:14,marginBottom:14}}>
+                    <div style={{fontSize:13,fontWeight:800,color:"#ea580c",marginBottom:12}}>+ Nuevo Empleado</div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:12}}>
+                      <div><label className={lCls}>Nombre</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label className={lCls}>DNI</label><input type="text" value={form.dni??""} onChange={e=>setForm({...form,dni:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label className={lCls}>CUIL</label><input type="text" value={form.cuil??""} onChange={e=>setForm({...form,cuil:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label className={lCls}>Categoría</label><select value={form.categoria??""} onChange={e=>setForm({...form,categoria:e.target.value})} className="sel"><option value="">Seleccionar</option><option value="peon_general">Peón general</option><option value="tractorista">Tractorista</option><option value="encargado">Encargado</option><option value="ordeñador">Ordeñador</option><option value="administrador">Administrador</option><option value="otro">Otro</option></select></div>
+                      <div><label className={lCls}>Fecha ingreso</label><input type="date" value={form.fecha_ingreso??""} onChange={e=>setForm({...form,fecha_ingreso:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label className={lCls}>Sueldo básico</label><input type="number" value={form.sueldo_basico??""} onChange={e=>setForm({...form,sueldo_basico:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label className={lCls}>Teléfono</label><input type="text" value={form.telefono??""} onChange={e=>setForm({...form,telefono:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label className={lCls}>Email</label><input type="email" value={form.email??""} onChange={e=>setForm({...form,email:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label className={lCls}>Dirección</label><input type="text" value={form.direccion??""} onChange={e=>setForm({...form,direccion:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div style={{gridColumn:"span 3"}}><label className={lCls}>Observaciones</label><input type="text" value={form.observaciones??""} onChange={e=>setForm({...form,observaciones:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                     </div>
-                    <div className="flex gap-3 mt-4">
-                      <button onClick={guardarEmpleado} className="bg-[#FB923C]/10 border border-[#FB923C]/30 text-[#FB923C] font-bold px-6 py-2.5 rounded-xl text-sm font-mono">▶ Guardar</button>
-                      <button onClick={() => { setShowForm(false); setForm({}); }} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">Cancelar</button>
+                    <div style={{display:"flex",gap:8}}>
+                      <button onClick={guardarEmpleado} className="bbtn">▶ Guardar</button>
+                      <button onClick={()=>{setShowForm(false);setForm({});}} className="abtn">Cancelar</button>
                     </div>
                   </div>
                 )}
-                {empleados.length === 0 ? (
-                  <div className="text-center py-20 bg-[#0a1628]/60 border border-[#FB923C]/15 rounded-xl">
-                    <div className="text-5xl mb-4 opacity-20">👷</div>
-                    <p className="text-[#4B5563] font-mono">Sin empleados registrados</p>
+                {empleados.length===0?(
+                  <div className="card-g" style={{padding:"48px 20px",textAlign:"center"}}>
+                    <div style={{fontSize:40,opacity:0.12,marginBottom:10}}>👷</div>
+                    <p style={{color:"#6b8aaa",fontSize:14}}>Sin empleados registrados</p>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {empleados.map(e => (
-                      <div key={e.id} className="card-doc bg-[#0a1628]/80 border border-[#FB923C]/15 rounded-xl p-5">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-[#FB923C]/10 border border-[#FB923C]/30 flex items-center justify-center font-bold text-[#FB923C] font-mono">{e.nombre.charAt(0).toUpperCase()}</div>
+                ):(
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
+                    {empleados.map(e=>(
+                      <div key={e.id} className="doc-card" style={{padding:14}}>
+                        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:10}}>
+                          <div style={{display:"flex",alignItems:"center",gap:10}}>
+                            <div style={{width:38,height:38,borderRadius:"50%",background:"rgba(234,88,12,0.10)",border:"1px solid rgba(234,88,12,0.25)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,color:"#ea580c",fontSize:16}}>{e.nombre.charAt(0).toUpperCase()}</div>
                             <div>
-                              <div className="font-bold text-[#E5E7EB] font-mono">{e.nombre}</div>
-                              <div className="text-xs text-[#4B5563] font-mono">{e.categoria?.replace("_"," ") ?? "—"}</div>
+                              <div style={{fontSize:13,fontWeight:800,color:"#0d2137"}}>{e.nombre}</div>
+                              <div style={{fontSize:11,color:"#6b8aaa"}}>{e.categoria?.replace("_"," ")??"—"}</div>
                             </div>
                           </div>
-                          <span className={`text-xs px-2 py-0.5 rounded font-mono ${e.activo ? "bg-[#4ADE80]/10 text-[#4ADE80]" : "bg-[#F87171]/10 text-[#F87171]"}`}>{e.activo ? "Activo" : "Inactivo"}</span>
+                          <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,fontWeight:700,background:e.activo?"rgba(22,163,74,0.10)":"rgba(220,38,38,0.10)",color:e.activo?"#16a34a":"#dc2626"}}>{e.activo?"Activo":"Inactivo"}</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-                          <div><span className="text-[#4B5563]">DNI: </span><span className="text-[#9CA3AF]">{e.dni || "—"}</span></div>
-                          <div><span className="text-[#4B5563]">CUIL: </span><span className="text-[#9CA3AF]">{e.cuil || "—"}</span></div>
-                          <div><span className="text-[#4B5563]">Ingreso: </span><span className="text-[#9CA3AF]">{e.fecha_ingreso || "—"}</span></div>
-                          <div><span className="text-[#4B5563]">Sueldo: </span><span className="text-[#FB923C] font-bold">${Number(e.sueldo_basico).toLocaleString("es-AR")}</span></div>
-                          {e.telefono && <div><span className="text-[#4B5563]">Tel: </span><span className="text-[#9CA3AF]">{e.telefono}</span></div>}
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,fontSize:11,marginBottom:10}}>
+                          <div><span style={{color:"#6b8aaa"}}>DNI: </span><span style={{color:"#4a6a8a"}}>{e.dni||"—"}</span></div>
+                          <div><span style={{color:"#6b8aaa"}}>CUIL: </span><span style={{color:"#4a6a8a"}}>{e.cuil||"—"}</span></div>
+                          <div><span style={{color:"#6b8aaa"}}>Ingreso: </span><span style={{color:"#4a6a8a"}}>{e.fecha_ingreso||"—"}</span></div>
+                          <div><span style={{color:"#6b8aaa"}}>Sueldo: </span><span style={{color:"#ea580c",fontWeight:800}}>${Number(e.sueldo_basico).toLocaleString("es-AR")}</span></div>
+                          {e.telefono&&<div><span style={{color:"#6b8aaa"}}>Tel: </span><span style={{color:"#4a6a8a"}}>{e.telefono}</span></div>}
                         </div>
-                        <div className="flex gap-3 mt-3 pt-3 border-t border-[#FB923C]/10">
-                          <button onClick={() => toggleEmpleado(e.id, e.activo)} className="text-xs text-[#4B5563] hover:text-[#FB923C] font-mono transition-colors">{e.activo ? "Dar de baja" : "Reactivar"}</button>
-                          <button onClick={() => eliminarEmpleado(e.id)} className="text-xs text-[#4B5563] hover:text-red-400 font-mono transition-colors">Eliminar</button>
+                        <div style={{display:"flex",gap:10,paddingTop:8,borderTop:"1px solid rgba(0,60,140,0.08)"}}>
+                          <button onClick={()=>toggleEmpleado(e.id,e.activo)} style={{fontSize:11,color:"#6b8aaa",background:"none",border:"none",cursor:"pointer",fontWeight:600}}>{e.activo?"Dar de baja":"Reactivar"}</button>
+                          <button onClick={()=>eliminarEmpleado(e.id)} style={{fontSize:11,color:"#6b8aaa",background:"none",border:"none",cursor:"pointer",fontWeight:600}}>Eliminar</button>
                         </div>
                       </div>
                     ))}
@@ -910,81 +763,82 @@ export default function DocumentosPage() {
               </div>
             )}
 
-            {/* Vista DOCUMENTOS genéricos */}
-            {carpetaActiva && carpetaActiva !== "empleado" && carpetaActiva !== "contrato" && (
-              <div>
-                <div className="flex items-center gap-3 mb-6">
-                  <span className="text-2xl">{CARPETAS[carpetaActiva].icon}</span>
+            {/* ══ DOCUMENTOS GENÉRICOS ══ */}
+            {carpetaActiva&&carpetaActiva!=="empleado"&&carpetaActiva!=="contrato"&&(
+              <div className="fade-in">
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+                  <span style={{fontSize:22}}>{CARPETAS[carpetaActiva].icon}</span>
                   <div>
-                    <h2 className="text-lg font-bold font-mono text-[#E5E7EB]">{CARPETAS[carpetaActiva].label.toUpperCase()}</h2>
-                    <p className="text-xs font-mono" style={{ color: CARPETAS[carpetaActiva].color }}>{CARPETAS[carpetaActiva].desc}</p>
+                    <div style={{fontSize:15,fontWeight:800,color:"#0d2137"}}>{CARPETAS[carpetaActiva].label}</div>
+                    <p style={{fontSize:11,fontWeight:600,margin:0,color:CARPETAS[carpetaActiva].color}}>{CARPETAS[carpetaActiva].desc}</p>
                   </div>
                 </div>
-                {showForm && (
-                  <div className="bg-[#0a1628]/80 border border-[#00FF80]/30 rounded-xl p-5 mb-6">
-                    <h3 className="text-[#00FF80] font-mono text-sm font-bold mb-4">+ NUEVO DOCUMENTO</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      <div className="md:col-span-2"><label className={labelClass}>Nombre</label><input type="text" value={form.nombre ?? ""} onChange={e => setForm({...form, nombre: e.target.value})} className={inputClass} /></div>
-                      <div><label className={labelClass}>Subcategoría</label><input type="text" value={form.subcategoria ?? ""} onChange={e => setForm({...form, subcategoria: e.target.value})} className={inputClass} /></div>
-                      <div><label className={labelClass}>N° Documento</label><input type="text" value={form.numero_documento ?? ""} onChange={e => setForm({...form, numero_documento: e.target.value})} className={inputClass} /></div>
-                      <div><label className={labelClass}>Proveedor / Cliente</label><input type="text" value={form.proveedor_cliente ?? ""} onChange={e => setForm({...form, proveedor_cliente: e.target.value})} className={inputClass} /></div>
-                      <div><label className={labelClass}>Monto</label><input type="number" value={form.monto ?? ""} onChange={e => setForm({...form, monto: e.target.value})} className={inputClass} /></div>
-                      <div><label className={labelClass}>Fecha</label><input type="date" value={form.fecha ?? new Date().toISOString().split("T")[0]} onChange={e => setForm({...form, fecha: e.target.value})} className={inputClass} /></div>
-                      <div><label className={labelClass}>Vencimiento</label><input type="date" value={form.fecha_vencimiento ?? ""} onChange={e => setForm({...form, fecha_vencimiento: e.target.value})} className={inputClass} /></div>
-                      <div><label className={labelClass}>Descripción</label><input type="text" value={form.descripcion ?? ""} onChange={e => setForm({...form, descripcion: e.target.value})} className={inputClass} /></div>
-                      <div className="md:col-span-3">
-                        <label className={labelClass}>Archivo adjunto</label>
-                        <div className="flex items-center gap-3">
-                          <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx" onChange={e => setArchivoSel(e.target.files?.[0] ?? null)} className="hidden" />
-                          <button onClick={() => fileRef.current?.click()} className="px-4 py-2 border border-[#00FF80]/30 text-[#00FF80] rounded-xl text-sm font-mono hover:bg-[#00FF80]/10 transition-all">📎 Seleccionar</button>
-                          {archivoSel ? <span className="text-xs text-[#4ADE80] font-mono">✓ {archivoSel.name}</span> : <span className="text-xs text-[#4B5563] font-mono">Sin archivo</span>}
+                {showForm&&(
+                  <div className="card-g fade-in" style={{padding:14,marginBottom:14}}>
+                    <div style={{fontSize:13,fontWeight:800,color:"#0d2137",marginBottom:12}}>+ Nuevo Documento</div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:12}}>
+                      <div style={{gridColumn:"span 2"}}><label className={lCls}>Nombre</label><input type="text" value={form.nombre??""} onChange={e=>setForm({...form,nombre:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label className={lCls}>Subcategoría</label><input type="text" value={form.subcategoria??""} onChange={e=>setForm({...form,subcategoria:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label className={lCls}>N° Documento</label><input type="text" value={form.numero_documento??""} onChange={e=>setForm({...form,numero_documento:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label className={lCls}>Proveedor / Cliente</label><input type="text" value={form.proveedor_cliente??""} onChange={e=>setForm({...form,proveedor_cliente:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label className={lCls}>Monto</label><input type="number" value={form.monto??""} onChange={e=>setForm({...form,monto:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label className={lCls}>Vencimiento</label><input type="date" value={form.fecha_vencimiento??""} onChange={e=>setForm({...form,fecha_vencimiento:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div><label className={lCls}>Descripción</label><input type="text" value={form.descripcion??""} onChange={e=>setForm({...form,descripcion:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                      <div style={{gridColumn:"span 3"}}>
+                        <label className={lCls}>Archivo adjunto</label>
+                        <div style={{display:"flex",alignItems:"center",gap:10}}>
+                          <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.doc,.docx" onChange={e=>setArchivoSel(e.target.files?.[0]??null)} style={{display:"none"}}/>
+                          <button onClick={()=>fileRef.current?.click()} className="abtn" style={{fontSize:11}}>📎 Seleccionar</button>
+                          {archivoSel?<span style={{fontSize:11,color:"#16a34a",fontWeight:600}}>✓ {archivoSel.name}</span>:<span style={{fontSize:11,color:"#6b8aaa"}}>Sin archivo</span>}
                         </div>
                       </div>
                     </div>
-                    <div className="flex gap-3 mt-4">
-                      <button onClick={guardarDocumento} disabled={uploading} className="bg-[#00FF80]/10 border border-[#00FF80]/30 text-[#00FF80] font-bold px-6 py-2.5 rounded-xl text-sm font-mono disabled:opacity-50">{uploading ? "Subiendo..." : "▶ Guardar"}</button>
-                      <button onClick={() => { setShowForm(false); setForm({}); setArchivoSel(null); }} className="border border-[#1C2128] text-[#4B5563] px-6 py-2.5 rounded-xl text-sm font-mono">Cancelar</button>
+                    <div style={{display:"flex",gap:8}}>
+                      <button onClick={guardarDocumento} disabled={uploading} className="bbtn">{uploading?"Subiendo...":"▶ Guardar"}</button>
+                      <button onClick={()=>{setShowForm(false);setForm({});setArchivoSel(null);}} className="abtn">Cancelar</button>
                     </div>
                   </div>
                 )}
-                {docsFiltrados.length === 0 ? (
-                  <div className="text-center py-20 bg-[#0a1628]/60 border border-[#00FF80]/15 rounded-xl">
-                    <div className="text-5xl mb-4 opacity-20">{CARPETAS[carpetaActiva].icon}</div>
-                    <p className="text-[#4B5563] font-mono text-sm">Sin documentos en esta carpeta</p>
-                    <button onClick={() => setShowForm(true)} className="mt-4 text-xs text-[#00FF80] font-mono border border-[#00FF80]/20 px-4 py-2 rounded-lg hover:bg-[#00FF80]/10 transition-all">+ Agregar</button>
+
+                {docsFiltrados.length===0?(
+                  <div className="card-g" style={{padding:"48px 20px",textAlign:"center"}}>
+                    <div style={{fontSize:40,opacity:0.12,marginBottom:10}}>{CARPETAS[carpetaActiva].icon}</div>
+                    <p style={{color:"#6b8aaa",fontSize:14}}>Sin documentos en esta carpeta</p>
+                    <button onClick={()=>setShowForm(true)} style={{marginTop:12,fontSize:11,padding:"6px 14px",borderRadius:9,fontWeight:700,background:`${CARPETAS[carpetaActiva].color}10`,border:`1px solid ${CARPETAS[carpetaActiva].color}30`,color:CARPETAS[carpetaActiva].color,cursor:"pointer"}}>+ Agregar</button>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {docsFiltrados.map(d => {
-                      const vencido = d.fecha_vencimiento && new Date(d.fecha_vencimiento) < new Date();
-                      const porVencer = d.fecha_vencimiento && !vencido && (new Date(d.fecha_vencimiento).getTime() - Date.now()) / (1000 * 60 * 60 * 24) <= 30;
-                      const config = CARPETAS[d.categoria];
-                      return (
-                        <div key={d.id} className="card-doc bg-[#0a1628]/80 border rounded-xl p-5" style={{ borderColor: vencido ? "rgba(248,113,113,0.3)" : porVencer ? "rgba(201,162,39,0.3)" : "rgba(0,255,128,0.15)" }}>
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: config.color + "15", border: `1px solid ${config.color}30` }}>
-                                {d.archivo_tipo?.includes("pdf") ? "📄" : d.archivo_tipo?.includes("image") ? "🖼️" : config.icon}
+                ):(
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
+                    {docsFiltrados.map(d=>{
+                      const vencido=d.fecha_vencimiento&&new Date(d.fecha_vencimiento)<new Date();
+                      const porVencer=d.fecha_vencimiento&&!vencido&&(new Date(d.fecha_vencimiento).getTime()-Date.now())/(1000*60*60*24)<=30;
+                      const config=CARPETAS[d.categoria];
+                      return(
+                        <div key={d.id} className="doc-card" style={{padding:14,border:`1.5px solid ${vencido?"rgba(220,38,38,0.30)":porVencer?"rgba(217,119,6,0.30)":"rgba(255,255,255,0.88)"}`}}>
+                          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:10}}>
+                            <div style={{display:"flex",alignItems:"center",gap:10}}>
+                              <div style={{width:38,height:38,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,background:`${config.color}15`,border:`1px solid ${config.color}30`}}>
+                                {d.archivo_tipo?.includes("pdf")?"📄":d.archivo_tipo?.includes("image")?"🖼️":config.icon}
                               </div>
                               <div>
-                                <div className="font-bold text-[#E5E7EB] font-mono text-sm">{d.nombre}</div>
-                                {d.subcategoria && <div className="text-xs text-[#4B5563] font-mono">{d.subcategoria}</div>}
+                                <div style={{fontSize:12,fontWeight:800,color:"#0d2137"}}>{d.nombre}</div>
+                                {d.subcategoria&&<div style={{fontSize:10,color:"#6b8aaa"}}>{d.subcategoria}</div>}
                               </div>
                             </div>
-                            {vencido && <span className="text-xs bg-[#F87171]/10 text-[#F87171] border border-[#F87171]/30 px-2 py-0.5 rounded font-mono">VENCIDO</span>}
-                            {porVencer && <span className="text-xs bg-[#C9A227]/10 text-[#C9A227] border border-[#C9A227]/30 px-2 py-0.5 rounded font-mono">⚠️ Por vencer</span>}
+                            {vencido&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:20,fontWeight:700,background:"rgba(220,38,38,0.10)",color:"#dc2626"}}>VENCIDO</span>}
+                            {porVencer&&<span style={{fontSize:9,padding:"2px 7px",borderRadius:20,fontWeight:700,background:"rgba(217,119,6,0.10)",color:"#d97706"}}>⚠️ Por vencer</span>}
                           </div>
-                          <div className="grid grid-cols-2 gap-2 text-xs font-mono mb-3">
-                            {d.proveedor_cliente && <div><span className="text-[#4B5563]">De/Para: </span><span className="text-[#9CA3AF]">{d.proveedor_cliente}</span></div>}
-                            {d.numero_documento && <div><span className="text-[#4B5563]">N°: </span><span className="text-[#9CA3AF]">{d.numero_documento}</span></div>}
-                            <div><span className="text-[#4B5563]">Fecha: </span><span className="text-[#9CA3AF]">{d.fecha}</span></div>
-                            {d.fecha_vencimiento && <div><span className="text-[#4B5563]">Vence: </span><span style={{ color: vencido ? "#F87171" : porVencer ? "#C9A227" : "#9CA3AF" }}>{d.fecha_vencimiento}</span></div>}
-                            {d.monto > 0 && <div><span className="text-[#4B5563]">Monto: </span><span className="text-[#C9A227] font-bold">${Number(d.monto).toLocaleString("es-AR")}</span></div>}
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,fontSize:11,marginBottom:8}}>
+                            {d.proveedor_cliente&&<div><span style={{color:"#6b8aaa"}}>De/Para: </span><span style={{color:"#4a6a8a"}}>{d.proveedor_cliente}</span></div>}
+                            {d.numero_documento&&<div><span style={{color:"#6b8aaa"}}>N°: </span><span style={{color:"#4a6a8a"}}>{d.numero_documento}</span></div>}
+                            <div><span style={{color:"#6b8aaa"}}>Fecha: </span><span style={{color:"#4a6a8a"}}>{d.fecha}</span></div>
+                            {d.fecha_vencimiento&&<div><span style={{color:"#6b8aaa"}}>Vence: </span><span style={{color:vencido?"#dc2626":porVencer?"#d97706":"#4a6a8a"}}>{d.fecha_vencimiento}</span></div>}
+                            {d.monto>0&&<div><span style={{color:"#6b8aaa"}}>Monto: </span><span style={{color:"#d97706",fontWeight:800}}>${Number(d.monto).toLocaleString("es-AR")}</span></div>}
                           </div>
-                          {d.descripcion && <div className="text-xs text-[#4B5563] font-mono mb-3">💬 {d.descripcion}</div>}
-                          <div className="flex gap-3 pt-3 border-t border-[#00FF80]/10">
-                            {d.archivo_url && <a href={d.archivo_url} target="_blank" rel="noreferrer" className="text-xs text-[#00FF80] font-mono">📎 Ver</a>}
-                            <button onClick={() => eliminarDoc(d.id)} className="text-xs text-[#4B5563] hover:text-red-400 font-mono ml-auto">✕</button>
+                          {d.descripcion&&<div style={{fontSize:10,color:"#6b8aaa",marginBottom:8}}>💬 {d.descripcion}</div>}
+                          <div style={{display:"flex",gap:10,paddingTop:8,borderTop:"1px solid rgba(0,60,140,0.08)"}}>
+                            {d.archivo_url&&<a href={d.archivo_url} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#16a34a",fontWeight:700}}>📎 Ver</a>}
+                            <button onClick={()=>eliminarDoc(d.id)} style={{fontSize:11,color:"#6b8aaa",background:"none",border:"none",cursor:"pointer",marginLeft:"auto"}}>✕</button>
                           </div>
                         </div>
                       );
@@ -993,12 +847,13 @@ export default function DocumentosPage() {
                 )}
               </div>
             )}
+
           </div>
         </div>
       </div>
 
-      <p className="relative z-10 text-center text-[#0a2a1a] text-xs pb-4 tracking-[0.3em] font-mono mt-6">© AGROGESTION PRO · GESTIÓN DOCUMENTAL</p>
-      {empresaId && <EscanerIA empresaId={empresaId} />}
+      <p style={{textAlign:"center",fontSize:11,color:"rgba(30,58,90,0.45)",fontWeight:600,letterSpacing:"0.20em",paddingBottom:16,paddingTop:4}}>© AgroGestión PRO · Gestión Documental</p>
+      {empresaId&&<EscanerIA empresaId={empresaId}/>}
     </div>
   );
 }
