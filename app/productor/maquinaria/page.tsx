@@ -287,7 +287,7 @@ export default function MaquinariaPage() {
                   🎤 {listening?"Escuchando...":"Voz"}
                 </button>
                 <button onClick={()=>{setShowFormRep(true);setForm({});}} className="bbtn" style={{fontSize:11}}>+ Reparación / Service</button>
-                <button onClick={()=>{setShowForm(true);setForm(Object.fromEntries(Object.entries(seleccionada).map(([k,v])=>[k,String(v??")])));}} className="abtn" style={{fontSize:11}}>✏️ Editar</button>
+                <button onClick={()=>{setShowForm(true);setForm(Object.fromEntries(Object.entries(seleccionada).map(([k,v])=>[k,String(v??"")])));}} className="abtn" style={{fontSize:11}}>✏️ Editar</button>
                 <button onClick={()=>eliminar("maquinaria",seleccionada.id)} style={{padding:"7px 12px",borderRadius:10,border:"1px solid rgba(220,38,38,0.25)",background:"rgba(220,38,38,0.08)",color:"#dc2626",fontSize:12,fontWeight:700,cursor:"pointer"}}>🗑️ Eliminar</button>
               </div>
             </div>
