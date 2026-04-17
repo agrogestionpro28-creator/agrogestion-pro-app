@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Image from "next/image";
 
 export default function Login() {
@@ -47,8 +47,20 @@ export default function Login() {
           localStorage.removeItem("socio_letra");
           localStorage.removeItem("socio_permisos");
         }
-        const rol = u.rol ?? "productor";
-        window.location.href = rol === "productor" ? "/productor/dashboard" : "/" + rol;
+
+        // ── Redirección por rol ──
+        const destinos: Record<string, string> = {
+          productor:   "/productor/dashboard",
+          admin:       "/admin",
+          ingeniero:   "/ingeniero",
+          veterinario: "/veterinario",
+          empleado:    "/empleados",
+          aplicador:   "/aplicador",
+          sembrador:   "/sembrador",
+          cosechadora: "/cosechadora",
+          servicios:   "/servicios",
+        };
+        window.location.href = destinos[u.rol] ?? "/productor/dashboard";
       }
     } catch { setMsg("Error de conexión"); setLoading(false); }
   };
@@ -68,7 +80,6 @@ export default function Login() {
       padding:"24px 16px",
       position:"relative",
     }}>
-
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
         @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
@@ -84,11 +95,7 @@ export default function Login() {
           border:1.5px solid rgba(255,255,255,0.90);
           border-top:2px solid rgba(255,255,255,1);
           border-radius:28px;
-          box-shadow:
-            0 20px 60px rgba(20,80,160,0.20),
-            0 4px 16px rgba(0,0,0,0.08),
-            inset 0 2px 0 rgba(255,255,255,0.95),
-            inset 0 -1px 0 rgba(255,255,255,0.30);
+          box-shadow:0 20px 60px rgba(20,80,160,0.20),0 4px 16px rgba(0,0,0,0.08),inset 0 2px 0 rgba(255,255,255,0.95),inset 0 -1px 0 rgba(255,255,255,0.30);
           position:relative;overflow:hidden;
           animation:fadeUp 0.5s ease;
         }
@@ -120,6 +127,7 @@ export default function Login() {
           box-shadow:inset 0 1px 3px rgba(0,60,140,0.05),inset 0 1px 0 rgba(255,255,255,0.80);
           transition:all 0.2s ease;
           outline:none;
+          box-sizing:border-box;
         }
         .inp-login::placeholder{color:rgba(80,120,160,0.55);font-size:13px;}
         .inp-login:focus{
@@ -161,13 +169,12 @@ export default function Login() {
         .btn-login:active{transform:scale(0.98);}
         .btn-login:disabled{opacity:0.65;cursor:not-allowed;}
 
-.hint-box{
+        .hint-box{
           background:rgba(255,255,255,0.55);
           border:1px solid rgba(180,210,240,0.50);
           border-radius:12px;
           padding:10px 14px;
         }
-
         .divider{
           display:flex;align-items:center;gap:10px;
           color:#6b8aaa;font-size:11px;font-weight:600;
@@ -192,10 +199,9 @@ export default function Login() {
         }}/>
       ))}
 
-      {/* Contenido */}
       <div style={{width:"100%",maxWidth:400,display:"flex",flexDirection:"column",alignItems:"center",gap:0}}>
 
-        {/* Logo flotante */}
+        {/* Logo */}
         <div style={{marginBottom:24,animation:"float 3.5s ease-in-out infinite",filter:"drop-shadow(0 8px 24px rgba(25,118,210,0.30))"}}>
           <Image src="/logo.png" alt="AgroGestión PRO" width={200} height={80} priority style={{objectFit:"contain"}}/>
         </div>
@@ -211,59 +217,37 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Card login */}
+        {/* Card */}
         <div className="login-card" style={{width:"100%",padding:"32px 28px"}}>
-
-          {/* Header card */}
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:24}}>
             <div style={{
               width:42,height:42,borderRadius:"50%",
               backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",backgroundPosition:"center",
               border:"2px solid rgba(180,220,255,0.80)",
               display:"flex",alignItems:"center",justifyContent:"center",
-              fontSize:20,
-              boxShadow:"0 3px 12px rgba(25,118,210,0.40)",
-              flexShrink:0
-            }}>
-              🌾
-            </div>
+              fontSize:20,boxShadow:"0 3px 12px rgba(25,118,210,0.40)",flexShrink:0
+            }}>🌾</div>
             <div>
               <div style={{fontSize:18,fontWeight:800,color:"#0a1a3a",lineHeight:1.1}}>Bienvenido</div>
               <div style={{fontSize:12,color:"#4a6a8a",fontWeight:600,marginTop:2}}>Ingresá a tu cuenta AgroGestión PRO</div>
             </div>
           </div>
 
-          {/* Campos */}
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
-
             {/* Email */}
             <div style={{position:"relative"}}>
-              <div style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:17,zIndex:2,pointerEvents:"none"}}>
-                👤
-              </div>
-              <input
-                type="email"
-                placeholder="Email de acceso"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                onKeyDown={e => e.key==="Enter" && login()}
-                className="inp-login"
-              />
+              <div style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:17,zIndex:2,pointerEvents:"none"}}>👤</div>
+              <input type="email" placeholder="Email de acceso" value={email}
+                onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()}
+                className="inp-login"/>
             </div>
 
             {/* Password */}
             <div style={{position:"relative"}}>
-              <div style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:17,zIndex:2,pointerEvents:"none"}}>
-                🔑
-              </div>
-              <input
-                type="password"
-                placeholder="Clave de acceso"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                onKeyDown={e => e.key==="Enter" && login()}
-                className="inp-login"
-              />
+              <div style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:17,zIndex:2,pointerEvents:"none"}}>🔑</div>
+              <input type="password" placeholder="Clave de acceso" value={password}
+                onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()}
+                className="inp-login"/>
             </div>
 
             {/* Hint socios */}
@@ -274,52 +258,43 @@ export default function Login() {
             </div>
 
             {/* Mensaje */}
-            {msg && (
+            {msg&&(
               <div style={{
                 padding:"10px 14px",borderRadius:12,fontSize:13,fontWeight:700,textAlign:"center",
-                background:msg.includes("Conectando")||loading?"rgba(25,118,210,0.10)":"rgba(220,38,38,0.08)",
-                border:`1px solid ${msg.includes("Conectando")||loading?"rgba(25,118,210,0.25)":"rgba(220,38,38,0.20)"}`,
-                color:msg.includes("Conectando")||loading?"#1565c0":"#dc2626",
+                background:loading?"rgba(25,118,210,0.10)":"rgba(220,38,38,0.08)",
+                border:`1px solid ${loading?"rgba(25,118,210,0.25)":"rgba(220,38,38,0.20)"}`,
+                color:loading?"#1565c0":"#dc2626",
                 display:"flex",alignItems:"center",justifyContent:"center",gap:8
               }}>
                 {loading
-                  ? <><div style={{width:14,height:14,border:"2px solid #1565c0",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/> Conectando...</>
-                  : <>{msg.includes("✅")?"✅":"⚠️"} {msg}</>
+                  ?<><div style={{width:14,height:14,border:"2px solid #1565c0",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/>Conectando...</>
+                  :<>⚠️ {msg}</>
                 }
               </div>
             )}
 
             {/* Botón */}
-            <button
-              onClick={login}
-              disabled={loading}
-              className="btn-login"
-              style={{marginTop:4}}
-            >
+            <button onClick={login} disabled={loading} className="btn-login" style={{marginTop:4}}>
               {loading
-                ? <span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-                    <span style={{width:16,height:16,border:"2px solid rgba(255,255,255,0.8)",borderTopColor:"transparent",borderRadius:"50%",display:"inline-block",animation:"spin 0.7s linear infinite"}}/>
-                    Ingresando...
-                  </span>
-                : "Ingresar →"
+                ?<span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                  <span style={{width:16,height:16,border:"2px solid rgba(255,255,255,0.8)",borderTopColor:"transparent",borderRadius:"50%",display:"inline-block",animation:"spin 0.7s linear infinite"}}/>
+                  Ingresando...
+                </span>
+                :"Ingresar →"
               }
             </button>
 
             <div className="divider">o</div>
 
-            {/* Olvidé clave */}
-            <button
-              style={{background:"none",border:"none",cursor:"pointer",color:"#4a6a8a",fontSize:13,fontWeight:600,
-                textAlign:"center",padding:"4px",transition:"color 0.15s"}}
+            <button style={{background:"none",border:"none",cursor:"pointer",color:"#4a6a8a",
+              fontSize:13,fontWeight:600,textAlign:"center",padding:"4px",transition:"color 0.15s"}}
               onMouseOver={e=>(e.currentTarget.style.color="#1565c0")}
-              onMouseOut={e=>(e.currentTarget.style.color="#4a6a8a")}
-            >
+              onMouseOut={e=>(e.currentTarget.style.color="#4a6a8a")}>
               ¿Olvidaste tu clave?
             </button>
           </div>
         </div>
 
-        {/* Footer */}
         <div style={{marginTop:20,textAlign:"center"}}>
           <div style={{fontSize:11,color:"rgba(30,58,90,0.65)",fontWeight:600,letterSpacing:"0.15em"}}>
             © AgroGestión PRO 2.8
