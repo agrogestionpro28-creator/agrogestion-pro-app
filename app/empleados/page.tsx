@@ -44,11 +44,23 @@ export default function EmpleadoPanel() {
 
   const init = async () => {
     const sb = await getSB();
+    const { data: { user }, error: authError } = await sb.auth.getUser();
+    
+    if (authError) { setError("Auth error: " + authError.message); setLoading(false); return; }
+    if (!user) { setError("Sin sesión activa — el login no transfirió la sesión"); setLoading(false); return; }
 
-    // 1. Verificar sesión
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) { window.location.href = "/empleados/login"; return; }
+    const { data: u, error: uError } = await sb.from("usuarios")
+      .select("id,rol")
+      .eq("auth_id", user.id)
+      .single();
 
+    if (uError) { setError("Error usuarios: " + uError.message + " | auth_id: " + user.id); setLoading(false); return; }
+    if (!u) { setError("No existe usuario con auth_id: " + user.id); setLoading(false); return; }
+    if (u.rol !== "empleado") { setError("Rol incorrecto: " + u.rol); setLoading(false); return; }
+
+    setError("✅ OK — rol: " + u.rol + " | id: " + u.id);
+    setLoading(false);
+};
     // 2. Verificar rol en tabla usuarios (campo "rol", no "tipo")
     const { data: u } = await sb.from("usuarios")
       .select("id,rol,empresa_id")
