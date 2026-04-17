@@ -21,10 +21,21 @@ export default function EmpleadosLoginPage() {
       const sb = await getSB();
       const { data, error: authError } = await sb.auth.signInWithPassword({ email, password });
       if (authError || !data.user) { setError("Usuario o contraseña incorrectos"); setLoading(false); return; }
-      const { data: u } = await sb.from("usuarios").select("tipo").eq("auth_id", data.user.id).single();
+
+      // ── campo "rol", no "tipo" ──
+      const { data: u } = await sb.from("usuarios")
+        .select("rol")
+        .eq("auth_id", data.user.id)
+        .single();
+
       if (!u) { setError("Usuario no registrado en el sistema"); setLoading(false); return; }
-      if (u.tipo !== "empleado") { setError("Acceso denegado. Usá el login general de AgroGestión."); setLoading(false); return; }
-      window.location.href = "/empleado";
+      if (u.rol !== "empleado") {
+        setError("Acceso denegado. Usá el login general de AgroGestión.");
+        setLoading(false); return;
+      }
+
+      // ── ruta correcta /empleados ──
+      window.location.href = "/empleados";
     } catch { setError("Error de conexión. Intentá de nuevo."); }
     setLoading(false);
   };
@@ -49,7 +60,8 @@ export default function EmpleadosLoginPage() {
       <div style={{width:"100%",maxWidth:400}}>
         <div style={{textAlign:"center",marginBottom:28}}>
           <div className="logo-float" style={{display:"inline-block"}}>
-            <Image src="/logo.png" alt="AgroGestión PRO" width={160} height={56} style={{objectFit:"contain",filter:"drop-shadow(0 4px 16px rgba(25,118,210,0.25))"}}/>
+            <Image src="/logo.png" alt="AgroGestión PRO" width={160} height={56}
+              style={{objectFit:"contain",filter:"drop-shadow(0 4px 16px rgba(25,118,210,0.25))"}}/>
           </div>
         </div>
 
@@ -57,35 +69,72 @@ export default function EmpleadosLoginPage() {
           <div style={{textAlign:"center",marginBottom:28}}>
             <div style={{fontSize:40,marginBottom:10}}>👷</div>
             <h1 style={{fontSize:22,fontWeight:800,color:"#0d2137",margin:0}}>Portal Empleados</h1>
-            <p style={{fontSize:13,color:"#6b8aaa",margin:"6px 0 0",fontWeight:500}}>Ingresá con tus credenciales de acceso</p>
+            <p style={{fontSize:13,color:"#6b8aaa",margin:"6px 0 0",fontWeight:500}}>
+              Ingresá con tus credenciales de acceso
+            </p>
           </div>
 
-          {error&&<div style={{marginBottom:16,padding:"10px 14px",borderRadius:10,background:"rgba(220,38,38,0.08)",border:"1px solid rgba(220,38,38,0.22)",color:"#dc2626",fontSize:13,fontWeight:600}}>⚠️ {error}</div>}
+          {error&&(
+            <div style={{marginBottom:16,padding:"10px 14px",borderRadius:10,
+              background:"rgba(220,38,38,0.08)",border:"1px solid rgba(220,38,38,0.22)",
+              color:"#dc2626",fontSize:13,fontWeight:600}}>
+              ⚠️ {error}
+            </div>
+          )}
 
           <div style={{display:"flex",flexDirection:"column",gap:14,marginBottom:20}}>
             <div>
-              <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:6}}>Email / Usuario</label>
-              <input type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} placeholder="tu@email.com" className="inp-l"/>
+              <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b8aaa",
+                textTransform:"uppercase",letterSpacing:0.8,marginBottom:6}}>Email</label>
+              <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&login()}
+                placeholder="tu@email.com" className="inp-l"/>
             </div>
             <div>
-              <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,marginBottom:6}}>Contraseña</label>
+              <label style={{display:"block",fontSize:11,fontWeight:700,color:"#6b8aaa",
+                textTransform:"uppercase",letterSpacing:0.8,marginBottom:6}}>Contraseña</label>
               <div style={{position:"relative"}}>
-                <input type={showPass?"text":"password"} value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} placeholder="••••••••" className="inp-l" style={{paddingRight:44}}/>
-                <button onClick={()=>setShowPass(!showPass)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#6b8aaa"}}>{showPass?"🙈":"👁️"}</button>
+                <input type={showPass?"text":"password"} value={password}
+                  onChange={e=>setPassword(e.target.value)}
+                  onKeyDown={e=>e.key==="Enter"&&login()}
+                  placeholder="••••••••" className="inp-l" style={{paddingRight:44}}/>
+                <button onClick={()=>setShowPass(!showPass)}
+                  style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",
+                    background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#6b8aaa"}}>
+                  {showPass?"🙈":"👁️"}
+                </button>
               </div>
             </div>
           </div>
 
           <button onClick={login} disabled={loading} className="bbtn-l">
-            {loading?<span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10}}><span style={{width:18,height:18,border:"2px solid rgba(255,255,255,0.4)",borderTopColor:"white",borderRadius:"50%",display:"inline-block",animation:"spin 0.8s linear infinite"}}/>Verificando...</span>:"Ingresar al Panel →"}
+            {loading?(
+              <span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+                <span style={{width:18,height:18,border:"2px solid rgba(255,255,255,0.4)",
+                  borderTopColor:"white",borderRadius:"50%",display:"inline-block",
+                  animation:"spin 0.8s linear infinite"}}/>
+                Verificando...
+              </span>
+            ):"Ingresar al Panel →"}
           </button>
 
-          <div style={{textAlign:"center",marginTop:20,paddingTop:16,borderTop:"1px solid rgba(0,60,140,0.08)"}}>
-            <p style={{fontSize:12,color:"#6b8aaa",margin:0}}>¿No tenés acceso? Contactá a tu empleador</p>
-            <button onClick={()=>window.location.href="/login"} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#1565c0",fontWeight:600,marginTop:4}}>→ Login general de AgroGestión</button>
+          <div style={{textAlign:"center",marginTop:20,paddingTop:16,
+            borderTop:"1px solid rgba(0,60,140,0.08)"}}>
+            <p style={{fontSize:12,color:"#6b8aaa",margin:0}}>
+              ¿No tenés acceso? Contactá a tu empleador
+            </p>
+            <button onClick={()=>window.location.href="/login"}
+              style={{background:"none",border:"none",cursor:"pointer",
+                fontSize:12,color:"#1565c0",fontWeight:600,marginTop:4}}>
+              → Login general de AgroGestión
+            </button>
           </div>
         </div>
-        <p style={{textAlign:"center",fontSize:11,color:"rgba(30,58,90,0.45)",fontWeight:600,letterSpacing:"0.15em",marginTop:20}}>© AgroGestión PRO · Portal Empleados</p>
+
+        <p style={{textAlign:"center",fontSize:11,color:"rgba(30,58,90,0.45)",
+          fontWeight:600,letterSpacing:"0.15em",marginTop:20}}>
+          © AgroGestión PRO · Portal Empleados
+        </p>
       </div>
     </div>
   );
