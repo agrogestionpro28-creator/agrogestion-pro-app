@@ -53,7 +53,7 @@ if (!authId) { window.location.href = "/login"; return; }
     // 2. Verificar rol en tabla usuarios (campo "rol", no "tipo")
     const { data: u } = await sb.from("usuarios")
       .select("id,rol,empresa_id")
-      .eq("auth_id", user.id)
+      .eq("auth_id", authId)
       .single();
 
     if (!u) { setError("Usuario no registrado en el sistema"); setLoading(false); return; }
@@ -64,7 +64,7 @@ if (!authId) { window.location.href = "/login"; return; }
     let empData: any = null;
     const { data: empPorAuth } = await sb.from("empleados")
       .select("id,nombre,categoria,empresa_id,permisos,foto_url,auth_id")
-      .eq("auth_id", user.id)
+      .eq("auth_id", authId)
       .single();
 
     if (empPorAuth) {
@@ -106,7 +106,7 @@ if (!authId) { window.location.href = "/login"; return; }
       const { data: nuevaFicha } = await sb.from("empleados").insert({
         empresa_id: vinc.empresa_id,
         nombre: user.email?.split("@")[0] ?? "Empleado",
-        auth_id: user.id,
+        auth_id: authId,
         activo: true,
         permisos: [],
       }).select().single();
