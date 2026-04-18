@@ -48,7 +48,9 @@ export default function Login() {
           localStorage.removeItem("socio_permisos");
         }
 
-        // ── Redirección por rol ──
+        // Guardar auth_id para que los paneles puedan recuperar la sesión
+        localStorage.setItem("agro_auth_id", data.user.id);
+
         const destinos: Record<string, string> = {
           productor:   "/productor/dashboard",
           admin:       "/admin",
@@ -87,7 +89,6 @@ export default function Login() {
         @keyframes shine{0%{left:-60%}100%{left:130%}}
         @keyframes twinkle{0%,100%{opacity:0.25;transform:scale(0.8)}50%{opacity:0.9;transform:scale(1.2)}}
         @keyframes spin{to{transform:rotate(360deg)}}
-
         .login-card{
           background:rgba(255,255,255,0.60);
           backdrop-filter:blur(22px) saturate(170%);
@@ -113,7 +114,6 @@ export default function Login() {
           pointer-events:none;z-index:0;
         }
         .login-card>*{position:relative;z-index:1;}
-
         .inp-login{
           width:100%;
           background:rgba(255,255,255,0.70);
@@ -135,7 +135,6 @@ export default function Login() {
           border-color:rgba(25,118,210,0.45);
           box-shadow:0 0 0 3px rgba(25,118,210,0.12),inset 0 1px 0 rgba(255,255,255,0.90);
         }
-
         .btn-login{
           width:100%;
           background-image:url('/AZUL.png');
@@ -168,7 +167,6 @@ export default function Login() {
         }
         .btn-login:active{transform:scale(0.98);}
         .btn-login:disabled{opacity:0.65;cursor:not-allowed;}
-
         .hint-box{
           background:rgba(255,255,255,0.55);
           border:1px solid rgba(180,210,240,0.50);
@@ -185,48 +183,35 @@ export default function Login() {
         }
       `}</style>
 
-      {/* Estrellas de fondo */}
       {([[8,12,4,2.5,0],[22,45,3,3.5,0.5],[65,8,5,4,0.8],[80,30,3,2.8,1.2],
         [15,70,4,3.2,0.3],[50,55,3,4.5,1.5],[90,65,5,3,0.7],[35,85,3,2.5,2],
         [72,20,4,3.8,1],[5,40,3,4.2,0.4],[45,15,5,3.5,1.8],[88,80,3,2.8,0.6]
       ] as number[][]).map(([x,y,r,d,delay],i)=>(
-        <div key={i} style={{
-          position:"fixed",borderRadius:"50%",background:"white",pointerEvents:"none",
-          left:x+"%",top:y+"%",width:r+"px",height:r+"px",
-          opacity:0.35,
-          animation:`twinkle ${d}s ease-in-out infinite`,
-          animationDelay:delay+"s"
-        }}/>
+        <div key={i} style={{position:"fixed",borderRadius:"50%",background:"white",pointerEvents:"none",
+          left:x+"%",top:y+"%",width:r+"px",height:r+"px",opacity:0.35,
+          animation:`twinkle ${d}s ease-in-out infinite`,animationDelay:delay+"s"}}/>
       ))}
 
       <div style={{width:"100%",maxWidth:400,display:"flex",flexDirection:"column",alignItems:"center",gap:0}}>
-
-        {/* Logo */}
         <div style={{marginBottom:24,animation:"float 3.5s ease-in-out infinite",filter:"drop-shadow(0 8px 24px rgba(25,118,210,0.30))"}}>
           <Image src="/logo.png" alt="AgroGestión PRO" width={200} height={80} priority style={{objectFit:"contain"}}/>
         </div>
 
-        {/* Subtítulo */}
         <div style={{marginBottom:24,textAlign:"center"}}>
           <div style={{fontSize:11,fontWeight:700,color:"#1e3a5f",letterSpacing:"0.25em",textTransform:"uppercase",
             background:"rgba(255,255,255,0.60)",backdropFilter:"blur(8px)",
             border:"1px solid rgba(255,255,255,0.80)",borderRadius:20,
-            padding:"5px 16px",display:"inline-block",
-            boxShadow:"0 2px 8px rgba(20,80,160,0.10)"}}>
+            padding:"5px 16px",display:"inline-block",boxShadow:"0 2px 8px rgba(20,80,160,0.10)"}}>
             Gestión inteligente · Decisiones que rinden
           </div>
         </div>
 
-        {/* Card */}
         <div className="login-card" style={{width:"100%",padding:"32px 28px"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:24}}>
-            <div style={{
-              width:42,height:42,borderRadius:"50%",
-              backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",backgroundPosition:"center",
-              border:"2px solid rgba(180,220,255,0.80)",
-              display:"flex",alignItems:"center",justifyContent:"center",
-              fontSize:20,boxShadow:"0 3px 12px rgba(25,118,210,0.40)",flexShrink:0
-            }}>🌾</div>
+            <div style={{width:42,height:42,borderRadius:"50%",backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",
+              backgroundPosition:"center",border:"2px solid rgba(180,220,255,0.80)",
+              display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,
+              boxShadow:"0 3px 12px rgba(25,118,210,0.40)",flexShrink:0}}>🌾</div>
             <div>
               <div style={{fontSize:18,fontWeight:800,color:"#0a1a3a",lineHeight:1.1}}>Bienvenido</div>
               <div style={{fontSize:12,color:"#4a6a8a",fontWeight:600,marginTop:2}}>Ingresá a tu cuenta AgroGestión PRO</div>
@@ -234,58 +219,43 @@ export default function Login() {
           </div>
 
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            {/* Email */}
             <div style={{position:"relative"}}>
               <div style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:17,zIndex:2,pointerEvents:"none"}}>👤</div>
               <input type="email" placeholder="Email de acceso" value={email}
                 onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()}
                 className="inp-login"/>
             </div>
-
-            {/* Password */}
             <div style={{position:"relative"}}>
               <div style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)",fontSize:17,zIndex:2,pointerEvents:"none"}}>🔑</div>
               <input type="password" placeholder="Clave de acceso" value={password}
                 onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()}
                 className="inp-login"/>
             </div>
-
-            {/* Hint socios */}
             <div className="hint-box">
               <div style={{fontSize:12,color:"#4a6a8a",fontWeight:500,lineHeight:1.5}}>
-                💡 <strong style={{color:"#1565c0"}}>Socio / familiar:</strong> agregá <strong style={{color:"#1976d2"}}>-B</strong>, <strong style={{color:"#1976d2"}}>-C</strong>, <strong style={{color:"#1976d2"}}>-D</strong>... al final de tu clave
+                💡 <strong style={{color:"#1565c0"}}>Socio / familiar:</strong> agregá <strong style={{color:"#1976d2"}}>-B</strong>, <strong style={{color:"#1976d2"}}>-C</strong>... al final de tu clave
               </div>
             </div>
-
-            {/* Mensaje */}
             {msg&&(
-              <div style={{
-                padding:"10px 14px",borderRadius:12,fontSize:13,fontWeight:700,textAlign:"center",
+              <div style={{padding:"10px 14px",borderRadius:12,fontSize:13,fontWeight:700,textAlign:"center",
                 background:loading?"rgba(25,118,210,0.10)":"rgba(220,38,38,0.08)",
                 border:`1px solid ${loading?"rgba(25,118,210,0.25)":"rgba(220,38,38,0.20)"}`,
                 color:loading?"#1565c0":"#dc2626",
-                display:"flex",alignItems:"center",justifyContent:"center",gap:8
-              }}>
+                display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
                 {loading
                   ?<><div style={{width:14,height:14,border:"2px solid #1565c0",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/>Conectando...</>
-                  :<>⚠️ {msg}</>
-                }
+                  :<>⚠️ {msg}</>}
               </div>
             )}
-
-            {/* Botón */}
             <button onClick={login} disabled={loading} className="btn-login" style={{marginTop:4}}>
               {loading
                 ?<span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
                   <span style={{width:16,height:16,border:"2px solid rgba(255,255,255,0.8)",borderTopColor:"transparent",borderRadius:"50%",display:"inline-block",animation:"spin 0.7s linear infinite"}}/>
                   Ingresando...
                 </span>
-                :"Ingresar →"
-              }
+                :"Ingresar →"}
             </button>
-
             <div className="divider">o</div>
-
             <button style={{background:"none",border:"none",cursor:"pointer",color:"#4a6a8a",
               fontSize:13,fontWeight:600,textAlign:"center",padding:"4px",transition:"color 0.15s"}}
               onMouseOver={e=>(e.currentTarget.style.color="#1565c0")}
