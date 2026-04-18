@@ -45,9 +45,10 @@ export default function EmpleadoPanel() {
   const init = async () => {
     const sb = await getSB();
 
-    // 1. Verificar sesión
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) { window.location.href = "/empleados/login"; return; }
+   // 1. Verificar sesión
+const { data: { user } } = await sb.auth.getUser();
+const authId = user?.id ?? localStorage.getItem("agro_auth_id");
+if (!authId) { window.location.href = "/login"; return; }
 
     // 2. Verificar rol en tabla usuarios (campo "rol", no "tipo")
     const { data: u } = await sb.from("usuarios")
