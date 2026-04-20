@@ -487,8 +487,9 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
       c.participantes.includes(otroUsuario.id) && c.participantes.length === 2
     );
 
+    let convFinal: any = null;
     if (yaExiste) {
-      setConvActiva(yaExiste);
+      convFinal = yaExiste;
     } else {
       const { data: nueva } = await sb.from("mensajes_conversaciones").insert({
         empresa_id: empresaId,
@@ -496,10 +497,12 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
         nombre: otroUsuario.nombre,
         participantes: [usuarioId, otroUsuario.id],
       }).select().single();
-      if (nueva) setConvActiva(nueva);
+      convFinal = nueva;
     }
     setShowNuevoChat(false);
     await cargarConversaciones();
+    // Activar conversación DESPUÉS de cargar la lista
+    if (convFinal) setTimeout(() => setConvActiva(convFinal), 100);
   };
 
   const formatHora = (ts: string) => {
@@ -657,10 +660,15 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
           {!convActiva && (
             <div style={{ flex: 1, overflowY: "auto" }}>
               {conversaciones.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "40px 20px", color: "#6b8aaa" }}>
+                <div style={{ textAlign: "center", padding: "30px 16px", color: "#6b8aaa" }}>
                   <div style={{ fontSize: 36, marginBottom: 8, opacity: 0.2 }}>💬</div>
                   <p style={{ fontSize: 13, fontWeight: 600 }}>Sin conversaciones aún</p>
-                  <p style={{ fontSize: 11, marginTop: 4 }}>Tocá "Nuevo" para empezar</p>
+                  <button onClick={async () => {
+                    await asegurarGrupo();
+                    await cargarConversaciones();
+                  }} style={{ marginTop: 10, padding: "8px 16px", borderRadius: 10, background: "#1976d2", color: "white", border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
+                    🌾 Abrir Chat del Campo
+                  </button>
                 </div>
               ) : (
                 conversaciones.map(conv => (
