@@ -3,10 +3,10 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 
 const MODULOS = [
-  { href: "/productor/lotes",      label: "Lotes y Cultivos", sub: "Campos del productor",  img: "/mod-lotes.png",      icon: "🌾" },
-  { href: "/productor/maquinaria", label: "Maquinarias",      sub: "Equipos e implementos", img: "/mod-maquinaria.png", icon: "🚜" },
-  { href: "/productor/hacienda",   label: "Hacienda",         sub: "Ganadería",             img: "/mod-hacienda.png",   icon: "🐄" },
-  { href: "/productor/stock",      label: "Stock",            sub: "Insumos · Gasoil · Varios", img: "/mod-stock.png",  icon: "📦" },
+  { href: "/empleados/lotes",      label: "Lotes y Cultivos", sub: "Campos del productor",      img: "/mod-lotes.png",      icon: "🌾" },
+  { href: "/empleados/maquinaria", label: "Maquinarias",      sub: "Equipos e implementos",     img: "/mod-maquinaria.png", icon: "🚜" },
+  { href: "/empleados/hacienda",   label: "Hacienda",         sub: "Ganadería",                 img: "/mod-hacienda.png",   icon: "🐄" },
+  { href: "/empleados/stock",      label: "Stock",            sub: "Insumos · Gasoil · Varios", img: "/mod-stock.png",      icon: "📦" },
 ];
 
 type EmpleadoData = {
