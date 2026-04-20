@@ -97,6 +97,21 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const realtimeRef = useRef<any>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Cerrar al click afuera
+  useEffect(() => {
+    if (!abierto) return;
+    const handler = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        const btn = document.getElementById("chat-flotante-btn");
+        if (btn && btn.contains(e.target as Node)) return;
+        setAbierto(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [abierto]);
 
   // Pedir permiso de notificaciones al montar
   useEffect(() => {
@@ -431,6 +446,7 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
   const enviar = async () => {
     if (!texto.trim() || !convActiva || enviando) return;
     setEnviando(true);
+    try {
 
     const sb = await getSB();
     const accion = detectarAccion(texto);
@@ -468,8 +484,12 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
       }
     }
 
-    setEnviando(false);
-    inputRef.current?.focus();
+    } catch(e) {
+      console.error("Error enviando mensaje:", e);
+    } finally {
+      setEnviando(false);
+      inputRef.current?.focus();
+    }
   };
 
   // Crear chat individual
@@ -504,6 +524,13 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
     // Activar conversación DESPUÉS de cargar la lista
     if (convFinal) setTimeout(() => setConvActiva(convFinal), 100);
   };
+
+  // Auto focus input cuando se activa una conversacion
+  useEffect(() => {
+    if (convActiva) {
+      setTimeout(() => inputRef.current?.focus(), 200);
+    }
+  }, [convActiva]);
 
   const formatHora = (ts: string) => {
     const d = new Date(ts);
@@ -540,6 +567,7 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
 
       {/* ── BOTÓN FLOTANTE ── */}
       <button
+        id="chat-flotante-btn"
         onClick={() => { setAbierto(!abierto); if (!abierto) { setNoLeidos(0); cargarConversaciones(); } }}
         style={{
           position: "fixed", bottom: 80, left: 16, zIndex: 50,
@@ -568,17 +596,9 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
         )}
       </button>
 
-      {/* ── OVERLAY PARA CERRAR ── */}
-      {abierto && (
-        <div onClick={() => setAbierto(false)} style={{
-          position: "fixed", inset: 0, zIndex: 9990,
-          background: "transparent", cursor: "default",
-        }}/>
-      )}
-
       {/* ── PANEL CHAT ── */}
       {abierto && (
-        <div className="chat-panel" style={{
+        <div ref={panelRef} className="chat-panel" style={{
           position: "fixed", top: 70, left: 16, zIndex: 9999,
           width: 320, height: "calc(100vh - 100px)", maxHeight: 520,
           borderRadius: 20, overflow: "hidden",
@@ -801,7 +821,7 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
                     onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } }}
                     placeholder="Escribí un mensaje o novedad del campo..."
                     className="chat-input"
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, minWidth: 0 }}
                     disabled={enviando}
                   />
                   <button
