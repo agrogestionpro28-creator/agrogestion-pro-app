@@ -117,10 +117,8 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
       const notif = new Notification(titulo, {
         body: cuerpo,
         icon: icono || "/logo.png",
-        badge: "/logo.png",
-        tag: "agro-chat", // Agrupa notificaciones para no spamear
-        renotify: true,
-      });
+        tag: "agro-chat",
+      } as NotificationOptions);
       notif.onclick = () => {
         window.focus();
         setAbierto(true);
