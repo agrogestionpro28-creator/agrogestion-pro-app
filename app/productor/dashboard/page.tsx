@@ -50,7 +50,7 @@ export default function ProductorDashboard() {
         if (c) setCampana(c.nombre);
       }
 
-      const { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", user.id).single();
+      const { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", u?.id).maybeSingle();
       if (emp) {
         setEmpresaId(emp.id);
         if (campanaId) {
