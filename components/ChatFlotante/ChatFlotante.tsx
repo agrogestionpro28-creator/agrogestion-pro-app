@@ -568,6 +568,14 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
         )}
       </button>
 
+      {/* ── OVERLAY PARA CERRAR ── */}
+      {abierto && (
+        <div onClick={() => setAbierto(false)} style={{
+          position: "fixed", inset: 0, zIndex: 9990,
+          background: "transparent", cursor: "default",
+        }}/>
+      )}
+
       {/* ── PANEL CHAT ── */}
       {abierto && (
         <div className="chat-panel" style={{
