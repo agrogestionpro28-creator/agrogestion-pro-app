@@ -569,7 +569,7 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
       {abierto && (
         <div className="chat-panel" style={{
           position: "fixed", top: 70, left: 16, zIndex: 50,
-          width: 320, height: "calc(100vh - 90px)", maxHeight: 480,
+          width: 320, height: "calc(100vh - 100px)", maxHeight: 520,
           borderRadius: 20, overflow: "hidden",
           background: "rgba(255,255,255,0.96)",
           backdropFilter: "blur(20px)",
@@ -577,6 +577,7 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
           boxShadow: "0 20px 60px rgba(20,80,160,0.22)",
           display: "flex", flexDirection: "column",
           fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif",
+          boxSizing: "border-box",
         }}>
 
           {/* Header */}
@@ -694,7 +695,7 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
           {/* Mensajes de conversación activa */}
           {convActiva && (
             <>
-              <div style={{ flex: 1, overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6, minHeight: 0 }}>
                 {loadingMsgs ? (
                   <div style={{ textAlign: "center", padding: 20, color: "#6b8aaa", fontSize: 12 }}>Cargando...</div>
                 ) : mensajes.length === 0 ? (
@@ -769,7 +770,7 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
               </div>
 
               {/* Input */}
-              <div style={{ padding: "8px 12px 12px", borderTop: "1px solid rgba(0,60,140,0.06)", background: "rgba(255,255,255,0.80)" }}>
+              <div style={{ padding: "8px 12px 12px", borderTop: "1px solid rgba(0,60,140,0.06)", background: "rgba(255,255,255,0.95)", flexShrink: 0 }}>
                 {accionDetectada && (
                   <div style={{ marginBottom: 6, padding: "5px 10px", borderRadius: 8, background: "rgba(22,163,74,0.10)", border: "1px solid rgba(22,163,74,0.25)", fontSize: 11, color: "#16a34a", fontWeight: 600 }}>
                     ⚡ Se detectó: {accionDetectada.tipo === "labor" ? `Labor ${accionDetectada.datos.tipo_lab} en ${accionDetectada.datos.lote_nombre}` : accionDetectada.tipo === "gasoil" ? `Consumo ${accionDetectada.datos.litros}L gasoil` : `Uso de ${accionDetectada.datos.nombre}`} — se registrará automáticamente
