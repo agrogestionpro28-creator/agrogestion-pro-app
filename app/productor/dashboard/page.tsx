@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import EscanerIA from "@/components/EscanerIA";
+import ChatFlotante from "@/components/ChatFlotante/ChatFlotante";
 
 const modulos = [
   { href: "/productor/lotes",      label: "Lotes y Cultivos", sub: "Propio / Alquilado",  img: "/mod-lotes.png",      icon: "🌾" },
@@ -10,7 +11,7 @@ const modulos = [
   { href: "/productor/maquinaria", label: "Maquinarias",      sub: "Equipos",             img: "/mod-maquinaria.png", icon: "🚜" },
   { href: "/productor/hacienda",   label: "Hacienda",         sub: "Ganadería",           img: "/mod-hacienda.png",   icon: "🐄" },
   { href: "/productor/documentos", label: "Documentos",       sub: "Archivos",            img: "/mod-documentos.png", icon: "📁" },
-  { href: "/productor/margen",     label: "Margen Bruto",     sub: "Rentabilidad · MB",   img: "/mod-mb.png",   icon: "📊" },
+  { href: "/productor/margen",     label: "Margen Bruto",     sub: "Rentabilidad · MB",   img: "/mod-mb.png",         icon: "📊" },
   { href: "/productor/otros",      label: "Otros",            sub: "Más opciones",        img: "/mod-otros.png",      icon: "⚙️" },
 ];
 
@@ -20,6 +21,7 @@ export default function ProductorDashboard() {
   const [nombre, setNombre] = useState("");
   const [campana, setCampana] = useState("");
   const [empresaId, setEmpresaId] = useState<string>("");
+  const [usuarioId, setUsuarioId] = useState<string>("");
   const [stats, setStats] = useState<Stats>({ hectareas: 0, stock: 0, hacienda: 0, alertas: 0, saldo: 0 });
   const [showAlertas, setShowAlertas] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -32,7 +34,10 @@ export default function ProductorDashboard() {
       const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
       const { data: { user } } = await sb.auth.getUser();
       if (!user) { window.location.href = "/login"; return; }
-      const { data: u } = await sb.from("usuarios").select("nombre").eq("auth_id", user.id).single();
+      const { data: u } = await sb.from("usuarios").select("id,nombre").eq("auth_id", user.id).single();
+
+      // Guardar usuarioId para el chat
+      if (u) setUsuarioId(u.id);
 
       const socioNombre = localStorage.getItem("socio_nombre");
       const socioLetra = localStorage.getItem("socio_letra");
@@ -88,148 +93,68 @@ export default function ProductorDashboard() {
         @keyframes shine { 0%{left:-60%} 100%{left:130%} }
         @keyframes twinkle { 0%,100%{opacity:0.25;transform:scale(0.8)} 50%{opacity:0.85;transform:scale(1.2)} }
 
-        /* TOPBAR */
         .topbar-dash {
-          background-image: url('/FON.png');
-          background-size: cover;
-          background-position: top center;
-          border-bottom: 1px solid rgba(255,255,255,0.40);
-          box-shadow: 0 2px 20px rgba(20,80,160,0.14);
-          position: relative;
+          background-image: url('/FON.png'); background-size: cover; background-position: top center;
+          border-bottom: 1px solid rgba(255,255,255,0.40); box-shadow: 0 2px 20px rgba(20,80,160,0.14); position: relative;
         }
-        .topbar-dash::before {
-          content:""; position:absolute; inset:0;
-          background: rgba(255,255,255,0.32);
-          pointer-events:none;
-        }
+        .topbar-dash::before { content:""; position:absolute; inset:0; background: rgba(255,255,255,0.32); pointer-events:none; }
         .topbar-dash > * { position:relative; z-index:1; }
 
-        /* MOD CARD */
         .mod-card {
-          background-image: url('/FON.png');
-          background-size: cover;
-          background-position: center;
-          border: 1.5px solid rgba(255,255,255,0.90);
-          border-top: 2px solid rgba(255,255,255,1);
-          border-radius: 20px;
-          box-shadow: 0 8px 28px rgba(20,80,160,0.15), inset 0 2px 0 rgba(255,255,255,0.90);
-          position: relative; overflow: hidden;
-          cursor: pointer;
+          background-image: url('/FON.png'); background-size: cover; background-position: center;
+          border: 1.5px solid rgba(255,255,255,0.90); border-top: 2px solid rgba(255,255,255,1);
+          border-radius: 20px; box-shadow: 0 8px 28px rgba(20,80,160,0.15), inset 0 2px 0 rgba(255,255,255,0.90);
+          position: relative; overflow: hidden; cursor: pointer;
           transition: all 0.22s cubic-bezier(0.34,1.56,0.64,1);
         }
-        .mod-card::before {
-          content:""; position:absolute; inset:0;
-          background: rgba(255,255,255,0.52);
-          pointer-events:none; z-index:0;
-          transition: background 0.22s;
-        }
-        .mod-card::after {
-          content:""; position:absolute; top:0;left:0;right:0;height:40%;
-          background: linear-gradient(180deg,rgba(255,255,255,0.45) 0%,transparent 100%);
-          border-radius:20px 20px 0 0; pointer-events:none; z-index:1;
-        }
+        .mod-card::before { content:""; position:absolute; inset:0; background: rgba(255,255,255,0.52); pointer-events:none; z-index:0; transition: background 0.22s; }
+        .mod-card::after { content:""; position:absolute; top:0;left:0;right:0;height:40%; background: linear-gradient(180deg,rgba(255,255,255,0.45) 0%,transparent 100%); border-radius:20px 20px 0 0; pointer-events:none; z-index:1; }
         .mod-card > * { position:relative; z-index:2; }
-        .mod-card:hover {
-          transform: translateY(-5px) scale(1.02);
-          box-shadow: 0 16px 40px rgba(20,80,160,0.22);
-          border-color: rgba(255,255,255,1);
-        }
+        .mod-card:hover { transform: translateY(-5px) scale(1.02); box-shadow: 0 16px 40px rgba(20,80,160,0.22); }
         .mod-card:hover::before { background: rgba(255,255,255,0.72); }
         .mod-card:active { transform: scale(0.98); }
 
-        /* MOD IMG overlay */
-        .mod-img-wrap {
-          position: relative;
-          height: 130px;
-          overflow: hidden;
-          border-radius: 14px 14px 0 0;
-        }
-        .mod-img-wrap img {
-          transition: transform 0.35s ease;
-          object-fit: cover;
-        }
+        .mod-img-wrap { position: relative; height: 130px; overflow: hidden; border-radius: 14px 14px 0 0; }
+        .mod-img-wrap img { transition: transform 0.35s ease; object-fit: cover; }
         .mod-card:hover .mod-img-wrap img { transform: scale(1.07); }
-        .mod-img-wrap::after {
-          content:""; position:absolute; inset:0;
-          background: linear-gradient(180deg, transparent 40%, rgba(255,255,255,0.60) 100%);
-        }
+        .mod-img-wrap::after { content:""; position:absolute; inset:0; background: linear-gradient(180deg, transparent 40%, rgba(255,255,255,0.60) 100%); }
 
-        /* STATS CARD */
         .stats-card {
-          background-image: url('/FON.png');
-          background-size: cover; background-position: center;
-          border: 1.5px solid rgba(255,255,255,0.90);
-          border-top: 2px solid rgba(255,255,255,1);
-          border-radius: 20px;
-          box-shadow: 0 6px 24px rgba(20,80,160,0.13), inset 0 2px 0 rgba(255,255,255,0.90);
+          background-image: url('/FON.png'); background-size: cover; background-position: center;
+          border: 1.5px solid rgba(255,255,255,0.90); border-top: 2px solid rgba(255,255,255,1);
+          border-radius: 20px; box-shadow: 0 6px 24px rgba(20,80,160,0.13), inset 0 2px 0 rgba(255,255,255,0.90);
           position: relative; overflow: hidden;
         }
-        .stats-card::before {
-          content:""; position:absolute; inset:0;
-          background: rgba(255,255,255,0.68);
-          border-radius:20px; pointer-events:none; z-index:0;
-        }
+        .stats-card::before { content:""; position:absolute; inset:0; background: rgba(255,255,255,0.68); border-radius:20px; pointer-events:none; z-index:0; }
         .stats-card > * { position:relative; z-index:1; }
 
-        /* STAT ITEM */
         .stat-item {
-          background-image: url('/FON.png');
-          background-size: cover; background-position: center;
-          border: 1.5px solid rgba(255,255,255,0.88);
-          border-radius: 14px;
-          position: relative; overflow: hidden;
-          padding: 14px 16px; flex: 1; min-width: 110px;
+          background-image: url('/FON.png'); background-size: cover; background-position: center;
+          border: 1.5px solid rgba(255,255,255,0.88); border-radius: 14px;
+          position: relative; overflow: hidden; padding: 14px 16px; flex: 1; min-width: 110px;
           box-shadow: 0 3px 12px rgba(20,80,160,0.10);
         }
-        .stat-item::before {
-          content:""; position:absolute; inset:0;
-          background: rgba(255,255,255,0.68);
-          border-radius:14px; pointer-events:none;
-        }
+        .stat-item::before { content:""; position:absolute; inset:0; background: rgba(255,255,255,0.68); border-radius:14px; pointer-events:none; }
         .stat-item > * { position:relative; }
 
-        /* BELL */
-        .bell-btn {
-          width:38px; height:38px; border-radius:12px;
-          background: rgba(255,255,255,0.70);
-          border: 1.5px solid rgba(255,255,255,0.92);
-          display:flex; align-items:center; justify-content:center;
-          cursor:pointer; transition:all 0.18s;
-          box-shadow: 0 2px 8px rgba(20,80,160,0.10);
-          position:relative;
-        }
+        .bell-btn { width:38px; height:38px; border-radius:12px; background: rgba(255,255,255,0.70); border: 1.5px solid rgba(255,255,255,0.92); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.18s; box-shadow: 0 2px 8px rgba(20,80,160,0.10); position:relative; }
         .bell-btn:hover { background:rgba(255,255,255,0.95); transform:translateY(-1px); }
 
-        /* ALERTAS PANEL */
         .alertas-panel {
-          background-image: url('/FON.png');
-          background-size: cover; background-position: center;
+          background-image: url('/FON.png'); background-size: cover; background-position: center;
           position:fixed; right:0; top:0; height:100vh; width:300px;
           z-index:50; border-left:1.5px solid rgba(255,255,255,0.70);
-          box-shadow:-8px 0 32px rgba(20,80,160,0.18);
-          overflow-y:auto;
+          box-shadow:-8px 0 32px rgba(20,80,160,0.18); overflow-y:auto;
           animation: fadeIn 0.25s ease;
         }
-        .alertas-panel::before {
-          content:""; position:absolute; inset:0;
-          background:rgba(255,255,255,0.78); pointer-events:none;
-        }
+        .alertas-panel::before { content:""; position:absolute; inset:0; background:rgba(255,255,255,0.78); pointer-events:none; }
         .alertas-panel > * { position:relative; z-index:1; }
 
-        .bbtn {
-          background-image:url('/AZUL.png'); background-size:cover; background-position:center;
-          border:1.5px solid rgba(100,180,255,0.50); border-top:2px solid rgba(180,220,255,0.70);
-          border-radius:14px; color:white; font-weight:800; font-size:13px;
-          cursor:pointer; padding:10px 18px;
-          box-shadow:0 4px 18px rgba(25,118,210,0.45);
-          text-shadow:0 1px 3px rgba(0,40,120,0.35);
-          transition:all 0.18s;
-        }
+        .bbtn { background-image:url('/AZUL.png'); background-size:cover; background-position:center; border:1.5px solid rgba(100,180,255,0.50); border-top:2px solid rgba(180,220,255,0.70); border-radius:14px; color:white; font-weight:800; font-size:13px; cursor:pointer; padding:10px 18px; box-shadow:0 4px 18px rgba(25,118,210,0.45); text-shadow:0 1px 3px rgba(0,40,120,0.35); transition:all 0.18s; }
         .bbtn:hover { transform:translateY(-2px); filter:brightness(1.08); }
 
         .fade-in { animation: fadeIn 0.25s ease; }
-        ::-webkit-scrollbar { width:3px }
-        ::-webkit-scrollbar-thumb { background:rgba(25,118,210,0.20); border-radius:3px }
+        ::-webkit-scrollbar { width:3px } ::-webkit-scrollbar-thumb { background:rgba(25,118,210,0.20); border-radius:3px }
       `}</style>
 
       {/* Estrellas */}
@@ -237,16 +162,12 @@ export default function ProductorDashboard() {
         <div key={i} style={{position:"fixed",borderRadius:"50%",background:"white",pointerEvents:"none",left:x+"%",top:y+"%",width:r+"px",height:r+"px",opacity:0.35,animation:`twinkle ${d}s ease-in-out infinite`,animationDelay:delay+"s",zIndex:0}}/>
       ))}
 
-      {/* ══ TOPBAR ══ */}
+      {/* TOPBAR */}
       <div className="topbar-dash" style={{position:"sticky",top:0,zIndex:20}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 20px",gap:12}}>
-
-          {/* Logo */}
           <div style={{cursor:"pointer",flexShrink:0}} onClick={()=>window.location.href="/productor/dashboard"}>
             <Image src="/logo.png" alt="AgroGestión PRO" width={120} height={42} style={{objectFit:"contain"}}/>
           </div>
-
-          {/* Centro — saludo + campaña */}
           <div style={{flex:1,textAlign:"center"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,flexWrap:"wrap"}}>
               <span style={{fontSize:15,fontWeight:800,color:"#0d2137"}}>
@@ -260,16 +181,11 @@ export default function ProductorDashboard() {
               )}
             </div>
           </div>
-
-          {/* Derecha */}
           <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-            {/* Activo badge */}
             <div style={{display:"flex",alignItems:"center",gap:5,padding:"4px 12px",borderRadius:20,background:"rgba(22,163,74,0.10)",border:"1px solid rgba(22,163,74,0.25)"}}>
               <div style={{width:6,height:6,borderRadius:"50%",background:"#16a34a",boxShadow:"0 0 6px rgba(22,163,74,0.60)"}}/>
               <span style={{fontSize:11,fontWeight:700,color:"#16a34a"}}>Activo</span>
             </div>
-
-            {/* Campana */}
             <button className="bell-btn" onClick={()=>setShowAlertas(!showAlertas)}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1976d2" strokeWidth="2.2" strokeLinecap="round">
                 <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -277,8 +193,6 @@ export default function ProductorDashboard() {
               </svg>
               {stats.alertas>0&&<span style={{position:"absolute",top:-4,right:-4,background:"#dc2626",color:"white",fontSize:9,fontWeight:800,width:16,height:16,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center"}}>{stats.alertas}</span>}
             </button>
-
-            {/* Salir */}
             <button onClick={salir} style={{color:"#4a6a8a",fontSize:13,fontWeight:600,background:"none",border:"none",cursor:"pointer"}}>Salir ⎋</button>
           </div>
         </div>
@@ -306,18 +220,14 @@ export default function ProductorDashboard() {
         </div>
       )}
 
-      {/* ══ CONTENIDO ══ */}
+      {/* CONTENIDO */}
       <div style={{maxWidth:1080,margin:"0 auto",padding:"24px 16px 60px",position:"relative",zIndex:1}}>
-
-        {/* Grid módulos */}
         <div className="fade-in" style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:14,marginBottom:20}}>
           {modulos.map(mod=>(
             <div key={mod.href} className="mod-card" onClick={()=>window.location.href=mod.href}>
-              {/* Imagen */}
               <div className="mod-img-wrap">
                 <Image src={mod.img} alt={mod.label} fill style={{objectFit:"cover"}}/>
               </div>
-              {/* Info */}
               <div style={{padding:"12px 14px 14px"}}>
                 <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:3}}>
                   <span style={{fontSize:18}}>{mod.icon}</span>
@@ -329,16 +239,15 @@ export default function ProductorDashboard() {
           ))}
         </div>
 
-        {/* Stats */}
         <div className="stats-card" style={{padding:16}}>
           <div style={{fontSize:11,fontWeight:800,color:"#1e3a5f",textTransform:"uppercase",letterSpacing:1.2,marginBottom:14}}>📊 Resumen de campaña</div>
           <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
             {[
-              {l:"Hectáreas",v:stats.hectareas+" Ha",icon:"🌿",color:"#2e7d32"},
-              {l:"Stock granos",v:stats.stock+" Tn",icon:"🏗️",color:"#d97706"},
-              {l:"Saldo a pagar",v:"$"+stats.saldo.toLocaleString("es-AR"),icon:"💰",color:"#1565c0"},
-              {l:"Hacienda",v:stats.hacienda+" cab.",icon:"🐄",color:"#7c3aed"},
-              {l:"Alertas",v:String(stats.alertas),icon:"🔔",color:stats.alertas>0?"#dc2626":"#16a34a"},
+              {l:"Hectáreas",   v:stats.hectareas+" Ha",                          icon:"🌿", color:"#2e7d32"},
+              {l:"Stock granos",v:stats.stock+" Tn",                              icon:"🏗️", color:"#d97706"},
+              {l:"Saldo a pagar",v:"$"+stats.saldo.toLocaleString("es-AR"),       icon:"💰", color:"#1565c0"},
+              {l:"Hacienda",    v:stats.hacienda+" cab.",                          icon:"🐄", color:"#7c3aed"},
+              {l:"Alertas",     v:String(stats.alertas),                           icon:"🔔", color:stats.alertas>0?"#dc2626":"#16a34a"},
             ].map(s=>(
               <div key={s.l} className="stat-item">
                 <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4}}>
@@ -356,7 +265,18 @@ export default function ProductorDashboard() {
         </p>
       </div>
 
+      {/* Escáner IA */}
       {empresaId&&<EscanerIA empresaId={empresaId}/>}
+
+      {/* Chat flotante */}
+      {empresaId&&usuarioId&&(
+        <ChatFlotante
+          empresaId={empresaId}
+          usuarioId={usuarioId}
+          usuarioNombre={nombre}
+          usuarioRol="productor"
+        />
+      )}
     </div>
   );
 }
