@@ -8,7 +8,7 @@ type Lote = {
   cultivo: string; cultivo_orden: string; cultivo_completo: string;
   campana_id: string; fecha_siembra: string; fecha_cosecha: string;
   variedad: string; hibrido: string; rendimiento_esperado: number;
-  rendimiento_real: number; estado: string;
+  rendimiento_real: number; estado: string; es_segundo_cultivo: boolean;
 };
 type Labor = {
   id: string; lote_id: string; fecha: string; tipo: string;
