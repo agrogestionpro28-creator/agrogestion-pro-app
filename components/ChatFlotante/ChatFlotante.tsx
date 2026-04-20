@@ -568,8 +568,8 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
       {/* ── PANEL CHAT ── */}
       {abierto && (
         <div className="chat-panel" style={{
-          position: "fixed", bottom: 76, left: 16, zIndex: 50,
-          width: 320, height: 420,
+          position: "fixed", top: 70, left: 16, zIndex: 50,
+          width: 320, height: "calc(100vh - 90px)", maxHeight: 480,
           borderRadius: 20, overflow: "hidden",
           background: "rgba(255,255,255,0.96)",
           backdropFilter: "blur(20px)",
