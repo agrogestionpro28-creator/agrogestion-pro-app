@@ -26,6 +26,8 @@ type Labor = {
   costo_aplicacion_ha?: number; costo_total?: number;
   superficie_ha?: number; comentario?: string; observaciones?: string;
   operario?: string; maquinaria?: string;
+  costo_aplicador_ha?: number;
+  costo_aplicador_total?: number;
 };
 type InsumoStock = {
   id: string; nombre: string; cantidad: number; unidad: string;
@@ -158,6 +160,7 @@ export default function IngenieroLotesPage() {
   const [insumosStock, setInsumosStock] = useState<InsumoStock[]>([]);
   const [descuentoItems, setDescuentoItems] = useState<DescuentoItem[]>([]);
   const [laborPendiente, setLaborPendiente] = useState<any>(null);
+  const [insumosNoEncontrados, setInsumosNoEncontrados] = useState<{nombre:string;cantidad:number;unidad:string;categoria:string}[]>([]);
 
   const getSB = async () => {
     const { createClient } = await import("@supabase/supabase-js");
@@ -306,7 +309,8 @@ export default function IngenieroLotesPage() {
 
   const abrirPanelDescuento = async (laborPayload: any, ha: number, desc: string) => {
     const sb = await getSB();
-    const { data: ins } = await sb.from("stock_insumos").select("id,nombre,cantidad,unidad,precio_ppp,precio_unitario,categoria").eq("empresa_id", empresaId).gt("cantidad", 0).order("categoria");
+    // Traer TODOS los insumos, incluso con cantidad <= 0
+    const { data: ins } = await sb.from("stock_insumos").select("id,nombre,cantidad,unidad,precio_ppp,precio_unitario,categoria").eq("empresa_id", empresaId).order("categoria");
     const stockList = (ins ?? []) as InsumoStock[];
     setInsumosStock(stockList);
     const sugeridos = parsearInsumosDeDescripcion(desc, ha);
@@ -315,6 +319,27 @@ export default function IngenieroLotesPage() {
     } else {
       setDescuentoItems(sugeridos);
     }
+    // Detectar productos mencionados que NO están en stock
+    const segDesc = desc.split(/\s*\+\s*/);
+    const noEnc: {nombre:string;cantidad:number;unidad:string;categoria:string}[] = [];
+    for (const seg of segDesc) {
+      const s = seg.trim(); if (!s) continue;
+      const mCant = /([0-9]+[,.]?[0-9]*)\s*(litros?|lts?|lt|cc|ml|kg|grs?|gr|g|l)(?=[\s\/+\-,]|$)/i.exec(s);
+      if (!mCant) continue;
+      const cantHa = parseFloat(mCant[1].replace(",","."));
+      const nombreSeg = s.replace(/[0-9]+[,.]?[0-9]*\s*(litros?|lts?|lt|cc|ml|kg|grs?|gr|g|l)\s*(\/ha)?/gi,"").trim();
+      if (!nombreSeg || nombreSeg.length < 3) continue;
+      const yaEnStock = stockList.some(i => {
+        const n = i.nombre.toLowerCase().replace(/[^a-z0-9]/g," ");
+        return nombreSeg.toLowerCase().split(/[\s,]+/).filter((p:string)=>p.length>=3).some((p:string) => n.includes(p));
+      });
+      if (!yaEnStock) {
+        const unidad = mCant[2].toLowerCase().startsWith("kg")||mCant[2].toLowerCase()==="g" ? "kg" : "litros";
+        const cat = /urea|sulfato|map|dap|fertil|fosfat|nitro/i.test(nombreSeg) ? "fertilizante" : "agroquimico";
+        noEnc.push({ nombre: nombreSeg.toUpperCase(), cantidad: Math.round(cantHa * ha * 100)/100, unidad, categoria: cat });
+      }
+    }
+    setInsumosNoEncontrados(noEnc);
     setLaborPendiente(laborPayload);
     setShowDescuento(true);
   };
@@ -323,23 +348,88 @@ export default function IngenieroLotesPage() {
     if (!laborPendiente || !empresaId) return;
     const sb = await getSB();
     const itemsSeleccionados = descuentoItems.filter(d => d.seleccionado && d.cantidad_ajustada > 0);
-    let costoInsumosTotal = 0;
+    let costoAgroTotal = 0;
+    let costoFertiTotal = 0;
+
+    // Crear insumos negativos para productos no encontrados en stock
+    for (const noEnc of insumosNoEncontrados) {
+      const { data: nuevo } = await sb.from("stock_insumos").insert({
+        empresa_id: empresaId, nombre: noEnc.nombre, categoria: noEnc.categoria,
+        subcategoria: noEnc.categoria === "fertilizante" ? "Fertilizante" : "Herbicida",
+        cantidad: -noEnc.cantidad, unidad: noEnc.unidad,
+        precio_unitario: 0, precio_ppp: 0, costo_total_stock: 0,
+        ubicacion: "", tipo_ubicacion: "deposito_propio"
+      }).select().single();
+      if (nuevo) {
+        await sb.from("stock_insumos_movimientos").insert({
+          empresa_id: empresaId, insumo_id: nuevo.id,
+          fecha: laborPendiente.fecha || new Date().toISOString().split("T")[0],
+          tipo: "uso", cantidad: noEnc.cantidad, precio_unitario: 0, precio_ppp: 0,
+          lote_id: laborPendiente.lote_id,
+          descripcion: `Uso en labor (stock negativo - ajustar precio): ${laborPendiente.descripcion || ""}`,
+          metodo: "productor"
+        });
+      }
+    }
+
+    // Descontar insumos con IVA
     for (const item of itemsSeleccionados) {
       const ins = insumosStock.find(i => i.id === item.insumo_id);
       if (!ins) continue;
       const nuevaCant = ins.cantidad - item.cantidad_ajustada;
       const ppp = ins.precio_ppp || ins.precio_unitario || 0;
-      const costoItem = item.cantidad_ajustada * ppp;
-      costoInsumosTotal += costoItem;
+      const costoBase = item.cantidad_ajustada * ppp;
+      const iva = ins.categoria === "fertilizante" ? 0.105 : 0.21;
+      const costoConIva = costoBase * (1 + iva);
+      if (ins.categoria === "fertilizante") costoFertiTotal += costoConIva;
+      else costoAgroTotal += costoConIva;
       await sb.from("stock_insumos").update({ cantidad: nuevaCant, costo_total_stock: nuevaCant * ppp }).eq("id", item.insumo_id);
-      await sb.from("stock_insumos_movimientos").insert({ empresa_id: empresaId, insumo_id: item.insumo_id, fecha: laborPendiente.fecha || new Date().toISOString().split("T")[0], tipo: "uso", cantidad: item.cantidad_ajustada, precio_unitario: 0, precio_ppp: ppp, lote_id: laborPendiente.lote_id, descripcion: `Uso en labor: ${laborPendiente.descripcion || ""} — costo $${Math.round(costoItem).toLocaleString("es-AR")}`, metodo: "productor" });
+      await sb.from("stock_insumos_movimientos").insert({
+        empresa_id: empresaId, insumo_id: item.insumo_id,
+        fecha: laborPendiente.fecha || new Date().toISOString().split("T")[0],
+        tipo: "uso", cantidad: item.cantidad_ajustada, precio_unitario: 0, precio_ppp: ppp,
+        lote_id: laborPendiente.lote_id,
+        descripcion: `Uso: ${item.cantidad_ajustada} ${item.unidad} @ PPP $${ppp.toFixed(2)} + IVA ${ins.categoria === "fertilizante" ? "10.5" : "21"}% = U$S ${costoConIva.toFixed(2)}`,
+        metodo: "productor"
+      });
     }
-    if (costoInsumosTotal > 0 && laborPendiente._labor_id) {
-      await sb.from("lote_labores").update({ costo_insumos_usd: costoInsumosTotal, costo_total_usd: (laborPendiente.costo_total_usd || 0) + costoInsumosTotal }).eq("id", laborPendiente._labor_id);
-      if (loteActivo) await actualizarCostoLaboresEnMB(loteActivo.id, costoInsumosTotal);
+
+    const costoInsumosTotal = costoAgroTotal + costoFertiTotal;
+    const costoAplicador = laborPendiente._costo_aplicador_total || 0;
+
+    if (laborPendiente._labor_id) {
+      await sb.from("lote_labores").update({
+        costo_insumos_usd: costoInsumosTotal,
+        costo_total_usd: (laborPendiente.costo_total_usd || 0) + costoInsumosTotal
+      }).eq("id", laborPendiente._labor_id);
     }
-    msg(`✅ Stock descontado — ${itemsSeleccionados.length} insumos · $${Math.round(costoInsumosTotal).toLocaleString("es-AR")}`);
-    setShowDescuento(false); setLaborPendiente(null); setDescuentoItems([]);
+
+    // Imputar al Margen Bruto
+    if (loteActivo && (costoAgroTotal > 0 || costoFertiTotal > 0 || costoAplicador > 0)) {
+      const existing = margenes.find(m => m.lote_id === loteActivo.id);
+      if (existing) {
+        const nuevoAgro = (existing.costo_agroquimicos || 0) + costoAgroTotal;
+        const nuevoFerti = (existing.costo_fertilizante || 0) + costoFertiTotal;
+        const labsLote = labores.filter(l => l.lote_id === loteActivo.id);
+        const totalLabores = labsLote.reduce((a, l) => a + (l.costo_total || 0), 0) + costoAplicador;
+        const cd = (existing.costo_semilla || 0) + nuevoFerti + nuevoAgro + totalLabores + (existing.costo_alquiler || 0) + (existing.costo_flete || 0) + (existing.costo_comercializacion || 0) + (existing.otros_costos || 0);
+        const mb = (existing.ingreso_bruto || 0) - cd;
+        await sb.from("margen_bruto_detalle").update({
+          costo_agroquimicos: nuevoAgro, costo_fertilizante: nuevoFerti,
+          costo_labores: totalLabores, costo_directo_total: cd,
+          margen_bruto: mb, margen_bruto_ha: existing.hectareas > 0 ? mb / existing.hectareas : 0,
+          margen_bruto_usd: mb / usdUsado
+        }).eq("id", existing.id);
+      }
+    }
+
+    const partes = [];
+    if (itemsSeleccionados.length > 0) partes.push(`${itemsSeleccionados.length} insumos → U$S ${costoInsumosTotal.toFixed(2)} (c/IVA)`);
+    if (insumosNoEncontrados.length > 0) partes.push(`${insumosNoEncontrados.length} en negativo`);
+    if (costoAplicador > 0) partes.push(`Aplicador U$S ${costoAplicador.toFixed(0)}`);
+    msg("✅ " + (partes.join(" · ") || "Sin cambios"));
+
+    setShowDescuento(false); setLaborPendiente(null); setDescuentoItems([]); setInsumosNoEncontrados([]);
     await fetchLotes(empresaId, campanaActiva);
   };
 
@@ -347,10 +437,12 @@ export default function IngenieroLotesPage() {
     if (!loteActivo || !empresaId) return;
     const sb = await getSB();
     const ha = Number(form.superficie_ha ?? loteActivo.hectareas ?? 0);
+    const costoAplicadorHa = Number(form.costo_aplicador_ha ?? 0);
+    const costoAplicadorTotal = costoAplicadorHa * ha;
     const costoTotal = form.costo_total_lab ? Number(form.costo_total_lab) : form.costo_aplicacion_ha ? Number(form.costo_aplicacion_ha) * ha : 0;
     const desc = form.producto_dosis || form.descripcion_lab || "";
     const payload: Record<string,any> = {
-      empresa_id: empresaId, lote_id: loteActivo.id, tipo: form.tipo_lab ?? "Aplicación", descripcion: desc, productos: form.producto_dosis || "", dosis: form.producto_dosis || "", fecha: form.fecha_lab ?? new Date().toISOString().split("T")[0], metodo_carga: "manual", metodo_entrada: "manual", hectareas_trabajadas: ha, tipo_aplicacion: mapAplicador(form.aplicador || "") || null, precio_aplicacion_ha: Number(form.costo_aplicacion_ha ?? 0), costo_total_usd: costoTotal, estado_carga: "confirmado", cargado_por_rol: "productor",
+      empresa_id: empresaId, lote_id: loteActivo.id, tipo: form.tipo_lab ?? "Aplicación", descripcion: desc, productos: form.producto_dosis || "", dosis: form.producto_dosis || "", fecha: form.fecha_lab ?? new Date().toISOString().split("T")[0], metodo_carga: "manual", metodo_entrada: "manual", hectareas_trabajadas: ha, tipo_aplicacion: mapAplicador(form.aplicador || "") || null, precio_aplicacion_ha: Number(form.costo_aplicacion_ha ?? 0), costo_total_usd: costoTotal + costoAplicadorTotal, estado_carga: "confirmado", cargado_por_rol: "productor",
     };
     let laborId: string | null = null;
     if (editandoLabor) {
@@ -360,13 +452,13 @@ export default function IngenieroLotesPage() {
       const { data: nueva } = await sb.from("lote_labores").insert(payload).select("id").single();
       laborId = nueva?.id ?? null;
     }
-    if (costoTotal > 0) await actualizarCostoLaboresEnMB(loteActivo.id, costoTotal);
+    if (costoTotal + costoAplicadorTotal > 0) await actualizarCostoLaboresEnMB(loteActivo.id, costoTotal + costoAplicadorTotal);
     msg("✅ Labor guardada");
     await fetchLotes(empresaId, campanaActiva);
     setShowFormLabor(false); setForm({});
     const tipoLabor = form.tipo_lab ?? "Aplicación";
     if (["Aplicación","Fertilización","Siembra"].includes(tipoLabor) && laborId) {
-      await abrirPanelDescuento({ ...payload, _labor_id: laborId }, ha, desc);
+      await abrirPanelDescuento({ ...payload, _labor_id: laborId, _costo_aplicador_total: costoAplicadorTotal }, ha, desc);
     }
   };
 
@@ -789,17 +881,36 @@ export default function IngenieroLotesPage() {
                 }
               </div>
               <div style={{padding:"12px 16px",borderTop:"1px solid rgba(0,60,140,0.08)"}}>
-                {descuentoItems.filter(d=>d.seleccionado&&d.cantidad_ajustada>0).length>0&&(
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:10,padding:"8px 12px",borderRadius:10,background:"rgba(22,163,74,0.08)",border:"1px solid rgba(22,163,74,0.20)"}}>
-                    <span style={{fontSize:12,color:"#6b8aaa"}}>{descuentoItems.filter(d=>d.seleccionado).length} insumos</span>
-                    <span style={{fontSize:13,fontWeight:800,color:"#16a34a"}}>Total: ${Math.round(descuentoItems.filter(d=>d.seleccionado).reduce((a,d)=>a+d.costo_total,0)).toLocaleString("es-AR")}</span>
+                {insumosNoEncontrados.length>0&&(
+                  <div style={{marginBottom:10,padding:"8px 12px",borderRadius:10,background:"rgba(220,38,38,0.07)",border:"1px solid rgba(220,38,38,0.18)"}}>
+                    <div style={{fontSize:11,fontWeight:800,color:"#dc2626",marginBottom:4}}>⚠️ No encontrados — se crean en negativo (ajustar precio después):</div>
+                    {insumosNoEncontrados.map((n,i)=>(
+                      <div key={i} style={{fontSize:11,color:"#dc2626",fontWeight:600}}>• {n.nombre}: -{n.cantidad} {n.unidad}</div>
+                    ))}
                   </div>
                 )}
+                {descuentoItems.filter(d=>d.seleccionado&&d.cantidad_ajustada>0).length>0&&(()=>{
+                  const agro=descuentoItems.filter(d=>d.seleccionado&&d.cantidad_ajustada>0).reduce((a,d)=>{const ins=insumosStock.find(i=>i.id===d.insumo_id);return ins?.categoria==="fertilizante"?a:a+d.costo_total;},0);
+                  const ferti=descuentoItems.filter(d=>d.seleccionado&&d.cantidad_ajustada>0).reduce((a,d)=>{const ins=insumosStock.find(i=>i.id===d.insumo_id);return ins?.categoria==="fertilizante"?a+d.costo_total:a;},0);
+                  const agroIva=agro*1.21; const fertiIva=ferti*1.105;
+                  const costoAplic=laborPendiente?._costo_aplicador_total||0;
+                  return(
+                    <div style={{marginBottom:10,padding:"10px 12px",borderRadius:10,background:"rgba(22,163,74,0.08)",border:"1px solid rgba(22,163,74,0.20)"}}>
+                      {agro>0&&<div style={{fontSize:11,color:"#1565c0",marginBottom:3}}>🧪 Agroquímicos sin IVA: U$S {agro.toFixed(2)} → <strong>+21% = U$S {agroIva.toFixed(2)}</strong></div>}
+                      {ferti>0&&<div style={{fontSize:11,color:"#7c3aed",marginBottom:3}}>💊 Fertilizantes sin IVA: U$S {ferti.toFixed(2)} → <strong>+10.5% = U$S {fertiIva.toFixed(2)}</strong></div>}
+                      {costoAplic>0&&<div style={{fontSize:11,color:"#d97706",marginBottom:3}}>🚜 Aplicador: <strong>U$S {costoAplic.toFixed(2)}</strong></div>}
+                      <div style={{borderTop:"1px solid rgba(22,163,74,0.20)",marginTop:6,paddingTop:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <span style={{fontSize:12,fontWeight:800,color:"#0d2137"}}>Total a imputar al MB</span>
+                        <span style={{fontSize:15,fontWeight:800,color:"#16a34a"}}>U$S {(agroIva+fertiIva+costoAplic).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div style={{display:"flex",gap:8}}>
                   <button onClick={confirmarDescuento} className="bbtn" style={{flex:1,padding:"10px"}}>✓ Confirmar y descontar</button>
-                  <button onClick={()=>{setShowDescuento(false);setLaborPendiente(null);setDescuentoItems([]);}} className="abtn" style={{padding:"10px 16px"}}>Omitir</button>
+                  <button onClick={()=>{setShowDescuento(false);setLaborPendiente(null);setDescuentoItems([]);setInsumosNoEncontrados([]);}} className="abtn" style={{padding:"10px 16px"}}>Omitir</button>
                 </div>
-                <p style={{fontSize:11,color:"#aab8c8",textAlign:"center",marginTop:6}}>El costo PPP se sumará al Margen Bruto del lote</p>
+                <p style={{fontSize:11,color:"#aab8c8",textAlign:"center",marginTop:6}}>Agroquímicos +21% · Fertilizantes +10.5% · Se imputa al Margen Bruto</p>
               </div>
             </div>
           </div>
@@ -923,6 +1034,7 @@ export default function IngenieroLotesPage() {
                   <div><label className={lCls}>Operario</label><input type="text" value={form.operario??""} onChange={e=>setForm({...form,operario:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                   <div style={{gridColumn:"span 2"}}><label className={lCls}>Producto / Dosis</label><input type="text" value={form.producto_dosis??""} onChange={e=>setForm({...form,producto_dosis:e.target.value,descripcion_lab:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Ej: Glifosato 4L/ha + Flumioxazine 60g/ha"/></div>
                   <div><label className={lCls}>Aplicador</label><select value={form.aplicador??""} onChange={e=>setForm({...form,aplicador:e.target.value})} className="sel-new" style={{width:"100%"}}>{APLICADORES.map(a=><option key={a}>{APLIC_ICON[a]||""} {a}</option>)}</select></div>
+                  <div><label className={lCls}>💲 Aplicador U$S/ha</label><input type="number" step="0.5" value={form.costo_aplicador_ha??""} onChange={e=>setForm({...form,costo_aplicador_ha:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Ej: 8"/></div>
                   <div><label className={lCls}>Costo aplicación $/ha</label><input type="number" value={form.costo_aplicacion_ha??""} onChange={e=>{const ha=Number(form.superficie_ha||loteActivo.hectareas||0);setForm({...form,costo_aplicacion_ha:e.target.value,costo_total_lab:String(Number(e.target.value)*ha)});}} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                   <div><label className={lCls}>Costo total $</label><input type="number" value={form.costo_total_lab??""} onChange={e=>setForm({...form,costo_total_lab:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                   <div style={{gridColumn:"span 2"}}><label className={lCls}>Comentario</label><input type="text" value={form.comentario??""} onChange={e=>setForm({...form,comentario:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Observaciones del campo..."/></div>
