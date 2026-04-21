@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { createClient } from "@supabase/supabase-js";
+import ChatFlotante from "@/components/ChatFlotante/ChatFlotante";
 
 // ── Cliente singleton — se crea una sola vez, no en cada llamada ──
 let _sb: any = null;
@@ -846,6 +847,7 @@ export default function IngenieroPanel() {
   const [campanasPorProd, setCampanasPorProd] = useState<Record<string,any[]>>({});
   const [campSelProd, setCampSelProd] = useState<Record<string,string>>({});
   const [loading, setLoading] = useState(true);
+  const [ingEmpresaId, setIngEmpresaId] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [showVincular, setShowVincular] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -889,6 +891,8 @@ export default function IngenieroPanel() {
       const { data: u } = await sb.from("usuarios").select("*").eq("auth_id", user.id).single();
       if (!u || u.rol !== "ingeniero") { window.location.href = "/login"; return; }
       setIngId(u.id); setIngNombre(u.nombre); setIngData(u);
+      const { data: vincChat } = await sb.from("vinculaciones").select("empresa_id").eq("profesional_id", u.id).eq("activa", true).limit(1).maybeSingle();
+if (vincChat) setIngEmpresaId(vincChat.empresa_id);
       await fetchProds(u.id);
       await fetchCobs(u.id);
       await fetchVehs(u.id);
@@ -2590,7 +2594,14 @@ export default function IngenieroPanel() {
           </div>
         </div>
       )}
-
+{ingEmpresaId && ingId && (
+  <ChatFlotante
+    empresaId={ingEmpresaId}
+    usuarioId={ingId}
+    usuarioNombre={ingNombre}
+    usuarioRol="ingeniero"
+  />
+)}
       {/* Botón IA flotante */}
       <button onClick={()=>{setAiPanel(!aiPanel);if(!aiPanel)setVozPanel(false);}}
         style={{position:"fixed",bottom:80,right:16,zIndex:40,width:52,height:52,borderRadius:"50%",
