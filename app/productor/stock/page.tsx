@@ -775,7 +775,7 @@ export default function StockPage() {
             {CAT_INSUMOS.map(cat=>{
               const items=insumos.filter(i=>i.categoria===cat.key); if(items.length===0) return null;
               const renderTabla=(its:InsumoItem[],titulo?:string)=>(
-                <div key={titulo||cat.key} style={{marginBottom:titulo?10:0}}>
+  <div key={titulo??cat.key} style={{marginBottom:titulo?10:0}}>
                   {titulo&&<div style={{fontSize:10,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,fontWeight:700,marginBottom:5,paddingLeft:2}}>— {titulo}</div>}
                   <div className="card" style={{padding:0,overflow:"hidden"}}>
                     <table style={{width:"100%",fontSize:12,borderCollapse:"collapse"}}>
