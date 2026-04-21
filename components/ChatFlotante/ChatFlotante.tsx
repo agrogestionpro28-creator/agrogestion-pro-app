@@ -248,7 +248,7 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
           width: 320, height: "calc(100dvh - 100px)", maxHeight: 500,
           background: "white", borderRadius: 16,
           border: "1px solid #dde8f4", boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
-          display: "flex", flexDirection: "column", overflow: "hidden",
+          display: "flex", flexDirection: "column", overflow: "visible",
           fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif",
         }}>
           {/* HEADER */}
