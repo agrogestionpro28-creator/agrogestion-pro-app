@@ -174,11 +174,7 @@ export default function ProductorDashboard() {
                 {saludo()}, <span style={{color:"#1976d2"}}>{nombre}</span>
                 {letraSocio&&<span style={{fontSize:11,color:"#6b8aaa",marginLeft:4}}>({letraSocio})</span>}
               </span>
-              {campana&&(
-                <span style={{fontSize:12,fontWeight:600,color:"#4a6a8a",display:"flex",alignItems:"center",gap:5}}>
-                  <span style={{color:"#1976d2",fontSize:10}}>◆</span> Campaña {campana}
-                </span>
-              )}
+              
             </div>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
