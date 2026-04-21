@@ -222,7 +222,7 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
       <button
         onClick={() => { setAbierto((v) => !v); if (!abierto) cargarConvs(); }}
         style={{
-          position: "fixed", bottom: 20, right: 16, zIndex: 1000,
+          position: "fixed", bottom: 20, left: 16, zIndex: 1000,
           width: 52, height: 52, borderRadius: "50%",
           background: "linear-gradient(135deg,#1976d2,#1565c0)",
           border: "3px solid white", boxShadow: "0 4px 16px rgba(25,118,210,0.55)",
@@ -244,8 +244,8 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
       {/* PANEL */}
       {abierto && (
         <div style={{
-          position: "fixed", bottom: 80, right: 16, zIndex: 1000,
-          width: 320, height: 460,
+          position: "fixed", top: 80, left: 16, zIndex: 1000,
+          width: 320, height: "calc(100dvh - 100px)", maxHeight: 500,
           background: "white", borderRadius: 16,
           border: "1px solid #dde8f4", boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
           display: "flex", flexDirection: "column", overflow: "hidden",
