@@ -116,8 +116,7 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
   const ROLES: Record<string,string> = { productor:"👨‍🌾", ingeniero:"👨‍💼", veterinario:"🩺", empleado:"👷", aplicador:"💧", sembrador:"🌱", cosechadora:"🌾", servicios:"🔧" };
 
   return (
-    <div style={{ position:"fixed", bottom:20, left:16, zIndex:9999, fontFamily:"system-ui,sans-serif" }}>
-
+    <div style={{ position:"fixed", bottom:20, left:16, zIndex:9999, fontFamily:"system-ui,sans-serif", isolation:"isolate" }}>
       {/* PANEL */}
       {open && (
         <div style={{
