@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import Image from "next/image";
 import EscanerIA from "@/components/EscanerIA";
+import ChatFlotante from "@/components/ChatFlotante/ChatFlotante";
 
 type Seccion = "productores" | "cobranza" | "vehiculo" | "ia_campo";
 
@@ -60,6 +61,7 @@ export default function VeterinarioPanel() {
   const [aiInput, setAiInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [listening, setListening] = useState(false);
+  const [vetEmpresaId, setVetEmpresaId] = useState("");
 
   const getSB = async () => {
     const { createClient } = await import("@supabase/supabase-js");
@@ -77,6 +79,8 @@ export default function VeterinarioPanel() {
     const { data: u } = await sb.from("usuarios").select("*").eq("auth_id", user.id).single();
     if (!u || u.rol !== "veterinario") { window.location.href = "/login"; return; }
     setVetId(u.id); setVetNombre(u.nombre); setVetData(u);
+    const { data: vincChat } = await sb.from("vinculaciones").select("empresa_id").eq("profesional_id", u.id).eq("activa", true).limit(1).maybeSingle();
+if (vincChat) setVetEmpresaId(vincChat.empresa_id);
     await fetchAll(u.id);
     setLoading(false);
   };
@@ -682,6 +686,14 @@ export default function VeterinarioPanel() {
         {VOZ_ICON[vozEstado]}
       </button>
 
+      {vetEmpresaId && vetId && (
+  <ChatFlotante
+    empresaId={vetEmpresaId}
+    usuarioId={vetId}
+    usuarioNombre={vetNombre}
+    usuarioRol="veterinario"
+  />
+)}
       {vetId&&<EscanerIA empresaId={vetId}/>}
     </div>
   );
