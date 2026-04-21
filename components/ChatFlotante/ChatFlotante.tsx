@@ -121,8 +121,8 @@ export default function ChatFlotante({ empresaId, usuarioId, usuarioNombre, usua
       {/* PANEL */}
       {open && (
         <div style={{
-          position:"absolute", bottom:64, left:0,
-          width:300, height:420,
+          position:"absolute", bottom:64, left:0, top:"auto",
+          width:300, maxHeight:400, height:"auto",
           background:"#fff", borderRadius:12,
           boxShadow:"0 4px 24px rgba(0,0,0,0.20)",
           border:"1px solid #d0e4f0",
