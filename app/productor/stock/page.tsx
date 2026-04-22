@@ -890,7 +890,7 @@ export default function StockPage() {
                 </div>
               );
               if(cat.key==="agroquimico"){
-                const subgrupos=SUBCATS_AGRO.reduce((acc,sub)=>{const filtered=items.filter(i=>i.subcategoria===sub||(!i.subcategoria&&sub==="Otro"));if(filtered.length>0)acc[sub]=filtered;return acc;},{} as Record<string,InsumoItem[]>);
+                const subgrupos=SUBCATS_AGRO.reduce((acc,sub)=>{const filtered=items.filter(i=>i.subcategoria===sub||(!i.subcategoria&&sub==="otro"));if(filtered.length>0)acc[sub]=filtered;return acc;},{} as Record<string,InsumoItem[]>);
                 return(<div key={cat.key} style={{marginBottom:18}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><span style={{fontSize:18}}>{cat.icon}</span><span style={{fontSize:14,fontWeight:800,color:cat.color}}>{cat.label}</span><span style={{fontSize:11,color:"#6b8aaa"}}>{items.length} productos</span></div>{Object.entries(subgrupos).map(([sub,subItems])=>renderTabla(subItems,sub))}</div>);
               }
               return(<div key={cat.key} style={{marginBottom:18}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><span style={{fontSize:18}}>{cat.icon}</span><span style={{fontSize:14,fontWeight:800,color:cat.color}}>{cat.label}</span><span style={{fontSize:11,color:"#6b8aaa"}}>{items.length} productos</span></div>{renderTabla(items)}</div>);
@@ -920,6 +920,7 @@ export default function StockPage() {
                     </div>
                   </div>
                   <div style={{display:"flex",gap:6}}>
+                    <button onClick={async()=>{const XLSX=await import("xlsx");const ins2=insumos.find(i=>i.id===historialInsumoId);if(!ins2)return;const data=historialMovs.map(m=>({FECHA:m.fecha,TIPO:m.tipo,DETALLE:m.descripcion||"",CANTIDAD:Number(m.cantidad||0),UNIDAD:ins2.unidad,PPP:Number(m.precio_ppp||m.precio_unitario||0),"TOTAL_USD":Math.abs(Number(m.cantidad||0))*(Number(m.precio_ppp||m.precio_unitario||0)),METODO:m.metodo||""}));const ws=XLSX.utils.json_to_sheet(data);ws["!cols"]=[{wch:12},{wch:10},{wch:40},{wch:10},{wch:8},{wch:10},{wch:12},{wch:10}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Historial");XLSX.writeFile(wb,"historial_"+ins2.nombre+"_"+new Date().toISOString().slice(0,10)+".xlsx");}} className="abtn" style={{fontSize:11,padding:"6px 12px"}}>📤 Excel</button>
                     <button onClick={()=>{setShowFormAjuste(!showFormAjuste);setForm({ajuste_signo:"-",ajuste_fecha:new Date().toISOString().split("T")[0]});setAjusteDistribucion("todos");setLotesSeleccionados([]);}}
                       className="bbtn" style={{fontSize:11,padding:"6px 12px"}}>🔧 Ajuste</button>
                     <button onClick={()=>{setHistorialInsumoId(null);setHistorialMovs([]);setShowFormAjuste(false);setForm({});}}
