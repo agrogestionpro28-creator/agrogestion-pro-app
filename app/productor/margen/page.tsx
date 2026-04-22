@@ -87,13 +87,20 @@ export default function MargenPage() {
 
   const fetchData = async (eid: string, cid: string) => {
     const sb = await getSB();
-    const [mg, lt, hac] = await Promise.all([
-      sb.from("margen_bruto_detalle").select("*").eq("empresa_id", eid),
-      sb.from("lotes").select("id,nombre,hectareas,cultivo,cultivo_orden,cultivo_completo").eq("empresa_id", eid).eq("campana_id", cid).eq("es_segundo_cultivo", false),
+    // Primero traer lotes de la campaña seleccionada
+    const { data: lotesData } = await sb.from("lotes")
+      .select("id,nombre,hectareas,cultivo,cultivo_orden,cultivo_completo")
+      .eq("empresa_id", eid).eq("campana_id", cid).eq("es_segundo_cultivo", false);
+    const loteIds = (lotesData ?? []).map((l: any) => l.id);
+    // Traer márgenes SOLO de los lotes de esa campaña
+    const [mg, hac] = await Promise.all([
+      loteIds.length > 0
+        ? sb.from("margen_bruto_detalle").select("*").eq("empresa_id", eid).in("lote_id", loteIds)
+        : Promise.resolve({ data: [] }),
       sb.from("hacienda_categorias").select("*").eq("empresa_id", eid),
     ]);
     setMargenes(mg.data ?? []);
-    setLotes(lt.data ?? []);
+    setLotes(lotesData ?? []);
     setHacienda(hac.data ?? []);
   };
 
