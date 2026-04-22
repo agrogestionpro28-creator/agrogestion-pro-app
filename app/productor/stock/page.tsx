@@ -890,7 +890,7 @@ export default function StockPage() {
                 </div>
               );
               if(cat.key==="agroquimico"){
-                const subgrupos=SUBCATS_AGRO.reduce((acc,sub)=>{const filtered=items.filter(i=>i.subcategoria===sub||(!i.subcategoria&&sub==="otro"));if(filtered.length>0)acc[sub]=filtered;return acc;},{} as Record<string,InsumoItem[]>);
+                const subgrupos=SUBCATS_AGRO.reduce((acc,sub)=>{const filtered=items.filter(i=>i.subcategoria===sub||(!i.subcategoria&&sub==="Otro"));if(filtered.length>0)acc[sub]=filtered;return acc;},{} as Record<string,InsumoItem[]>);
                 return(<div key={cat.key} style={{marginBottom:18}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><span style={{fontSize:18}}>{cat.icon}</span><span style={{fontSize:14,fontWeight:800,color:cat.color}}>{cat.label}</span><span style={{fontSize:11,color:"#6b8aaa"}}>{items.length} productos</span></div>{Object.entries(subgrupos).map(([sub,subItems])=>renderTabla(subItems,sub))}</div>);
               }
               return(<div key={cat.key} style={{marginBottom:18}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><span style={{fontSize:18}}>{cat.icon}</span><span style={{fontSize:14,fontWeight:800,color:cat.color}}>{cat.label}</span><span style={{fontSize:11,color:"#6b8aaa"}}>{items.length} productos</span></div>{renderTabla(items)}</div>);
