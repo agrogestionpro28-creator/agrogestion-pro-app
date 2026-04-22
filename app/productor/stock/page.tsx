@@ -19,7 +19,7 @@ const UBICACIONES = [
   { value:"coop", label:"Empresa/Coop", icon:"🏢", img:"/ubicacion-coop.png" },
 ];
 const CULTIVO_ICONS: Record<string,string> = { soja:"🌱",maiz:"🌽",trigo:"🌾",girasol:"🌻",sorgo:"🌿",cebada:"🍃",arveja:"🫛",otro:"🌐" };
-const SUBCATS_AGRO = ["herbicida","insecticida","fungicida","coadyuvante","curasemilla","fertilizante_foliar","otro"];
+const SUBCATS_AGRO = ["Herbicida","Insecticida","Fungicida","Coadyuvante","Curasemilla","Fertilizante","Otro"];
 const TABS = [
   { key:"granos", label:"Libro de Granos", icon:"🌾", color:"#d97706", img:"/stock-granos.png" },
   { key:"insumos", label:"Insumos", icon:"🧪", color:"#16a34a", img:"/stock-insumos.png" },
