@@ -150,6 +150,7 @@ export default function IngenieroLotesPage() {
   const importCuadernoMultiRef = useRef<HTMLInputElement>(null);
   const adjuntoRef = useRef<HTMLInputElement>(null);
   const [usdUsado, setUsdUsado] = useState(1);
+  const [tcDia, setTcDia] = useState<number>(0); // TC del día para el form labor
   const [vozEstado, setVozEstado] = useState<"idle"|"escuchando"|"procesando"|"respondiendo"|"error">("idle");
   const [vozPanel, setVozPanel] = useState(false);
   const [vozTranscripcion, setVozTranscripcion] = useState("");
@@ -209,6 +210,18 @@ export default function IngenieroLotesPage() {
   };
 
   const msg = (t: string) => { setMsgExito(t); setTimeout(() => setMsgExito(""), 4000); };
+
+  const getTCFecha = async (fecha: string): Promise<number> => {
+    const sb = await getSB();
+    // Buscar TC exacto o el más cercano anterior
+    const { data } = await sb.from("finanzas_cotizaciones")
+      .select("usd_usado,fecha")
+      .eq("empresa_id", empresaId)
+      .lte("fecha", fecha)
+      .order("fecha", { ascending: false })
+      .limit(1);
+    return data?.[0]?.usd_usado || usdUsado || 1;
+  };
 
   const getCampanaId = async (sb: any): Promise<string> => {
     if (campanaActiva) return campanaActiva;
@@ -439,10 +452,16 @@ export default function IngenieroLotesPage() {
     const ha = Number(form.superficie_ha ?? loteActivo.hectareas ?? 0);
     const costoAplicadorHa = Number(form.costo_aplicador_ha ?? 0);
     const costoAplicadorTotal = costoAplicadorHa * ha;
-    const costoTotal = form.costo_total_lab ? Number(form.costo_total_lab) : form.costo_aplicacion_ha ? Number(form.costo_aplicacion_ha) * ha : 0;
+    const fecha = form.fecha_lab ?? new Date().toISOString().split("T")[0];
+    // Convertir ARS → U$S usando TC del día
+    const tcFecha = await getTCFecha(fecha);
+    const costoArsHa = Number(form.costo_aplicacion_ha ?? 0);
+    const costoArsTotalRaw = form.costo_total_lab ? Number(form.costo_total_lab) : costoArsHa * ha;
+    const costoUsd = tcFecha > 0 ? costoArsTotalRaw / tcFecha : 0;
+    const costoTotal = costoUsd;
     const desc = form.producto_dosis || form.descripcion_lab || "";
     const payload: Record<string,any> = {
-      empresa_id: empresaId, lote_id: loteActivo.id, tipo: form.tipo_lab ?? "Aplicación", descripcion: desc, productos: form.producto_dosis || "", dosis: form.producto_dosis || "", fecha: form.fecha_lab ?? new Date().toISOString().split("T")[0], metodo_carga: "manual", metodo_entrada: "manual", hectareas_trabajadas: ha, tipo_aplicacion: mapAplicador(form.aplicador || "") || null, precio_aplicacion_ha: Number(form.costo_aplicacion_ha ?? 0), costo_total_usd: costoTotal + costoAplicadorTotal, estado_carga: "confirmado", cargado_por_rol: "productor",
+      empresa_id: empresaId, lote_id: loteActivo.id, tipo: form.tipo_lab ?? "Aplicación", descripcion: desc, productos: form.producto_dosis || "", dosis: form.producto_dosis || "", fecha, metodo_carga: "manual", metodo_entrada: "manual", hectareas_trabajadas: ha, tipo_aplicacion: mapAplicador(form.aplicador || "") || null, precio_aplicacion_ha: costoArsHa, costo_total_usd: costoTotal + costoAplicadorTotal, estado_carga: "confirmado", cargado_por_rol: "productor",
     };
     let laborId: string | null = null;
     if (editandoLabor) {
@@ -955,8 +974,8 @@ export default function IngenieroLotesPage() {
                 {l:"F. Siembra",v:loteActivo.fecha_siembra||"—",c:"#60a5fa"},
                 {l:"F. Cosecha",v:loteActivo.fecha_cosecha||"—",c:"#a78bfa"},
                 {l:"Rend. Esp.",v:loteActivo.rendimiento_esperado?(loteActivo.rendimiento_esperado+" tn/ha"):"—",c:"#d97706"},
-                {l:"Margen Bruto",v:margenLote?"$"+Math.round(margenLote.margen_bruto).toLocaleString("es-AR"):"—",c:margenLote&&margenLote.margen_bruto>=0?"#22c55e":"#ef4444"},
-                {l:"MB/ha",v:margenLote?"$"+Math.round(margenLote.margen_bruto_ha).toLocaleString("es-AR")+"/ha":"—",c:"#d97706"},
+                {l:"Margen Bruto",v:margenLote?"U$S "+margenLote.margen_bruto.toFixed(0):"—",c:margenLote&&margenLote.margen_bruto>=0?"#22c55e":"#ef4444"},
+                {l:"MB/ha",v:margenLote?"U$S "+margenLote.margen_bruto_ha.toFixed(0)+"/ha":"—",c:"#d97706"},
               ].map(s=>(
                 <div key={s.l} className="kpi-s">
                   <div style={{fontSize:10,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,fontWeight:600}}>{s.l}</div>
@@ -1029,22 +1048,27 @@ export default function IngenieroLotesPage() {
                 <div style={{fontSize:13,fontWeight:800,color:"#16a34a",marginBottom:12}}>{editandoLabor?"✏️ Editar Labor":"+ Nueva Labor"} — {loteActivo.nombre}</div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:12}}>
                   <div><label className={lCls}>Tipo</label><select value={form.tipo_lab??"Aplicación"} onChange={e=>setForm({...form,tipo_lab:e.target.value})} className="sel-new" style={{width:"100%"}}>{TIPOS_LABOR.map(t=><option key={t}>{t}</option>)}</select></div>
-                  <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_lab??new Date().toISOString().split("T")[0]} onChange={e=>setForm({...form,fecha_lab:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_lab??new Date().toISOString().split("T")[0]} onChange={async e=>{const tc=await getTCFecha(e.target.value);setTcDia(tc);setForm({...form,fecha_lab:e.target.value});}} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                   <div><label className={lCls}>Superficie ha</label><input type="number" value={form.superficie_ha??String(loteActivo.hectareas)} onChange={e=>setForm({...form,superficie_ha:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                   <div><label className={lCls}>Operario</label><input type="text" value={form.operario??""} onChange={e=>setForm({...form,operario:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                   <div style={{gridColumn:"span 2"}}><label className={lCls}>Producto / Dosis</label><input type="text" value={form.producto_dosis??""} onChange={e=>setForm({...form,producto_dosis:e.target.value,descripcion_lab:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Ej: Glifosato 4L/ha + Flumioxazine 60g/ha"/></div>
                   <div><label className={lCls}>Aplicador</label><select value={form.aplicador??""} onChange={e=>setForm({...form,aplicador:e.target.value})} className="sel-new" style={{width:"100%"}}>{APLICADORES.map(a=><option key={a}>{APLIC_ICON[a]||""} {a}</option>)}</select></div>
                   <div><label className={lCls}>💲 Aplicador U$S/ha</label><input type="number" step="0.5" value={form.costo_aplicador_ha??""} onChange={e=>setForm({...form,costo_aplicador_ha:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Ej: 8"/></div>
-                  <div><label className={lCls}>Costo aplicación $/ha</label><input type="number" value={form.costo_aplicacion_ha??""} onChange={e=>{const ha=Number(form.superficie_ha||loteActivo.hectareas||0);setForm({...form,costo_aplicacion_ha:e.target.value,costo_total_lab:String(Number(e.target.value)*ha)});}} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
-                  <div><label className={lCls}>Costo total $</label><input type="number" value={form.costo_total_lab??""} onChange={e=>setForm({...form,costo_total_lab:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Costo aplicación $ ARS/ha</label><input type="number" value={form.costo_aplicacion_ha??""} onChange={async e=>{const ha=Number(form.superficie_ha||loteActivo.hectareas||0);const fecha=form.fecha_lab??new Date().toISOString().split("T")[0];const tc=await getTCFecha(fecha);setTcDia(tc);setForm({...form,costo_aplicacion_ha:e.target.value,costo_total_lab:String(Number(e.target.value)*ha)});}} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
+                  <div><label className={lCls}>Costo total $ ARS</label><input type="number" value={form.costo_total_lab??""} onChange={async e=>{const fecha=form.fecha_lab??new Date().toISOString().split("T")[0];const tc=await getTCFecha(fecha);setTcDia(tc);setForm({...form,costo_total_lab:e.target.value});}} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
                   <div style={{gridColumn:"span 2"}}><label className={lCls}>Comentario</label><input type="text" value={form.comentario??""} onChange={e=>setForm({...form,comentario:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Observaciones del campo..."/></div>
                 </div>
                 {/* Costo preview */}
                 {Number(form.costo_total_lab||0)>0&&(
-                  <div style={{marginBottom:12,padding:"8px 12px",borderRadius:10,background:"rgba(217,119,6,0.08)",border:"1px solid rgba(217,119,6,0.20)",display:"flex",alignItems:"center",gap:8,fontSize:12}}>
-                    <span>💰</span>
-                    <span style={{color:"#4a6a8a"}}>Costo total: <strong style={{color:"#d97706"}}>${Number(form.costo_total_lab||0).toLocaleString("es-AR")}</strong></span>
-                    {margenLote&&<span style={{fontSize:11,color:"#aab8c8"}}>· Se sumará al margen bruto</span>}
+                  <div style={{marginBottom:12,padding:"8px 12px",borderRadius:10,background:"rgba(217,119,6,0.08)",border:"1px solid rgba(217,119,6,0.20)",fontSize:12}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:tcDia>0?4:0}}>
+                      <span>💰</span>
+                      <span style={{color:"#4a6a8a"}}>ARS: <strong style={{color:"#d97706"}}>${Number(form.costo_total_lab||0).toLocaleString("es-AR")}</strong></span>
+                      {tcDia>0&&<span style={{color:"#6b8aaa",fontSize:11}}>TC ${tcDia.toLocaleString("es-AR")}</span>}
+                      {tcDia>0&&<strong style={{color:"#16a34a"}}>→ U$S {(Number(form.costo_total_lab||0)/tcDia).toFixed(2)}</strong>}
+                      {Number(form.costo_aplicador_ha||0)>0&&<span style={{color:"#6b8aaa",fontSize:11}}>+ U$S {(Number(form.costo_aplicador_ha||0)*Number(form.superficie_ha||loteActivo.hectareas||0)).toFixed(2)} aplic.</span>}
+                    </div>
+                    {margenLote&&<div style={{fontSize:11,color:"#aab8c8"}}>Se imputará al margen bruto en U$S</div>}
                   </div>
                 )}
                 {/* Tipo rápido */}
@@ -1067,7 +1091,7 @@ export default function IngenieroLotesPage() {
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   <span style={{fontSize:13,fontWeight:800,color:"#0d2137"}}>📋 Cuaderno de Campo</span>
                   <span style={{fontSize:11,color:"#6b8aaa"}}>{laboresLote.length} registros</span>
-                  {laboresLote.length>0&&<span style={{fontSize:11,color:"#d97706",fontWeight:700}}>Total: ${laboresLote.reduce((a,l)=>a+(l.costo_total||0),0).toLocaleString("es-AR")}</span>}
+                  {laboresLote.length>0&&<span style={{fontSize:11,color:"#d97706",fontWeight:700}}>Total: U$S {laboresLote.reduce((a,l)=>a+(l.costo_total||0),0).toFixed(2)}</span>}
                 </div>
                 <div style={{display:"flex",gap:6}}>
                   <button onClick={exportarCuaderno} className="abtn" style={{fontSize:11}}>📤 Exportar</button>
@@ -1138,7 +1162,7 @@ export default function IngenieroLotesPage() {
                             {(l as any).operario&&<div style={{fontSize:11,color:"#aab8c8",marginTop:2}}>👤 {(l as any).operario}</div>}
                           </div>
                           <div style={{textAlign:"right",flexShrink:0}}>
-                            {l.costo_total>0&&<div style={{fontSize:13,fontWeight:800,color:"#d97706"}}>${Number(l.costo_total).toLocaleString("es-AR")}</div>}
+                            {l.costo_total>0&&<div style={{fontSize:13,fontWeight:800,color:"#d97706"}}>U$S {Number(l.costo_total).toFixed(2)}</div>}
                             {costoHa>0&&<div style={{fontSize:11,color:"#eab308"}}>${costoHa}/ha</div>}
                             <div style={{display:"flex",gap:6,marginTop:5,justifyContent:"flex-end"}}>
                               <button onClick={()=>{setEditandoLabor(l.id);setForm({tipo_lab:l.tipo,fecha_lab:l.fecha,descripcion_lab:l.descripcion,producto_dosis:(l as any).producto_dosis||l.descripcion||"",aplicador:(l as any).aplicador||"",superficie_ha:String((l as any).superficie_ha),operario:(l as any).operario||"",costo_aplicacion_ha:String((l as any).costo_aplicacion_ha||""),costo_total_lab:String(l.costo_total||""),comentario:(l as any).comentario||""});setShowFormLabor(true);}} style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:13}}>✏️</button>
