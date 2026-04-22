@@ -19,7 +19,7 @@ const UBICACIONES = [
   { value:"coop", label:"Empresa/Coop", icon:"🏢", img:"/ubicacion-coop.png" },
 ];
 const CULTIVO_ICONS: Record<string,string> = { soja:"🌱",maiz:"🌽",trigo:"🌾",girasol:"🌻",sorgo:"🌿",cebada:"🍃",arveja:"🫛",otro:"🌐" };
-const SUBCATS_AGRO = ["Herbicida","Insecticida","Fungicida","Coadyuvante","Curasemilla","Fertilizante","Otro"];
+const SUBCATS_AGRO = ["herbicida","insecticida","fungicida","coadyuvante","curasemilla","fertilizante_foliar","otro"];
 const TABS = [
   { key:"granos", label:"Libro de Granos", icon:"🌾", color:"#d97706", img:"/stock-granos.png" },
   { key:"insumos", label:"Insumos", icon:"🧪", color:"#16a34a", img:"/stock-insumos.png" },
@@ -78,6 +78,14 @@ export default function StockPage() {
   const [vozRespuesta, setVozRespuesta] = useState("");
   const [vozInput, setVozInput] = useState("");
   const recRef = useRef<any>(null);
+  // Historial por insumo
+  const [historialInsumoId, setHistorialInsumoId] = useState<string|null>(null);
+  const [historialMovs, setHistorialMovs] = useState<any[]>([]);
+  const [historialLoading, setHistorialLoading] = useState(false);
+  const [showFormAjuste, setShowFormAjuste] = useState(false);
+  const [lotesDisponibles, setLotesDisponibles] = useState<{id:string;nombre:string;hectareas:number}[]>([]);
+  const [ajusteDistribucion, setAjusteDistribucion] = useState<"todos"|"grupo"|"lote">("todos");
+  const [lotesSeleccionados, setLotesSeleccionados] = useState<string[]>([]);
 
   const getSB = async () => {
     const { createClient } = await import("@supabase/supabase-js");
@@ -130,6 +138,81 @@ export default function StockPage() {
   };
 
   const cultivosConStock = [...new Set(ubicaciones.map(u => u.cultivo))];
+
+  const abrirHistorial = async (insumoId: string) => {
+    setHistorialInsumoId(insumoId);
+    setHistorialLoading(true);
+    setShowFormAjuste(false);
+    setForm({});
+    const sb = await getSB();
+    const { data: movs } = await sb.from("stock_insumos_movimientos")
+      .select("*").eq("insumo_id", insumoId).order("fecha", { ascending: false });
+    setHistorialMovs(movs ?? []);
+    setHistorialLoading(false);
+    // Cargar lotes para imputación
+    if (empresaId) {
+      const { data: ls } = await sb.from("lotes").select("id,nombre,hectareas").eq("empresa_id", empresaId).order("nombre");
+      setLotesDisponibles(ls ?? []);
+    }
+  };
+
+  const guardarAjuste = async () => {
+    const ins = insumos.find(i => i.id === historialInsumoId);
+    if (!ins || !empresaId) return;
+    const sb = await getSB();
+    const cantAjuste = Number(form.ajuste_cantidad ?? 0);
+    const esPositivo = form.ajuste_signo === "+";
+    const cantFinal = esPositivo ? ins.cantidad + cantAjuste : Math.max(0, ins.cantidad - cantAjuste);
+    const precioAjuste = Number(form.ajuste_precio ?? 0);
+    const pppActual = ins.precio_ppp || ins.precio_unitario || 0;
+    // Actualizar stock
+    await sb.from("stock_insumos").update({
+      cantidad: cantFinal,
+      costo_total_stock: cantFinal * pppActual
+    }).eq("id", ins.id);
+    // Determinar lotes a imputar
+    let lotesImputar: string[] = [];
+    if (precioAjuste > 0 && !esPositivo) {
+      if (ajusteDistribucion === "todos") {
+        lotesImputar = lotesDisponibles.map(l => l.id);
+      } else if (ajusteDistribucion === "grupo" || ajusteDistribucion === "lote") {
+        lotesImputar = lotesSeleccionados;
+      }
+    }
+    // Registrar movimiento
+    const costoTotal = cantAjuste * (precioAjuste || pppActual);
+    await sb.from("stock_insumos_movimientos").insert({
+      empresa_id: empresaId, insumo_id: ins.id,
+      fecha: form.ajuste_fecha || new Date().toISOString().split("T")[0],
+      tipo: "ajuste",
+      cantidad: cantAjuste * (esPositivo ? 1 : -1),
+      precio_unitario: precioAjuste, precio_ppp: pppActual,
+      descripcion: form.ajuste_descripcion || `Ajuste manual ${esPositivo?"+":"-"}${cantAjuste} ${ins.unidad}`,
+      metodo: "manual"
+    });
+    // Imputar costo al MB de los lotes seleccionados
+    if (costoTotal > 0 && lotesImputar.length > 0) {
+      const { data: margenes } = await sb.from("margen_bruto_detalle").select("*").eq("empresa_id", empresaId).in("lote_id", lotesImputar);
+      const costoPorLote = costoTotal / lotesImputar.length;
+      for (const mg of (margenes ?? [])) {
+        const nuevoAgro = (mg.costo_agroquimicos || 0) + (ins.categoria === "fertilizante" ? 0 : costoPorLote);
+        const nuevoFerti = (mg.costo_fertilizante || 0) + (ins.categoria === "fertilizante" ? costoPorLote : 0);
+        const cd = (mg.costo_semilla||0)+nuevoFerti+nuevoAgro+(mg.costo_labores||0)+(mg.costo_alquiler||0)+(mg.costo_flete||0)+(mg.costo_comercializacion||0)+(mg.otros_costos||0);
+        const mb = (mg.ingreso_bruto||0) - cd;
+        await sb.from("margen_bruto_detalle").update({
+          costo_agroquimicos: nuevoAgro, costo_fertilizante: nuevoFerti,
+          costo_directo_total: cd, margen_bruto: mb,
+          margen_bruto_ha: mg.hectareas > 0 ? mb / mg.hectareas : 0
+        }).eq("id", mg.id);
+      }
+      mostrarMsg(`✅ Ajuste guardado — Costo U$S ${costoTotal.toFixed(2)} imputado a ${lotesImputar.length} lote(s)`);
+    } else {
+      mostrarMsg("✅ Ajuste de stock guardado");
+    }
+    await fetchAll(empresaId);
+    await abrirHistorial(ins.id);
+    setShowFormAjuste(false); setForm({});
+  };
 
   const stockPorCultivo = (cultivo: string) => {
     const ubs = ubicaciones.filter(u => u.cultivo === cultivo);
@@ -775,7 +858,7 @@ export default function StockPage() {
             {CAT_INSUMOS.map(cat=>{
               const items=insumos.filter(i=>i.categoria===cat.key); if(items.length===0) return null;
               const renderTabla=(its:InsumoItem[],titulo?:string)=>(
-  <div key={titulo??cat.key} style={{marginBottom:titulo?10:0}}>
+                <div key={titulo||cat.key} style={{marginBottom:titulo?10:0}}>
                   {titulo&&<div style={{fontSize:10,color:"#6b8aaa",textTransform:"uppercase",letterSpacing:0.8,fontWeight:700,marginBottom:5,paddingLeft:2}}>— {titulo}</div>}
                   <div className="card" style={{padding:0,overflow:"hidden"}}>
                     <table style={{width:"100%",fontSize:12,borderCollapse:"collapse"}}>
@@ -794,6 +877,7 @@ export default function StockPage() {
                           <td style={{padding:"9px 12px",color:"#6b8aaa"}}>{i.tipo_ubicacion?.replace("_"," ")}{i.ubicacion?` · ${i.ubicacion}`:""}</td>
                           <td style={{padding:"9px 12px"}}>
                             <div style={{display:"flex",gap:6}}>
+                              <button onClick={()=>abrirHistorial(i.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#16a34a",fontSize:13}} title="Historial">📋</button>
                               <button onClick={()=>{setEditandoInsumo(i.id);setForm({nombre:i.nombre,categoria:i.categoria,subcategoria:i.subcategoria??"",cantidad:String(i.cantidad),unidad:i.unidad,ubicacion:i.ubicacion,tipo_ubicacion:i.tipo_ubicacion,precio_unitario:String(i.precio_unitario)});setShowFormInsumo(true);}} style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:13}}>✏️</button>
                               <button onClick={()=>{const cant=prompt(`Descontar cantidad (${i.unidad}):\nPPP actual: $${(i.precio_ppp||i.precio_unitario).toFixed(2)}`);if(cant&&Number(cant)>0)descontarInsumo(i.id,Number(cant));}} style={{background:"none",border:"none",cursor:"pointer",color:"#1565c0",fontSize:13,fontWeight:800}} title="Descontar uso">➖</button>
                               <button onClick={()=>eliminarItem("stock_insumos",i.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:14}}>✕</button>
@@ -814,6 +898,145 @@ export default function StockPage() {
             {insumos.length===0&&!showFormInsumo&&<div className="card" style={{padding:"48px 20px",textAlign:"center"}}><div style={{fontSize:40,opacity:0.12,marginBottom:10}}>🧪</div><p style={{color:"#6b8aaa",fontSize:14}}>Sin insumos registrados</p></div>}
           </div>
         )}
+
+        {/* ══════════════════════════════
+            MODAL HISTORIAL INSUMO
+        ══════════════════════════════ */}
+        {historialInsumoId&&(()=>{
+          const ins = insumos.find(i => i.id === historialInsumoId);
+          if (!ins) return null;
+          const tipoColor = (tipo:string) => tipo==="compra"?"#16a34a":tipo==="uso"?"#dc2626":tipo==="ajuste"?"#d97706":"#6b8aaa";
+          const tipoIcon = (tipo:string) => tipo==="compra"?"⬆️":tipo==="uso"?"⬇️":tipo==="ajuste"?"🔧":"📋";
+          return(
+            <div style={{position:"fixed",inset:0,zIndex:60,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:16,background:"rgba(10,20,40,0.75)"}}>
+              <div className="card" style={{width:"100%",maxWidth:700,padding:0,overflow:"hidden",maxHeight:"88vh",display:"flex",flexDirection:"column"}}>
+                {/* Header */}
+                <div style={{padding:"14px 18px",borderBottom:"1px solid rgba(0,60,140,0.10)",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+                  <div>
+                    <div style={{fontSize:14,fontWeight:800,color:"#0d2137"}}>📋 Historial — {ins.nombre}</div>
+                    <div style={{fontSize:11,color:"#6b8aaa",marginTop:2}}>
+                      Stock actual: <strong style={{color:ins.cantidad>0?"#16a34a":"#dc2626"}}>{ins.cantidad} {ins.unidad}</strong>
+                      {" · "}PPP: <strong style={{color:"#d97706"}}>${(ins.precio_ppp||ins.precio_unitario||0).toFixed(2)}/{ins.unidad}</strong>
+                    </div>
+                  </div>
+                  <div style={{display:"flex",gap:6}}>
+                    <button onClick={()=>{setShowFormAjuste(!showFormAjuste);setForm({ajuste_signo:"-",ajuste_fecha:new Date().toISOString().split("T")[0]});setAjusteDistribucion("todos");setLotesSeleccionados([]);}}
+                      className="bbtn" style={{fontSize:11,padding:"6px 12px"}}>🔧 Ajuste</button>
+                    <button onClick={()=>{setHistorialInsumoId(null);setHistorialMovs([]);setShowFormAjuste(false);setForm({});}}
+                      style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:20}}>✕</button>
+                  </div>
+                </div>
+
+                {/* Form Ajuste */}
+                {showFormAjuste&&(
+                  <div style={{padding:"12px 18px",borderBottom:"1px solid rgba(0,60,140,0.08)",background:"rgba(255,255,255,0.55)",flexShrink:0}}>
+                    <div style={{fontSize:12,fontWeight:800,color:"#d97706",marginBottom:10}}>🔧 Ajuste Manual de Stock</div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:10,marginBottom:10}}>
+                      <div>
+                        <label className={lCls}>Signo</label>
+                        <div style={{display:"flex",gap:6}}>
+                          {[{v:"+",l:"+ Entrada",c:"#16a34a"},{v:"-",l:"− Salida",c:"#dc2626"}].map(s=>(
+                            <button key={s.v} onClick={()=>setForm({...form,ajuste_signo:s.v})}
+                              style={{flex:1,padding:"7px",borderRadius:9,fontSize:12,fontWeight:800,cursor:"pointer",border:"1px solid",
+                                borderColor:form.ajuste_signo===s.v?s.c:s.c+"40",
+                                background:form.ajuste_signo===s.v?s.c+"18":"transparent",color:s.c}}>
+                              {s.l}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div><label className={lCls}>Cantidad ({ins.unidad})</label><input type="number" value={form.ajuste_cantidad??""} onChange={e=>setForm({...form,ajuste_cantidad:e.target.value})} className={iCls} style={{width:"100%",padding:"7px 12px"}} placeholder="0"/></div>
+                      <div><label className={lCls}>Fecha</label><input type="date" value={form.ajuste_fecha??""} onChange={e=>setForm({...form,ajuste_fecha:e.target.value})} className={iCls} style={{width:"100%",padding:"7px 12px"}}/></div>
+                      {form.ajuste_signo==="-"&&<div><label className={lCls}>Precio U$S (opcional)</label><input type="number" value={form.ajuste_precio??""} onChange={e=>setForm({...form,ajuste_precio:e.target.value})} className={iCls} style={{width:"100%",padding:"7px 12px"}} placeholder="Para imputar al MB"/></div>}
+                      <div style={{gridColumn:"span 2"}}><label className={lCls}>Descripción</label><input type="text" value={form.ajuste_descripcion??""} onChange={e=>setForm({...form,ajuste_descripcion:e.target.value})} className={iCls} style={{width:"100%",padding:"7px 12px"}} placeholder="Ej: Merma, pérdida, corrección..."/></div>
+                    </div>
+                    {/* Imputación a lotes */}
+                    {form.ajuste_signo==="-"&&Number(form.ajuste_precio||0)>0&&(
+                      <div style={{marginBottom:10}}>
+                        <label className={lCls}>Imputar costo al Margen Bruto de:</label>
+                        <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
+                          {[{v:"todos",l:"📋 Todos los lotes"},{v:"grupo",l:"📌 Grupo"},{v:"lote",l:"🎯 Lote individual"}].map(op=>(
+                            <button key={op.v} onClick={()=>{setAjusteDistribucion(op.v as any);setLotesSeleccionados([]);}}
+                              style={{padding:"5px 12px",borderRadius:9,fontSize:11,fontWeight:700,cursor:"pointer",border:"1px solid",
+                                borderColor:ajusteDistribucion===op.v?"#1976d2":"rgba(180,210,240,0.50)",
+                                background:ajusteDistribucion===op.v?"rgba(25,118,210,0.10)":"rgba(255,255,255,0.70)",
+                                color:ajusteDistribucion===op.v?"#1565c0":"#6b8aaa"}}>
+                              {op.l}
+                            </button>
+                          ))}
+                        </div>
+                        {(ajusteDistribucion==="grupo"||ajusteDistribucion==="lote")&&(
+                          <div style={{maxHeight:130,overflowY:"auto",display:"flex",flexWrap:"wrap",gap:5}}>
+                            {lotesDisponibles.map(l=>(
+                              <button key={l.id} onClick={()=>{
+                                if(ajusteDistribucion==="lote"){setLotesSeleccionados([l.id]);}
+                                else{setLotesSeleccionados(p=>p.includes(l.id)?p.filter(x=>x!==l.id):[...p,l.id]);}
+                              }} style={{padding:"4px 10px",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",border:"1px solid",
+                                borderColor:lotesSeleccionados.includes(l.id)?"#22c55e":"rgba(180,210,240,0.50)",
+                                background:lotesSeleccionados.includes(l.id)?"rgba(34,197,94,0.12)":"rgba(255,255,255,0.70)",
+                                color:lotesSeleccionados.includes(l.id)?"#16a34a":"#4a6a8a"}}>
+                                {l.nombre} ({l.hectareas}ha)
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {ajusteDistribucion==="todos"&&lotesDisponibles.length>0&&(
+                          <div style={{fontSize:11,color:"#6b8aaa",marginTop:4}}>
+                            Se distribuirá entre {lotesDisponibles.length} lotes: U$S {(Number(form.ajuste_cantidad||0)*Number(form.ajuste_precio||0)/lotesDisponibles.length).toFixed(2)} c/u
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div style={{display:"flex",gap:8}}>
+                      <button onClick={guardarAjuste} className="bbtn" style={{padding:"9px 18px"}}>✓ Guardar Ajuste</button>
+                      <button onClick={()=>{setShowFormAjuste(false);setForm({});}} className="abtn" style={{padding:"9px 14px"}}>Cancelar</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tabla historial */}
+                <div style={{overflowY:"auto",flex:1}}>
+                  {historialLoading
+                    ?<div style={{textAlign:"center",padding:"30px",color:"#6b8aaa",fontSize:13}}>Cargando...</div>
+                    :historialMovs.length===0
+                      ?<div style={{textAlign:"center",padding:"30px",color:"#6b8aaa",fontSize:13}}>Sin movimientos registrados</div>
+                      :<table style={{width:"100%",fontSize:12,borderCollapse:"collapse"}}>
+                        <thead><tr style={{borderBottom:"1px solid rgba(0,60,140,0.08)",background:"rgba(255,255,255,0.40)"}}>
+                          {["Fecha","Tipo","Detalle","Cantidad","PPP","Total U$S"].map(h=>(
+                            <th key={h} style={{textAlign:"left",padding:"9px 12px",fontSize:10,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase"}}>{h}</th>
+                          ))}
+                        </tr></thead>
+                        <tbody>{historialMovs.map((m,idx)=>{
+                          const tc = tipoColor(m.tipo);
+                          const cantNum = Number(m.cantidad||0);
+                          const ppp = Number(m.precio_ppp||m.precio_unitario||0);
+                          const total = Math.abs(cantNum) * ppp;
+                          return(
+                            <tr key={m.id||idx} className="row-s" style={{borderBottom:"1px solid rgba(0,60,140,0.05)",transition:"background 0.15s"}}>
+                              <td style={{padding:"9px 12px",color:"#6b8aaa",whiteSpace:"nowrap"}}>{m.fecha}</td>
+                              <td style={{padding:"9px 12px"}}>
+                                <span style={{fontSize:10,padding:"2px 8px",borderRadius:6,fontWeight:700,background:tc+"15",color:tc}}>
+                                  {tipoIcon(m.tipo)} {m.tipo}
+                                </span>
+                              </td>
+                              <td style={{padding:"9px 12px",color:"#0d2137",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={m.descripcion||""}>{m.descripcion||"—"}</td>
+                              <td style={{padding:"9px 12px",fontWeight:800,color:cantNum>0?"#16a34a":"#dc2626"}}>
+                                {cantNum>0?"+":""}{cantNum} {ins.unidad}
+                              </td>
+                              <td style={{padding:"9px 12px",color:"#d97706",fontWeight:700}}>{ppp>0?`$${ppp.toFixed(2)}`:"—"}</td>
+                              <td style={{padding:"9px 12px",fontWeight:700,color:cantNum>0?"#16a34a":"#dc2626"}}>
+                                {total>0?(cantNum>0?"":"-")+"U$S "+total.toFixed(2):"—"}
+                              </td>
+                            </tr>
+                          );
+                        })}</tbody>
+                      </table>
+                  }
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ══════════════════════════════
             GASOIL
