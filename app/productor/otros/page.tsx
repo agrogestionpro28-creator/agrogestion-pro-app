@@ -1,396 +1,811 @@
 "use client";
-import { useEffect, useState } from "react";
-import Image from "next/image";
+// @ts-nocheck
+import { useEffect, useState, useCallback } from "react";
 
-type Asistente = {
-  id: string;
-  icon: string;
-  titulo: string;
-  subtitulo: string;
-  color: string;
-  descripcion: string;
-  preguntas: string[];
-  systemPrompt: string;
+// ── TIPOS ──────────────────────────────────────────────────────────────────
+type Campana = { id: string; nombre: string; año_inicio: number; activa: boolean; };
+type Lote = { id: string; nombre: string; hectareas: number; cultivo: string; cultivo_completo: string; };
+type Item = {
+  id: string; empresa_id: string; campana_id: string;
+  lote_ids: string[]; grupo: string; subgrupo: string;
+  concepto: string; articulo: string; descripcion: string;
+  fecha: string; mes: number | null;
+  moneda: string; monto_original: number; tc_usado: number; monto_usd: number;
+  unidad: string; origen: string;
 };
 
-const ASISTENTES: Asistente[] = [
+// ── ESTRUCTURA COMPLETA DE GRUPOS ─────────────────────────────────────────
+const GRUPOS = [
   {
-    id: "mejoras",
-    icon: "💡",
-    titulo: "Mejorá AgroGestión Pro",
-    subtitulo: "Tu opinión construye la plataforma",
-    color: "#00FF80",
-    descripcion: "Sugerí funcionalidades, reportá problemas o contanos qué necesitás. Cada idea se registra y analiza para mejorar el sistema.",
-    preguntas: [
-      "Quiero sugerir una nueva función",
-      "Encontré un problema en el sistema",
-      "¿Qué funciones vienen próximamente?",
-      "Quiero integrar con otra herramienta",
-    ],
-    systemPrompt: "Sos el asistente de mejora continua de AgroGestión Pro, una plataforma SaaS agropecuaria argentina. Tu rol es recopilar sugerencias, ideas y reportes de problemas de los productores. Respondé de forma empática y constructiva. Cuando el usuario sugiera algo, confirmá que fue registrado, agradecé la sugerencia y explicá cómo el equipo la va a evaluar. Si reporta un problema, pedí detalles para entenderlo mejor. Siempre respondé en español y mostrá entusiasmo por mejorar la plataforma.",
+    id: "labranzas", label: "LABRANZAS Y LABORES", col: 0, row: 0,
+    items: ["SIEMBRA","PULVERIZACIÓN TERRESTRE","PULVERIZACIÓN AÉREA","PULVERIZACIÓN DRON","OTROS"],
   },
   {
-    id: "inversion",
-    icon: "📈",
-    titulo: "Asesor de Inversiones",
-    subtitulo: "¿Dónde conviene poner el dinero?",
-    color: "#C9A227",
-    descripcion: "Analizá tus opciones de inversión: maquinaria propia vs. tercerización, más campo, hacienda, silos, insumos anticipados y más.",
-    preguntas: [
-      "¿Me conviene comprar o alquilar maquinaria?",
-      "¿Invertir en hacienda o en granos?",
-      "¿Cuánto campo más puedo tomar?",
-      "¿Me conviene un silo propio?",
-    ],
-    systemPrompt: "Sos un asesor financiero y agropecuario experto para productores argentinos. Ayudás a tomar decisiones de inversión en el campo: maquinaria, hacienda, tierras, insumos anticipados, silos, tecnología. Considerá siempre el contexto argentino: inflación, tipo de cambio, tasas, precios de commodities. Pedí información sobre la situación actual del productor (hectáreas, cultivos, capital disponible) antes de dar recomendaciones. Sé práctico, concreto y usá números cuando sea posible. Respondé siempre en español.",
+    id: "insumos", label: "INSUMOS", col: 1, row: 0,
+    items: ["SEMILLA","CURASEMILLA","FERTILIZANTES","HERBICIDA","INSECTICIDA","FUNGICIDA","COADYUVANTES","OTROS"],
   },
   {
-    id: "pagos",
-    icon: "💳",
-    titulo: "¿Cómo me conviene pagar?",
-    subtitulo: "Contado, cuotas, leasing o canje",
-    color: "#60A5FA",
-    descripcion: "Analizá la mejor forma de pagar una compra según tu flujo de caja, tasa de inflación, stock de granos y condiciones del mercado.",
-    preguntas: [
-      "¿Contado o en cuotas con inflación alta?",
-      "¿Qué es el leasing agropecuario?",
-      "¿Conviene pagar en pesos o en dólares?",
-      "¿Pago con cheque o transferencia?",
-    ],
-    systemPrompt: "Sos un experto en finanzas agropecuarias argentinas, especializado en estructuras de pago y financiamiento. Analizás si conviene pagar contado, en cuotas, con leasing, canje por granos, o con financiamiento bancario. Considerá siempre el contexto argentino: inflación mensual, tasas de interés, precio de los granos como moneda de cambio, y el costo de oportunidad del dinero. Pedí detalles sobre el monto, el tipo de compra y la situación financiera del productor. Respondé en español con análisis concretos y números cuando sea posible.",
+    id: "cosecha", label: "COSECHA", col: 2, row: 0,
+    items: ["COSECHA","ACARREO INTERNO","OTROS"],
   },
   {
-    id: "clima",
-    icon: "🌦️",
-    titulo: "Clima y Plagas",
-    subtitulo: "Alertas y recomendaciones por zona",
-    color: "#4ADE80",
-    descripcion: "Consultá sobre condiciones climáticas, riesgo de heladas, plagas estacionales y el momento ideal para aplicar o sembrar.",
-    preguntas: [
-      "¿Cuándo es el momento ideal para aplicar fungicida?",
-      "Riesgo de heladas en mi zona",
-      "¿Qué plagas hay que vigilar esta campaña?",
-      "¿Cómo afecta La Niña a mis cultivos?",
-    ],
-    systemPrompt: "Sos un agrónomo especialista en climatología y manejo de plagas para la región pampeana y extrapampeana de Argentina. Dás recomendaciones sobre manejo según condiciones climáticas, riesgo de heladas, fenómenos como El Niño/La Niña, plagas estacionales (chinche, trips, pulgones, roya) y momentos óptimos para aplicaciones. Siempre pedí la zona o provincia del productor para dar información más precisa. Respondé en español de forma técnica pero accesible.",
+    id: "logistica", label: "LOGÍSTICA Y FLETE", col: 0, row: 1,
+    items: ["FLETE CORTO","FLETE LARGO","OTROS"],
   },
   {
-    id: "campana",
-    icon: "📊",
-    titulo: "Análisis de Campaña",
-    subtitulo: "Proyección de resultados y margen bruto",
-    color: "#A78BFA",
-    descripcion: "Calculá el margen bruto estimado, analizá costos por cultivo y proyectá el resultado económico de tu campaña actual.",
-    preguntas: [
-      "Calculá mi margen bruto de soja",
-      "¿Cuánto me cuesta producir una tonelada de maíz?",
-      "Análisis de rentabilidad de la campaña",
-      "¿A qué precio de soja empato?",
-    ],
-    systemPrompt: "Sos un economista agrícola experto en análisis de rentabilidad para productores argentinos. Calculás márgenes brutos, costos de producción, punto de equilibrio y proyecciones de campaña. Usás datos actuales de precios de granos, insumos y costos de labores para Argentina. Pedí datos al productor: cultivo, rendimiento esperado, precio de venta, costos de insumos, labores y alquiler. Presentá los resultados en formato claro con tablas cuando sea posible. Respondé siempre en español.",
+    id: "comercializacion", label: "COMERCIALIZACIÓN", col: 1, row: 1,
+    items: ["COMISIÓN","SECADO / LIMPIEZA","ALMACENAJE","ANÁLISIS","OTROS"],
   },
   {
-    id: "impuestos",
-    icon: "🧾",
-    titulo: "Asistente Impositivo",
-    subtitulo: "IVA, Ganancias, Monotributo y más",
-    color: "#FB923C",
-    descripcion: "Resolvé dudas sobre obligaciones impositivas agropecuarias: IVA diferencial, retenciones, monotributo agropecuario, bienes personales.",
-    preguntas: [
-      "¿Cómo funciona el IVA en la venta de granos?",
-      "¿Me conviene el monotributo agropecuario?",
-      "¿Qué retenciones me hacen en la liquidación?",
-      "¿Cuándo vence Ganancias para productores?",
-    ],
-    systemPrompt: "Sos un contador especialista en impuestos agropecuarios en Argentina. Explicás de forma clara y práctica: IVA diferencial en actividades agropecuarias (10.5% vs 21%), retenciones en la fuente, monotributo agropecuario, impuesto a las ganancias para productores, bienes personales, ingresos brutos y vencimientos impositivos. Siempre aclarás que tu información es orientativa y recomendás consultar con un contador certificado para decisiones importantes. Respondé en español.",
+    id: "combustibles", label: "COMBUSTIBLES", col: 2, row: 1,
+    items: ["GASOIL","LUBRICANTES","OTROS"],
+  },
+  {
+    id: "alquiler", label: "ALQUILER", col: 0, row: 2,
+    items: ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE","OTROS"],
+    esMensual: true,
+  },
+  {
+    id: "impuestos", label: "IMPUESTOS Y TASAS", col: 1, row: 2,
+    items: ["INGRESOS BRUTOS","IMP. INMOBILIARIO RURAL","TASA VIAL","OTROS"],
+  },
+  {
+    id: "seguros", label: "SEGUROS Y COBERTURAS", col: 2, row: 2,
+    items: ["SEGURO AGRÍCOLA","SEGURO AUTOMOTOR","OTROS"],
+  },
+  {
+    id: "personal", label: "COSTOS PERSONAL", col: 0, row: 3,
+    items: ["EMPLEADOS","INGENIERO","CONTADOR","OTROS"],
+  },
+  {
+    id: "financieros", label: "COSTOS FINANCIEROS", col: 1, row: 3,
+    items: ["INTERESES BANCARIOS","DESCUENTO DE CHEQUES","COSTO VENTA ANTICIPADA","DIFERENCIA T.C.","OTROS"],
+  },
+  {
+    id: "otros_directos", label: "OTROS COSTOS DIRECTOS", col: 2, row: 3,
+    items: ["REPARACIÓN Y MANTENIMIENTO","COMBUSTIBLES VARIOS","MANO DE OBRA EVENTUAL","ANÁLISIS DE SUELO","OTROS"],
   },
 ];
 
-type Chat = { rol: "user" | "assistant"; texto: string };
+const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
-export default function OtrosPage() {
-  const [asistenteActivo, setAsistenteActivo] = useState<Asistente | null>(null);
-  const [chats, setChats] = useState<Record<string, Chat[]>>({});
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [listening, setListening] = useState(false);
-  const [nombreUsuario, setNombreUsuario] = useState("");
+// ── COMPONENTE PRINCIPAL ───────────────────────────────────────────────────
+export default function CentroGestion() {
+  const [empresaId, setEmpresaId] = useState<string|null>(null);
+  const [campanas, setCampanas] = useState<Campana[]>([]);
+  const [campanaActiva, setCampanaActiva] = useState<string>("");
+  const [lotes, setLotes] = useState<Lote[]>([]);
+  const [loteActivo, setLoteActivo] = useState<string>("todos");
+  const [items, setItems] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tcVenta, setTcVenta] = useState<number>(1400);
+  const [msgExito, setMsgExito] = useState("");
+  // Panel de carga
+  const [panelAbierto, setPanelAbierto] = useState<{grupo:string;subgrupo:string;mes?:number}|null>(null);
+  const [form, setForm] = useState<Record<string,string>>({});
+  const [lotesSeleccionados, setLotesSeleccionados] = useState<string[]>([]);
+  const [guardando, setGuardando] = useState(false);
 
   const getSB = async () => {
     const { createClient } = await import("@supabase/supabase-js");
     return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
   };
 
-  useEffect(() => {
-    const init = async () => {
-      const sb = await getSB();
-      const { data: { user } } = await sb.auth.getUser();
-      if (!user) { window.location.href = "/login"; return; }
-      const { data: u } = await sb.from("usuarios").select("nombre").eq("auth_id", user.id).single();
-      if (u) setNombreUsuario(u.nombre);
-    };
-    init();
-  }, []);
+  const msg = (t: string) => { setMsgExito(t); setTimeout(() => setMsgExito(""), 4000); };
 
-  const chatActivo = asistenteActivo ? (chats[asistenteActivo.id] ?? []) : [];
+  const getTCFecha = async (fecha: string): Promise<number> => {
+    if (!empresaId) return tcVenta;
+    const sb = await getSB();
+    const { data } = await sb.from("finanzas_cotizaciones")
+      .select("usd_usado").eq("empresa_id", empresaId)
+      .lte("fecha", fecha).order("fecha", { ascending: false }).limit(1);
+    return data?.[0]?.usd_usado || tcVenta || 1;
+  };
 
-  const enviar = async (pregunta?: string) => {
-    if (!asistenteActivo) return;
-    const texto = pregunta ?? input.trim();
-    if (!texto) return;
-    setInput("");
-    const nuevoChat: Chat[] = [...chatActivo, { rol: "user", texto }];
-    setChats(prev => ({ ...prev, [asistenteActivo.id]: nuevoChat }));
-    setLoading(true);
+  useEffect(() => { init(); }, []);
+
+  const init = async () => {
+    const sb = await getSB();
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) { window.location.href = "/login"; return; }
+    const { data: u } = await sb.from("usuarios").select("id").eq("auth_id", user.id).single();
+    if (!u) return;
+    const { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", u.id).single();
+    if (!emp) { setLoading(false); return; }
+    setEmpresaId(emp.id);
+    // TC
     try {
-      const historial = nuevoChat.map(m => ({ role: m.rol === "user" ? "user" : "assistant", content: m.texto }));
-      const res = await fetch("/api/scanner", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1500,
-          system: `${asistenteActivo.systemPrompt} El usuario se llama ${nombreUsuario}.`,
-          messages: historial,
-        })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
-      const respuesta = data.content?.[0]?.text ?? "Sin respuesta";
-      setChats(prev => ({
-        ...prev,
-        [asistenteActivo.id]: [...nuevoChat, { rol: "assistant", texto: respuesta }]
-      }));
-    } catch (err: any) {
-      setChats(prev => ({
-        ...prev,
-        [asistenteActivo.id]: [...nuevoChat, { rol: "assistant", texto: `Error: ${err.message ?? "No se pudo conectar con la IA"}` }]
-      }));
-    }
+      const res = await fetch("/api/cotizacion");
+      const d = await res.json();
+      if (d.venta) setTcVenta(d.venta);
+    } catch {}
+    // Campañas
+    const { data: camps } = await sb.from("campanas").select("*").eq("empresa_id", emp.id).order("año_inicio", { ascending: false });
+    setCampanas(camps ?? []);
+    const cid = (camps ?? []).find((c: any) => c.activa)?.id ?? (camps ?? [])[0]?.id ?? "";
+    setCampanaActiva(cid);
+    // Lotes
+    const { data: ls } = await sb.from("lotes").select("id,nombre,hectareas,cultivo,cultivo_completo").eq("empresa_id", emp.id).eq("campana_id", cid).eq("es_segundo_cultivo", false).order("nombre");
+    setLotes(ls ?? []);
+    // Items
+    await fetchItems(emp.id, cid);
     setLoading(false);
   };
 
-  const startVoice = () => {
-    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) { alert("Sin soporte de voz"); return; }
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const rec = new SR(); rec.lang = "es-AR"; rec.continuous = false;
-    setListening(true);
-    rec.onresult = (e: any) => { setInput(e.results[0][0].transcript); setListening(false); };
-    rec.onerror = () => setListening(false);
-    rec.onend = () => setListening(false);
-    rec.start();
+  const fetchItems = async (eid: string, cid: string) => {
+    const sb = await getSB();
+    const { data } = await sb.from("mb_carga_items").select("*").eq("empresa_id", eid).eq("campana_id", cid).order("fecha", { ascending: false });
+    setItems(data ?? []);
   };
 
-  const limpiarChat = () => {
-    if (!asistenteActivo) return;
-    setChats(prev => ({ ...prev, [asistenteActivo.id]: [] }));
+  const cambiarCampana = async (cid: string) => {
+    setCampanaActiva(cid);
+    if (!empresaId) return;
+    const sb = await getSB();
+    const { data: ls } = await sb.from("lotes").select("id,nombre,hectareas,cultivo,cultivo_completo").eq("empresa_id", empresaId).eq("campana_id", cid).eq("es_segundo_cultivo", false).order("nombre");
+    setLotes(ls ?? []);
+    await fetchItems(empresaId, cid);
+    setLoteActivo("todos");
   };
+
+  // ── ABRIR PANEL ──
+  const abrirPanel = (grupoId: string, subgrupo: string, mes?: number) => {
+    setPanelAbierto({ grupo: grupoId, subgrupo, mes });
+    setForm({
+      fecha: new Date().toISOString().split("T")[0],
+      moneda: "ARS",
+      unidad: "ha",
+      monto: "",
+      articulo: "",
+      descripcion: "",
+    });
+    setLotesSeleccionados(loteActivo !== "todos" ? [loteActivo] : []);
+  };
+
+  // ── GUARDAR ITEM ──
+  const guardarItem = async () => {
+    if (!empresaId || !form.fecha || !form.monto || lotesSeleccionados.length === 0) {
+      msg("❌ Completá fecha, monto y seleccioná al menos un lote");
+      return;
+    }
+    setGuardando(true);
+    const tc = form.moneda === "ARS" ? await getTCFecha(form.fecha) : 1;
+    const montoOriginal = Number(form.monto);
+    const montoUsd = form.moneda === "ARS" ? montoOriginal / tc : montoOriginal;
+    const sb = await getSB();
+    await sb.from("mb_carga_items").insert({
+      empresa_id: empresaId,
+      campana_id: campanaActiva,
+      lote_ids: lotesSeleccionados,
+      grupo: panelAbierto!.grupo,
+      subgrupo: panelAbierto!.subgrupo,
+      mes: panelAbierto!.mes ?? null,
+      concepto: panelAbierto!.subgrupo,
+      articulo: form.articulo || "",
+      descripcion: form.descripcion || "",
+      fecha: form.fecha,
+      moneda: form.moneda,
+      monto_original: montoOriginal,
+      tc_usado: tc,
+      monto_usd: montoUsd,
+      unidad: form.unidad || "ha",
+      origen: "manual",
+    });
+    msg(`✅ Guardado — U$S ${montoUsd.toFixed(2)} (TC $${Math.round(tc).toLocaleString("es-AR")})`);
+    await fetchItems(empresaId, campanaActiva);
+    setGuardando(false);
+    setPanelAbierto(null);
+    setForm({});
+    setLotesSeleccionados([]);
+  };
+
+  const eliminarItem = async (id: string) => {
+    if (!confirm("¿Eliminar?") || !empresaId) return;
+    const sb = await getSB();
+    await sb.from("mb_carga_items").delete().eq("id", id);
+    await fetchItems(empresaId, campanaActiva);
+  };
+
+  // ── EXPORTAR EXCEL ──
+  const exportarExcel = async () => {
+    const XLSX = await import("xlsx");
+    const data = itemsFiltrados.map(i => {
+      const loteNombres = i.lote_ids.map((lid: string) => lotes.find(l => l.id === lid)?.nombre || lid).join(", ");
+      return {
+        GRUPO: i.grupo, SUBGRUPO: i.subgrupo, LOTES: loteNombres,
+        FECHA: i.fecha, MES: i.mes ? MESES[i.mes - 1] : "",
+        ARTICULO: i.articulo, DESCRIPCION: i.descripcion,
+        MONEDA: i.moneda, MONTO_ORIGINAL: i.monto_original,
+        TC: i.tc_usado, MONTO_USD: i.monto_usd, UNIDAD: i.unidad,
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "CentroGestion");
+    XLSX.writeFile(wb, `centro_gestion_${campanas.find(c=>c.id===campanaActiva)?.nombre||""}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
+  // ── CALCULAR TOTALES ──
+  const itemsFiltrados = items.filter(i =>
+    loteActivo === "todos" || i.lote_ids.includes(loteActivo)
+  );
+
+  const totalPorGrupoSubgrupo = (grupoId: string, subgrupo: string) => {
+    return itemsFiltrados
+      .filter(i => i.grupo === grupoId && i.subgrupo === subgrupo)
+      .reduce((a, i) => a + i.monto_usd, 0);
+  };
+
+  const totalPorGrupo = (grupoId: string) => {
+    return itemsFiltrados.filter(i => i.grupo === grupoId).reduce((a, i) => a + i.monto_usd, 0);
+  };
+
+  const totalCostos = itemsFiltrados.reduce((a, i) => a + i.monto_usd, 0);
+
+  const hectareasActivas = loteActivo === "todos"
+    ? lotes.reduce((a, l) => a + l.hectareas, 0)
+    : lotes.find(l => l.id === loteActivo)?.hectareas || 0;
+
+  const costoHa = hectareasActivas > 0 ? totalCostos / hectareasActivas : 0;
+
+  if (loading) return (
+    <div style={{minHeight:"100vh",background:"#0a0a0a",display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{display:"flex",alignItems:"center",gap:12}}>
+        <div style={{width:32,height:32,border:"3px solid #c9a227",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+        <span style={{color:"#c9a227",fontWeight:600,fontFamily:"monospace"}}>Cargando Centro de Gestión...</span>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="relative min-h-screen bg-[#020810] text-[#E5E7EB]">
+    <div style={{minHeight:"100vh",background:"#0d0d0d",fontFamily:"'DM Sans','Segoe UI',sans-serif",color:"#f0e6c8"}}>
       <style>{`
-        .asist-card:hover { transform: translateY(-3px); }
-        .asist-card { transition: all 0.2s ease; }
-        @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
-        .msg-in { animation: fadeIn 0.3s ease; }
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap');
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes glow{0%,100%{box-shadow:0 0 8px rgba(201,162,39,0.30)}50%{box-shadow:0 0 20px rgba(201,162,39,0.60)}}
+
+        * { box-sizing: border-box; }
+
+        .gold { color: #c9a227; }
+        .gold-bg { background: linear-gradient(135deg, #c9a227, #f0d060, #c9a227); }
+        .gold-border { border: 1px solid rgba(201,162,39,0.40); }
+
+        /* TOPBAR */
+        .topbar-cg {
+          background: linear-gradient(180deg, #1a1400 0%, #0d0d0d 100%);
+          border-bottom: 1px solid rgba(201,162,39,0.30);
+          box-shadow: 0 2px 20px rgba(201,162,39,0.10);
+        }
+
+        /* GRUPO CARD */
+        .grupo-card {
+          background: linear-gradient(180deg, #1a1600 0%, #111000 100%);
+          border: 1px solid rgba(201,162,39,0.35);
+          border-radius: 8px;
+          overflow: hidden;
+          transition: border-color 0.18s;
+        }
+        .grupo-card:hover { border-color: rgba(201,162,39,0.65); }
+
+        .grupo-header {
+          background: linear-gradient(90deg, #c9a227 0%, #e8c040 50%, #c9a227 100%);
+          padding: 7px 12px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        /* FILA ITEM */
+        .item-row {
+          display: grid;
+          grid-template-columns: 1fr 80px 60px 24px;
+          align-items: center;
+          padding: 5px 10px;
+          border-bottom: 1px solid rgba(201,162,39,0.10);
+          cursor: pointer;
+          transition: background 0.15s;
+          gap: 6px;
+        }
+        .item-row:hover { background: rgba(201,162,39,0.08); }
+        .item-row:last-child { border-bottom: none; }
+
+        /* BTN DORADO */
+        .btn-gold {
+          background: linear-gradient(135deg, #c9a227, #f0d060, #c9a227);
+          border: none;
+          border-radius: 8px;
+          color: #0d0d0d;
+          font-weight: 800;
+          font-size: 12px;
+          cursor: pointer;
+          padding: 8px 16px;
+          transition: all 0.18s;
+          font-family: 'DM Sans', sans-serif;
+        }
+        .btn-gold:hover { filter: brightness(1.15); transform: translateY(-1px); }
+
+        .btn-dark {
+          background: rgba(201,162,39,0.12);
+          border: 1px solid rgba(201,162,39,0.35);
+          border-radius: 8px;
+          color: #c9a227;
+          font-weight:700;
+          font-size: 12px;
+          cursor: pointer;
+          padding: 7px 14px;
+          transition: all 0.18s;
+          font-family: 'DM Sans', sans-serif;
+        }
+        .btn-dark:hover { background: rgba(201,162,39,0.20); }
+
+        /* INPUTS */
+        .inp-dark {
+          background: rgba(255,255,255,0.05);
+          border: 1px solid rgba(201,162,39,0.30);
+          border-radius: 8px;
+          color: #f0e6c8;
+          padding: 8px 12px;
+          font-size: 13px;
+          font-family: 'DM Sans', sans-serif;
+          width: 100%;
+          transition: border-color 0.18s;
+        }
+        .inp-dark:focus { border-color: #c9a227; outline: none; background: rgba(201,162,39,0.06); }
+        .inp-dark::placeholder { color: rgba(201,162,39,0.30); }
+        .inp-dark option { background: #1a1600; color: #f0e6c8; }
+
+        .label-gold {
+          display: block;
+          font-size: 9px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          color: rgba(201,162,39,0.70);
+          margin-bottom: 4px;
+        }
+
+        /* PANEL LATERAL */
+        .panel-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0,0,0,0.75);
+          z-index: 50;
+          display: flex;
+          justify-content: flex-end;
+        }
+        .panel-lateral {
+          width: 420px;
+          height: 100vh;
+          background: linear-gradient(180deg, #1a1600 0%, #0d0d0d 100%);
+          border-left: 1px solid rgba(201,162,39,0.40);
+          overflow-y: auto;
+          animation: slideIn 0.25s ease;
+        }
+        @keyframes slideIn { from{transform:translateX(100%)} to{transform:translateX(0)} }
+
+        /* RESULTADO BAR */
+        .resultado-bar {
+          background: linear-gradient(90deg, #1a1600, #2a2000);
+          border-top: 2px solid #c9a227;
+          border-bottom: 2px solid #c9a227;
+        }
+
+        /* KPI BOX */
+        .kpi-box {
+          background: linear-gradient(135deg, #1a1600, #111000);
+          border: 1px solid rgba(201,162,39,0.35);
+          border-radius: 10px;
+          padding: 12px 16px;
+          text-align: center;
+        }
+
+        .tag-auto {
+          font-size: 8px;
+          padding: 1px 5px;
+          border-radius: 4px;
+          background: rgba(59,130,246,0.20);
+          color: #93c5fd;
+          font-weight: 700;
+          border: 1px solid rgba(59,130,246,0.25);
+        }
+
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(201,162,39,0.30); border-radius: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+
+        .fade-in { animation: fadeIn 0.20s ease; }
+        .glow { animation: glow 2s ease-in-out infinite; }
       `}</style>
 
-      <div className="absolute inset-0 z-0">
-        <Image src="/dashboard-bg.png" alt="bg" fill style={{ objectFit: "cover" }} />
-        <div className="absolute inset-0 bg-[#020810]/88" />
-      </div>
-      <div className="absolute inset-0 z-1 pointer-events-none opacity-[0.03]"
-        style={{ backgroundImage: `linear-gradient(rgba(0,255,128,1) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,128,1) 1px, transparent 1px)`, backgroundSize: "50px 50px" }} />
-
-      {/* Header */}
-      <div className="relative z-10 border-b border-[#00FF80]/20 bg-[#020810]/80 backdrop-blur-sm px-6 py-3 flex items-center gap-4">
-        <button onClick={() => asistenteActivo ? setAsistenteActivo(null) : window.location.href = "/productor/dashboard"}
-          className="text-[#4B5563] hover:text-[#00FF80] transition-colors font-mono text-sm">
-          ← {asistenteActivo ? "Volver a Asistentes" : "Dashboard"}
-        </button>
-        <div className="flex-1" />
-        <Image src="/logo.png" alt="Logo" width={100} height={35} className="object-contain" />
-      </div>
-
-      <div className="relative z-10 max-w-6xl mx-auto p-6">
-
-        {/* ===== PANEL PRINCIPAL — Grid de asistentes ===== */}
-        {!asistenteActivo && (
-          <div>
-            <div className="mb-8 text-center">
-              <h1 className="text-3xl font-bold text-[#E5E7EB] font-mono mb-2">🤖 ASISTENTES IA</h1>
-              <p className="text-[#4B5563] font-mono text-sm">Consultores especializados disponibles 24/7 para ayudarte a tomar mejores decisiones</p>
+      {/* ── TOPBAR ── */}
+      <div className="topbar-cg" style={{position:"sticky",top:0,zIndex:20}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 20px",flexWrap:"wrap"}}>
+          <button onClick={()=>window.location.href="/productor/dashboard"}
+            style={{background:"none",border:"none",cursor:"pointer",color:"rgba(201,162,39,0.70)",fontSize:13,fontWeight:700,fontFamily:"inherit"}}>
+            ← Dashboard
+          </button>
+          <div style={{width:1,height:20,background:"rgba(201,162,39,0.20)"}}/>
+          {/* Logo texto */}
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:18}}>⚙️</span>
+            <div>
+              <div style={{fontSize:14,fontWeight:900,color:"#c9a227",letterSpacing:1,textTransform:"uppercase"}}>Centro de Gestión</div>
+              <div style={{fontSize:10,color:"rgba(201,162,39,0.50)",letterSpacing:0.5}}>Margen Bruto · Carga de Datos</div>
             </div>
+          </div>
+          <div style={{flex:1}}/>
+          {/* TC */}
+          <div style={{padding:"6px 12px",borderRadius:8,border:"1px solid rgba(201,162,39,0.30)",background:"rgba(201,162,39,0.07)",display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:10,color:"rgba(201,162,39,0.60)",fontWeight:700}}>TC BNA</span>
+            <span style={{fontSize:14,fontWeight:800,color:"#c9a227"}}>${Math.round(tcVenta).toLocaleString("es-AR")}</span>
+          </div>
+          {/* Campaña */}
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:10,color:"rgba(201,162,39,0.60)",fontWeight:700,textTransform:"uppercase"}}>Campaña</span>
+            <select value={campanaActiva} onChange={e=>cambiarCampana(e.target.value)} className="inp-dark" style={{minWidth:110,padding:"6px 10px",fontSize:12,fontWeight:700,color:"#c9a227"}}>
+              {campanas.map(c=><option key={c.id} value={c.id}>{c.nombre}{c.activa?" ★":""}</option>)}
+            </select>
+          </div>
+          {/* Lote */}
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:10,color:"rgba(201,162,39,0.60)",fontWeight:700,textTransform:"uppercase"}}>Lote</span>
+            <select value={loteActivo} onChange={e=>setLoteActivo(e.target.value)} className="inp-dark" style={{minWidth:120,padding:"6px 10px",fontSize:12,fontWeight:700,color:"#f0e6c8"}}>
+              <option value="todos">Todos los lotes</option>
+              {lotes.map(l=><option key={l.id} value={l.id}>{l.nombre} ({l.hectareas}ha)</option>)}
+            </select>
+          </div>
+          {/* Acciones */}
+          <button onClick={exportarExcel} className="btn-dark" style={{fontSize:11}}>📤 Exportar</button>
+        </div>
+      </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-              {ASISTENTES.map(a => (
-                <div key={a.id} className="asist-card cursor-pointer bg-[#0a1628]/80 border border-[#00FF80]/15 rounded-2xl overflow-hidden"
-                  style={{ borderColor: (chats[a.id]?.length ?? 0) > 0 ? a.color + "40" : undefined }}
-                  onClick={() => setAsistenteActivo(a)}>
-                  {/* Top color bar */}
-                  <div className="h-1" style={{ background: `linear-gradient(90deg, ${a.color}80, transparent)` }} />
-                  <div className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl"
-                        style={{ background: a.color + "15", border: `1px solid ${a.color}30` }}>
-                        {a.icon}
-                      </div>
-                      {(chats[a.id]?.length ?? 0) > 0 && (
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: a.color }} />
-                          <span className="text-xs font-mono" style={{ color: a.color }}>
-                            {Math.floor((chats[a.id]?.length ?? 0) / 2)} consultas
-                          </span>
-                        </div>
+      <div style={{maxWidth:1400,margin:"0 auto",padding:"16px 16px 100px"}}>
+
+        {/* Toast */}
+        {msgExito&&(
+          <div className="fade-in" style={{marginBottom:14,padding:"10px 16px",borderRadius:10,fontSize:13,fontWeight:700,
+            color:msgExito.startsWith("✅")?"#86efac":"#fca5a5",
+            background:msgExito.startsWith("✅")?"rgba(22,163,74,0.15)":"rgba(220,38,38,0.15)",
+            border:`1px solid ${msgExito.startsWith("✅")?"rgba(22,163,74,0.35)":"rgba(220,38,38,0.35)"}`,
+            display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            {msgExito}
+            <button onClick={()=>setMsgExito("")} style={{background:"none",border:"none",cursor:"pointer",color:"inherit",fontSize:16,opacity:0.6}}>✕</button>
+          </div>
+        )}
+
+        {/* ── KPIs SUPERIORES ── */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:20}}>
+          {[
+            {l:"Total Costos",v:`U$S ${Math.round(totalCostos).toLocaleString("es-AR")}`,c:"#fca5a5"},
+            {l:"Costo / Ha",v:`U$S ${Math.round(costoHa).toLocaleString("es-AR")}`,c:"#fed7aa"},
+            {l:"Ha Activas",v:`${hectareasActivas} ha`,c:"#c9a227"},
+            {l:"Items cargados",v:String(itemsFiltrados.length),c:"#86efac"},
+            {l:"Lotes",v:String(lotes.length),c:"#93c5fd"},
+          ].map(s=>(
+            <div key={s.l} className="kpi-box">
+              <div style={{fontSize:9,color:"rgba(201,162,39,0.60)",fontWeight:700,textTransform:"uppercase",letterSpacing:0.8,marginBottom:4}}>{s.l}</div>
+              <div style={{fontSize:18,fontWeight:800,color:s.c}}>{s.v}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── SECCIÓN TÍTULO ── */}
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
+          <div style={{height:2,flex:1,background:"linear-gradient(90deg,transparent,#c9a227,transparent)"}}/>
+          <div style={{fontSize:11,fontWeight:800,color:"#c9a227",textTransform:"uppercase",letterSpacing:2}}>2 — COSTOS</div>
+          <div style={{height:2,flex:1,background:"linear-gradient(90deg,transparent,#c9a227,transparent)"}}/>
+        </div>
+
+        {/* ── GRID DE GRUPOS (3 columnas) ── */}
+        {[0,1,2,3].map(row=>(
+          <div key={row} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:12}}>
+            {GRUPOS.filter(g=>g.row===row).map(grupo=>{
+              const totalGrupo = totalPorGrupo(grupo.id);
+              const pct = totalCostos > 0 ? (totalGrupo/totalCostos*100) : 0;
+              return(
+                <div key={grupo.id} className="grupo-card">
+                  {/* Header dorado */}
+                  <div className="grupo-header">
+                    <span style={{fontSize:11,fontWeight:900,color:"#0d0d0d",textTransform:"uppercase",letterSpacing:0.5}}>{grupo.label}</span>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      {totalGrupo>0&&(
+                        <>
+                          <span style={{fontSize:11,fontWeight:800,color:"#0d0d0d"}}>U$S {Math.round(totalGrupo).toLocaleString("es-AR")}</span>
+                          <span style={{fontSize:10,fontWeight:700,color:"rgba(0,0,0,0.55)",background:"rgba(0,0,0,0.15)",borderRadius:4,padding:"1px 5px"}}>{pct.toFixed(0)}%</span>
+                        </>
                       )}
                     </div>
-                    <h2 className="font-bold text-[#E5E7EB] font-mono text-lg mb-1">{a.titulo}</h2>
-                    <p className="text-xs font-mono mb-3" style={{ color: a.color }}>{a.subtitulo}</p>
-                    <p className="text-xs text-[#4B5563] font-mono leading-relaxed mb-4">{a.descripcion}</p>
-
-                    {/* Preguntas frecuentes preview */}
-                    <div className="space-y-1.5">
-                      {a.preguntas.slice(0, 2).map(q => (
-                        <div key={q} className="text-xs text-[#4B5563] font-mono px-3 py-1.5 rounded-lg border border-[#00FF80]/5 bg-[#020810]/40">
-                          💬 {q}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center justify-between mt-5 pt-4 border-t border-[#00FF80]/5">
-                      <span className="text-xs text-[#4B5563] font-mono">Disponible 24/7</span>
-                      <span className="text-xs font-mono px-3 py-1.5 rounded-lg border transition-all hover:opacity-80"
-                        style={{ color: a.color, borderColor: a.color + "40", background: a.color + "10" }}>
-                        Consultar →
-                      </span>
-                    </div>
                   </div>
+                  {/* Items */}
+                  <div>
+                    {grupo.items.map((subgrupo,idx)=>{
+                      const mes = grupo.esMensual && idx < 12 ? idx + 1 : undefined;
+                      const totalSub = grupo.esMensual && mes
+                        ? itemsFiltrados.filter(i=>i.grupo===grupo.id&&i.mes===mes).reduce((a,i)=>a+i.monto_usd,0)
+                        : totalPorGrupoSubgrupo(grupo.id, subgrupo);
+                      const pctSub = totalCostos > 0 ? (totalSub/totalCostos*100) : 0;
+                      const itemsCount = grupo.esMensual && mes
+                        ? itemsFiltrados.filter(i=>i.grupo===grupo.id&&i.mes===mes).length
+                        : itemsFiltrados.filter(i=>i.grupo===grupo.id&&i.subgrupo===subgrupo).length;
+                      return(
+                        <div key={subgrupo} className="item-row"
+                          onClick={()=>abrirPanel(grupo.id, subgrupo, mes)}
+                          title={`Clic para agregar ${subgrupo}`}>
+                          {/* Nombre */}
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            <span style={{fontSize:11,color:totalSub>0?"#f0e6c8":"rgba(240,230,200,0.45)",fontWeight:totalSub>0?600:400}}>{subgrupo}</span>
+                            {itemsCount>0&&<span style={{fontSize:9,color:"rgba(201,162,39,0.50)",fontWeight:600}}>{itemsCount}x</span>}
+                          </div>
+                          {/* Monto */}
+                          <div style={{textAlign:"right"}}>
+                            {totalSub>0
+                              ?<span style={{fontSize:11,fontWeight:800,color:"#c9a227"}}>U$S {Math.round(totalSub).toLocaleString("es-AR")}</span>
+                              :<span style={{fontSize:10,color:"rgba(201,162,39,0.25)"}}>—</span>
+                            }
+                          </div>
+                          {/* % */}
+                          <div style={{textAlign:"right"}}>
+                            {totalSub>0
+                              ?<span style={{fontSize:10,color:"rgba(201,162,39,0.60)",fontWeight:600}}>{pctSub.toFixed(1)}%</span>
+                              :<span style={{fontSize:10,color:"rgba(201,162,39,0.15)"}}>—</span>
+                            }
+                          </div>
+                          {/* + */}
+                          <div style={{textAlign:"center"}}>
+                            <span style={{fontSize:14,color:"rgba(201,162,39,0.40)",fontWeight:300,lineHeight:1}}>+</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {/* Total grupo */}
+                    {totalGrupo>0&&(
+                      <div style={{padding:"5px 10px",background:"rgba(201,162,39,0.08)",borderTop:"1px solid rgba(201,162,39,0.20)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <span style={{fontSize:10,color:"rgba(201,162,39,0.60)",fontWeight:700,textTransform:"uppercase"}}>Total</span>
+                        <span style={{fontSize:11,fontWeight:800,color:"#c9a227"}}>U$S {Math.round(totalGrupo).toLocaleString("es-AR")}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+
+        {/* ── RESULTADO FINAL ── */}
+        <div className="resultado-bar" style={{borderRadius:12,padding:"16px 24px",marginTop:8}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
+            <div style={{display:"flex",alignItems:"center",gap:12}}>
+              <span style={{fontSize:13,fontWeight:900,color:"#c9a227",textTransform:"uppercase",letterSpacing:1}}>3 — Margen Bruto</span>
+              <span style={{fontSize:11,color:"rgba(201,162,39,0.50)"}}>Ingreso − Costos</span>
+            </div>
+            <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+              {[
+                {l:"Costo Total",v:`U$S ${Math.round(totalCostos).toLocaleString("es-AR")}`,c:"#fca5a5"},
+                {l:"Costo/Ha",v:`U$S ${Math.round(costoHa).toLocaleString("es-AR")}/ha`,c:"#fed7aa"},
+                {l:"Items",v:String(itemsFiltrados.length),c:"#93c5fd"},
+              ].map(s=>(
+                <div key={s.l} style={{textAlign:"center"}}>
+                  <div style={{fontSize:9,color:"rgba(201,162,39,0.50)",fontWeight:700,textTransform:"uppercase",letterSpacing:0.8,marginBottom:2}}>{s.l}</div>
+                  <div style={{fontSize:16,fontWeight:800,color:s.c}}>{s.v}</div>
                 </div>
               ))}
             </div>
-
-            {/* Footer info */}
-            <div className="mt-8 bg-[#0a1628]/60 border border-[#00FF80]/10 rounded-xl p-5 text-center">
-              <p className="text-xs text-[#4B5563] font-mono">
-                ◆ Todos los asistentes están potenciados por IA · Las respuestas son orientativas · Para decisiones importantes consultá con profesionales certificados
-              </p>
-            </div>
           </div>
-        )}
+          <div style={{marginTop:10,padding:"8px 0",borderTop:"1px solid rgba(201,162,39,0.20)",fontSize:11,color:"rgba(201,162,39,0.40)",textAlign:"center"}}>
+            Completá los ingresos en el módulo de Margen Bruto para ver el resultado final
+          </div>
+        </div>
 
-        {/* ===== CHAT CON ASISTENTE ===== */}
-        {asistenteActivo && (
-          <div className="flex flex-col h-[calc(100vh-160px)]">
-            {/* Header del asistente */}
-            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
-                  style={{ background: asistenteActivo.color + "15", border: `1px solid ${asistenteActivo.color}30` }}>
-                  {asistenteActivo.icon}
-                </div>
-                <div>
-                  <h2 className="font-bold text-[#E5E7EB] font-mono">{asistenteActivo.titulo}</h2>
-                  <p className="text-xs font-mono" style={{ color: asistenteActivo.color }}>{asistenteActivo.subtitulo}</p>
-                </div>
-              </div>
-              {chatActivo.length > 0 && (
-                <button onClick={limpiarChat} className="text-xs text-[#4B5563] hover:text-[#9CA3AF] font-mono transition-colors border border-[#1C2128] px-3 py-1.5 rounded-lg">
-                  🗑 Limpiar chat
-                </button>
-              )}
+        {/* ── HISTORIAL RECIENTE ── */}
+        {itemsFiltrados.length>0&&(
+          <div style={{marginTop:16}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+              <div style={{height:1,flex:1,background:"rgba(201,162,39,0.20)"}}/>
+              <span style={{fontSize:10,color:"rgba(201,162,39,0.50)",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>Últimos movimientos</span>
+              <div style={{height:1,flex:1,background:"rgba(201,162,39,0.20)"}}/>
             </div>
-
-            {/* Área de chat */}
-            <div className="flex-1 bg-[#0a1628]/60 border border-[#00FF80]/10 rounded-xl overflow-hidden flex flex-col">
-
-              {/* Mensajes */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {chatActivo.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center py-10">
-                    <div className="text-5xl mb-4 opacity-30">{asistenteActivo.icon}</div>
-                    <p className="text-[#4B5563] font-mono text-sm mb-6">{asistenteActivo.descripcion}</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 w-full max-w-lg">
-                      {asistenteActivo.preguntas.map(q => (
-                        <button key={q} onClick={() => enviar(q)}
-                          className="text-left text-xs font-mono px-4 py-3 rounded-xl border transition-all hover:opacity-80"
-                          style={{ borderColor: asistenteActivo.color + "30", color: asistenteActivo.color, background: asistenteActivo.color + "08" }}>
-                          💬 {q}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  chatActivo.map((m, i) => (
-                    <div key={i} className={`msg-in flex ${m.rol === "user" ? "justify-end" : "justify-start"}`}>
-                      {m.rol === "assistant" && (
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-lg mr-3 flex-shrink-0 mt-1"
-                          style={{ background: asistenteActivo.color + "15" }}>
-                          {asistenteActivo.icon}
-                        </div>
-                      )}
-                      <div className={`max-w-[78%] px-4 py-3 rounded-2xl text-sm font-mono leading-relaxed ${
-                        m.rol === "user"
-                          ? "bg-[#00FF80]/10 border border-[#00FF80]/20 text-[#E5E7EB] rounded-tr-sm"
-                          : "bg-[#0F1115] border border-[#1C2128] text-[#9CA3AF] rounded-tl-sm"
-                      }`}>
-                        {m.rol === "assistant" && (
-                          <div className="text-xs mb-2 font-bold" style={{ color: asistenteActivo.color }}>
-                            ◆ {asistenteActivo.titulo}
-                          </div>
-                        )}
-                        <p className="whitespace-pre-wrap">{m.texto}</p>
-                      </div>
-                    </div>
-                  ))
-                )}
-                {loading && (
-                  <div className="flex justify-start">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-lg mr-3 flex-shrink-0"
-                      style={{ background: asistenteActivo.color + "15" }}>
-                      {asistenteActivo.icon}
-                    </div>
-                    <div className="bg-[#0F1115] border border-[#1C2128] px-4 py-3 rounded-2xl rounded-tl-sm">
-                      <div className="flex gap-1 items-center">
-                        {[0,1,2].map(i => (
-                          <div key={i} className="w-2 h-2 rounded-full animate-bounce"
-                            style={{ background: asistenteActivo.color, animationDelay: `${i * 0.15}s` }} />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Input */}
-              <div className="p-4 border-t border-[#00FF80]/10">
-                <div className="flex gap-3">
-                  <button onClick={startVoice}
-                    className={`flex items-center gap-1.5 px-3 py-3 rounded-xl border font-mono text-xs transition-all flex-shrink-0 ${listening ? "border-red-400 text-red-400 animate-pulse" : "border-[#00FF80]/20 text-[#4B5563] hover:text-[#00FF80] hover:border-[#00FF80]/30"}`}>
-                    🎤 {listening ? "..." : "Voz"}
-                  </button>
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={e => setInput(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && !e.shiftKey && enviar()}
-                    placeholder={`Consultá al ${asistenteActivo.titulo.toLowerCase()}...`}
-                    className="flex-1 bg-[#020810]/80 border border-[#00FF80]/15 rounded-xl px-4 py-3 text-[#E5E7EB] text-sm focus:outline-none focus:border-[#00FF80] font-mono transition-all"
-                    style={{ borderColor: input ? asistenteActivo.color + "40" : undefined }}
-                  />
-                  <button onClick={() => enviar()} disabled={loading || !input.trim()}
-                    className="px-5 py-3 rounded-xl font-bold font-mono text-sm transition-all disabled:opacity-40 flex-shrink-0"
-                    style={{ background: asistenteActivo.color + "15", border: `1px solid ${asistenteActivo.color}40`, color: asistenteActivo.color }}>
-                    ▶ Enviar
-                  </button>
-                </div>
-                <p className="text-xs text-[#1a3a1a] font-mono mt-2 text-center">
-                  Las respuestas son orientativas · Consultá con profesionales para decisiones importantes
-                </p>
-              </div>
+            <div style={{borderRadius:10,overflow:"hidden",border:"1px solid rgba(201,162,39,0.20)"}}>
+              <table style={{width:"100%",fontSize:11,borderCollapse:"collapse"}}>
+                <thead>
+                  <tr style={{background:"rgba(201,162,39,0.10)"}}>
+                    {["Fecha","Grupo","Concepto","Lotes","Artículo","Descripción","Moneda","Monto","TC","U$S","Unidad",""].map(h=>(
+                      <th key={h} style={{textAlign:"left",padding:"7px 10px",fontSize:9,color:"rgba(201,162,39,0.60)",fontWeight:700,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {itemsFiltrados.slice(0,20).map(i=>{
+                    const loteNombres = i.lote_ids.map((lid: string)=>lotes.find(l=>l.id===lid)?.nombre||"?").join(", ");
+                    return(
+                      <tr key={i.id} style={{borderBottom:"1px solid rgba(201,162,39,0.08)",transition:"background 0.15s",cursor:"default"}}
+                        onMouseEnter={e=>(e.currentTarget as any).style.background="rgba(201,162,39,0.05)"}
+                        onMouseLeave={e=>(e.currentTarget as any).style.background="transparent"}>
+                        <td style={{padding:"6px 10px",color:"rgba(201,162,39,0.60)",whiteSpace:"nowrap"}}>{i.fecha}</td>
+                        <td style={{padding:"6px 10px",color:"#c9a227",fontWeight:600,whiteSpace:"nowrap"}}>{GRUPOS.find(g=>g.id===i.grupo)?.label||i.grupo}</td>
+                        <td style={{padding:"6px 10px",color:"#f0e6c8",fontWeight:600}}>{i.subgrupo}</td>
+                        <td style={{padding:"6px 10px",color:"rgba(240,230,200,0.60)",fontSize:10}}>{loteNombres}</td>
+                        <td style={{padding:"6px 10px",color:"rgba(240,230,200,0.70)"}}>{i.articulo||"—"}</td>
+                        <td style={{padding:"6px 10px",color:"rgba(240,230,200,0.50)",maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{i.descripcion||"—"}</td>
+                        <td style={{padding:"6px 10px",color:"rgba(201,162,39,0.60)"}}>{i.moneda}</td>
+                        <td style={{padding:"6px 10px",fontWeight:700,color:"#c9a227"}}>
+                          {i.moneda==="ARS"?"$":""}{Math.round(i.monto_original).toLocaleString("es-AR")}
+                        </td>
+                        <td style={{padding:"6px 10px",color:"rgba(201,162,39,0.40)",fontSize:10}}>${Math.round(i.tc_usado).toLocaleString("es-AR")}</td>
+                        <td style={{padding:"6px 10px",fontWeight:800,color:"#f0d060"}}>U$S {i.monto_usd.toFixed(2)}</td>
+                        <td style={{padding:"6px 10px",color:"rgba(201,162,39,0.50)",fontSize:10}}>{i.unidad}</td>
+                        <td style={{padding:"6px 10px"}}>
+                          <button onClick={()=>eliminarItem(i.id)} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(220,38,38,0.50)",fontSize:13,padding:"0 4px"}}
+                            onMouseEnter={e=>(e.currentTarget as any).style.color="rgba(220,38,38,0.90)"}
+                            onMouseLeave={e=>(e.currentTarget as any).style.color="rgba(220,38,38,0.50)"}>✕</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
       </div>
+
+      {/* ══ PANEL LATERAL DE CARGA ══ */}
+      {panelAbierto&&(
+        <div className="panel-overlay" onClick={e=>{if(e.target===e.currentTarget){setPanelAbierto(null);setForm({});setLotesSeleccionados([]);}}}>
+          <div className="panel-lateral">
+            {/* Header panel */}
+            <div style={{padding:"18px 20px",borderBottom:"1px solid rgba(201,162,39,0.25)",background:"rgba(201,162,39,0.07)"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                <div style={{fontSize:13,fontWeight:900,color:"#c9a227",textTransform:"uppercase",letterSpacing:0.5}}>
+                  {GRUPOS.find(g=>g.id===panelAbierto.grupo)?.label}
+                </div>
+                <button onClick={()=>{setPanelAbierto(null);setForm({});setLotesSeleccionados([]);}}
+                  style={{background:"none",border:"none",cursor:"pointer",color:"rgba(201,162,39,0.60)",fontSize:20,lineHeight:1,padding:"0 4px"}}>✕</button>
+              </div>
+              <div style={{fontSize:15,fontWeight:800,color:"#f0d060"}}>
+                {panelAbierto.mes ? MESES[panelAbierto.mes-1] : panelAbierto.subgrupo}
+              </div>
+            </div>
+
+            {/* Body panel */}
+            <div style={{padding:"20px",display:"flex",flexDirection:"column",gap:16}}>
+
+              {/* LOTES */}
+              <div>
+                <label className="label-gold">Lote(s) *</label>
+                <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:4}}>
+                  <button onClick={()=>setLotesSeleccionados(lotes.map(l=>l.id))}
+                    style={{padding:"4px 10px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",border:"1px solid rgba(201,162,39,0.30)",
+                      background:lotesSeleccionados.length===lotes.length?"rgba(201,162,39,0.25)":"transparent",color:"#c9a227"}}>
+                    Todos
+                  </button>
+                  {lotes.map(l=>(
+                    <button key={l.id} onClick={()=>{
+                      setLotesSeleccionados(p=>p.includes(l.id)?p.filter(x=>x!==l.id):[...p,l.id]);
+                    }} style={{padding:"4px 10px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",border:"1px solid rgba(201,162,39,0.30)",
+                      background:lotesSeleccionados.includes(l.id)?"rgba(201,162,39,0.25)":"transparent",
+                      color:lotesSeleccionados.includes(l.id)?"#f0d060":"rgba(201,162,39,0.60)"}}>
+                      {l.nombre}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* FECHA */}
+              <div>
+                <label className="label-gold">Fecha del pago *</label>
+                <input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-dark"/>
+              </div>
+
+              {/* MONEDA + MONTO */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:10}}>
+                <div>
+                  <label className="label-gold">Moneda</label>
+                  <select value={form.moneda||"ARS"} onChange={e=>setForm({...form,moneda:e.target.value})} className="inp-dark">
+                    <option value="ARS">$ ARS</option>
+                    <option value="USD">U$S</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label-gold">Monto *</label>
+                  <input type="number" value={form.monto||""} onChange={e=>setForm({...form,monto:e.target.value})} className="inp-dark" placeholder="0"/>
+                </div>
+              </div>
+
+              {/* CONVERSIÓN PREVIEW */}
+              {form.monto&&Number(form.monto)>0&&(
+                <div style={{padding:"10px 14px",borderRadius:8,background:"rgba(201,162,39,0.07)",border:"1px solid rgba(201,162,39,0.20)"}}>
+                  {form.moneda==="ARS"?(
+                    <div style={{fontSize:12,color:"#f0e6c8"}}>
+                      <span style={{color:"rgba(201,162,39,0.70)"}}>
+                        ${Number(form.monto).toLocaleString("es-AR")} ARS ÷ TC ${Math.round(tcVenta).toLocaleString("es-AR")} =
+                      </span>
+                      <span style={{fontWeight:800,color:"#f0d060",fontSize:14,marginLeft:8}}>
+                        U$S {(Number(form.monto)/tcVenta).toFixed(2)}
+                      </span>
+                    </div>
+                  ):(
+                    <div style={{fontSize:13,fontWeight:800,color:"#f0d060"}}>
+                      U$S {Number(form.monto).toFixed(2)}
+                    </div>
+                  )}
+                  <div style={{fontSize:10,color:"rgba(201,162,39,0.40)",marginTop:2}}>
+                    TC del día: ${Math.round(tcVenta).toLocaleString("es-AR")} · Se actualiza con la fecha ingresada
+                  </div>
+                </div>
+              )}
+
+              {/* UNIDAD */}
+              <div>
+                <label className="label-gold">Unidad de medida</label>
+                <select value={form.unidad||"ha"} onChange={e=>setForm({...form,unidad:e.target.value})} className="inp-dark">
+                  <option value="ha">Por ha (U$S/ha)</option>
+                  <option value="tn">Por tn (U$S/tn)</option>
+                  <option value="total">Total del campo</option>
+                  <option value="pct">% sobre ingreso</option>
+                </select>
+              </div>
+
+              {/* ARTÍCULO */}
+              <div>
+                <label className="label-gold">Artículo / Producto</label>
+                <input type="text" value={form.articulo||""} onChange={e=>setForm({...form,articulo:e.target.value})} className="inp-dark" placeholder="Ej: Glifosato 48%, DK7220..."/>
+              </div>
+
+              {/* DESCRIPCIÓN */}
+              <div>
+                <label className="label-gold">Descripción</label>
+                <input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-dark" placeholder="Detalle adicional..."/>
+              </div>
+
+              {/* BOTONES */}
+              <div style={{display:"flex",gap:10,marginTop:4}}>
+                <button onClick={guardarItem} className="btn-gold" style={{flex:1,padding:"11px"}} disabled={guardando}>
+                  {guardando?"Guardando...":"✓ Guardar"}
+                </button>
+                <button onClick={()=>{setPanelAbierto(null);setForm({});setLotesSeleccionados([]);}} className="btn-dark" style={{padding:"11px 16px"}}>
+                  Cancelar
+                </button>
+              </div>
+
+              {/* ITEMS CARGADOS EN ESTE SUBGRUPO */}
+              {(()=>{
+                const existentes = itemsFiltrados.filter(i=>
+                  i.grupo===panelAbierto.grupo &&
+                  (panelAbierto.mes ? i.mes===panelAbierto.mes : i.subgrupo===panelAbierto.subgrupo)
+                );
+                if(existentes.length===0) return null;
+                return(
+                  <div style={{marginTop:8,borderTop:"1px solid rgba(201,162,39,0.15)",paddingTop:16}}>
+                    <div style={{fontSize:10,color:"rgba(201,162,39,0.50)",fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>
+                      Ya cargados ({existentes.length})
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                      {existentes.map(i=>{
+                        const loteNombres = i.lote_ids.map((lid: string)=>lotes.find(l=>l.id===lid)?.nombre||"?").join(", ");
+                        return(
+                          <div key={i.id} style={{padding:"8px 10px",borderRadius:8,background:"rgba(201,162,39,0.06)",border:"1px solid rgba(201,162,39,0.15)",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontSize:11,fontWeight:700,color:"#f0d060"}}>U$S {i.monto_usd.toFixed(2)}</div>
+                              <div style={{fontSize:10,color:"rgba(201,162,39,0.50)"}}>{i.fecha} · {loteNombres}</div>
+                              {i.articulo&&<div style={{fontSize:10,color:"rgba(201,162,39,0.40)"}}>{i.articulo}</div>}
+                            </div>
+                            <button onClick={()=>eliminarItem(i.id)} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(220,38,38,0.50)",fontSize:14,flexShrink:0}}>✕</button>
+                          </div>
+                        );
+                      })}
+                      <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontSize:11,fontWeight:800,color:"#c9a227"}}>
+                        <span>Total</span>
+                        <span>U$S {existentes.reduce((a,i)=>a+i.monto_usd,0).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
