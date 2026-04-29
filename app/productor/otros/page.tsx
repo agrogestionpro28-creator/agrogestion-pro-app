@@ -407,7 +407,11 @@ export default function CentroGestion() {
                       onClick={()=>{
                         setPanelSubgrupo({sub,mes});
                         setForm({fecha:new Date().toISOString().split("T")[0],moneda:"ARS",unidad:"ha"});
-                        setLotesSelec(loteActivo!=="todos"?[loteActivo]:[]);
+                        // Alquiler: no preseleccionar. Grupos todos/empresa: preseleccionar todos
+                        const esGrupoEmpresa = ["impuestos","seguros","personal","financieros","otros_directos"].includes(grupoActivo||"");
+                        if(loteActivo!=="todos") setLotesSelec([loteActivo]);
+                        else if(esGrupoEmpresa) setLotesSelec(lotes.map(l=>l.id));
+                        else setLotesSelec([]);
                       }}>
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
                         <div style={{flex:1}}>
