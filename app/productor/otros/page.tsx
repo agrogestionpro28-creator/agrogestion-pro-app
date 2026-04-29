@@ -457,38 +457,50 @@ export default function CentroGestion() {
                           style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.25)",fontSize:20,lineHeight:1}}>✕</button>
                       </div>
 
-                      {/* ── SELECTOR LOTES ── */}
-                      {(()=>{
-                        // Alquiler: un solo lote a la vez
-                        const soloUnLote = grupoActivo==="alquiler";
-                        return(
-                          <div style={{marginBottom:14}}>
-                            <div style={lCls}>{soloUnLote?"Lote *":"Lote(s) *"}</div>
-                            <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                              {!soloUnLote&&(
-                                <button onClick={()=>setLotesSelec(lotes.map(l=>l.id))}
-                                  style={{padding:"4px 10px",borderRadius:6,fontSize:10,fontWeight:700,cursor:"pointer",
-                                    border:"1px solid rgba(201,162,39,0.30)",fontFamily:"inherit",
-                                    background:lotesSelec.length===lotes.length?"rgba(201,162,39,0.22)":"transparent",
-                                    color:"#c9a227"}}>TODOS</button>
-                              )}
-                              {lotes.map(l=>(
-                                <button key={l.id}
-                                  onClick={()=>{
-                                    if(soloUnLote) setLotesSelec([l.id]);
-                                    else setLotesSelec(p=>p.includes(l.id)?p.filter(x=>x!==l.id):[...p,l.id]);
-                                  }}
-                                  style={{padding:"4px 10px",borderRadius:6,fontSize:10,fontWeight:700,cursor:"pointer",
-                                    border:"1px solid rgba(201,162,39,0.30)",fontFamily:"inherit",
-                                    background:lotesSelec.includes(l.id)?"rgba(201,162,39,0.22)":"transparent",
-                                    color:lotesSelec.includes(l.id)?"#ffe87a":"rgba(255,255,255,0.40)"}}>
-                                  {l.nombre}{soloUnLote?` (${l.hectareas}ha)`:""}
-                                </button>
-                              ))}
+                      {/* ── SELECTOR LOTES UNIVERSAL ── */}
+                      <div style={{marginBottom:14}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+                          <div style={lCls}>{grupoActivo==="alquiler"?"Lote *":"Lote(s) *"}</div>
+                          {grupoActivo!=="alquiler"&&(
+                            <div style={{display:"flex",gap:4}}>
+                              <button onClick={()=>setLotesSelec(lotes.map(l=>l.id))}
+                                style={{padding:"2px 8px",borderRadius:5,fontSize:9,fontWeight:700,cursor:"pointer",fontFamily:"inherit",
+                                  border:"1px solid rgba(201,162,39,0.30)",
+                                  background:lotesSelec.length===lotes.length?"rgba(201,162,39,0.30)":"transparent",
+                                  color:lotesSelec.length===lotes.length?"#ffe87a":"#c9a227"}}>TODOS</button>
+                              <button onClick={()=>setLotesSelec([])}
+                                style={{padding:"2px 8px",borderRadius:5,fontSize:9,fontWeight:700,cursor:"pointer",fontFamily:"inherit",
+                                  border:"1px solid rgba(201,162,39,0.20)",background:"transparent",color:"rgba(201,162,39,0.45)"}}>NINGUNO</button>
                             </div>
+                          )}
+                        </div>
+                        <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                          {lotes.map(l=>{
+                            const sel = lotesSelec.includes(l.id);
+                            return(
+                              <button key={l.id}
+                                onClick={()=>{
+                                  if(grupoActivo==="alquiler") setLotesSelec([l.id]);
+                                  else setLotesSelec(p=>p.includes(l.id)?p.filter(x=>x!==l.id):[...p,l.id]);
+                                }}
+                                style={{padding:"5px 12px",borderRadius:7,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",
+                                  border:`1px solid ${sel?"rgba(201,162,39,0.60)":"rgba(201,162,39,0.22)"}`,
+                                  background:sel?"rgba(201,162,39,0.22)":"transparent",
+                                  color:sel?"#ffe87a":"rgba(255,255,255,0.45)",
+                                  transition:"all 0.15s"}}>
+                                {l.nombre}
+                                {grupoActivo==="alquiler"&&` (${l.hectareas}ha)`}
+                                {sel&&grupoActivo!=="alquiler"&&<span style={{marginLeft:4,color:"#c9a227"}}>✓</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {lotesSelec.length>0&&grupoActivo!=="alquiler"&&(
+                          <div style={{marginTop:5,fontSize:9,color:"rgba(201,162,39,0.40)"}}>
+                            {lotesSelec.length===lotes.length?"Todos los lotes seleccionados":`${lotesSelec.length} lote${lotesSelec.length>1?"s":""} seleccionado${lotesSelec.length>1?"s":""}`}
                           </div>
-                        );
-                      })()}
+                        )}
+                      </div>
 
                       {/* ── CAMPOS SEGÚN GRUPO ── */}
                       {grupoActivo==="alquiler"&&(
@@ -640,21 +652,22 @@ export default function CentroGestion() {
                           <div style={{overflowX:"auto"}}>
                             <table style={{width:"100%",fontSize:11,borderCollapse:"collapse",minWidth:480}}>
                               <thead><tr style={{borderBottom:"1px solid rgba(201,162,39,0.10)"}}>
-                                {["Fecha","Lotes","Artículo","Moneda","Monto","TC","U$S",""].map(h=>(
-                                  <th key={h} style={{padding:"6px 10px",textAlign:"left",fontSize:8,fontWeight:800,textTransform:"uppercase",letterSpacing:0.8,color:"rgba(201,162,39,0.35)"}}>{h}</th>
+                                {["Fecha","Lotes","Artículo/Nombre","Descripción","Moneda","Monto orig.","TC","U$S",""].map(h=>(
+                                  <th key={h} style={{padding:"6px 10px",textAlign:"left",fontSize:8,fontWeight:800,textTransform:"uppercase",letterSpacing:0.8,color:"rgba(201,162,39,0.35)",whiteSpace:"nowrap"}}>{h}</th>
                                 ))}
                               </tr></thead>
                               <tbody>{ex.map(i=>{
                                 const ln=i.lote_ids.map((lid:string)=>lotes.find(l=>l.id===lid)?.nombre||"?").join(", ");
                                 return(
                                   <tr key={i.id} className="row-g" style={{borderBottom:"1px solid rgba(201,162,39,0.06)",transition:"background 0.15s"}}>
-                                    <td style={{padding:"6px 10px",color:"rgba(255,255,255,0.40)",whiteSpace:"nowrap"}}>{i.fecha}</td>
-                                    <td style={{padding:"6px 10px",color:"rgba(255,255,255,0.50)",fontSize:10}}>{ln}</td>
-                                    <td style={{padding:"6px 10px",color:"rgba(255,255,255,0.60)"}}>{i.articulo||"—"}</td>
-                                    <td style={{padding:"6px 10px",color:"rgba(201,162,39,0.45)"}}>{i.moneda}</td>
-                                    <td style={{padding:"6px 10px",fontWeight:700,color:"#c9a227"}}>{i.moneda==="ARS"?"$":""}{fmt(i.monto_original)}</td>
-                                    <td style={{padding:"6px 10px",color:"rgba(255,255,255,0.20)",fontSize:9}}>${fmt(i.tc_usado)}</td>
-                                    <td style={{padding:"6px 10px",fontWeight:800,color:"#f0d060"}}>U$S {i.monto_usd.toFixed(2)}</td>
+                                    <td style={{padding:"6px 10px",color:"rgba(255,255,255,0.55)",whiteSpace:"nowrap",fontWeight:600}}>{i.fecha}</td>
+                                    <td style={{padding:"6px 10px",color:"rgba(201,162,39,0.60)",fontSize:10,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ln}</td>
+                                    <td style={{padding:"6px 10px",color:"rgba(255,255,255,0.70)",fontWeight:600}}>{i.articulo||"—"}</td>
+                                    <td style={{padding:"6px 10px",color:"rgba(255,255,255,0.45)",fontSize:10,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{i.descripcion||"—"}</td>
+                                    <td style={{padding:"6px 10px",color:"rgba(201,162,39,0.50)",fontSize:10}}>{i.moneda}</td>
+                                    <td style={{padding:"6px 10px",fontWeight:700,color:"#c9a227",whiteSpace:"nowrap"}}>{i.moneda==="ARS"?"$":""}{fmt(i.monto_original)}</td>
+                                    <td style={{padding:"6px 10px",color:"rgba(255,255,255,0.20)",fontSize:9,whiteSpace:"nowrap"}}>${fmt(i.tc_usado)}</td>
+                                    <td style={{padding:"6px 10px",fontWeight:800,color:"#f0d060",whiteSpace:"nowrap"}}>U$S {i.monto_usd.toFixed(2)}</td>
                                     <td style={{padding:"6px 10px"}}>
                                       <button onClick={()=>eliminarItem(i.id)} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(220,38,38,0.40)",fontSize:13,transition:"color 0.15s"}}
                                         onMouseEnter={e=>(e.currentTarget as any).style.color="rgba(220,38,38,0.85)"}
@@ -691,8 +704,8 @@ export default function CentroGestion() {
                     <div style={{overflowX:"auto"}}>
                       <table style={{width:"100%",fontSize:11,borderCollapse:"collapse",minWidth:560}}>
                         <thead><tr style={{borderBottom:"1px solid rgba(201,162,39,0.10)"}}>
-                          {["Fecha","Subgrupo","Lotes","Artículo","Moneda","Monto","TC","U$S",""].map(h=>(
-                            <th key={h} style={{padding:"6px 10px",textAlign:"left",fontSize:8,fontWeight:800,textTransform:"uppercase",letterSpacing:0.8,color:"rgba(201,162,39,0.35)"}}>{h}</th>
+                          {["Fecha","Subgrupo","Lotes","Artículo/Nombre","Descripción","Moneda","Monto orig.","TC","U$S",""].map(h=>(
+                            <th key={h} style={{padding:"6px 10px",textAlign:"left",fontSize:8,fontWeight:800,textTransform:"uppercase",letterSpacing:0.8,color:"rgba(201,162,39,0.35)",whiteSpace:"nowrap"}}>{h}</th>
                           ))}
                         </tr></thead>
                         <tbody>{itemsGrupo.map(i=>{
@@ -703,16 +716,18 @@ export default function CentroGestion() {
                                 const mes=grupoData.esMensual?i.mes??undefined:undefined;
                                 setPanelSubgrupo({sub:i.subgrupo,mes});
                                 setForm({fecha:new Date().toISOString().split("T")[0],moneda:"ARS",unidad:"ha"});
-                                setLotesSelec(loteActivo!=="todos"?[loteActivo]:[]);
+                                const esEmpresa=["impuestos","seguros","personal","financieros","otros_directos"].includes(grupoActivo||"");
+                                setLotesSelec(loteActivo!=="todos"?[loteActivo]:esEmpresa?lotes.map(l=>l.id):[]);
                               }}>
-                              <td style={{padding:"6px 10px",color:"rgba(255,255,255,0.40)",whiteSpace:"nowrap"}}>{i.fecha}</td>
-                              <td style={{padding:"6px 10px",color:"#c9a227",fontWeight:700,fontSize:10}}>{i.subgrupo}</td>
-                              <td style={{padding:"6px 10px",color:"rgba(255,255,255,0.45)",fontSize:10}}>{ln}</td>
-                              <td style={{padding:"6px 10px",color:"rgba(255,255,255,0.55)"}}>{i.articulo||"—"}</td>
-                              <td style={{padding:"6px 10px",color:"rgba(201,162,39,0.45)"}}>{i.moneda}</td>
-                              <td style={{padding:"6px 10px",fontWeight:700,color:"#c9a227"}}>{i.moneda==="ARS"?"$":""}{fmt(i.monto_original)}</td>
-                              <td style={{padding:"6px 10px",color:"rgba(255,255,255,0.20)",fontSize:9}}>${fmt(i.tc_usado)}</td>
-                              <td style={{padding:"6px 10px",fontWeight:800,color:"#f0d060"}}>U$S {i.monto_usd.toFixed(2)}</td>
+                              <td style={{padding:"6px 10px",color:"rgba(255,255,255,0.55)",whiteSpace:"nowrap",fontWeight:600}}>{i.fecha}</td>
+                              <td style={{padding:"6px 10px",color:"#c9a227",fontWeight:700,fontSize:10,whiteSpace:"nowrap"}}>{i.subgrupo}</td>
+                              <td style={{padding:"6px 10px",color:"rgba(201,162,39,0.55)",fontSize:10,maxWidth:90,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ln}</td>
+                              <td style={{padding:"6px 10px",color:"rgba(255,255,255,0.70)",fontWeight:600}}>{i.articulo||"—"}</td>
+                              <td style={{padding:"6px 10px",color:"rgba(255,255,255,0.45)",fontSize:10,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{i.descripcion||"—"}</td>
+                              <td style={{padding:"6px 10px",color:"rgba(201,162,39,0.45)",fontSize:10}}>{i.moneda}</td>
+                              <td style={{padding:"6px 10px",fontWeight:700,color:"#c9a227",whiteSpace:"nowrap"}}>{i.moneda==="ARS"?"$":""}{fmt(i.monto_original)}</td>
+                              <td style={{padding:"6px 10px",color:"rgba(255,255,255,0.20)",fontSize:9,whiteSpace:"nowrap"}}>${fmt(i.tc_usado)}</td>
+                              <td style={{padding:"6px 10px",fontWeight:800,color:"#f0d060",whiteSpace:"nowrap"}}>U$S {i.monto_usd.toFixed(2)}</td>
                               <td style={{padding:"6px 10px"}}>
                                 <button onClick={e=>{e.stopPropagation();eliminarItem(i.id);}}
                                   style={{background:"none",border:"none",cursor:"pointer",color:"rgba(220,38,38,0.40)",fontSize:13,transition:"color 0.15s"}}
