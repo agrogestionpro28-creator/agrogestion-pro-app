@@ -283,17 +283,17 @@ export default function CentroGestion() {
           <div style={{width:1,height:18,background:"rgba(201,162,39,0.20)"}}/>
           <div className="text-gold" style={{fontSize:15,fontWeight:900,letterSpacing:1.5,textTransform:"uppercase"}}>⚙ Centro de Gestión</div>
           <div style={{flex:1}}/>
-          <div style={{padding:"5px 12px",borderRadius:8,border:"1px solid rgba(201,162,39,0.22)",background:"rgba(201,162,39,0.06)"}}>
-            <span style={{fontSize:9,color:"rgba(201,162,39,0.45)",fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginRight:6}}>TC BNA</span>
+          <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:8,border:"1px solid rgba(201,162,39,0.22)",background:"rgba(201,162,39,0.06)"}}>
+            <span style={{fontSize:9,color:"rgba(201,162,39,0.45)",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>TC</span>
             <span className="text-gold" style={{fontSize:13,fontWeight:800}}>${fmt(tcVenta)}</span>
           </div>
-          <select value={campanaActiva} onChange={e=>cambiarCampana(e.target.value)} className="inp-d" style={{width:"auto",minWidth:110,maxWidth:160,padding:"5px 10px",fontSize:12,fontWeight:700,color:"#c9a227"}}>
-            {campanas.map(c=><option key={c.id} value={c.id}>{c.nombre}{c.activa?" ★":""}</option>)}
-          </select>
-          <select value={loteActivo} onChange={e=>setLoteActivo(e.target.value)} className="inp-d" style={{width:"auto",minWidth:120,maxWidth:180,padding:"5px 10px",fontSize:12,fontWeight:700}}>
-            <option value="todos">Todos los lotes</option>
-            {lotes.map(l=><option key={l.id} value={l.id}>{l.nombre} ({l.hectareas}ha)</option>)}
-          </select>
+          <div style={{display:"flex",alignItems:"center",gap:8,padding:"5px 12px",borderRadius:8,border:"1px solid rgba(201,162,39,0.22)",background:"rgba(201,162,39,0.06)"}}>
+            <span style={{fontSize:9,color:"rgba(201,162,39,0.45)",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>Campaña</span>
+            <select value={campanaActiva} onChange={e=>cambiarCampana(e.target.value)}
+              style={{background:"transparent",border:"none",color:"#c9a227",fontWeight:800,fontSize:12,cursor:"pointer",outline:"none",fontFamily:"inherit"}}>
+              {campanas.map(c=><option key={c.id} value={c.id} style={{background:"#1a1200",color:"#fff"}}>{c.nombre}{c.activa?" ★":""}</option>)}
+            </select>
+          </div>
         </div>
       </div>
 
