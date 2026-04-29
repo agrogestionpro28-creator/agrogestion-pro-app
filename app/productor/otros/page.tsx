@@ -129,7 +129,7 @@ export default function CentroGestion() {
       lote_ids:lotesSelec, grupo:grupoActivo,
       subgrupo:panelSubgrupo!.sub, mes:panelSubgrupo!.mes??null,
       concepto:panelSubgrupo!.sub, articulo:form.articulo||"",
-      descripcion:form.descripcion||"", fecha:form.fecha,
+      descripcion:(form.cultivo?`[${form.cultivo}] `:"")+( form.descripcion||""), fecha:form.fecha,
       moneda:form.moneda||"ARS", monto_original:Number(form.monto),
       tc_usado:tc, monto_usd:montoUsd, unidad:form.unidad||"ha", origen:"manual",
     });
@@ -453,53 +453,158 @@ export default function CentroGestion() {
                           style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.25)",fontSize:20,lineHeight:1}}>✕</button>
                       </div>
 
-                      {/* LOTES */}
-                      <div style={{marginBottom:14}}>
-                        <div style={lCls}>Lote(s) *</div>
-                        <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                          <button onClick={()=>setLotesSelec(lotes.map(l=>l.id))}
-                            style={{padding:"4px 10px",borderRadius:6,fontSize:10,fontWeight:700,cursor:"pointer",
-                              border:"1px solid rgba(201,162,39,0.30)",
-                              background:lotesSelec.length===lotes.length?"rgba(201,162,39,0.22)":"transparent",
-                              color:"#c9a227",fontFamily:"inherit"}}>
-                            TODOS
-                          </button>
-                          {lotes.map(l=>(
-                            <button key={l.id}
-                              onClick={()=>setLotesSelec(p=>p.includes(l.id)?p.filter(x=>x!==l.id):[...p,l.id])}
-                              style={{padding:"4px 10px",borderRadius:6,fontSize:10,fontWeight:700,cursor:"pointer",
-                                border:"1px solid rgba(201,162,39,0.30)",fontFamily:"inherit",
-                                background:lotesSelec.includes(l.id)?"rgba(201,162,39,0.22)":"transparent",
-                                color:lotesSelec.includes(l.id)?"#ffe87a":"rgba(255,255,255,0.40)"}}>
-                              {l.nombre}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                      {/* ── SELECTOR LOTES ── */}
+                      {(()=>{
+                        // Alquiler: un solo lote a la vez
+                        const soloUnLote = grupoActivo==="alquiler";
+                        return(
+                          <div style={{marginBottom:14}}>
+                            <div style={lCls}>{soloUnLote?"Lote *":"Lote(s) *"}</div>
+                            <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                              {!soloUnLote&&(
+                                <button onClick={()=>setLotesSelec(lotes.map(l=>l.id))}
+                                  style={{padding:"4px 10px",borderRadius:6,fontSize:10,fontWeight:700,cursor:"pointer",
+                                    border:"1px solid rgba(201,162,39,0.30)",fontFamily:"inherit",
+                                    background:lotesSelec.length===lotes.length?"rgba(201,162,39,0.22)":"transparent",
+                                    color:"#c9a227"}}>TODOS</button>
+                              )}
+                              {lotes.map(l=>(
+                                <button key={l.id}
+                                  onClick={()=>{
+                                    if(soloUnLote) setLotesSelec([l.id]);
+                                    else setLotesSelec(p=>p.includes(l.id)?p.filter(x=>x!==l.id):[...p,l.id]);
+                                  }}
+                                  style={{padding:"4px 10px",borderRadius:6,fontSize:10,fontWeight:700,cursor:"pointer",
+                                    border:"1px solid rgba(201,162,39,0.30)",fontFamily:"inherit",
+                                    background:lotesSelec.includes(l.id)?"rgba(201,162,39,0.22)":"transparent",
+                                    color:lotesSelec.includes(l.id)?"#ffe87a":"rgba(255,255,255,0.40)"}}>
+                                  {l.nombre}{soloUnLote?` (${l.hectareas}ha)`:""}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
 
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
-                        <div><div style={lCls}>Fecha del pago *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
-                        <div>
-                          <div style={lCls}>Unidad</div>
-                          <select value={form.unidad||"ha"} onChange={e=>setForm({...form,unidad:e.target.value})} className="inp-d" style={iCls}>
-                            <option value="ha">U$S por ha</option>
-                            <option value="tn">U$S por tn</option>
-                            <option value="total">Total campo</option>
-                            <option value="pct">% sobre ingreso</option>
-                          </select>
-                        </div>
-                        <div>
-                          <div style={lCls}>Moneda</div>
-                          <select value={form.moneda||"ARS"} onChange={e=>setForm({...form,moneda:e.target.value})} className="inp-d" style={iCls}>
-                            <option value="ARS">$ ARS</option>
-                            <option value="USD">U$S</option>
-                          </select>
-                        </div>
-                        <div><div style={lCls}>Monto *</div><input type="number" value={form.monto||""} onChange={e=>setForm({...form,monto:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
-                      </div>
+                      {/* ── CAMPOS SEGÚN GRUPO ── */}
+                      {grupoActivo==="alquiler"&&(
+                        <>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                            <div><div style={lCls}>Fecha del pago *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
+                            <div>
+                              <div style={lCls}>Moneda</div>
+                              <select value={form.moneda||"ARS"} onChange={e=>setForm({...form,moneda:e.target.value})} className="inp-d" style={iCls}>
+                                <option value="ARS">$ ARS</option><option value="USD">U$S</option>
+                              </select>
+                            </div>
+                            <div><div style={lCls}>Monto *</div><input type="number" value={form.monto||""} onChange={e=>setForm({...form,monto:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                            <div><div style={lCls}>Descripción</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Contrato, condición..."/></div>
+                          </div>
+                          {/* Preview + total ha si hay lote seleccionado */}
+                          {form.monto&&Number(form.monto)>0&&lotesSelec.length===1&&(()=>{
+                            const lote = lotes.find(l=>l.id===lotesSelec[0]);
+                            const tc = form.moneda==="ARS"?tcVenta:1;
+                            const usd = Number(form.monto)/tc;
+                            return(
+                              <div style={{marginBottom:12,padding:"10px 14px",borderRadius:8,background:"rgba(201,162,39,0.07)",border:"1px solid rgba(201,162,39,0.22)"}}>
+                                {form.moneda==="ARS"&&<div style={{fontSize:11,color:"rgba(255,255,255,0.35)",marginBottom:2}}>${Number(form.monto).toLocaleString("es-AR")} ARS ÷ TC ${fmt(tcVenta)}</div>}
+                                <span className="text-gold" style={{fontSize:16,fontWeight:900}}>U$S {usd.toFixed(2)}</span>
+                                {lote&&<span style={{fontSize:11,color:"rgba(201,162,39,0.50)",marginLeft:10}}>· {lote.nombre}: {lote.hectareas} ha · U$S {(usd/lote.hectareas).toFixed(2)}/ha</span>}
+                              </div>
+                            );
+                          })()}
+                        </>
+                      )}
 
-                      {/* Preview conversión */}
-                      {form.monto&&Number(form.monto)>0&&(
+                      {(grupoActivo==="impuestos"||grupoActivo==="financieros"||grupoActivo==="otros_directos")&&(
+                        <>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                            <div><div style={lCls}>Fecha del pago *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
+                            <div>
+                              <div style={lCls}>Moneda</div>
+                              <select value={form.moneda||"ARS"} onChange={e=>setForm({...form,moneda:e.target.value})} className="inp-d" style={iCls}>
+                                <option value="ARS">$ ARS</option><option value="USD">U$S</option>
+                              </select>
+                            </div>
+                            <div><div style={lCls}>Monto *</div><input type="number" value={form.monto||""} onChange={e=>setForm({...form,monto:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                            <div><div style={lCls}>Descripción</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Detalle..."/></div>
+                          </div>
+                        </>
+                      )}
+
+                      {grupoActivo==="seguros"&&(
+                        <>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                            <div><div style={lCls}>Fecha del pago *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
+                            <div>
+                              <div style={lCls}>Cultivo</div>
+                              <select value={form.cultivo||""} onChange={e=>setForm({...form,cultivo:e.target.value})} className="inp-d" style={iCls}>
+                                <option value="">Todos los cultivos</option>
+                                {[...new Set(lotes.map(l=>l.cultivo).filter(Boolean))].map(c=>(
+                                  <option key={c} value={c}>{c}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <div style={lCls}>Moneda</div>
+                              <select value={form.moneda||"ARS"} onChange={e=>setForm({...form,moneda:e.target.value})} className="inp-d" style={iCls}>
+                                <option value="ARS">$ ARS</option><option value="USD">U$S</option>
+                              </select>
+                            </div>
+                            <div><div style={lCls}>Monto *</div><input type="number" value={form.monto||""} onChange={e=>setForm({...form,monto:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                            <div style={{gridColumn:"span 2"}}><div style={lCls}>Descripción</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Compañía, póliza, cobertura..."/></div>
+                          </div>
+                        </>
+                      )}
+
+                      {grupoActivo==="personal"&&(
+                        <>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                            <div><div style={lCls}>Mes/Fecha *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
+                            <div><div style={lCls}>Nombre / Empresa</div><input type="text" value={form.articulo||""} onChange={e=>setForm({...form,articulo:e.target.value})} className="inp-d" style={iCls} placeholder="Juan García, Estudio ABC..."/></div>
+                            <div>
+                              <div style={lCls}>Moneda</div>
+                              <select value={form.moneda||"ARS"} onChange={e=>setForm({...form,moneda:e.target.value})} className="inp-d" style={iCls}>
+                                <option value="ARS">$ ARS</option><option value="USD">U$S</option>
+                              </select>
+                            </div>
+                            <div><div style={lCls}>Monto *</div><input type="number" value={form.monto||""} onChange={e=>setForm({...form,monto:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                            <div style={{gridColumn:"span 2"}}><div style={lCls}>Descripción</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Sueldo mes X, honorarios, etc..."/></div>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Grupos que aún usan form genérico (labranzas, insumos, cosecha, logística, comercialización, combustibles) */}
+                      {!["alquiler","impuestos","seguros","personal","financieros","otros_directos"].includes(grupoActivo||"")&&(
+                        <>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                            <div><div style={lCls}>Fecha del pago *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
+                            <div>
+                              <div style={lCls}>Unidad</div>
+                              <select value={form.unidad||"ha"} onChange={e=>setForm({...form,unidad:e.target.value})} className="inp-d" style={iCls}>
+                                <option value="ha">U$S por ha</option>
+                                <option value="tn">U$S por tn</option>
+                                <option value="total">Total campo</option>
+                                <option value="pct">% sobre ingreso</option>
+                              </select>
+                            </div>
+                            <div>
+                              <div style={lCls}>Moneda</div>
+                              <select value={form.moneda||"ARS"} onChange={e=>setForm({...form,moneda:e.target.value})} className="inp-d" style={iCls}>
+                                <option value="ARS">$ ARS</option><option value="USD">U$S</option>
+                              </select>
+                            </div>
+                            <div><div style={lCls}>Monto *</div><input type="number" value={form.monto||""} onChange={e=>setForm({...form,monto:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                          </div>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                            <div><div style={lCls}>Artículo / Producto</div><input type="text" value={form.articulo||""} onChange={e=>setForm({...form,articulo:e.target.value})} className="inp-d" style={iCls} placeholder="Ej: Glifosato 48%..."/></div>
+                            <div><div style={lCls}>Descripción</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Detalle..."/></div>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Preview conversión — todos los grupos */}
+                      {form.monto&&Number(form.monto)>0&&grupoActivo!=="alquiler"&&(
                         <div style={{marginBottom:12,padding:"10px 14px",borderRadius:8,background:"rgba(201,162,39,0.07)",border:"1px solid rgba(201,162,39,0.22)"}}>
                           {form.moneda==="ARS"?(
                             <div style={{fontSize:12}}>
@@ -512,11 +617,6 @@ export default function CentroGestion() {
                           <div style={{fontSize:9,color:"rgba(201,162,39,0.30)",marginTop:3}}>TC actual ${fmt(tcVenta)} · Se usa el TC exacto de la fecha ingresada</div>
                         </div>
                       )}
-
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
-                        <div><div style={lCls}>Artículo / Producto</div><input type="text" value={form.articulo||""} onChange={e=>setForm({...form,articulo:e.target.value})} className="inp-d" style={iCls} placeholder="Ej: Glifosato 48%..."/></div>
-                        <div><div style={lCls}>Descripción</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Detalle..."/></div>
-                      </div>
 
                       <button onClick={guardarItem} className="btn-g" style={{width:"100%",padding:"12px",fontSize:13,letterSpacing:0.5}} disabled={guardando}>
                         {guardando?"GUARDANDO...":"✓ GUARDAR REGISTRO"}
