@@ -91,9 +91,11 @@ export default function CentroGestion() {
     setCampanas(camps??[]);
     const cid=(camps??[]).find((c:any)=>c.activa)?.id??(camps??[])[0]?.id??"";
     setCampanaActiva(cid);
-    const { data:ls } = await sb.from("lotes").select("id,nombre,hectareas,cultivo,cultivo_completo")
-      .eq("empresa_id",emp.id).eq("campana_id",cid).eq("es_segundo_cultivo",false).order("nombre");
-    setLotes(ls??[]);
+    if (cid) {
+      const { data:ls } = await sb.from("lotes").select("id,nombre,hectareas,cultivo,cultivo_completo")
+        .eq("empresa_id",emp.id).eq("campana_id",cid).eq("es_segundo_cultivo",false).order("nombre");
+      setLotes(ls??[]);
+    }
     await fetchItems(emp.id,cid);
     setLoading(false);
   };
@@ -285,10 +287,10 @@ export default function CentroGestion() {
             <span style={{fontSize:9,color:"rgba(201,162,39,0.45)",fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginRight:6}}>TC BNA</span>
             <span className="text-gold" style={{fontSize:13,fontWeight:800}}>${fmt(tcVenta)}</span>
           </div>
-          <select value={campanaActiva} onChange={e=>cambiarCampana(e.target.value)} className="inp-d" style={{minWidth:110,padding:"5px 10px",fontSize:12,fontWeight:700,color:"#c9a227"}}>
+          <select value={campanaActiva} onChange={e=>cambiarCampana(e.target.value)} className="inp-d" style={{width:"auto",minWidth:110,maxWidth:160,padding:"5px 10px",fontSize:12,fontWeight:700,color:"#c9a227"}}>
             {campanas.map(c=><option key={c.id} value={c.id}>{c.nombre}{c.activa?" ★":""}</option>)}
           </select>
-          <select value={loteActivo} onChange={e=>setLoteActivo(e.target.value)} className="inp-d" style={{minWidth:120,padding:"5px 10px",fontSize:12,fontWeight:700}}>
+          <select value={loteActivo} onChange={e=>setLoteActivo(e.target.value)} className="inp-d" style={{width:"auto",minWidth:120,maxWidth:180,padding:"5px 10px",fontSize:12,fontWeight:700}}>
             <option value="todos">Todos los lotes</option>
             {lotes.map(l=><option key={l.id} value={l.id}>{l.nombre} ({l.hectareas}ha)</option>)}
           </select>
@@ -475,6 +477,11 @@ export default function CentroGestion() {
                           )}
                         </div>
                         <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                          {lotes.length===0&&(
+                            <div style={{fontSize:11,color:"rgba(201,162,39,0.40)",fontStyle:"italic",padding:"4px 0"}}>
+                              Sin lotes — seleccioná una campaña con lotes cargados
+                            </div>
+                          )}
                           {lotes.map(l=>{
                             const sel = lotesSelec.includes(l.id);
                             return(
@@ -483,14 +490,15 @@ export default function CentroGestion() {
                                   if(grupoActivo==="alquiler") setLotesSelec([l.id]);
                                   else setLotesSelec(p=>p.includes(l.id)?p.filter(x=>x!==l.id):[...p,l.id]);
                                 }}
-                                style={{padding:"5px 12px",borderRadius:7,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",
-                                  border:`1px solid ${sel?"rgba(201,162,39,0.60)":"rgba(201,162,39,0.22)"}`,
-                                  background:sel?"rgba(201,162,39,0.22)":"transparent",
-                                  color:sel?"#ffe87a":"rgba(255,255,255,0.45)",
-                                  transition:"all 0.15s"}}>
+                                style={{padding:"5px 14px",borderRadius:7,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",
+                                  border:`1.5px solid ${sel?"#c9a227":"rgba(201,162,39,0.25)"}`,
+                                  background:sel?"rgba(201,162,39,0.18)":"rgba(255,255,255,0.03)",
+                                  color:sel?"#ffe87a":"rgba(255,255,255,0.50)",
+                                  transition:"all 0.15s",
+                                  boxShadow:sel?"0 0 8px rgba(201,162,39,0.20)":"none"}}>
                                 {l.nombre}
-                                {grupoActivo==="alquiler"&&` (${l.hectareas}ha)`}
-                                {sel&&grupoActivo!=="alquiler"&&<span style={{marginLeft:4,color:"#c9a227"}}>✓</span>}
+                                {grupoActivo==="alquiler"&&<span style={{fontSize:9,marginLeft:4,color:"rgba(201,162,39,0.50)"}}>{l.hectareas}ha</span>}
+                                {sel&&grupoActivo!=="alquiler"&&<span style={{marginLeft:5,color:"#c9a227",fontSize:12}}>✓</span>}
                               </button>
                             );
                           })}
