@@ -92,9 +92,15 @@ export default function CentroGestion() {
     const cid=(camps??[]).find((c:any)=>c.activa)?.id??(camps??[])[0]?.id??"";
     setCampanaActiva(cid);
     if (cid) {
-      const { data:ls } = await sb.from("lotes").select("id,nombre,hectareas,cultivo,cultivo_completo")
-        .eq("empresa_id",emp.id).eq("campana_id",cid).eq("es_segundo_cultivo",false).order("nombre");
-      setLotes(ls??[]);
+      const { data:ls } = await sb.from("lotes")
+        .select("id,nombre,hectareas,cultivo,cultivo_completo")
+        .eq("empresa_id",emp.id)
+        .eq("campana_id",cid)
+        .eq("es_segundo_cultivo",false)
+        .order("nombre");
+      const lotesArr = ls??[];
+      setLotes(lotesArr);
+      console.log("Lotes cargados:", lotesArr.length, "campaña:", cid);
     }
     await fetchItems(emp.id,cid);
     setLoading(false);
@@ -108,14 +114,19 @@ export default function CentroGestion() {
   };
 
   const cambiarCampana = async (cid:string) => {
+    if (!cid) return;
     setCampanaActiva(cid);
     if (!empresaId) return;
     const sb = await getSB();
-    const { data:ls } = await sb.from("lotes").select("id,nombre,hectareas,cultivo,cultivo_completo")
-      .eq("empresa_id",empresaId).eq("campana_id",cid).eq("es_segundo_cultivo",false).order("nombre");
+    const { data:ls } = await sb.from("lotes")
+      .select("id,nombre,hectareas,cultivo,cultivo_completo")
+      .eq("empresa_id",empresaId)
+      .eq("campana_id",cid)
+      .eq("es_segundo_cultivo",false)
+      .order("nombre");
     setLotes(ls??[]);
     await fetchItems(empresaId,cid);
-    setLoteActivo("todos"); setGrupoActivo(null); setPanelSubgrupo(null);
+    setGrupoActivo(null); setPanelSubgrupo(null);
   };
 
   const guardarItem = async () => {
@@ -287,13 +298,7 @@ export default function CentroGestion() {
             <span style={{fontSize:9,color:"rgba(201,162,39,0.45)",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>TC</span>
             <span className="text-gold" style={{fontSize:13,fontWeight:800}}>${fmt(tcVenta)}</span>
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:8,padding:"5px 12px",borderRadius:8,border:"1px solid rgba(201,162,39,0.22)",background:"rgba(201,162,39,0.06)"}}>
-            <span style={{fontSize:9,color:"rgba(201,162,39,0.45)",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>Campaña</span>
-            <select value={campanaActiva} onChange={e=>cambiarCampana(e.target.value)}
-              style={{background:"transparent",border:"none",color:"#c9a227",fontWeight:800,fontSize:12,cursor:"pointer",outline:"none",fontFamily:"inherit"}}>
-              {campanas.map(c=><option key={c.id} value={c.id} style={{background:"#1a1200",color:"#fff"}}>{c.nombre}{c.activa?" ★":""}</option>)}
-            </select>
-          </div>
+
         </div>
       </div>
 
@@ -314,7 +319,17 @@ export default function CentroGestion() {
         {/* ══ GRID LINGOTES ══ */}
         {!grupoActivo&&(
           <div className="fade-up">
-            {/* KPIs */}
+            {/* Campaña selector en vista grid */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",marginBottom:14}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 14px",borderRadius:9,border:"1px solid rgba(201,162,39,0.30)",background:"rgba(201,162,39,0.07)"}}>
+                <span style={{fontSize:10,color:"rgba(201,162,39,0.55)",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>📅 Campaña</span>
+                <select value={campanaActiva} onChange={e=>cambiarCampana(e.target.value)}
+                  style={{background:"transparent",border:"none",color:"#c9a227",fontWeight:800,fontSize:13,cursor:"pointer",outline:"none",fontFamily:"inherit"}}>
+                  {campanas.map(c=><option key={c.id} value={c.id} style={{background:"#1a1200",color:"#f0e6c8"}}>{c.nombre}{c.activa?" ★":""}</option>)}
+                </select>
+              </div>
+            </div>
+        {/* KPIs */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:24}}>
               {[
                 {l:"TOTAL COSTOS",    v:`U$S ${fmt(totalCostos)}`,              c:"#fca5a5"},
@@ -385,11 +400,19 @@ export default function CentroGestion() {
                   </div>
                 </div>
               </div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                {/* Selector campaña aquí */}
+                <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 10px",borderRadius:8,border:"1px solid rgba(201,162,39,0.25)",background:"rgba(201,162,39,0.06)"}}>
+                  <span style={{fontSize:9,color:"rgba(201,162,39,0.50)",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>Campaña</span>
+                  <select value={campanaActiva} onChange={e=>cambiarCampana(e.target.value)}
+                    style={{background:"transparent",border:"none",color:"#c9a227",fontWeight:800,fontSize:12,cursor:"pointer",outline:"none",fontFamily:"inherit",padding:"0"}}>
+                    {campanas.map(c=><option key={c.id} value={c.id} style={{background:"#1a1200",color:"#f0e6c8"}}>{c.nombre}{c.activa?" ★":""}</option>)}
+                  </select>
+                </div>
                 <input ref={importRef} type="file" accept=".xlsx,.xls" style={{display:"none"}}
                   onChange={e=>{const f=e.target.files?.[0];if(f)importarExcel(f);}}/>
-                <button onClick={()=>importRef.current?.click()} className="btn-ol">📥 Importar Excel</button>
-                <button onClick={()=>exportarExcel(grupoActivo)} className="btn-ol">📤 Exportar Excel</button>
+                <button onClick={()=>importRef.current?.click()} className="btn-ol">📥 Importar</button>
+                <button onClick={()=>exportarExcel(grupoActivo)} className="btn-ol">📤 Exportar</button>
               </div>
             </div>
 
