@@ -22,6 +22,7 @@ type MbVenta = {
 type CargaItem = {
   id: string; lote_ids: string[]; grupo: string; subgrupo: string;
   monto_usd: number; unidad: string; fecha: string; descripcion: string; articulo: string;
+  mes: number | null;
 };
 
 // Mismos 12 grupos que Centro de Gestión — en orden y con mismo nombre
