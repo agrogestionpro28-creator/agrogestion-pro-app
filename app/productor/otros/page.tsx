@@ -134,23 +134,31 @@ export default function CentroGestion() {
   };
 
   const guardarItem = async () => {
-    if (!empresaId||!form.fecha||!form.monto||lotesSelec.length===0){
-      msg("❌ Completá fecha, monto y seleccioná al menos un lote"); return;
-    }
+    if (!empresaId){ msg("❌ Sin empresa — recargá la página"); return; }
+    if (!campanaActiva){ msg("❌ Sin campaña — elegí una campaña"); return; }
+    if (!grupoActivo){ msg("❌ Sin grupo activo"); return; }
+    if (!form.fecha){ msg("❌ Falta la fecha"); return; }
+    if (!form.monto||Number(form.monto)===0){ msg("❌ Falta el monto"); return; }
+    if (lotesSelec.length===0){ msg("❌ Seleccioná al menos un lote"); return; }
     setGuardando(true);
     const tc = form.moneda==="ARS" ? await getTCFecha(form.fecha) : 1;
     const montoUsd = form.moneda==="ARS" ? Number(form.monto)/tc : Number(form.monto);
     const sb = await getSB();
-    await sb.from("mb_carga_items").insert({
+    const payload = {
       empresa_id:empresaId, campana_id:campanaActiva,
       lote_ids:lotesSelec, grupo:grupoActivo,
       subgrupo:panelSubgrupo!.sub, mes:panelSubgrupo!.mes??null,
       concepto:panelSubgrupo!.sub, articulo:form.articulo||"",
-      descripcion:(form.cultivo?`[${form.cultivo}] `:"")+( form.descripcion||""), fecha:form.fecha,
+      descripcion:form.descripcion||"", fecha:form.fecha,
       moneda:form.moneda||"ARS", monto_original:Number(form.monto),
       tc_usado:tc, monto_usd:montoUsd, unidad:form.unidad||"ha", origen:"manual",
-    });
-    msg(`✅ U$S ${montoUsd.toFixed(2)} guardado (TC $${fmt(tc)})`);
+    };
+    const { error } = await sb.from("mb_carga_items").insert(payload);
+    if (error) {
+      msg(`❌ Error BD: ${error.message}`);
+      setGuardando(false); return;
+    }
+    msg(`✅ U$S ${montoUsd.toFixed(2)} guardado · ${campanas.find(c=>c.id===campanaActiva)?.nombre} · ${lotesSelec.length} lote${lotesSelec.length>1?"s":""}`);
     await fetchItems(empresaId,campanaActiva);
     setGuardando(false); setPanelSubgrupo(null); setForm({}); setLotesSelec([]);
   };
