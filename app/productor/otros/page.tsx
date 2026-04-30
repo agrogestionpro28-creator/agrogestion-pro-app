@@ -58,6 +58,7 @@ export default function CentroGestion() {
   const [form, setForm]                   = useState<Record<string,string>>({});
   const [lotesSelec, setLotesSelec]       = useState<string[]>([]);
   const [guardando, setGuardando]         = useState(false);
+  const [empleados, setEmpleados]         = useState<{id:string;nombre:string;categoria:string;sueldo_basico:number}[]>([]);
   const importRef                         = useRef<HTMLInputElement>(null);
 
   const getSB = async () => {
@@ -108,9 +109,12 @@ export default function CentroGestion() {
 
   const fetchItems = async (eid:string,cid:string) => {
     const sb = await getSB();
-    const { data } = await sb.from("mb_carga_items").select("*")
-      .eq("empresa_id",eid).eq("campana_id",cid).order("fecha",{ascending:false});
-    setItems(data??[]);
+    const [itemsData, empsData] = await Promise.all([
+      sb.from("mb_carga_items").select("*").eq("empresa_id",eid).eq("campana_id",cid).order("fecha",{ascending:false}),
+      sb.from("empleados").select("id,nombre,categoria,sueldo_basico").eq("empresa_id",eid).eq("activo",true).order("nombre"),
+    ]);
+    setItems(itemsData.data??[]);
+    setEmpleados(empsData.data??[]);
   };
 
   const cambiarCampana = async (cid:string) => {
@@ -420,7 +424,55 @@ export default function CentroGestion() {
 
               {/* Col izq: items del grupo como lingotes pequeños */}
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                {grupoData.items.map((sub,idx)=>{
+                {/* PERSONAL: lista real de empleados */}
+                {grupoActivo==="personal"&&(
+                  <>
+                    {empleados.length===0&&(
+                      <div style={{padding:"12px",fontSize:11,color:"rgba(201,162,39,0.40)",textAlign:"center",fontStyle:"italic"}}>
+                        Sin empleados<br/>
+                        <button onClick={()=>window.location.href="/productor/documentos"}
+                          style={{marginTop:6,padding:"4px 10px",borderRadius:6,fontSize:10,fontWeight:700,cursor:"pointer",border:"1px solid rgba(201,162,39,0.30)",background:"transparent",color:"#c9a227",fontFamily:"inherit"}}>
+                          Cargar en Documentos →
+                        </button>
+                      </div>
+                    )}
+                    {empleados.map((emp,idx)=>{
+                      const tot=itemsGrupo.filter(i=>i.subgrupo===emp.id).reduce((a,i)=>a+i.monto_usd,0);
+                      const pct=totalGrupoActivo>0?(tot/totalGrupoActivo*100):0;
+                      const cnt=itemsGrupo.filter(i=>i.subgrupo===emp.id).length;
+                      const isActivo=panelSubgrupo?.sub===emp.id;
+                      return(
+                        <div key={emp.id} className={`lingote-sm${isActivo?" activo":""}`} style={{padding:"11px 14px"}}
+                          onClick={()=>{
+                            setPanelSubgrupo({sub:emp.id});
+                            setForm({fecha:new Date().toISOString().split("T")[0],moneda:"ARS",unidad:"total",articulo:emp.nombre,tipo_pago:"sueldo",monto:String(emp.sueldo_basico||"")});
+                            setLotesSelec(lotes.map(l=>l.id));
+                          }}>
+                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                            <div style={{flex:1}}>
+                              <div style={{fontSize:11,fontWeight:800,color:isActivo?"#ffe87a":"#e0d0a0"}}>{emp.nombre}</div>
+                              <div style={{fontSize:9,color:"rgba(201,162,39,0.45)",marginTop:1,textTransform:"uppercase"}}>{emp.categoria?.replace("_"," ")||"—"}{cnt>0?` · ${cnt} reg.`:""}</div>
+                            </div>
+                            <div style={{textAlign:"right",flexShrink:0}}>
+                              {tot>0?<><div style={{fontSize:12,fontWeight:800,color:"#c9a227"}}>U$S {fmt(tot)}</div><div style={{fontSize:9,color:"rgba(201,162,39,0.45)"}}>{pct.toFixed(0)}%</div></>:<span style={{fontSize:18,color:"rgba(201,162,39,0.20)",fontWeight:200}}>+</span>}
+                            </div>
+                          </div>
+                          {tot>0&&<div style={{marginTop:7,height:3,background:"rgba(201,162,39,0.10)",borderRadius:3,overflow:"hidden"}}><div style={{height:"100%",background:"linear-gradient(90deg,#8a6500,#c9a227,#f0d060)",borderRadius:3,width:`${Math.min(100,pct)}%`,transition:"width 0.6s ease"}}/></div>}
+                        </div>
+                      );
+                    })}
+                    <div className={`lingote-sm${panelSubgrupo?.sub==="otros_personal"?" activo":""}`} style={{padding:"11px 14px"}}
+                      onClick={()=>{setPanelSubgrupo({sub:"otros_personal"});setForm({fecha:new Date().toISOString().split("T")[0],moneda:"ARS",unidad:"total",tipo_pago:"honorarios"});setLotesSelec(lotes.map(l=>l.id));}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                        <span style={{fontSize:11,fontWeight:800,color:panelSubgrupo?.sub==="otros_personal"?"#ffe87a":"#e0d0a0"}}>OTROS / HONORARIOS</span>
+                        {itemsGrupo.filter(i=>i.subgrupo==="otros_personal").reduce((a,i)=>a+i.monto_usd,0)>0
+                          ?<span style={{fontSize:12,fontWeight:800,color:"#c9a227"}}>U$S {fmt(itemsGrupo.filter(i=>i.subgrupo==="otros_personal").reduce((a,i)=>a+i.monto_usd,0))}</span>
+                          :<span style={{fontSize:18,color:"rgba(201,162,39,0.20)",fontWeight:200}}>+</span>}
+                      </div>
+                    </div>
+                  </>
+                )}
+                {grupoActivo!=="personal"&&grupoData.items.map((sub,idx)=>{
                   const mes = grupoData.esMensual&&idx<12 ? idx+1 : undefined;
                   const tot = totalSub(grupoActivo,sub,mes);
                   const pct = totalGrupoActivo>0?(tot/totalGrupoActivo*100):0;
@@ -606,9 +658,33 @@ export default function CentroGestion() {
 
                       {grupoActivo==="personal"&&(
                         <>
+                          {/* Nombre del empleado — auto cuando viene de la lista */}
+                          {form.articulo&&(
+                            <div style={{marginBottom:12,padding:"8px 12px",borderRadius:8,background:"rgba(201,162,39,0.08)",border:"1px solid rgba(201,162,39,0.20)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                              <span style={{fontSize:12,fontWeight:800,color:"#f0d060"}}>👤 {form.articulo}</span>
+                              <button onClick={()=>setForm({...form,articulo:""})} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.30)",fontSize:14}}>✕</button>
+                            </div>
+                          )}
+                          {!form.articulo&&(
+                            <div style={{marginBottom:12}}>
+                              <div style={lCls}>Nombre / Empresa</div>
+                              <input type="text" value={form.articulo||""} onChange={e=>setForm({...form,articulo:e.target.value})} className="inp-d" style={iCls} placeholder="Nombre del empleado o profesional..."/>
+                            </div>
+                          )}
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
-                            <div><div style={lCls}>Mes/Fecha *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
-                            <div><div style={lCls}>Nombre / Empresa</div><input type="text" value={form.articulo||""} onChange={e=>setForm({...form,articulo:e.target.value})} className="inp-d" style={iCls} placeholder="Juan García, Estudio ABC..."/></div>
+                            <div><div style={lCls}>Fecha del pago *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
+                            <div>
+                              <div style={lCls}>Tipo de pago</div>
+                              <select value={form.tipo_pago||"sueldo"} onChange={e=>setForm({...form,tipo_pago:e.target.value})} className="inp-d" style={iCls}>
+                                <option value="sueldo">Sueldo mensual</option>
+                                <option value="aguinaldo">Aguinaldo (SAC)</option>
+                                <option value="bonificacion">Bonificación</option>
+                                <option value="vacaciones">Vacaciones</option>
+                                <option value="liquidacion">Liquidación final</option>
+                                <option value="honorarios">Honorarios</option>
+                                <option value="otro">Otro</option>
+                              </select>
+                            </div>
                             <div>
                               <div style={lCls}>Moneda</div>
                               <select value={form.moneda||"ARS"} onChange={e=>setForm({...form,moneda:e.target.value})} className="inp-d" style={iCls}>
@@ -616,7 +692,7 @@ export default function CentroGestion() {
                               </select>
                             </div>
                             <div><div style={lCls}>Monto *</div><input type="number" value={form.monto||""} onChange={e=>setForm({...form,monto:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
-                            <div style={{gridColumn:"span 2"}}><div style={lCls}>Descripción</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Sueldo mes X, honorarios, etc..."/></div>
+                            <div style={{gridColumn:"span 2"}}><div style={lCls}>Descripción</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder={`${form.tipo_pago==="aguinaldo"?"1° cuota SAC":form.tipo_pago==="bonificacion"?"Detalle de la bonificación":"Detalle del pago"}...`}/></div>
                           </div>
                         </>
                       )}
