@@ -24,19 +24,53 @@ type CargaItem = {
   monto_usd: number; unidad: string; fecha: string; descripcion: string; articulo: string;
 };
 
+// Mismos 12 grupos que Centro de Gestión — en orden y con mismo nombre
+const GRUPOS_MB_LIST = [
+  { id:"labranzas",       num:1,  label:"LABRANZAS
+Y LABORES",       icon:"🚜", color:"#16a34a",
+    items:["SIEMBRA","PULVERIZACIÓN TERRESTRE","PULVERIZACIÓN AÉREA","PULVERIZACIÓN DRON","OTROS"] },
+  { id:"insumos",         num:2,  label:"INSUMOS",                    icon:"🧪", color:"#d97706",
+    items:["SEMILLA","CURASEMILLA","FERTILIZANTES","HERBICIDA","INSECTICIDA","FUNGICIDA","COADYUVANTES","OTROS"] },
+  { id:"cosecha",         num:4,  label:"COSECHA",                    icon:"🌾", color:"#f59e0b",
+    items:["COSECHA","ACARREO INTERNO","OTROS"] },
+  { id:"logistica",       num:5,  label:"LOGÍSTICA
+Y FLETE",         icon:"🚛", color:"#6366f1",
+    items:["FLETE CORTO","FLETE LARGO","OTROS"] },
+  { id:"comercializacion",num:6,  label:"COMERCIALIZACIÓN",           icon:"🏢", color:"#0891b2",
+    items:["COMISIÓN","SECADO / LIMPIEZA","ALMACENAJE","ANÁLISIS","OTROS"] },
+  { id:"combustibles",    num:1,  label:"COMBUSTIBLES",                icon:"⛽", color:"#f97316",
+    items:["GASOIL","LUBRICANTES","OTROS"] },
+  { id:"alquiler",        num:10, label:"ALQUILER",                   icon:"🤝", color:"#ea580c",
+    items:["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE","OTROS"] },
+  { id:"impuestos",       num:7,  label:"IMPUESTOS
+Y TASAS",         icon:"📋", color:"#dc2626",
+    items:["INGRESOS BRUTOS","IMP. INMOBILIARIO RURAL","TASA VIAL","OTROS"] },
+  { id:"seguros",         num:9,  label:"SEGUROS Y
+COBERTURAS",      icon:"🛡️", color:"#059669",
+    items:["SEGURO AGRÍCOLA","SEGURO AUTOMOTOR","OTROS"] },
+  { id:"personal",        num:11, label:"COSTOS
+PERSONAL",           icon:"👤", color:"#6b7280",
+    items:["EMPLEADOS","INGENIERO","CONTADOR","OTROS"] },
+  { id:"financieros",     num:8,  label:"COSTOS
+FINANCIEROS",        icon:"🏦", color:"#7c3aed",
+    items:["INTERESES BANCARIOS","DESCUENTO DE CHEQUES","COSTO VENTA ANTICIPADA","DIFERENCIA T.C.","OTROS"] },
+  { id:"otros_directos",  num:12, label:"OTROS COSTOS
+DIRECTOS",     icon:"🔧", color:"#9ca3af",
+    items:["REPARACIÓN Y MANTENIMIENTO","MANO DE OBRA EVENTUAL","ANÁLISIS DE SUELO","OTROS"] },
+];
+
 const GRUPOS_MB: Record<number, { label: string; icon: string; color: string }> = {
-  1:  { label: "Labranzas",      icon: "🚜", color: "#16a34a" },
-  2:  { label: "Fertilización",  icon: "💊", color: "#d97706" },
-  3:  { label: "Protección",     icon: "🧪", color: "#1565c0" },
-  4:  { label: "Cosecha",        icon: "🌾", color: "#f59e0b" },
-  5:  { label: "Flete",          icon: "🚛", color: "#6366f1" },
-  6:  { label: "Comercializ.",   icon: "🏢", color: "#0891b2" },
-  7:  { label: "Impuestos",      icon: "📋", color: "#dc2626" },
-  8:  { label: "Financieros",    icon: "🏦", color: "#7c3aed" },
-  9:  { label: "Seguros",        icon: "🛡️", color: "#059669" },
-  10: { label: "Alquiler",       icon: "🤝", color: "#ea580c" },
-  11: { label: "Administración", icon: "💼", color: "#6b7280" },
-  12: { label: "Estructura",     icon: "🏗️", color: "#9ca3af" },
+  1: { label:"Labranzas",       icon:"🚜", color:"#16a34a" },
+  2: { label:"Insumos",         icon:"🧪", color:"#d97706" },
+  4: { label:"Cosecha",         icon:"🌾", color:"#f59e0b" },
+  5: { label:"Flete",           icon:"🚛", color:"#6366f1" },
+  6: { label:"Comercializ.",    icon:"🏢", color:"#0891b2" },
+  7: { label:"Impuestos",       icon:"📋", color:"#dc2626" },
+  8: { label:"Financieros",     icon:"🏦", color:"#7c3aed" },
+  9: { label:"Seguros",         icon:"🛡️", color:"#059669" },
+  10:{ label:"Alquiler",        icon:"🤝", color:"#ea580c" },
+  11:{ label:"Personal",        icon:"👤", color:"#6b7280" },
+  12:{ label:"Otros Directos",  icon:"🔧", color:"#9ca3af" },
 };
 
 // Mapeo de grupos del Centro de Gestión a grupos numéricos del MB
@@ -54,6 +88,7 @@ const CULTIVO_ICONS: Record<string,string> = {
   soja:"🌱",maiz:"🌽",trigo:"🌾",girasol:"🌻",sorgo:"🌿",cebada:"🍃",otro:"🌐",
 };
 
+function fmtUsd(n:number){ return "U$S "+Math.round(n).toLocaleString("es-AR"); }
 function fmt(n: number, dec = 0) {
   if (!n || isNaN(n)) return dec > 0 ? "0.00" : "0";
   return dec > 0 ? n.toFixed(dec) : Math.round(n).toLocaleString("es-AR");
@@ -669,143 +704,142 @@ export default function MargenBrutoDashboard() {
               </div>
             )}
 
-            {/* ── DESGLOSE COSTOS — LINGOTES ESTILO CENTRO GESTIÓN ── */}
+            {/* ── DESGLOSE COSTOS — 12 GRUPOS IGUAL A CENTRO DE GESTIÓN ── */}
             <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:16}}>
               <div className="sep" style={{flex:1}}/>
               <div className="text-gold" style={{fontSize:10,fontWeight:900,letterSpacing:2,textTransform:"uppercase"}}>Desglose de Costos</div>
               <div className="sep" style={{flex:1}}/>
             </div>
 
-            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
-              {Object.entries(GRUPOS_MB).map(([gNum,gInfo])=>{
-                const g = Number(gNum);
-                const costoHa = calcActivo.costosPorGrupo[g]||0;
-                const pct = calcActivo.costoTotalHa>0?(costoHa/calcActivo.costoTotalHa*100):0;
-                const isOpen = grupoAbierto===g;
+            {/* Grid 3 columnas igual al grid de lotes */}
+            {[0,1,2,3].map(row=>(
+              <div key={row} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,marginBottom:16}}>
+                {GRUPOS_MB_LIST.filter((_,i)=>Math.floor(i/3)===row).map((grupo,idx)=>{
+                  const costoHa = calcActivo.costosPorGrupo[grupo.num]||0;
+                  // Sumar combustibles al grupo 1 si aplica
+                  const costoHaReal = grupo.id==="labranzas"
+                    ? (calcActivo.costosPorGrupo[1]||0)
+                    : costoHa;
+                  const pct = calcActivo.costoTotalHa>0?(costoHaReal/calcActivo.costoTotalHa*100):0;
+                  const isOpen = grupoAbierto===grupo.num&&(grupoAbierto!==1||grupo.id==="labranzas"||grupoAbierto===grupo.num);
+                  const isOpenKey = `${grupo.id}-${grupo.num}`;
 
-                // Juntar items de ambas fuentes
-                const movsGrupo = movimientos.filter(m=>m.lote_id===loteActivo&&m.grupo===g);
-                const cargaGrupo = cargaItems.filter(i=>i.lote_ids.includes(loteActivo!)&&GRUPO_MAP[i.grupo]===g);
-                const totalItems = movsGrupo.length + cargaGrupo.length;
+                  // Items de mb_carga_items para este grupo
+                  const cargaGrupo = cargaItems.filter(i=>i.lote_ids.includes(loteActivo!)&&i.grupo===grupo.id);
+                  // Items de mb_movimientos para este grupo
+                  const movsGrupo = movimientos.filter(m=>m.lote_id===loteActivo&&m.grupo===grupo.num);
+                  const totalItems = cargaGrupo.length + movsGrupo.length;
 
-                // Agrupar por subconcepto para mostrar subitems
-                const subitems: Record<string,{usd:number;fecha:string;desc:string;origen:string}[]> = {};
-                movsGrupo.forEach(m=>{
-                  if(!subitems[m.concepto]) subitems[m.concepto]=[];
-                  subitems[m.concepto].push({usd:m.monto_usd,fecha:m.fecha,desc:m.descripcion||"",origen:"MB"});
-                });
-                cargaGrupo.forEach(i=>{
-                  const key = i.subgrupo||i.grupo;
-                  if(!subitems[key]) subitems[key]=[];
-                  subitems[key].push({usd:i.monto_usd,fecha:i.fecha,desc:i.descripcion||i.articulo||"",origen:"CG"});
-                });
+                  // Agrupar por subconcepto
+                  const subitems: Record<string,{usd:number;fecha:string;desc:string;origen:string}[]> = {};
+                  // Primero los items definidos del grupo (para mantener orden)
+                  grupo.items.forEach(sub=>{
+                    const itemsCG = cargaGrupo.filter(i=>i.subgrupo===sub||i.subgrupo===sub.toLowerCase());
+                    const mesNum = grupo.id==="alquiler"?["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"].indexOf(sub)+1:null;
+                    const itemsMes = mesNum&&mesNum>0 ? cargaGrupo.filter(i=>i.mes===mesNum) : [];
+                    const registros = [
+                      ...(mesNum&&mesNum>0?itemsMes:itemsCG).map(i=>({usd:i.monto_usd,fecha:i.fecha,desc:i.descripcion||i.articulo||"",origen:"CG"})),
+                    ];
+                    if(registros.length>0) subitems[sub]=registros;
+                  });
+                  // Después los de mb_movimientos
+                  movsGrupo.forEach(m=>{
+                    if(!subitems[m.concepto]) subitems[m.concepto]=[];
+                    subitems[m.concepto].push({usd:m.monto_usd,fecha:m.fecha,desc:m.descripcion||"",origen:"MB"});
+                  });
 
-                return(
-                  <div key={g} style={{
-                    borderRadius:12,overflow:"hidden",
-                    background:"linear-gradient(160deg,#1a1200 0%,#0d0900 100%)",
-                    boxShadow:isOpen
-                      ?"0 0 0 1px #7a5c00,0 0 0 2px #c9a227,0 0 0 3px #f0d060,0 0 0 4px #c9a227,0 0 0 5px #7a5c00,0 8px 28px rgba(0,0,0,0.80),0 0 30px rgba(255,200,50,0.20)"
-                      :"0 0 0 1px #5a4400,0 0 0 2px rgba(201,162,39,0.50),0 0 0 3px #3a2c00,0 6px 20px rgba(0,0,0,0.70)",
-                    transition:"box-shadow 0.20s",
-                  }}>
-                    {/* Header lingote */}
-                    <div style={{
-                      padding:"12px 16px",cursor:"pointer",
-                      background:isOpen
-                        ?"linear-gradient(90deg,rgba(201,162,39,0.18) 0%,rgba(201,162,39,0.08) 100%)"
-                        :"transparent",
-                      borderBottom:isOpen?"1px solid rgba(201,162,39,0.20)":"none",
-                      display:"flex",alignItems:"center",gap:10,
-                      position:"relative",
+                  const isGrupoOpen = grupoAbierto===idx+(row*3);
+
+                  return(
+                    <div key={grupo.id} style={{
+                      position:"relative",borderRadius:12,overflow:"hidden",
+                      background:"linear-gradient(160deg,#2a1e00 0%,#1a1200 40%,#0d0900 100%)",
+                      boxShadow:isGrupoOpen
+                        ?"0 0 0 1.5px #7a5c00,0 0 0 2.5px #c9a227,0 0 0 3.5px #f0d060,0 0 0 4px #c9a227,0 0 0 5px #7a5c00,0 12px 36px rgba(0,0,0,0.85),0 0 40px rgba(255,200,50,0.25)"
+                        :"0 0 0 1.5px #7a5c00,0 0 0 2.5px #c9a227,0 0 0 3.5px #f0d060,0 0 0 4px #c9a227,0 0 0 5px #7a5c00,0 8px 24px rgba(0,0,0,0.70),inset 0 1px 0 rgba(255,230,100,0.22)",
+                      cursor:"pointer",
+                      transition:"box-shadow 0.20s,transform 0.20s",
+                      minHeight:160,
                     }}
-                      onClick={()=>setGrupoAbierto(isOpen?null:g)}>
+                      onClick={()=>setGrupoAbierto(isGrupoOpen?null:idx+(row*3))}>
                       {/* Brillo superior */}
-                      <div style={{position:"absolute",top:0,left:0,right:0,height:"1.5px",background:"linear-gradient(90deg,transparent,rgba(255,240,120,0.60),rgba(255,255,200,0.90),rgba(255,240,120,0.60),transparent)"}}/>
-                      <span style={{fontSize:20,filter:"drop-shadow(0 0 6px rgba(201,162,39,0.40))"}}>{gInfo.icon}</span>
-                      <div style={{flex:1}}>
-                        <div className="text-gold" style={{fontSize:12,fontWeight:900,textTransform:"uppercase",letterSpacing:0.5}}>{gInfo.label}</div>
-                        <div style={{fontSize:9,color:"rgba(201,162,39,0.45)",marginTop:1}}>{totalItems} registro{totalItems!==1?"s":""}</div>
-                      </div>
-                      {/* Mini barra progreso */}
-                      {costoHa>0&&(
-                        <div style={{width:60,height:4,background:"rgba(201,162,39,0.12)",borderRadius:3,overflow:"hidden"}}>
-                          <div style={{height:"100%",background:"linear-gradient(90deg,#8a6500,#c9a227,#f0d060)",borderRadius:3,width:`${Math.min(100,pct)}%`}}/>
-                        </div>
-                      )}
-                      {costoHa>0?(
-                        <div style={{textAlign:"right",minWidth:100}}>
-                          <div className="text-gold" style={{fontSize:14,fontWeight:900}}>U$S {costoHa.toFixed(0)}/ha</div>
-                          <div style={{fontSize:9,color:"rgba(201,162,39,0.50)",fontWeight:700}}>{pct.toFixed(1)}% del total</div>
-                        </div>
-                      ):(
-                        <div style={{fontSize:10,color:"rgba(201,162,39,0.25)",fontStyle:"italic"}}>Sin datos</div>
-                      )}
-                      <span style={{color:"rgba(201,162,39,0.40)",fontSize:12,marginLeft:4}}>{isOpen?"▲":"▼"}</span>
-                    </div>
+                      <div style={{position:"absolute",top:0,left:0,right:0,height:"2px",background:"linear-gradient(90deg,transparent,rgba(255,230,100,0.75),rgba(255,255,180,1),rgba(255,230,100,0.75),transparent)",zIndex:2}}/>
+                      {/* Brillo reflejo cara superior */}
+                      <div style={{position:"absolute",inset:0,background:"linear-gradient(135deg,rgba(255,230,100,0.10) 0%,transparent 45%,rgba(255,200,50,0.05) 100%)",pointerEvents:"none",zIndex:1}}/>
 
-                    {/* Subitems expandidos */}
-                    {isOpen&&(
-                      <div className="fade-up">
-                        {Object.keys(subitems).length===0?(
-                          <div style={{padding:"16px",textAlign:"center",color:"rgba(201,162,39,0.25)",fontSize:11}}>
-                            Sin registros —{" "}
-                            <button onClick={()=>window.location.href="/productor/otros"}
-                              style={{background:"none",border:"none",cursor:"pointer",color:"#c9a227",fontWeight:700,fontFamily:"inherit",fontSize:11}}>
-                              Cargar en Centro de Gestión →
-                            </button>
-                          </div>
+                      {/* Contenido */}
+                      <div style={{position:"relative",zIndex:3,padding:"18px 16px 14px",display:"flex",flexDirection:"column",alignItems:"center",textAlign:"center",minHeight:160}}>
+                        <div style={{fontSize:28,marginBottom:8,filter:"drop-shadow(0 0 8px rgba(201,162,39,0.55))"}}>{grupo.icon}</div>
+                        <div className="text-gold" style={{fontSize:12,fontWeight:900,letterSpacing:0.8,textTransform:"uppercase",lineHeight:1.3,whiteSpace:"pre-line",marginBottom:8}}>{grupo.label}</div>
+                        <div style={{height:1,background:"linear-gradient(90deg,transparent,rgba(201,162,39,0.45),transparent)",width:"100%",marginBottom:8}}/>
+                        {costoHaReal>0?(
+                          <>
+                            <div style={{fontSize:16,fontWeight:900,color:"#fff",textShadow:"0 1px 3px rgba(0,0,0,0.60)"}}>{fmtUsd(costoHaReal)}/ha</div>
+                            <div style={{fontSize:10,fontWeight:700,color:"rgba(201,162,39,0.65)",marginTop:2}}>{pct.toFixed(1)}% del total</div>
+                            {/* Barra */}
+                            <div style={{width:"80%",height:4,background:"rgba(0,0,0,0.30)",borderRadius:3,overflow:"hidden",marginTop:8}}>
+                              <div style={{height:"100%",background:"linear-gradient(90deg,rgba(255,255,255,0.40),rgba(255,255,255,0.70))",borderRadius:3,width:`${Math.min(100,pct)}%`}}/>
+                            </div>
+                            <div style={{fontSize:9,color:"rgba(255,255,255,0.40)",marginTop:4}}>{totalItems} registro{totalItems!==1?"s":""}</div>
+                          </>
                         ):(
-                          <div style={{display:"flex",flexDirection:"column",gap:0}}>
-                            {Object.entries(subitems).map(([concepto,registros])=>{
-                              const totalConcepto = registros.reduce((a,r)=>a+r.usd,0);
-                              const pctConcepto = costoHa>0?(totalConcepto/costoHa*100):0;
-                              const pctTotal = calcActivo.costoTotalHa>0?(totalConcepto/calcActivo.costoTotalHa*100):0;
-                              return(
-                                <div key={concepto} style={{borderBottom:"1px solid rgba(201,162,39,0.08)",padding:"10px 16px"}}>
-                                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:registros.length>0?6:0}}>
-                                    {/* Barra lateral color grupo */}
-                                    <div style={{width:3,alignSelf:"stretch",borderRadius:2,background:gInfo.color,flexShrink:0}}/>
-                                    <div style={{flex:1}}>
-                                      <div style={{fontSize:11,fontWeight:800,color:"#f0e6c8",textTransform:"uppercase",letterSpacing:0.3}}>{concepto.replace(/_/g," ")}</div>
+                          <div style={{fontSize:10,color:"rgba(255,255,255,0.20)",fontStyle:"italic",marginTop:4}}>Sin datos</div>
+                        )}
+                        <div style={{position:"absolute",bottom:8,right:10,fontSize:10,color:"rgba(201,162,39,0.35)"}}>{isGrupoOpen?"▲":"▼"}</div>
+                      </div>
+
+                      {/* Panel expandido */}
+                      {isGrupoOpen&&(
+                        <div style={{borderTop:"1px solid rgba(201,162,39,0.20)",background:"rgba(0,0,0,0.40)"}} className="fade-up">
+                          {Object.keys(subitems).length===0?(
+                            <div style={{padding:"14px 16px",textAlign:"center",color:"rgba(201,162,39,0.30)",fontSize:11}}>
+                              Sin datos —{" "}
+                              <button onClick={e=>{e.stopPropagation();window.location.href="/productor/otros";}}
+                                style={{background:"none",border:"none",cursor:"pointer",color:"#c9a227",fontWeight:700,fontFamily:"inherit",fontSize:11}}>
+                                Cargar →
+                              </button>
+                            </div>
+                          ):(
+                            <div>
+                              {Object.entries(subitems).map(([sub,regs])=>{
+                                const totSub = regs.reduce((a,r)=>a+r.usd,0);
+                                const pctSub = costoHaReal>0?(totSub/costoHaReal*100):0;
+                                const pctTotal2 = calcActivo.costoTotalHa>0?(totSub/calcActivo.costoTotalHa*100):0;
+                                return(
+                                  <div key={sub} style={{borderBottom:"1px solid rgba(201,162,39,0.08)",padding:"8px 14px"}}>
+                                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:regs.length>1?5:0}}>
+                                      <div style={{width:3,height:"100%",minHeight:14,borderRadius:2,background:grupo.color,flexShrink:0}}/>
+                                      <div style={{flex:1,textAlign:"left"}}>
+                                        <div style={{fontSize:10,fontWeight:800,color:"#f0e6c8",textTransform:"uppercase"}}>{sub.replace(/_/g," ")}</div>
+                                      </div>
+                                      <div style={{textAlign:"right"}}>
+                                        <div style={{fontSize:12,fontWeight:800,color:"#f0d060"}}>U$S {totSub.toFixed(2)}</div>
+                                        <div style={{fontSize:8,color:"rgba(201,162,39,0.45)"}}>{pctSub.toFixed(0)}% grp · {pctTotal2.toFixed(1)}% tot</div>
+                                      </div>
                                     </div>
-                                    <div style={{textAlign:"right"}}>
-                                      <div style={{fontSize:13,fontWeight:800,color:"#f0d060"}}>U$S {totalConcepto.toFixed(2)}</div>
-                                      <div style={{fontSize:9,color:"rgba(201,162,39,0.50)",fontWeight:700}}>{pctConcepto.toFixed(0)}% del grupo · {pctTotal.toFixed(1)}% del total</div>
-                                    </div>
+                                    {regs.map((r,ri)=>(
+                                      <div key={ri} style={{display:"flex",alignItems:"center",gap:6,padding:"3px 0 3px 11px",borderTop:ri>0?"1px solid rgba(201,162,39,0.05)":"none"}}>
+                                        <span style={{fontSize:9,color:"rgba(255,255,255,0.25)",whiteSpace:"nowrap"}}>{r.fecha}</span>
+                                        {r.desc&&<span style={{fontSize:9,color:"rgba(255,255,255,0.40)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textAlign:"left"}}>{r.desc}</span>}
+                                        <span style={{fontSize:10,fontWeight:700,color:"#c9a227",whiteSpace:"nowrap",marginLeft:"auto"}}>U$S {r.usd.toFixed(2)}</span>
+                                      </div>
+                                    ))}
                                   </div>
-                                  {/* Mini registros */}
-                                  {registros.map((r,ri)=>(
-                                    <div key={ri} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0 4px 13px",borderTop:ri>0?"1px solid rgba(201,162,39,0.05)":"none"}}>
-                                      <span style={{fontSize:9,color:"rgba(255,255,255,0.30)",whiteSpace:"nowrap"}}>{r.fecha}</span>
-                                      {r.desc&&<span style={{fontSize:10,color:"rgba(255,255,255,0.45)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.desc}</span>}
-                                      <span style={{fontSize:11,fontWeight:700,color:"#c9a227",whiteSpace:"nowrap",marginLeft:"auto"}}>U$S {r.usd.toFixed(2)}</span>
-                                      <span style={{fontSize:8,padding:"1px 5px",borderRadius:20,fontWeight:700,
-                                        background:r.origen==="MB"?"rgba(25,118,210,0.20)":"rgba(201,162,39,0.15)",
-                                        color:r.origen==="MB"?"#93c5fd":"rgba(201,162,39,0.70)"}}>
-                                        {r.origen==="MB"?"MB":"CG"}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              );
-                            })}
-                            {/* Total del grupo */}
-                            <div style={{padding:"8px 16px",background:"rgba(201,162,39,0.06)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                              <span style={{fontSize:10,fontWeight:800,color:"rgba(201,162,39,0.55)",textTransform:"uppercase",letterSpacing:1}}>Total {gInfo.label}</span>
-                              <div style={{textAlign:"right"}}>
-                                <span className="text-gold" style={{fontSize:14,fontWeight:900}}>U$S {costoHa.toFixed(2)}/ha</span>
-                                <span style={{fontSize:10,color:"rgba(201,162,39,0.45)",marginLeft:8}}>· U$S {(costoHa*loteData!.hectareas).toFixed(0)} total campo</span>
+                                );
+                              })}
+                              <div style={{padding:"7px 14px",background:"rgba(201,162,39,0.08)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                                <span style={{fontSize:9,fontWeight:800,color:"rgba(201,162,39,0.55)",textTransform:"uppercase",letterSpacing:0.8}}>Total</span>
+                                <span className="text-gold" style={{fontSize:13,fontWeight:900}}>{fmtUsd(costoHaReal)}/ha · U$S {fmt(costoHaReal*loteData!.hectareas)} campo</span>
                               </div>
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
 
             {/* Gráfico torta + indicadores */}
             {calcActivo.costoTotalHa>0&&(
