@@ -26,15 +26,13 @@ type CargaItem = {
 
 // Mismos 12 grupos que Centro de Gestión — en orden y con mismo nombre
 const GRUPOS_MB_LIST = [
-  { id:"labranzas",       num:1,  label:"LABRANZAS
-Y LABORES",       icon:"🚜", color:"#16a34a",
+  { id:"labranzas",       num:1,  label:"LABRANZAS Y LABORES",       icon:"🚜", color:"#16a34a",
     items:["SIEMBRA","PULVERIZACIÓN TERRESTRE","PULVERIZACIÓN AÉREA","PULVERIZACIÓN DRON","OTROS"] },
   { id:"insumos",         num:2,  label:"INSUMOS",                    icon:"🧪", color:"#d97706",
     items:["SEMILLA","CURASEMILLA","FERTILIZANTES","HERBICIDA","INSECTICIDA","FUNGICIDA","COADYUVANTES","OTROS"] },
   { id:"cosecha",         num:4,  label:"COSECHA",                    icon:"🌾", color:"#f59e0b",
     items:["COSECHA","ACARREO INTERNO","OTROS"] },
-  { id:"logistica",       num:5,  label:"LOGÍSTICA
-Y FLETE",         icon:"🚛", color:"#6366f1",
+  { id:"logistica",       num:5,  label:"LOGÍSTICA Y FLETE",         icon:"🚛", color:"#6366f1",
     items:["FLETE CORTO","FLETE LARGO","OTROS"] },
   { id:"comercializacion",num:6,  label:"COMERCIALIZACIÓN",           icon:"🏢", color:"#0891b2",
     items:["COMISIÓN","SECADO / LIMPIEZA","ALMACENAJE","ANÁLISIS","OTROS"] },
@@ -42,20 +40,15 @@ Y FLETE",         icon:"🚛", color:"#6366f1",
     items:["GASOIL","LUBRICANTES","OTROS"] },
   { id:"alquiler",        num:10, label:"ALQUILER",                   icon:"🤝", color:"#ea580c",
     items:["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE","OTROS"] },
-  { id:"impuestos",       num:7,  label:"IMPUESTOS
-Y TASAS",         icon:"📋", color:"#dc2626",
+  { id:"impuestos",       num:7,  label:"IMPUESTOS Y TASAS",         icon:"📋", color:"#dc2626",
     items:["INGRESOS BRUTOS","IMP. INMOBILIARIO RURAL","TASA VIAL","OTROS"] },
-  { id:"seguros",         num:9,  label:"SEGUROS Y
-COBERTURAS",      icon:"🛡️", color:"#059669",
+  { id:"seguros",         num:9,  label:"SEGUROS Y COBERTURAS",      icon:"🛡️", color:"#059669",
     items:["SEGURO AGRÍCOLA","SEGURO AUTOMOTOR","OTROS"] },
-  { id:"personal",        num:11, label:"COSTOS
-PERSONAL",           icon:"👤", color:"#6b7280",
+  { id:"personal",        num:11, label:"COSTOS PERSONAL",           icon:"👤", color:"#6b7280",
     items:["EMPLEADOS","INGENIERO","CONTADOR","OTROS"] },
-  { id:"financieros",     num:8,  label:"COSTOS
-FINANCIEROS",        icon:"🏦", color:"#7c3aed",
+  { id:"financieros",     num:8,  label:"COSTOS FINANCIEROS",        icon:"🏦", color:"#7c3aed",
     items:["INTERESES BANCARIOS","DESCUENTO DE CHEQUES","COSTO VENTA ANTICIPADA","DIFERENCIA T.C.","OTROS"] },
-  { id:"otros_directos",  num:12, label:"OTROS COSTOS
-DIRECTOS",     icon:"🔧", color:"#9ca3af",
+  { id:"otros_directos",  num:12, label:"OTROS COSTOS DIRECTOS",     icon:"🔧", color:"#9ca3af",
     items:["REPARACIÓN Y MANTENIMIENTO","MANO DE OBRA EVENTUAL","ANÁLISIS DE SUELO","OTROS"] },
 ];
 
@@ -770,7 +763,7 @@ export default function MargenBrutoDashboard() {
                       {/* Contenido */}
                       <div style={{position:"relative",zIndex:3,padding:"18px 16px 14px",display:"flex",flexDirection:"column",alignItems:"center",textAlign:"center",minHeight:160}}>
                         <div style={{fontSize:28,marginBottom:8,filter:"drop-shadow(0 0 8px rgba(201,162,39,0.55))"}}>{grupo.icon}</div>
-                        <div className="text-gold" style={{fontSize:12,fontWeight:900,letterSpacing:0.8,textTransform:"uppercase",lineHeight:1.3,whiteSpace:"pre-line",marginBottom:8}}>{grupo.label}</div>
+                        <div className="text-gold" style={{fontSize:12,fontWeight:900,letterSpacing:0.8,textTransform:"uppercase",lineHeight:1.3,marginBottom:8}}>{grupo.label}</div>
                         <div style={{height:1,background:"linear-gradient(90deg,transparent,rgba(201,162,39,0.45),transparent)",width:"100%",marginBottom:8}}/>
                         {costoHaReal>0?(
                           <>
