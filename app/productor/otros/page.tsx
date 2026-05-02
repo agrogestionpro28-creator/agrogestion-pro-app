@@ -158,7 +158,74 @@ export default function CentroGestion() {
       msg(`❌ Error BD: ${error.message}`);
       setGuardando(false); return;
     }
-    msg(`✅ U$S ${montoUsd.toFixed(2)} guardado · ${campanas.find(c=>c.id===campanaActiva)?.nombre} · ${lotesSelec.length} lote${lotesSelec.length>1?"s":""}`);
+
+    // ── COSECHA: guardar también en stock_granos ──
+    if (grupoActivo==="cosecha"&&form.kg_brutos&&Number(form.kg_brutos)>0) {
+      for (const loteId of lotesSelec) {
+        const lote = lotes.find(l=>l.id===loteId);
+        // 1. Insertar en stock_granos_cosecha
+        const { data:cosecha } = await sb.from("stock_granos_cosecha").insert({
+          empresa_id:empresaId, lote_id:loteId, campana_id:campanaActiva,
+          cultivo:form.cultivo||lote?.cultivo||"",
+          fecha:form.fecha,
+          kg_brutos:Number(form.kg_brutos||0),
+          humedad_campo:Number(form.humedad||0),
+          merma_pct:Number(form.merma||0),
+          kg_netos:Number(form.kg_netos||0),
+          rinde_real:Number(form.rinde_real||0),
+          destino:form.destino_tipo||"silo_bolsa",
+          destinatario:form.destinatario||"",
+          observaciones:form.descripcion||"",
+        }).select().single();
+
+        // 2. Movimiento de entrada en stock
+        if (cosecha) {
+          await sb.from("stock_granos_movimientos").insert({
+            empresa_id:empresaId, campana_id:campanaActiva,
+            cultivo:form.cultivo||lote?.cultivo||"",
+            fecha:form.fecha, tipo:"entrada",
+            lote_id:loteId,
+            destino:form.destino_tipo||"silo_bolsa",
+            destinatario:form.destinatario||"",
+            kg_brutos:Number(form.kg_brutos||0),
+            humedad_pct:Number(form.humedad||0),
+            merma_pct:Number(form.merma||0),
+            kg_netos:Number(form.kg_netos||0),
+            cosecha_id:cosecha.id,
+            origen:"cosecha",
+            observaciones:form.descripcion||"",
+          });
+        }
+
+        // 3. Si es silo bolsa, crear/actualizar registro de silo bolsa
+        if (form.destino_tipo==="silo_bolsa"&&form.silobolsa_nombre) {
+          const { data:sbExist } = await sb.from("stock_granos_silobolsa")
+            .select("id,kg_actuales,kg_ingresados").eq("empresa_id",empresaId)
+            .eq("nombre",form.silobolsa_nombre).eq("cultivo",form.cultivo||lote?.cultivo||"")
+            .eq("campana_id",campanaActiva).single();
+          if (sbExist) {
+            await sb.from("stock_granos_silobolsa").update({
+              kg_actuales:(sbExist.kg_actuales||0)+Number(form.kg_netos||0),
+              kg_ingresados:(sbExist.kg_ingresados||0)+Number(form.kg_netos||0),
+            }).eq("id",sbExist.id);
+          } else {
+            await sb.from("stock_granos_silobolsa").insert({
+              empresa_id:empresaId, campana_id:campanaActiva,
+              cultivo:form.cultivo||lote?.cultivo||"",
+              nombre:form.silobolsa_nombre,
+              lote_ids:[loteId],
+              kg_ingresados:Number(form.kg_netos||0),
+              kg_actuales:Number(form.kg_netos||0),
+              humedad_aprox:Number(form.humedad||0),
+              fecha_embolsado:form.fecha,
+              ubicacion:form.destinatario||"",
+            });
+          }
+        }
+      }
+    }
+
+    msg(`✅ U$S ${montoUsd.toFixed(2)} guardado · ${campanas.find(c=>c.id===campanaActiva)?.nombre} · ${lotesSelec.length} lote${lotesSelec.length>1?"s":""}${grupoActivo==="cosecha"&&form.kg_netos?` · ${Number(form.kg_netos).toLocaleString("es-AR")} kg netos`:""}`);
     await fetchItems(empresaId,campanaActiva);
     setGuardando(false); setPanelSubgrupo(null); setForm({}); setLotesSelec([]);
   };
@@ -705,8 +772,84 @@ export default function CentroGestion() {
                         </>
                       )}
 
-                      {/* Grupos que aún usan form genérico (labranzas, insumos, cosecha, logística, comercialización, combustibles) */}
-                      {!["alquiler","impuestos","seguros","personal","financieros","otros_directos"].includes(grupoActivo||"")&&(
+                      {/* ── COSECHA: form específico ── */}
+                      {grupoActivo==="cosecha"&&(
+                        <>
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                            <div><div style={lCls}>Cultivo</div>
+                              <select value={form.cultivo||""} onChange={e=>setForm({...form,cultivo:e.target.value})} className="inp-d" style={iCls}>
+                                <option value="">Seleccionar</option>
+                                {["soja","maiz","trigo","girasol","sorgo","cebada","otro"].map(c=>(
+                                  <option key={c} value={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div><div style={lCls}>Fecha cosecha *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
+                            <div><div style={lCls}>Kg brutos *</div><input type="number" value={form.kg_brutos||""} onChange={e=>{
+                              const kb=Number(e.target.value);
+                              const hum=Number(form.humedad||0);
+                              const merma=Number(form.merma||0);
+                              const kn=Math.round(kb*(1-hum/100)*(1-merma/100));
+                              const lote=lotes.find(l=>l.id===lotesSelec[0]);
+                              const rinde=lote&&lote.hectareas>0?(kn/1000/lote.hectareas).toFixed(2):"0";
+                              setForm({...form,kg_brutos:e.target.value,kg_netos:String(kn),rinde_real:rinde});
+                            }} className="inp-d" style={iCls} placeholder="0"/></div>
+                            <div><div style={lCls}>Humedad campo %</div><input type="number" step="0.1" value={form.humedad||""} onChange={e=>{
+                              const kb=Number(form.kg_brutos||0);
+                              const hum=Number(e.target.value);
+                              const merma=Number(form.merma||0);
+                              const kn=Math.round(kb*(1-hum/100)*(1-merma/100));
+                              const lote=lotes.find(l=>l.id===lotesSelec[0]);
+                              const rinde=lote&&lote.hectareas>0?(kn/1000/lote.hectareas).toFixed(2):"0";
+                              setForm({...form,humedad:e.target.value,kg_netos:String(kn),rinde_real:rinde});
+                            }} className="inp-d" style={iCls} placeholder="13.5"/></div>
+                            <div><div style={lCls}>Merma / zarandeo %</div><input type="number" step="0.1" value={form.merma||""} onChange={e=>{
+                              const kb=Number(form.kg_brutos||0);
+                              const hum=Number(form.humedad||0);
+                              const merma=Number(e.target.value);
+                              const kn=Math.round(kb*(1-hum/100)*(1-merma/100));
+                              const lote=lotes.find(l=>l.id===lotesSelec[0]);
+                              const rinde=lote&&lote.hectareas>0?(kn/1000/lote.hectareas).toFixed(2):"0";
+                              setForm({...form,merma:e.target.value,kg_netos:String(kn),rinde_real:rinde});
+                            }} className="inp-d" style={iCls} placeholder="0"/></div>
+                            <div>
+                              <div style={lCls}>Destino</div>
+                              <select value={form.destino_tipo||"silo_bolsa"} onChange={e=>setForm({...form,destino_tipo:e.target.value})} className="inp-d" style={iCls}>
+                                <option value="silo_bolsa">🎯 Silo bolsa</option>
+                                <option value="acopio">🏢 Acopio</option>
+                                <option value="planta_propia">🏭 Planta propia</option>
+                                <option value="otro">📦 Otro</option>
+                              </select>
+                            </div>
+                            <div><div style={lCls}>Destinatario / Lugar</div><input type="text" value={form.destinatario||""} onChange={e=>setForm({...form,destinatario:e.target.value})} className="inp-d" style={iCls} placeholder="Nombre acopio, campo, etc..."/></div>
+                            {form.destino_tipo==="silo_bolsa"&&(
+                              <div><div style={lCls}>Nombre silo bolsa</div><input type="text" value={form.silobolsa_nombre||""} onChange={e=>setForm({...form,silobolsa_nombre:e.target.value})} className="inp-d" style={iCls} placeholder="Ej: Potrero Norte, Galpón..."/></div>
+                            )}
+                            <div style={{gridColumn:"span 2"}}><div style={lCls}>Observaciones</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Notas de la cosecha..."/></div>
+                          </div>
+
+                          {/* Preview cosecha */}
+                          {form.kg_brutos&&Number(form.kg_brutos)>0&&(
+                            <div style={{marginBottom:12,padding:"12px 14px",borderRadius:8,background:"rgba(22,163,74,0.08)",border:"1px solid rgba(22,163,74,0.25)"}}>
+                              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                                <div style={{fontSize:11,color:"rgba(255,255,255,0.50)"}}>
+                                  {Number(form.kg_brutos).toLocaleString("es-AR")} kg brutos
+                                  {form.humedad&&<span> − {form.humedad}% hum</span>}
+                                  {form.merma&&<span> − {form.merma}% merma</span>}
+                                  <span style={{marginLeft:6,fontSize:9,color:"rgba(255,255,255,0.30)"}}>→</span>
+                                </div>
+                                <div style={{textAlign:"right"}}>
+                                  <div style={{fontSize:18,fontWeight:900,color:"#86efac"}}>{Number(form.kg_netos||0).toLocaleString("es-AR")} kg netos</div>
+                                  {form.rinde_real&&<div style={{fontSize:11,color:"#c9a227",fontWeight:700}}>{form.rinde_real} tn/ha · {lotesSelec.length===1?lotes.find(l=>l.id===lotesSelec[0])?.nombre:""}</div>}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {/* Grupos que aún usan form genérico (labranzas, insumos, logística, comercialización, combustibles) */}
+                      {!["alquiler","impuestos","seguros","personal","financieros","otros_directos","cosecha"].includes(grupoActivo||"")&&(
                         <>
                           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
                             <div><div style={lCls}>Fecha del pago *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
