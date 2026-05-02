@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import Image from "next/image";
 import EscanerIA from "@/components/EscanerIA";
+import { GranosLibro } from "@/components/GranosLibro";
 
 type Tab = "granos" | "insumos" | "gasoil" | "varios";
 type UbicacionItem = { id: string; cultivo: string; tipo_ubicacion: string; nombre_ubicacion: string; cantidad_tn: number; campana_id: string; };
@@ -643,187 +644,13 @@ export default function StockPage() {
         {/* ══════════════════════════════
             GRANOS — LISTA CULTIVOS
         ══════════════════════════════ */}
-        {tab==="granos"&&!cultivoActivo&&(
-          <div className="fade-in">
-            {cultivosConStock.length===0?(
-              <div className="card" style={{padding:"48px 20px",textAlign:"center"}}>
-                <div style={{fontSize:48,opacity:0.12,marginBottom:12}}>🌾</div>
-                <p style={{color:"#6b8aaa",marginBottom:12,fontSize:14}}>Sin stock de granos cargado</p>
-                <button onClick={()=>setShowFormCultivo(true)} className="bbtn">+ Cargar primer stock</button>
-              </div>
-            ):(
-              <div>
-                <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
-                  <button onClick={()=>setShowFormCultivo(true)} className="bbtn">+ Cargar Stock</button>
-                </div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12}}>
-                  {cultivosConStock.map(cultivo=>{
-                    const {ubs,totalFisico,totalPactado,balance}=stockPorCultivo(cultivo);
-                    return(
-                      <div key={cultivo} className="cultivo-card" onClick={()=>setCultivoActivo(cultivo)}>
-                        {/* imagen cabecera */}
-                        <div style={{position:"relative",height:100,borderRadius:"16px 16px 0 0",overflow:"hidden"}}>
-                          <Image src="/stock-granos.png" alt={cultivo} fill style={{objectFit:"cover"}} onError={(e:any)=>{e.target.src="/dashboard-bg.png";}}/>
-                          <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,transparent 30%,rgba(255,255,255,0.70) 100%)"}}/>
-                          <div style={{position:"absolute",bottom:6,left:10,display:"flex",alignItems:"center",gap:6}}>
-                            <span style={{fontSize:20}}>{CULTIVO_ICONS[cultivo]??"🌾"}</span>
-                            <span style={{fontSize:15,fontWeight:800,color:"#0d2137",textTransform:"uppercase"}}>{cultivo}</span>
-                          </div>
-                          <div style={{position:"absolute",top:6,right:8}}>
-                            <span style={{fontSize:11,fontWeight:800,padding:"2px 10px",borderRadius:20,background:balance>=0?"rgba(22,163,74,0.18)":"rgba(220,38,38,0.15)",color:balance>=0?"#16a34a":"#dc2626"}}>
-                              {balance>=0?"+":""}{balance} tn
-                            </span>
-                          </div>
-                        </div>
-                        <div style={{padding:"10px 12px 12px"}}>
-                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:8}}>
-                            {[{l:"Físico",v:totalFisico+" tn",c:"#0d2137"},{l:"Pactado",v:totalPactado+" tn",c:"#1565c0"},{l:"Balance",v:balance+" tn",c:balance>=0?"#16a34a":"#dc2626"}].map(s=>(
-                              <div key={s.l} className="kpi-s">
-                                <div style={{fontSize:9,color:"#6b8aaa",fontWeight:600}}>{s.l}</div>
-                                <div style={{fontSize:11,fontWeight:800,color:s.c,marginTop:1}}>{s.v}</div>
-                              </div>
-                            ))}
-                          </div>
-                          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-                            {ubs.map(u=>{const ub=UBICACIONES.find(x=>x.value===u.tipo_ubicacion);return(<span key={u.id} style={{fontSize:10,padding:"2px 7px",borderRadius:6,background:"rgba(25,118,210,0.08)",color:"#4a6a8a",fontWeight:600}}>{ub?.icon??"📍"} {u.cantidad_tn}tn</span>);})}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            {showFormCultivo&&(
-              <div className="card fade-in" style={{padding:14,marginTop:12}}>
-                <div style={{fontSize:13,fontWeight:800,color:"#d97706",marginBottom:12}}>+ Cargar Stock de Grano</div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:12}}>
-                  <div><label className={lCls}>Cultivo</label><input type="text" value={form.cultivo??""} onChange={e=>setForm({...form,cultivo:e.target.value.toLowerCase()})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="soja, maiz, trigo..."/></div>
-                  <div><label className={lCls}>Dónde está</label><select value={form.tipo_ubicacion??"silo"} onChange={e=>setForm({...form,tipo_ubicacion:e.target.value})} className="sel">{UBICACIONES.map(u=><option key={u.value} value={u.value}>{u.icon} {u.label}</option>)}</select></div>
-                  <div><label className={lCls}>Nombre lugar</label><input type="text" value={form.nombre_ubicacion??""} onChange={e=>setForm({...form,nombre_ubicacion:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="Silo Norte, ACA..."/></div>
-                  <div><label className={lCls}>Toneladas</label><input type="number" value={form.cantidad_tn??""} onChange={e=>setForm({...form,cantidad_tn:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
-                </div>
-                <div style={{display:"flex",gap:8}}>
-                  <button onClick={guardarUbicacion} className="bbtn">Guardar</button>
-                  <button onClick={()=>{setShowFormCultivo(false);setForm({});}} className="abtn">Cancelar</button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ══════════════════════════════
-            GRANOS — DETALLE CULTIVO
-        ══════════════════════════════ */}
-        {tab==="granos"&&cultivoActivo&&(
-          <div className="fade-in">
-            {/* Header cultivo */}
-            <div className="card" style={{padding:0,overflow:"hidden",marginBottom:14}}>
-              <div style={{position:"relative",height:120}}>
-                <Image src="/stock-granos.png" alt={cultivoActivo} fill style={{objectFit:"cover"}} onError={(e:any)=>{e.target.src="/dashboard-bg.png";}}/>
-                <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,transparent 20%,rgba(255,255,255,0.85) 100%)"}}/>
-                <div style={{position:"absolute",bottom:14,left:16,display:"flex",alignItems:"center",gap:10}}>
-                  <span style={{fontSize:32}}>{CULTIVO_ICONS[cultivoActivo]??"🌾"}</span>
-                  <div>
-                    <h2 style={{fontSize:22,fontWeight:800,color:"#0d2137",margin:0,textTransform:"uppercase"}}>{cultivoActivo}</h2>
-                    {(()=>{const {totalFisico,totalPactado,balance}=stockPorCultivo(cultivoActivo);return(<div style={{display:"flex",gap:12,fontSize:11,fontWeight:700,marginTop:2}}><span style={{color:"#0d2137"}}>{totalFisico} tn físico</span><span style={{color:"#1565c0"}}>{totalPactado} tn pactado</span><span style={{color:balance>=0?"#16a34a":"#dc2626"}}>{balance>=0?"+":""}{balance} tn balance</span></div>);})()}
-                  </div>
-                </div>
-                <div style={{position:"absolute",bottom:14,right:14,display:"flex",gap:7}}>
-                  <button onClick={()=>{setShowFormUbicacion(true);setForm({cultivo:cultivoActivo});}} className="abtn" style={{fontSize:11}}>+ Stock</button>
-                  <button onClick={()=>{setShowFormVenta(true);setForm({cultivo:cultivoActivo});}} style={{padding:"7px 12px",borderRadius:10,background:"rgba(22,163,74,0.10)",border:"1px solid rgba(22,163,74,0.28)",color:"#16a34a",cursor:"pointer",fontSize:11,fontWeight:700}}>+ Venta pactada</button>
-                </div>
-              </div>
-            </div>
-
-            {showFormUbicacion&&(
-              <div className="card fade-in" style={{padding:14,marginBottom:12}}>
-                <div style={{fontSize:13,fontWeight:800,color:"#d97706",marginBottom:12}}>{editandoUbicacion?"✏️ Editar":"+"} Stock {cultivoActivo.toUpperCase()}</div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:12}}>
-                  <div><label className={lCls}>Dónde está</label><select value={form.tipo_ubicacion??"silo"} onChange={e=>setForm({...form,tipo_ubicacion:e.target.value})} className="sel">{UBICACIONES.map(u=><option key={u.value} value={u.value}>{u.icon} {u.label}</option>)}</select></div>
-                  <div><label className={lCls}>Nombre lugar</label><input type="text" value={form.nombre_ubicacion??""} onChange={e=>setForm({...form,nombre_ubicacion:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="ACA Rafaela..."/></div>
-                  <div><label className={lCls}>Toneladas</label><input type="number" value={form.cantidad_tn??""} onChange={e=>setForm({...form,cantidad_tn:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
-                </div>
-                <div style={{display:"flex",gap:8}}>
-                  <button onClick={guardarUbicacion} className="bbtn">Guardar</button>
-                  <button onClick={()=>{setShowFormUbicacion(false);setEditandoUbicacion(null);setForm({});}} className="abtn">Cancelar</button>
-                </div>
-              </div>
-            )}
-
-            {showFormVenta&&(
-              <div className="card fade-in" style={{padding:14,marginBottom:12}}>
-                <div style={{fontSize:13,fontWeight:800,color:"#16a34a",marginBottom:12}}>+ Venta Pactada — {cultivoActivo.toUpperCase()}</div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:10,marginBottom:12}}>
-                  <div><label className={lCls}>Toneladas</label><input type="number" value={form.cantidad_tn??""} onChange={e=>setForm({...form,cantidad_tn:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
-                  <div><label className={lCls}>Precio ($/tn)</label><input type="number" value={form.precio_tn??""} onChange={e=>setForm({...form,precio_tn:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="0 = sin base"/></div>
-                  <div><label className={lCls}>Destino</label><input type="text" value={form.destino??""} onChange={e=>setForm({...form,destino:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="AFA, Coop..."/></div>
-                  <div><label className={lCls}>Tipo destino</label><select value={form.tipo_destino??"cooperativa"} onChange={e=>setForm({...form,tipo_destino:e.target.value})} className="sel"><option value="cooperativa">Cooperativa</option><option value="acopio">Acopio</option><option value="empresa">Empresa</option><option value="exportador">Exportador</option><option value="otro">Otro</option></select></div>
-                  <div><label className={lCls}>Fecha entrega</label><input type="date" value={form.fecha_entrega??""} onChange={e=>setForm({...form,fecha_entrega:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
-                </div>
-                <div style={{display:"flex",gap:8}}>
-                  <button onClick={guardarVenta} className="bbtn">Guardar</button>
-                  <button onClick={()=>{setShowFormVenta(false);setForm({});}} className="abtn">Cancelar</button>
-                </div>
-              </div>
-            )}
-
-            {/* Ubicaciones */}
-            <div style={{fontSize:11,fontWeight:800,color:"#d97706",textTransform:"uppercase",letterSpacing:0.8,marginBottom:8}}>📍 Stock por Ubicación</div>
-            {ubicaciones.filter(u=>u.cultivo===cultivoActivo).length===0
-              ?<p style={{color:"#6b8aaa",fontSize:13,marginBottom:12}}>Sin ubicaciones</p>
-              :<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:10,marginBottom:16}}>
-                {ubicaciones.filter(u=>u.cultivo===cultivoActivo).map(u=>{
-                  const ub=UBICACIONES.find(x=>x.value===u.tipo_ubicacion);
-                  return(
-                    <div key={u.id} className="ubic-card">
-                      <div style={{position:"relative",height:90,borderRadius:"14px 14px 0 0",overflow:"hidden"}}>
-                        <Image src={ub?.img??"/ubicacion-silo.png"} alt="" fill style={{objectFit:"cover"}} onError={(e:any)=>{e.target.src="/dashboard-bg.png";}}/>
-                        <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,transparent 20%,rgba(255,255,255,0.80) 100%)"}}/>
-                        <div style={{position:"absolute",bottom:6,left:8}}>
-                          <div style={{fontSize:16,fontWeight:800,color:"#0d2137"}}>{u.cantidad_tn} tn</div>
-                          <div style={{fontSize:11,color:"#d97706",fontWeight:600}}>{ub?.label??u.tipo_ubicacion}</div>
-                          {u.nombre_ubicacion&&<div style={{fontSize:10,color:"#6b8aaa"}}>{u.nombre_ubicacion}</div>}
-                        </div>
-                      </div>
-                      <div style={{padding:"6px 10px",display:"flex",gap:6}}>
-                        <button onClick={()=>{setEditandoUbicacion(u.id);setForm({cultivo:cultivoActivo,tipo_ubicacion:u.tipo_ubicacion,nombre_ubicacion:u.nombre_ubicacion,cantidad_tn:String(u.cantidad_tn)});setShowFormUbicacion(true);}} style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:13}}>✏️</button>
-                        <button onClick={()=>eliminarItem("stock_granos_ubicaciones",u.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:14}}>✕</button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            }
-
-            {/* Ventas pactadas */}
-            <div style={{fontSize:11,fontWeight:800,color:"#16a34a",textTransform:"uppercase",letterSpacing:0.8,marginBottom:8}}>💬 Ventas Pactadas</div>
-            {ventas.filter(v=>v.cultivo===cultivoActivo).length===0
-              ?<p style={{color:"#6b8aaa",fontSize:13,marginBottom:12}}>Sin ventas pactadas</p>
-              :<div style={{display:"flex",flexDirection:"column",gap:7,marginBottom:12}}>
-                {ventas.filter(v=>v.cultivo===cultivoActivo).map(v=>(
-                  <div key={v.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,padding:"10px 14px",borderRadius:12,background:"rgba(255,255,255,0.70)",border:"1px solid rgba(22,163,74,0.18)"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:12}}>
-                      <div style={{fontSize:16,fontWeight:800,color:"#0d2137"}}>{v.cantidad_tn} tn</div>
-                      <div>
-                        <div style={{fontSize:13,color:"#16a34a",fontWeight:700}}>{v.destino||"Sin destino"}</div>
-                        <div style={{fontSize:11,color:"#6b8aaa"}}>{v.tipo_destino}{v.fecha_entrega?` · ${v.fecha_entrega}`:""}</div>
-                      </div>
-                      {v.precio_tn>0&&<div style={{fontSize:13,color:"#d97706",fontWeight:800}}>${Number(v.precio_tn).toLocaleString("es-AR")}/tn</div>}
-                    </div>
-                    <div style={{display:"flex",gap:6}}>
-                      <button onClick={()=>marcarEntregada(v.id)} style={{fontSize:11,padding:"5px 12px",borderRadius:8,background:"rgba(22,163,74,0.10)",border:"1px solid rgba(22,163,74,0.25)",color:"#16a34a",cursor:"pointer",fontWeight:700}}>✓ Entregado</button>
-                      <button onClick={()=>eliminarItem("stock_ventas_pactadas",v.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:14}}>✕</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            }
-            <div style={{display:"flex",gap:8}}>
-              <button onClick={()=>enviarWAVenta(cultivoActivo,"sin_base")} style={{flex:1,padding:"10px",borderRadius:12,background:"rgba(22,163,74,0.08)",border:"1px solid rgba(22,163,74,0.22)",color:"#16a34a",cursor:"pointer",fontWeight:700,fontSize:12}}>💬 WA Sin base</button>
-              <button onClick={()=>enviarWAVenta(cultivoActivo,"con_base")} style={{flex:1,padding:"10px",borderRadius:12,background:"rgba(22,163,74,0.08)",border:"1px solid rgba(22,163,74,0.22)",color:"#16a34a",cursor:"pointer",fontWeight:700,fontSize:12}}>💬 WA Con base</button>
-            </div>
-          </div>
+        {/* ══ GRANOS — Libro de Granos ══ */}
+        {tab==="granos"&&(
+          <GranosLibro
+            empresaId={empresaId}
+            mostrarMsg={mostrarMsg}
+            getSB={getSB}
+          />
         )}
 
         {/* ══════════════════════════════
