@@ -59,6 +59,8 @@ export default function CentroGestion() {
   const [lotesSelec, setLotesSelec]       = useState<string[]>([]);
   const [guardando, setGuardando]         = useState(false);
   const [empleados, setEmpleados]         = useState<{id:string;nombre:string;categoria:string;sueldo_basico:number}[]>([]);
+  const [depositos, setDepositos]         = useState<{id:string;nombre:string;litros:number;ppp:number}[]>([]);
+  const [showFormDeposito, setShowFormDeposito] = useState(false);
   const importRef                         = useRef<HTMLInputElement>(null);
 
   const getSB = async () => {
@@ -109,12 +111,27 @@ export default function CentroGestion() {
 
   const fetchItems = async (eid:string,cid:string) => {
     const sb = await getSB();
-    const [itemsData, empsData] = await Promise.all([
+    const [itemsData, empsData, movGasoil] = await Promise.all([
       sb.from("mb_carga_items").select("*").eq("empresa_id",eid).eq("campana_id",cid).order("fecha",{ascending:false}),
       sb.from("empleados").select("id,nombre,categoria,sueldo_basico").eq("empresa_id",eid).eq("activo",true).order("nombre"),
+      sb.from("gasoil_movimientos").select("*").eq("empresa_id",eid).order("fecha",{ascending:false}),
     ]);
     setItems(itemsData.data??[]);
     setEmpleados(empsData.data??[]);
+    // Calcular stock por depósito con PPP
+    const movs = movGasoil.data??[];
+    const deps = await sb.from("gasoil_depositos").select("*").eq("empresa_id",eid).eq("activo",true).order("nombre");
+    const deposArr = (deps.data??[]).map((d:any) => {
+      const entradas = movs.filter((m:any)=>m.deposito_destino_id===d.id&&["compra","traslado"].includes(m.tipo));
+      const salidas  = movs.filter((m:any)=>m.deposito_origen_id===d.id&&["traslado","consumo","ajuste"].includes(m.tipo));
+      const litros   = entradas.reduce((a:number,m:any)=>a+Number(m.litros),0) - salidas.reduce((a:number,m:any)=>a+Number(m.litros),0);
+      // PPP: solo compras
+      const compras  = movs.filter((m:any)=>m.deposito_destino_id===d.id&&m.tipo==="compra"&&m.precio_litro>0);
+      const totalLitCompra = compras.reduce((a:number,m:any)=>a+Number(m.litros),0);
+      const ppp = totalLitCompra>0 ? compras.reduce((a:number,m:any)=>a+Number(m.litros)*Number(m.precio_litro),0)/totalLitCompra : 0;
+      return { id:d.id, nombre:d.nombre, litros:Math.max(0,litros), ppp };
+    });
+    setDepositos(deposArr);
   };
 
   const cambiarCampana = async (cid:string) => {
@@ -153,6 +170,70 @@ export default function CentroGestion() {
       moneda:form.moneda||"ARS", monto_original:Number(form.monto),
       tc_usado:tc, monto_usd:montoUsd, unidad:form.unidad||"ha", origen:"manual",
     };
+    // ── GASOIL: manejo especial ──
+    if (grupoActivo==="combustibles") {
+      const tipo = form.tipo_gasoil||"compra";
+      const litros = Number(form.litros||0);
+      if (litros===0){ msg("❌ Ingresá los litros"); setGuardando(false); return; }
+      const tc2 = form.moneda==="ARS" ? await getTCFecha(form.fecha) : 1;
+      const monto = Number(form.monto||0);
+      const montoUsd2 = form.moneda==="ARS" ? monto/tc2 : monto;
+      // Insertar movimiento gasoil
+      const movPayload:any = {
+        empresa_id:empresaId, campana_id:campanaActiva,
+        fecha:form.fecha, tipo,
+        litros,
+        deposito_origen_id: form.dep_origen||null,
+        deposito_destino_id: form.dep_destino||null,
+        precio_litro: Number(form.precio_litro||0),
+        monto_total: monto,
+        moneda: form.moneda||"ARS",
+        tc_usado: tc2,
+        monto_usd: montoUsd2,
+        proveedor: form.proveedor||"",
+        equipo: form.equipo||"",
+        observaciones: form.descripcion||"",
+        lote_ids: tipo==="consumo" ? lotesSelec : [],
+      };
+      // PPP al momento del consumo
+      if (tipo==="consumo"&&form.dep_origen) {
+        const dep = depositos.find(d=>d.id===form.dep_origen);
+        if (dep) {
+          movPayload.ppp_momento = dep.ppp;
+          movPayload.monto_total = litros * dep.ppp;
+          movPayload.monto_usd = (litros * dep.ppp) / tc2;
+        }
+      }
+      // Ajuste: litros negativos si es resta
+      if (tipo==="ajuste"&&(form.signo_ajuste||"+")==="-") {
+        movPayload.litros = -litros;
+        movPayload.deposito_origen_id = form.dep_origen;
+        movPayload.deposito_destino_id = null;
+      }
+      const { error:errMov } = await sb.from("gasoil_movimientos").insert(movPayload);
+      if (errMov){ msg(`❌ Error gasoil: ${errMov.message}`); setGuardando(false); return; }
+      // Si es consumo → imputar al MB como mb_carga_items
+      if (tipo==="consumo"&&lotesSelec.length>0&&movPayload.monto_usd>0) {
+        const haTotal = lotesSelec.reduce((a,lid)=>a+(lotes.find(l=>l.id===lid)?.hectareas||0),0);
+        await sb.from("mb_carga_items").insert({
+          empresa_id:empresaId, campana_id:campanaActiva,
+          lote_ids:lotesSelec, grupo:"combustibles",
+          subgrupo:panelSubgrupo?.sub||"GASOIL", mes:null,
+          concepto:"GASOIL", articulo:form.equipo||"Gasoil",
+          descripcion:form.descripcion||`${litros}L ${form.equipo||""}`.trim(),
+          fecha:form.fecha, moneda:"ARS",
+          monto_original:movPayload.monto_total,
+          tc_usado:tc2, monto_usd:movPayload.monto_usd,
+          unidad:haTotal>0?"ha":"total", origen:"gasoil",
+        });
+      }
+      const tipoLabel = tipo==="compra"?"Compra":tipo==="traslado"?"Traslado":tipo==="consumo"?"Consumo":"Ajuste";
+      msg(`✅ ${tipoLabel} registrado — ${litros.toLocaleString()} L`);
+      await fetchItems(empresaId,campanaActiva);
+      setGuardando(false); setPanelSubgrupo(null); setForm({}); setLotesSelec([]);
+      return;
+    }
+
     const { error } = await sb.from("mb_carga_items").insert(payload);
     if (error) {
       msg(`❌ Error BD: ${error.message}`);
@@ -1006,47 +1087,207 @@ export default function CentroGestion() {
                         </div>
                       )}
 
-                      {/* ── COMBUSTIBLES ── */}
+                      {/* ── COMBUSTIBLES — GASOIL COMPLETO ── */}
                       {grupoActivo==="combustibles"&&(
-                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
-                          <div><div style={lCls}>Fecha *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
-                          <div>
-                            <div style={lCls}>Tipo</div>
-                            <select value={form.tipo_comb||"gasoil"} onChange={e=>setForm({...form,tipo_comb:e.target.value,articulo:e.target.value})} className="inp-d" style={iCls}>
-                              <option value="gasoil">Gasoil</option>
-                              <option value="nafta">Nafta</option>
-                              <option value="lubricante">Lubricante</option>
-                              <option value="otro">Otro</option>
-                            </select>
+                        <div>
+                          {/* Selector tipo de operación */}
+                          <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+                            {[
+                              {v:"compra",    l:"🛢 Compra",    c:"#22c55e"},
+                              {v:"traslado",  l:"🔄 Traslado",  c:"#60a5fa"},
+                              {v:"consumo",   l:"⚡ Consumo",   c:"#f97316"},
+                              {v:"ajuste",    l:"🔧 Ajuste",    c:"#a78bfa"},
+                            ].map(t=>(
+                              <button key={t.v}
+                                onClick={()=>setForm({...form,tipo_gasoil:t.v,fecha:form.fecha||new Date().toISOString().split("T")[0]})}
+                                style={{padding:"7px 14px",borderRadius:8,fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"inherit",
+                                  border:`1.5px solid ${(form.tipo_gasoil||"compra")===t.v?t.c:t.c+"40"}`,
+                                  background:(form.tipo_gasoil||"compra")===t.v?t.c+"18":"transparent",
+                                  color:(form.tipo_gasoil||"compra")===t.v?t.c:t.c+"80"}}>
+                                {t.l}
+                              </button>
+                            ))}
                           </div>
-                          <div><div style={lCls}>Litros</div><input type="number" value={form.litros||""} onChange={e=>setForm({...form,litros:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
-                          <div><div style={lCls}>Precio por litro</div><input type="number" step="0.01" value={form.precio_litro||""} onChange={e=>{
-                            const pl=Number(e.target.value);
-                            const lt=Number(form.litros||0);
-                            setForm({...form,precio_litro:e.target.value,monto:lt>0?(lt*pl).toFixed(2):form.monto||""});
-                          }} className="inp-d" style={iCls} placeholder="0"/></div>
-                          <div>
-                            <div style={lCls}>Equipo / Labor</div>
-                            <input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Tractor, cosechadora, pulverizadora..."/>
-                          </div>
-                          <div>
-                            <div style={lCls}>Moneda</div>
-                            <select value={form.moneda||"ARS"} onChange={e=>setForm({...form,moneda:e.target.value})} className="inp-d" style={iCls}>
-                              <option value="ARS">$ ARS</option><option value="USD">U$S</option>
-                            </select>
-                          </div>
-                          <div>
-                            <div style={lCls}>Costo en</div>
-                            <select value={form.unidad||"total"} onChange={e=>setForm({...form,unidad:e.target.value})} className="inp-d" style={iCls}>
-                              <option value="total">Total</option>
-                              <option value="ha">U$S/ha</option>
-                            </select>
-                          </div>
-                          <div><div style={lCls}>Monto total *</div><input type="number" value={form.monto||""} onChange={e=>setForm({...form,monto:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
-                          {/* Preview litros × precio */}
-                          {form.litros&&form.precio_litro&&Number(form.litros)>0&&Number(form.precio_litro)>0&&(
-                            <div style={{gridColumn:"span 2",padding:"8px 12px",borderRadius:8,background:"rgba(201,162,39,0.07)",border:"1px solid rgba(201,162,39,0.20)",fontSize:11,color:"rgba(255,255,255,0.50)"}}>
-                              {Number(form.litros).toLocaleString("es-AR")} L × ${Number(form.precio_litro).toLocaleString("es-AR")} = <span style={{color:"#f0d060",fontWeight:800}}>${(Number(form.litros)*Number(form.precio_litro)).toLocaleString("es-AR")}</span>
+
+                          {/* Depósitos existentes — resumen rápido */}
+                          {depositos.length>0&&(
+                            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+                              {depositos.map(d=>(
+                                <div key={d.id} style={{padding:"5px 10px",borderRadius:7,background:"rgba(201,162,39,0.08)",border:"1px solid rgba(201,162,39,0.20)",fontSize:10}}>
+                                  <span style={{color:"rgba(201,162,39,0.60)",fontWeight:700}}>{d.nombre}</span>
+                                  <span style={{color:"#f0d060",fontWeight:800,marginLeft:6}}>{Math.round(d.litros).toLocaleString("es-AR")} L</span>
+                                  {d.ppp>0&&<span style={{color:"rgba(255,255,255,0.30)",marginLeft:4}}>PPP ${d.ppp.toFixed(0)}/L</span>}
+                                </div>
+                              ))}
+                              <button onClick={()=>setShowFormDeposito(true)}
+                                style={{padding:"5px 10px",borderRadius:7,background:"transparent",border:"1px dashed rgba(201,162,39,0.25)",fontSize:10,color:"rgba(201,162,39,0.45)",cursor:"pointer",fontFamily:"inherit"}}>
+                                + Depósito
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Form nuevo depósito */}
+                          {showFormDeposito&&(
+                            <div style={{marginBottom:12,padding:"12px 14px",borderRadius:8,background:"rgba(201,162,39,0.06)",border:"1px solid rgba(201,162,39,0.20)"}}>
+                              <div style={{fontSize:11,fontWeight:800,color:"#c9a227",marginBottom:8}}>+ Nuevo Depósito</div>
+                              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                                <input type="text" value={form.dep_nombre||""} onChange={e=>setForm({...form,dep_nombre:e.target.value})}
+                                  className="inp-d" style={{...iCls,flex:1}} placeholder="Ej: Tanque campo, Distribuidor YY..."/>
+                                <button onClick={async()=>{
+                                  if(!empresaId||!form.dep_nombre) return;
+                                  const sb=await getSB();
+                                  await sb.from("gasoil_depositos").insert({empresa_id:empresaId,nombre:form.dep_nombre,descripcion:""});
+                                  setForm({...form,dep_nombre:""});
+                                  setShowFormDeposito(false);
+                                  await fetchItems(empresaId,campanaActiva);
+                                  msg("✅ Depósito creado");
+                                }} className="btn-g" style={{padding:"9px 16px",whiteSpace:"nowrap"}}>Crear</button>
+                                <button onClick={()=>setShowFormDeposito(false)}
+                                  style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.30)",fontSize:18}}>✕</button>
+                              </div>
+                            </div>
+                          )}
+
+                          {depositos.length===0&&!showFormDeposito&&(
+                            <div style={{marginBottom:14,padding:"12px",borderRadius:8,background:"rgba(201,162,39,0.06)",border:"1px dashed rgba(201,162,39,0.25)",textAlign:"center"}}>
+                              <div style={{fontSize:11,color:"rgba(201,162,39,0.50)",marginBottom:6}}>Sin depósitos creados</div>
+                              <button onClick={()=>setShowFormDeposito(true)} className="btn-g" style={{padding:"6px 14px",fontSize:11}}>+ Crear primer depósito</button>
+                            </div>
+                          )}
+
+                          {/* ── COMPRA ── */}
+                          {(form.tipo_gasoil||"compra")==="compra"&&depositos.length>0&&(
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                              <div><div style={lCls}>Fecha *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
+                              <div>
+                                <div style={lCls}>Depósito destino *</div>
+                                <select value={form.dep_destino||""} onChange={e=>setForm({...form,dep_destino:e.target.value})} className="inp-d" style={iCls}>
+                                  <option value="">Seleccionar</option>
+                                  {depositos.map(d=><option key={d.id} value={d.id}>{d.nombre} ({Math.round(d.litros).toLocaleString()} L)</option>)}
+                                </select>
+                              </div>
+                              <div><div style={lCls}>Litros *</div><input type="number" value={form.litros||""} onChange={e=>{
+                                const lt=Number(e.target.value);
+                                const pl=Number(form.precio_litro||0);
+                                setForm({...form,litros:e.target.value,monto:lt>0&&pl>0?(lt*pl).toFixed(0):"" });
+                              }} className="inp-d" style={iCls} placeholder="0"/></div>
+                              <div><div style={lCls}>Precio/litro *</div><input type="number" step="0.01" value={form.precio_litro||""} onChange={e=>{
+                                const pl=Number(e.target.value);
+                                const lt=Number(form.litros||0);
+                                setForm({...form,precio_litro:e.target.value,monto:lt>0&&pl>0?(lt*pl).toFixed(0):""});
+                              }} className="inp-d" style={iCls} placeholder="0"/></div>
+                              <div>
+                                <div style={lCls}>Moneda</div>
+                                <select value={form.moneda||"ARS"} onChange={e=>setForm({...form,moneda:e.target.value})} className="inp-d" style={iCls}>
+                                  <option value="ARS">$ ARS</option><option value="USD">U$S</option>
+                                </select>
+                              </div>
+                              <div><div style={lCls}>Monto total</div><input type="number" value={form.monto||""} onChange={e=>setForm({...form,monto:e.target.value})} className="inp-d" style={iCls} placeholder="Auto"/></div>
+                              <div><div style={lCls}>Proveedor</div><input type="text" value={form.proveedor||""} onChange={e=>setForm({...form,proveedor:e.target.value})} className="inp-d" style={iCls} placeholder="YPF, distribuidor..."/></div>
+                              <div><div style={lCls}>Observaciones</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Factura, remito..."/></div>
+                              {form.litros&&form.precio_litro&&Number(form.litros)>0&&Number(form.precio_litro)>0&&(
+                                <div style={{gridColumn:"span 2",padding:"8px 12px",borderRadius:8,background:"rgba(22,163,74,0.08)",border:"1px solid rgba(22,163,74,0.20)",fontSize:11}}>
+                                  <span style={{color:"rgba(255,255,255,0.40)"}}>{Number(form.litros).toLocaleString()} L × ${Number(form.precio_litro).toLocaleString("es-AR")}/L = </span>
+                                  <span style={{color:"#86efac",fontWeight:800}}>${(Number(form.litros)*Number(form.precio_litro)).toLocaleString("es-AR")}</span>
+                                  {(()=>{
+                                    const dep = depositos.find(d=>d.id===form.dep_destino);
+                                    if(!dep||dep.litros===0) return null;
+                                    const pppNuevo = (dep.litros*dep.ppp + Number(form.litros)*Number(form.precio_litro))/(dep.litros+Number(form.litros));
+                                    return<span style={{color:"rgba(201,162,39,0.60)",marginLeft:10}}>→ PPP nuevo: ${pppNuevo.toFixed(0)}/L</span>;
+                                  })()}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* ── TRASLADO ── */}
+                          {form.tipo_gasoil==="traslado"&&depositos.length>1&&(
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                              <div><div style={lCls}>Fecha *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
+                              <div><div style={lCls}>Litros a trasladar *</div><input type="number" value={form.litros||""} onChange={e=>setForm({...form,litros:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                              <div>
+                                <div style={lCls}>Depósito origen *</div>
+                                <select value={form.dep_origen||""} onChange={e=>setForm({...form,dep_origen:e.target.value})} className="inp-d" style={iCls}>
+                                  <option value="">Seleccionar</option>
+                                  {depositos.map(d=><option key={d.id} value={d.id}>{d.nombre} ({Math.round(d.litros).toLocaleString()} L)</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <div style={lCls}>Depósito destino *</div>
+                                <select value={form.dep_destino||""} onChange={e=>setForm({...form,dep_destino:e.target.value})} className="inp-d" style={iCls}>
+                                  <option value="">Seleccionar</option>
+                                  {depositos.filter(d=>d.id!==form.dep_origen).map(d=><option key={d.id} value={d.id}>{d.nombre}</option>)}
+                                </select>
+                              </div>
+                              <div style={{gridColumn:"span 2"}}><div style={lCls}>Observaciones</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Motivo del traslado..."/></div>
+                            </div>
+                          )}
+
+                          {/* ── CONSUMO ── */}
+                          {form.tipo_gasoil==="consumo"&&depositos.length>0&&(
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                              <div><div style={lCls}>Fecha *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
+                              <div>
+                                <div style={lCls}>Depósito origen *</div>
+                                <select value={form.dep_origen||""} onChange={e=>{
+                                  const dep=depositos.find(d=>d.id===e.target.value);
+                                  setForm({...form,dep_origen:e.target.value,ppp_actual:dep?dep.ppp.toFixed(2):""});
+                                }} className="inp-d" style={iCls}>
+                                  <option value="">Seleccionar</option>
+                                  {depositos.map(d=><option key={d.id} value={d.id}>{d.nombre} ({Math.round(d.litros).toLocaleString()} L · PPP ${d.ppp.toFixed(0)}/L)</option>)}
+                                </select>
+                              </div>
+                              <div><div style={lCls}>Litros consumidos *</div><input type="number" value={form.litros||""} onChange={e=>setForm({...form,litros:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                              <div><div style={lCls}>Equipo / Labor</div><input type="text" value={form.equipo||""} onChange={e=>setForm({...form,equipo:e.target.value})} className="inp-d" style={iCls} placeholder="Tractor, cosechadora..."/></div>
+                              <div style={{gridColumn:"span 2"}}><div style={lCls}>Observaciones</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Labor realizada..."/></div>
+                              {/* Preview costo */}
+                              {form.litros&&form.dep_origen&&Number(form.litros)>0&&(()=>{
+                                const dep=depositos.find(d=>d.id===form.dep_origen);
+                                if(!dep||dep.ppp===0) return null;
+                                const costo=Number(form.litros)*dep.ppp;
+                                const haTotal=lotesSelec.length>0?lotesSelec.reduce((a,lid)=>a+(lotes.find(l=>l.id===lid)?.hectareas||0),0):0;
+                                return(
+                                  <div style={{gridColumn:"span 2",padding:"10px 14px",borderRadius:8,background:"rgba(249,115,22,0.08)",border:"1px solid rgba(249,115,22,0.25)"}}>
+                                    <div style={{fontSize:11,color:"rgba(255,255,255,0.50)",marginBottom:3}}>
+                                      {Number(form.litros).toLocaleString()} L × PPP ${dep.ppp.toFixed(0)}/L =
+                                      <span style={{color:"#fbbf24",fontWeight:800,marginLeft:6}}>${costo.toLocaleString("es-AR")}</span>
+                                    </div>
+                                    {haTotal>0&&<div style={{fontSize:11,color:"rgba(201,162,39,0.60)"}}>
+                                      U$S {(costo/tcVenta/haTotal).toFixed(2)}/ha en {lotesSelec.length} lote{lotesSelec.length>1?"s":""}
+                                    </div>}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          )}
+
+                          {/* ── AJUSTE ── */}
+                          {form.tipo_gasoil==="ajuste"&&depositos.length>0&&(
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                              <div><div style={lCls}>Fecha *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
+                              <div>
+                                <div style={lCls}>Depósito *</div>
+                                <select value={form.dep_origen||""} onChange={e=>setForm({...form,dep_origen:e.target.value})} className="inp-d" style={iCls}>
+                                  <option value="">Seleccionar</option>
+                                  {depositos.map(d=><option key={d.id} value={d.id}>{d.nombre} ({Math.round(d.litros).toLocaleString()} L)</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <div style={lCls}>Signo</div>
+                                <div style={{display:"flex",gap:6}}>
+                                  {[{v:"+",c:"#22c55e"},{v:"-",c:"#dc2626"}].map(s=>(
+                                    <button key={s.v} onClick={()=>setForm({...form,signo_ajuste:s.v})}
+                                      style={{flex:1,padding:"9px",borderRadius:8,fontSize:14,fontWeight:900,cursor:"pointer",fontFamily:"inherit",
+                                        border:`1.5px solid ${(form.signo_ajuste||"+")===s.v?s.c:s.c+"40"}`,
+                                        background:(form.signo_ajuste||"+")===s.v?s.c+"18":"transparent",
+                                        color:(form.signo_ajuste||"+")===s.v?s.c:s.c+"60"}}>
+                                      {s.v}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div><div style={lCls}>Litros *</div><input type="number" value={form.litros||""} onChange={e=>setForm({...form,litros:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                              <div style={{gridColumn:"span 2"}}><div style={lCls}>Motivo</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Merma, error de medición..."/></div>
                             </div>
                           )}
                         </div>
