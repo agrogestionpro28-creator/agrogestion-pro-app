@@ -848,33 +848,208 @@ export default function CentroGestion() {
                         </>
                       )}
 
-                      {/* Grupos que aún usan form genérico (labranzas, insumos, logística, comercialización, combustibles) */}
-                      {!["alquiler","impuestos","seguros","personal","financieros","otros_directos","cosecha"].includes(grupoActivo||"")&&(
-                        <>
-                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
-                            <div><div style={lCls}>Fecha del pago *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
-                            <div>
-                              <div style={lCls}>Unidad</div>
-                              <select value={form.unidad||"ha"} onChange={e=>setForm({...form,unidad:e.target.value})} className="inp-d" style={iCls}>
-                                <option value="ha">U$S por ha</option>
-                                <option value="tn">U$S por tn</option>
-                                <option value="total">Total campo</option>
-                                <option value="pct">% sobre ingreso</option>
-                              </select>
-                            </div>
-                            <div>
-                              <div style={lCls}>Moneda</div>
-                              <select value={form.moneda||"ARS"} onChange={e=>setForm({...form,moneda:e.target.value})} className="inp-d" style={iCls}>
-                                <option value="ARS">$ ARS</option><option value="USD">U$S</option>
-                              </select>
-                            </div>
-                            <div><div style={lCls}>Monto *</div><input type="number" value={form.monto||""} onChange={e=>setForm({...form,monto:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                      {/* ── LABRANZAS Y LABORES ── */}
+                      {grupoActivo==="labranzas"&&(
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                          <div><div style={lCls}>Fecha *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
+                          <div><div style={lCls}>Contratista / Empresa</div><input type="text" value={form.articulo||""} onChange={e=>setForm({...form,articulo:e.target.value})} className="inp-d" style={iCls} placeholder="Nombre del contratista..."/></div>
+                          <div>
+                            <div style={lCls}>Tipo de labor</div>
+                            <select value={form.tipo_labor||""} onChange={e=>setForm({...form,tipo_labor:e.target.value,descripcion:e.target.value})} className="inp-d" style={iCls}>
+                              <option value="">Seleccionar</option>
+                              <option value="Siembra directa">Siembra directa</option>
+                              <option value="Siembra convencional">Siembra convencional</option>
+                              <option value="Pulverización terrestre">Pulverización terrestre</option>
+                              <option value="Pulverización aérea">Pulverización aérea</option>
+                              <option value="Fertilización">Fertilización</option>
+                              <option value="Subsolado">Subsolado</option>
+                              <option value="Cincel">Cincel</option>
+                              <option value="Rastra">Rastra</option>
+                              <option value="Otro">Otro</option>
+                            </select>
                           </div>
-                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
-                            <div><div style={lCls}>Artículo / Producto</div><input type="text" value={form.articulo||""} onChange={e=>setForm({...form,articulo:e.target.value})} className="inp-d" style={iCls} placeholder="Ej: Glifosato 48%..."/></div>
-                            <div><div style={lCls}>Descripción</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Detalle..."/></div>
+                          <div>
+                            <div style={lCls}>Unidad</div>
+                            <select value={form.unidad||"ha"} onChange={e=>setForm({...form,unidad:e.target.value})} className="inp-d" style={iCls}>
+                              <option value="ha">U$S/ha</option>
+                              <option value="total">Total</option>
+                            </select>
                           </div>
-                        </>
+                          <div>
+                            <div style={lCls}>Moneda</div>
+                            <select value={form.moneda||"ARS"} onChange={e=>setForm({...form,moneda:e.target.value})} className="inp-d" style={iCls}>
+                              <option value="ARS">$ ARS</option><option value="USD">U$S</option>
+                            </select>
+                          </div>
+                          <div><div style={lCls}>Monto *</div><input type="number" value={form.monto||""} onChange={e=>setForm({...form,monto:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                          <div style={{gridColumn:"span 2"}}><div style={lCls}>Observaciones</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Detalle de la labor..."/></div>
+                        </div>
+                      )}
+
+                      {/* ── INSUMOS ── */}
+                      {grupoActivo==="insumos"&&(
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                          <div><div style={lCls}>Fecha *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
+                          <div><div style={lCls}>Producto *</div><input type="text" value={form.articulo||""} onChange={e=>setForm({...form,articulo:e.target.value})} className="inp-d" style={iCls} placeholder="Ej: Glifosato 48%, Urea..."/></div>
+                          <div>
+                            <div style={lCls}>Unidad de medida</div>
+                            <select value={form.unidad_insumo||"lt/ha"} onChange={e=>setForm({...form,unidad_insumo:e.target.value})} className="inp-d" style={iCls}>
+                              <option value="lt/ha">Litros/ha</option>
+                              <option value="kg/ha">kg/ha</option>
+                              <option value="bolsas">Bolsas</option>
+                            </select>
+                          </div>
+                          <div><div style={lCls}>Cantidad/dosis</div><input type="number" step="0.1" value={form.cantidad_insumo||""} onChange={e=>setForm({...form,cantidad_insumo:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                          <div>
+                            <div style={lCls}>Costo en</div>
+                            <select value={form.unidad||"ha"} onChange={e=>setForm({...form,unidad:e.target.value})} className="inp-d" style={iCls}>
+                              <option value="ha">U$S/ha</option>
+                              <option value="total">Total campo</option>
+                            </select>
+                          </div>
+                          <div>
+                            <div style={lCls}>Moneda</div>
+                            <select value={form.moneda||"ARS"} onChange={e=>setForm({...form,moneda:e.target.value})} className="inp-d" style={iCls}>
+                              <option value="ARS">$ ARS</option><option value="USD">U$S</option>
+                            </select>
+                          </div>
+                          <div><div style={lCls}>Monto *</div><input type="number" value={form.monto||""} onChange={e=>setForm({...form,monto:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                          <div><div style={lCls}>Proveedor</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Nombre del proveedor..."/></div>
+                        </div>
+                      )}
+
+                      {/* ── LOGÍSTICA Y FLETE ── */}
+                      {grupoActivo==="logistica"&&(
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                          <div><div style={lCls}>Fecha *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
+                          <div><div style={lCls}>Transportista / Empresa</div><input type="text" value={form.articulo||""} onChange={e=>setForm({...form,articulo:e.target.value})} className="inp-d" style={iCls} placeholder="Nombre del transportista..."/></div>
+                          <div>
+                            <div style={lCls}>Origen</div>
+                            <input type="text" value={form.flete_origen||""} onChange={e=>setForm({...form,flete_origen:e.target.value})} className="inp-d" style={iCls} placeholder="Campo, acopio..."/>
+                          </div>
+                          <div>
+                            <div style={lCls}>Destino</div>
+                            <input type="text" value={form.flete_destino||""} onChange={e=>setForm({...form,flete_destino:e.target.value,descripcion:`${form.flete_origen||""}→${e.target.value}`})} className="inp-d" style={iCls} placeholder="Acopio, planta..."/>
+                          </div>
+                          <div>
+                            <div style={lCls}>Cultivo</div>
+                            <select value={form.cultivo||""} onChange={e=>setForm({...form,cultivo:e.target.value})} className="inp-d" style={iCls}>
+                              <option value="">Seleccionar</option>
+                              {["soja","maiz","trigo","girasol","sorgo","cebada","otro"].map(c=>(
+                                <option key={c} value={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div><div style={lCls}>Km (referencia)</div><input type="number" value={form.km||""} onChange={e=>setForm({...form,km:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                          <div>
+                            <div style={lCls}>Costo en</div>
+                            <select value={form.unidad||"tn"} onChange={e=>setForm({...form,unidad:e.target.value})} className="inp-d" style={iCls}>
+                              <option value="tn">U$S/tn</option>
+                              <option value="ha">U$S/ha</option>
+                              <option value="total">Total</option>
+                            </select>
+                          </div>
+                          <div>
+                            <div style={lCls}>Moneda</div>
+                            <select value={form.moneda||"ARS"} onChange={e=>setForm({...form,moneda:e.target.value})} className="inp-d" style={iCls}>
+                              <option value="ARS">$ ARS</option><option value="USD">U$S</option>
+                            </select>
+                          </div>
+                          <div><div style={lCls}>Monto *</div><input type="number" value={form.monto||""} onChange={e=>setForm({...form,monto:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                          <div><div style={lCls}>Tn transportadas</div><input type="number" step="0.1" value={form.tn_flete||""} onChange={e=>setForm({...form,tn_flete:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                        </div>
+                      )}
+
+                      {/* ── COMERCIALIZACIÓN ── */}
+                      {grupoActivo==="comercializacion"&&(
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                          <div><div style={lCls}>Fecha *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
+                          <div><div style={lCls}>Empresa / Acopio</div><input type="text" value={form.articulo||""} onChange={e=>setForm({...form,articulo:e.target.value})} className="inp-d" style={iCls} placeholder="Nombre del acopio..."/></div>
+                          <div>
+                            <div style={lCls}>Cultivo</div>
+                            <select value={form.cultivo||""} onChange={e=>setForm({...form,cultivo:e.target.value})} className="inp-d" style={iCls}>
+                              <option value="">Seleccionar</option>
+                              {["soja","maiz","trigo","girasol","sorgo","cebada","otro"].map(c=>(
+                                <option key={c} value={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <div style={lCls}>Tipo de gasto</div>
+                            <select value={form.tipo_comerc||"comision"} onChange={e=>setForm({...form,tipo_comerc:e.target.value})} className="inp-d" style={iCls}>
+                              <option value="comision">Comisión %</option>
+                              <option value="secado">Secado / Limpieza</option>
+                              <option value="almacenaje">Almacenaje</option>
+                              <option value="analisis">Análisis</option>
+                              <option value="otro">Otro</option>
+                            </select>
+                          </div>
+                          {form.tipo_comerc==="comision"&&(
+                            <div><div style={lCls}>% comisión</div><input type="number" step="0.1" value={form.pct_comerc||""} onChange={e=>setForm({...form,pct_comerc:e.target.value,descripcion:`Comisión ${e.target.value}%`})} className="inp-d" style={iCls} placeholder="3"/></div>
+                          )}
+                          <div>
+                            <div style={lCls}>Costo en</div>
+                            <select value={form.unidad||"tn"} onChange={e=>setForm({...form,unidad:e.target.value})} className="inp-d" style={iCls}>
+                              <option value="tn">U$S/tn</option>
+                              <option value="pct">% ingreso</option>
+                              <option value="total">Total</option>
+                            </select>
+                          </div>
+                          <div>
+                            <div style={lCls}>Moneda</div>
+                            <select value={form.moneda||"ARS"} onChange={e=>setForm({...form,moneda:e.target.value})} className="inp-d" style={iCls}>
+                              <option value="ARS">$ ARS</option><option value="USD">U$S</option>
+                            </select>
+                          </div>
+                          <div><div style={lCls}>Monto *</div><input type="number" value={form.monto||""} onChange={e=>setForm({...form,monto:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                          <div style={{gridColumn:"span 2"}}><div style={lCls}>Descripción</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Detalle del gasto..."/></div>
+                        </div>
+                      )}
+
+                      {/* ── COMBUSTIBLES ── */}
+                      {grupoActivo==="combustibles"&&(
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                          <div><div style={lCls}>Fecha *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
+                          <div>
+                            <div style={lCls}>Tipo</div>
+                            <select value={form.tipo_comb||"gasoil"} onChange={e=>setForm({...form,tipo_comb:e.target.value,articulo:e.target.value})} className="inp-d" style={iCls}>
+                              <option value="gasoil">Gasoil</option>
+                              <option value="nafta">Nafta</option>
+                              <option value="lubricante">Lubricante</option>
+                              <option value="otro">Otro</option>
+                            </select>
+                          </div>
+                          <div><div style={lCls}>Litros</div><input type="number" value={form.litros||""} onChange={e=>setForm({...form,litros:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                          <div><div style={lCls}>Precio por litro</div><input type="number" step="0.01" value={form.precio_litro||""} onChange={e=>{
+                            const pl=Number(e.target.value);
+                            const lt=Number(form.litros||0);
+                            setForm({...form,precio_litro:e.target.value,monto:lt>0?(lt*pl).toFixed(2):form.monto||""});
+                          }} className="inp-d" style={iCls} placeholder="0"/></div>
+                          <div>
+                            <div style={lCls}>Equipo / Labor</div>
+                            <input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Tractor, cosechadora, pulverizadora..."/>
+                          </div>
+                          <div>
+                            <div style={lCls}>Moneda</div>
+                            <select value={form.moneda||"ARS"} onChange={e=>setForm({...form,moneda:e.target.value})} className="inp-d" style={iCls}>
+                              <option value="ARS">$ ARS</option><option value="USD">U$S</option>
+                            </select>
+                          </div>
+                          <div>
+                            <div style={lCls}>Costo en</div>
+                            <select value={form.unidad||"total"} onChange={e=>setForm({...form,unidad:e.target.value})} className="inp-d" style={iCls}>
+                              <option value="total">Total</option>
+                              <option value="ha">U$S/ha</option>
+                            </select>
+                          </div>
+                          <div><div style={lCls}>Monto total *</div><input type="number" value={form.monto||""} onChange={e=>setForm({...form,monto:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                          {/* Preview litros × precio */}
+                          {form.litros&&form.precio_litro&&Number(form.litros)>0&&Number(form.precio_litro)>0&&(
+                            <div style={{gridColumn:"span 2",padding:"8px 12px",borderRadius:8,background:"rgba(201,162,39,0.07)",border:"1px solid rgba(201,162,39,0.20)",fontSize:11,color:"rgba(255,255,255,0.50)"}}>
+                              {Number(form.litros).toLocaleString("es-AR")} L × ${Number(form.precio_litro).toLocaleString("es-AR")} = <span style={{color:"#f0d060",fontWeight:800}}>${(Number(form.litros)*Number(form.precio_litro)).toLocaleString("es-AR")}</span>
+                            </div>
+                          )}
+                        </div>
                       )}
 
                       {/* Preview conversión — todos los grupos */}
