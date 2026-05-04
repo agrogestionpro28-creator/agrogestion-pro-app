@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import Image from "next/image";
 import EscanerIA from "@/components/EscanerIA";
 import { GranosLibro } from "@/components/GranosLibro";
+import { GasoilStock } from "@/components/GasoilStock";
 
 type Tab = "granos" | "insumos" | "gasoil" | "varios";
 type UbicacionItem = { id: string; cultivo: string; tipo_ubicacion: string; nombre_ubicacion: string; cantidad_tn: number; campana_id: string; };
@@ -869,118 +870,9 @@ export default function StockPage() {
         {/* ══════════════════════════════
             GASOIL
         ══════════════════════════════ */}
+        {/* ══ GASOIL — Solo lectura, datos desde Centro de Gestión ══ */}
         {tab==="gasoil"&&(
-          <div className="fade-in">
-            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
-              <button onClick={()=>setShowFormGasoil(!showFormGasoil)} className="bbtn">+ Nuevo Tanque</button>
-            </div>
-            {showFormGasoil&&(
-              <div className="card fade-in" style={{padding:14,marginBottom:14}}>
-                <div style={{fontSize:13,fontWeight:800,color:"#1565c0",marginBottom:12}}>+ Nuevo Tanque / Stock Gasoil</div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10,marginBottom:12}}>
-                  <div><label className={lCls}>Litros iniciales</label><input type="number" value={form.cantidad_litros??""} onChange={e=>setForm({...form,cantidad_litros:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
-                  <div><label className={lCls}>Tipo</label><select value={form.tipo_ubicacion??"tanque_propio"} onChange={e=>setForm({...form,tipo_ubicacion:e.target.value})} className="sel"><option value="tanque_propio">Tanque Propio</option><option value="proveedor">En Proveedor</option></select></div>
-                  <div><label className={lCls}>Nombre lugar</label><input type="text" value={form.ubicacion??""} onChange={e=>setForm({...form,ubicacion:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}} placeholder="YPF Ruta 34"/></div>
-                  <div><label className={lCls}>Precio/litro</label><input type="number" value={form.precio_litro??""} onChange={e=>setForm({...form,precio_litro:e.target.value})} className={iCls} style={{width:"100%",padding:"8px 12px"}}/></div>
-                </div>
-                <div style={{display:"flex",gap:8}}>
-                  <button onClick={guardarGasoil} className="bbtn">Guardar</button>
-                  <button onClick={()=>{setShowFormGasoil(false);setForm({});}} className="abtn">Cancelar</button>
-                </div>
-              </div>
-            )}
-            {gasoil.length===0
-              ?<div className="card" style={{padding:"48px 20px",textAlign:"center"}}><div style={{fontSize:40,opacity:0.12,marginBottom:10}}>⛽</div><p style={{color:"#6b8aaa",fontSize:14}}>Sin stock de gasoil</p></div>
-              :<div style={{display:"flex",flexDirection:"column",gap:12}}>
-                {gasoil.map(g=>{
-                  const movsDeTanque=gasoilMovs.filter(m=>m.gasoil_id===g.id);
-                  const isActivo=gasoilActivo===g.id;
-                  const pppActual=g.precio_ppp||g.precio_litro;
-                  return(
-                    <div key={g.id} className="card" style={{padding:0,overflow:"hidden"}}>
-                      {/* imagen gasoil */}
-                      <div style={{position:"relative",height:100}}>
-                        <Image src="/stock-gasoil.png" alt="gasoil" fill style={{objectFit:"cover"}} onError={(e:any)=>{e.target.src="/dashboard-bg.png";}}/>
-                        <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,transparent 10%,rgba(255,255,255,0.85) 100%)"}}/>
-                        <div style={{position:"absolute",bottom:10,left:14}}>
-                          <div style={{fontSize:22,fontWeight:800,color:"#0d2137"}}>{g.cantidad_litros.toLocaleString("es-AR")} L</div>
-                          <div style={{fontSize:11,color:"#1565c0",fontWeight:600}}>{g.tipo_ubicacion?.replace("_"," ")}{g.ubicacion?` · ${g.ubicacion}`:""}</div>
-                        </div>
-                        <div style={{position:"absolute",top:8,right:10,display:"flex",gap:6}}>
-                          <button onClick={()=>setGasoilActivo(isActivo?null:g.id)} className="abtn" style={{fontSize:11,padding:"4px 10px"}}>{isActivo?"▲":"▼ Historial"}</button>
-                          <button onClick={()=>eliminarItem("stock_gasoil",g.id)} style={{background:"rgba(255,255,255,0.70)",border:"1.5px solid rgba(255,255,255,0.92)",borderRadius:10,color:"#aab8c8",cursor:"pointer",padding:"4px 8px",fontSize:13}}>✕</button>
-                        </div>
-                      </div>
-                      <div style={{padding:14}}>
-                        {/* PPP info */}
-                        <div style={{display:"flex",gap:14,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
-                          <span style={{fontSize:12,color:"#6b8aaa"}}>Último precio: <strong style={{color:"#0d2137"}}>${g.precio_litro}/L</strong></span>
-                          <span style={{fontSize:13,fontWeight:800,color:"#d97706"}}>PPP: ${pppActual.toFixed(2)}/L</span>
-                          <span style={{fontSize:12,color:"#16a34a",fontWeight:600}}>Stock: ${Math.round(g.cantidad_litros*pppActual).toLocaleString("es-AR")}</span>
-                        </div>
-                        <div style={{display:"flex",gap:8,marginBottom:showFormGasoilMov.startsWith(g.id)?12:0}}>
-                          <button onClick={()=>{setShowFormGasoilMov(g.id+"_carga");setForm({fecha_mov:new Date().toISOString().split("T")[0]});}} style={{flex:1,padding:"8px",borderRadius:10,background:"rgba(22,163,74,0.08)",border:"1px solid rgba(22,163,74,0.22)",color:"#16a34a",cursor:"pointer",fontWeight:700,fontSize:12}}>⬆️ Registrar carga</button>
-                          <button onClick={()=>{setShowFormGasoilMov(g.id+"_consumo");setForm({fecha_mov:new Date().toISOString().split("T")[0]});}} style={{flex:1,padding:"8px",borderRadius:10,background:"rgba(220,38,38,0.07)",border:"1px solid rgba(220,38,38,0.20)",color:"#dc2626",cursor:"pointer",fontWeight:700,fontSize:12}}>⬇️ Registrar consumo</button>
-                          {proveedores.filter(p=>p.categoria==="proveedor_gasoil").length>0&&<button onClick={()=>{const p=proveedores.find(x=>x.categoria==="proveedor_gasoil");if(p)enviarWAProveedor(p,"gasoil");}} style={{padding:"8px 12px",borderRadius:10,background:"rgba(22,163,74,0.08)",border:"1px solid rgba(22,163,74,0.22)",color:"#16a34a",cursor:"pointer",fontSize:11,fontWeight:700}}>💬 Cotizar</button>}
-                        </div>
-
-                        {/* Form mov gasoil */}
-                        {(showFormGasoilMov===g.id+"_carga"||showFormGasoilMov===g.id+"_consumo")&&(
-                          <div className="form-box fade-in" style={{marginBottom:10}}>
-                            <div style={{fontSize:12,fontWeight:800,color:"#1565c0",marginBottom:10}}>{showFormGasoilMov.endsWith("_carga")?"⬆️ Cargar gasoil":"⬇️ Registrar consumo"}</div>
-                            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:10,marginBottom:10}}>
-                              <div><label className={lCls}>Litros</label><input type="number" value={form.litros_mov??""} onChange={e=>setForm({...form,litros_mov:e.target.value})} className={iCls} style={{width:"100%",padding:"7px 12px"}}/></div>
-                              {showFormGasoilMov.endsWith("_carga")&&<div><label className={lCls}>Precio/litro compra</label><input type="number" value={form.precio_litro_mov??""} onChange={e=>setForm({...form,precio_litro_mov:e.target.value})} className={iCls} style={{width:"100%",padding:"7px 12px"}} placeholder={`PPP: $${pppActual.toFixed(2)}`}/></div>}
-                              <div><label className={lCls}>Fecha</label><input type="date" value={form.fecha_mov??""} onChange={e=>setForm({...form,fecha_mov:e.target.value})} className={iCls} style={{width:"100%",padding:"7px 12px"}}/></div>
-                              <div><label className={lCls}>Descripción</label><input type="text" value={form.descripcion_mov??""} onChange={e=>setForm({...form,descripcion_mov:e.target.value})} className={iCls} style={{width:"100%",padding:"7px 12px"}} placeholder="Cosecha, tractor..."/></div>
-                            </div>
-                            {showFormGasoilMov.endsWith("_carga")&&form.litros_mov&&form.precio_litro_mov&&(
-                              <div style={{fontSize:11,color:"#d97706",fontWeight:700,padding:"6px 10px",borderRadius:8,background:"rgba(217,119,6,0.08)",marginBottom:8}}>
-                                PPP nuevo estimado: ${calcularPPP(g.cantidad_litros,pppActual,Number(form.litros_mov),Number(form.precio_litro_mov)).toFixed(2)}/L
-                              </div>
-                            )}
-                            {showFormGasoilMov.endsWith("_consumo")&&form.litros_mov&&(
-                              <div style={{fontSize:11,color:"#dc2626",fontWeight:700,padding:"6px 10px",borderRadius:8,background:"rgba(220,38,38,0.06)",marginBottom:8}}>
-                                Costo imputado: ${Math.round(Number(form.litros_mov)*pppActual).toLocaleString("es-AR")} (PPP: ${pppActual.toFixed(2)}/L)
-                              </div>
-                            )}
-                            <div style={{display:"flex",gap:8}}>
-                              <button onClick={()=>registrarMovGasoil(g.id,showFormGasoilMov.endsWith("_carga")?"carga":"consumo")} className="bbtn" style={{fontSize:11,padding:"7px 14px"}}>▶ Guardar</button>
-                              <button onClick={()=>{setShowFormGasoilMov("");setForm({});}} className="abtn" style={{fontSize:11,padding:"7px 12px"}}>Cancelar</button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Historial */}
-                        {isActivo&&movsDeTanque.length>0&&(
-                          <div style={{borderTop:"1px solid rgba(0,60,140,0.08)",paddingTop:10}}>
-                            <div style={{fontSize:10,fontWeight:800,color:"#1565c0",textTransform:"uppercase",marginBottom:8}}>Historial de movimientos</div>
-                            <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:180,overflowY:"auto"}}>
-                              {movsDeTanque.map(m=>(
-                                <div key={m.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 10px",borderRadius:8,background:"rgba(255,255,255,0.65)"}}>
-                                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                                    <span style={{color:m.tipo==="carga"?"#16a34a":"#dc2626",fontSize:12}}>{m.tipo==="carga"?"⬆️":"⬇️"}</span>
-                                    <span style={{fontSize:11,color:"#6b8aaa"}}>{m.fecha}</span>
-                                    {m.descripcion&&<span style={{fontSize:11,color:"#4a6a8a"}}>{m.descripcion}</span>}
-                                    {m.precio_ppp>0&&<span style={{fontSize:10,color:"#d97706",fontWeight:700}}>PPP:${m.precio_ppp.toFixed(2)}</span>}
-                                    {m.metodo==="voz"&&<span style={{fontSize:10,color:"#7c3aed"}}>🎤</span>}
-                                  </div>
-                                  <div style={{textAlign:"right"}}>
-                                    <span style={{fontSize:12,fontWeight:800,color:m.tipo==="carga"?"#16a34a":"#dc2626"}}>{m.tipo==="carga"?"+":"-"}{m.litros}L</span>
-                                    {m.tipo==="consumo"&&m.precio_ppp>0&&<div style={{fontSize:10,color:"#dc2626",fontWeight:700}}>${Math.round(m.litros*m.precio_ppp).toLocaleString("es-AR")}</div>}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            }
-          </div>
+          <GasoilStock empresaId={empresaId} getSB={getSB} mostrarMsg={mostrarMsg}/>
         )}
 
         {/* ══════════════════════════════
