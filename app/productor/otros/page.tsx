@@ -61,6 +61,11 @@ export default function CentroGestion() {
   const [empleados, setEmpleados]         = useState<{id:string;nombre:string;categoria:string;sueldo_basico:number}[]>([]);
   const [depositos, setDepositos]         = useState<{id:string;nombre:string;litros:number;ppp:number}[]>([]);
   const [showFormDeposito, setShowFormDeposito] = useState(false);
+  const [insProductos, setInsProductos]   = useState<{id:string;nombre:string;categoria:string;unidad:string}[]>([]);
+  const [insDepositos, setInsDepositos]   = useState<{id:string;nombre:string}[]>([]);
+  const [insLotesFifo, setInsLotesFifo]   = useState<any[]>([]);
+  const [showFormInsDeposito, setShowFormInsDeposito] = useState(false);
+  const [showFormInsProducto, setShowFormInsProducto] = useState(false);
   const importRef                         = useRef<HTMLInputElement>(null);
 
   const getSB = async () => {
@@ -111,13 +116,19 @@ export default function CentroGestion() {
 
   const fetchItems = async (eid:string,cid:string) => {
     const sb = await getSB();
-    const [itemsData, empsData, movGasoil] = await Promise.all([
+    const [itemsData, empsData, movGasoil, insProd, insDep, insLotes] = await Promise.all([
       sb.from("mb_carga_items").select("*").eq("empresa_id",eid).eq("campana_id",cid).order("fecha",{ascending:false}),
       sb.from("empleados").select("id,nombre,categoria,sueldo_basico").eq("empresa_id",eid).eq("activo",true).order("nombre"),
       sb.from("gasoil_movimientos").select("*").eq("empresa_id",eid).order("fecha",{ascending:false}),
+      sb.from("insumos_productos").select("id,nombre,categoria,unidad").eq("empresa_id",eid).eq("activo",true).order("nombre"),
+      sb.from("insumos_depositos").select("id,nombre").eq("empresa_id",eid).eq("activo",true).order("nombre"),
+      sb.from("insumos_lotes_fifo").select("*").eq("empresa_id",eid).gt("cantidad_restante",0).order("fecha_compra",{ascending:true}),
     ]);
     setItems(itemsData.data??[]);
     setEmpleados(empsData.data??[]);
+    setInsProductos(insProd.data??[]);
+    setInsDepositos(insDep.data??[]);
+    setInsLotesFifo(insLotes.data??[]);
     // Calcular stock por depósito con PPP
     const movs = movGasoil.data??[];
     const deps = await sb.from("gasoil_depositos").select("*").eq("empresa_id",eid).eq("activo",true).order("nombre");
@@ -170,6 +181,152 @@ export default function CentroGestion() {
       moneda:form.moneda||"ARS", monto_original:Number(form.monto),
       tc_usado:tc, monto_usd:montoUsd, unidad:form.unidad||"ha", origen:"manual",
     };
+    // ── INSUMOS FIFO: manejo especial ──
+    if (grupoActivo==="insumos") {
+      const tipoIns = form.tipo_insumo||"compra";
+      const cantidad = Number(form.ins_cantidad||0);
+      if (!form.ins_producto_id){ msg("❌ Seleccioná un producto"); setGuardando(false); return; }
+      if (cantidad===0){ msg("❌ Ingresá la cantidad"); setGuardando(false); return; }
+      if (!form.fecha){ msg("❌ Falta la fecha"); setGuardando(false); return; }
+      const sb2 = await getSB();
+      const tc2 = form.moneda==="ARS" ? await getTCFecha(form.fecha) : 1;
+      const prod = insProductos.find(p=>p.id===form.ins_producto_id);
+
+      if (tipoIns==="compra") {
+        // Crear lote FIFO nuevo
+        const precioUnit = Number(form.precio_litro||0);
+        const precioUsd = precioUnit/tc2;
+        const { error:errFifo } = await sb2.from("insumos_lotes_fifo").insert({
+          empresa_id:empresaId, producto_id:form.ins_producto_id,
+          deposito_id:form.ins_deposito_id||null, campana_id:campanaActiva,
+          fecha_compra:form.fecha,
+          cantidad_original:cantidad, cantidad_restante:cantidad,
+          precio_unitario:precioUnit, moneda:form.moneda||"ARS",
+          tc_usado:tc2, precio_usd:precioUsd,
+          proveedor:form.proveedor||"",
+          fecha_vto:form.fecha_vto||null,
+          observaciones:form.descripcion||"",
+        });
+        if (errFifo){ msg(`❌ Error: ${errFifo.message}`); setGuardando(false); return; }
+        // Registrar movimiento
+        const montoTotal = Number(form.monto||cantidad*precioUnit);
+        await sb2.from("insumos_movimientos").insert({
+          empresa_id:empresaId, campana_id:campanaActiva,
+          producto_id:form.ins_producto_id,
+          deposito_id:form.ins_deposito_id||null,
+          fecha:form.fecha, tipo:"compra", cantidad,
+          precio_unitario:precioUnit, precio_usd:precioUsd,
+          costo_total_usd:montoTotal/tc2,
+          observaciones:form.descripcion||"",
+          origen:"manual",
+        });
+        msg(`✅ Compra registrada — ${cantidad} ${prod?.unidad||""} de ${prod?.nombre||""}`);
+        await fetchItems(empresaId,campanaActiva);
+        setGuardando(false); setPanelSubgrupo(null); setForm({}); setLotesSelec([]);
+        return;
+      }
+
+      if (tipoIns==="uso") {
+        // FIFO: consumir lotes más antiguos primero
+        const lotesProd = insLotesFifo
+          .filter(l=>l.producto_id===form.ins_producto_id)
+          .sort((a,b)=>a.fecha_compra.localeCompare(b.fecha_compra));
+        let restante = cantidad;
+        let costoTotalUsd = 0;
+        const fifoDetalle:any[] = [];
+        for (const lote of lotesProd) {
+          if (restante<=0) break;
+          const usar = Math.min(restante, Number(lote.cantidad_restante));
+          const pUsd = Number(lote.precio_unitario)/tc2;
+          costoTotalUsd += usar*pUsd;
+          fifoDetalle.push({lote_id:lote.id, cantidad:usar, precio_usd:pUsd});
+          // Actualizar lote FIFO
+          await sb2.from("insumos_lotes_fifo").update({
+            cantidad_restante: Number(lote.cantidad_restante)-usar
+          }).eq("id",lote.id);
+          restante -= usar;
+        }
+        // Si quedó restante → stock negativo (nuevo lote con precio 0)
+        if (restante>0) {
+          await sb2.from("insumos_lotes_fifo").insert({
+            empresa_id:empresaId, producto_id:form.ins_producto_id,
+            campana_id:campanaActiva, fecha_compra:form.fecha,
+            cantidad_original:-restante, cantidad_restante:-restante,
+            precio_unitario:0, moneda:"ARS", tc_usado:tc2, precio_usd:0,
+            observaciones:"Stock negativo — compra pendiente",
+          });
+          fifoDetalle.push({lote_id:"negativo",cantidad:restante,precio_usd:0});
+        }
+        // Registrar movimiento
+        await sb2.from("insumos_movimientos").insert({
+          empresa_id:empresaId, campana_id:campanaActiva,
+          producto_id:form.ins_producto_id,
+          fecha:form.fecha, tipo:"uso", cantidad,
+          precio_usd:cantidad>0?costoTotalUsd/cantidad:0,
+          costo_total_usd:costoTotalUsd,
+          lote_ids:lotesSelec, cultivo:form.cultivo||"",
+          fifo_detalle:JSON.stringify(fifoDetalle),
+          observaciones:form.descripcion||"",
+          origen:"manual",
+        });
+        // Imputar al MB si hay lotes seleccionados
+        if (lotesSelec.length>0&&costoTotalUsd>0) {
+          const haTotal = lotesSelec.reduce((a,lid)=>a+(lotes.find(l=>l.id===lid)?.hectareas||0),0);
+          await sb2.from("mb_carga_items").insert({
+            empresa_id:empresaId, campana_id:campanaActiva,
+            lote_ids:lotesSelec, grupo:"insumos",
+            subgrupo:panelSubgrupo?.sub||"INSUMOS", mes:null,
+            concepto:prod?.nombre||"Insumo", articulo:prod?.nombre||"",
+            descripcion:form.descripcion||`${cantidad} ${prod?.unidad||""} de ${prod?.nombre||""}`,
+            fecha:form.fecha, moneda:"USD",
+            monto_original:costoTotalUsd,
+            tc_usado:tc2, monto_usd:costoTotalUsd,
+            unidad:form.unidad||"ha", origen:"insumo_fifo",
+          });
+        }
+        msg(`✅ Uso registrado — ${cantidad} ${prod?.unidad||""} de ${prod?.nombre||""} · U$S ${costoTotalUsd.toFixed(2)}`);
+        await fetchItems(empresaId,campanaActiva);
+        setGuardando(false); setPanelSubgrupo(null); setForm({}); setLotesSelec([]);
+        return;
+      }
+
+      if (tipoIns==="ajuste") {
+        const esPositivo = (form.signo_ajuste||"+")==="+";
+        const cantAjuste = esPositivo ? cantidad : -cantidad;
+        if (esPositivo) {
+          // Agregar al stock como nuevo lote FIFO con precio 0
+          await sb2.from("insumos_lotes_fifo").insert({
+            empresa_id:empresaId, producto_id:form.ins_producto_id,
+            campana_id:campanaActiva, fecha_compra:form.fecha,
+            cantidad_original:cantidad, cantidad_restante:cantidad,
+            precio_unitario:0, moneda:"ARS", tc_usado:tc2, precio_usd:0,
+            observaciones:`Ajuste positivo: ${form.descripcion||""}`,
+          });
+        } else {
+          // Consumir FIFO
+          let rest2=cantidad;
+          const lotesProd2=insLotesFifo.filter(l=>l.producto_id===form.ins_producto_id).sort((a,b)=>a.fecha_compra.localeCompare(b.fecha_compra));
+          for(const lote of lotesProd2){
+            if(rest2<=0) break;
+            const usar=Math.min(rest2,Number(lote.cantidad_restante));
+            await sb2.from("insumos_lotes_fifo").update({cantidad_restante:Number(lote.cantidad_restante)-usar}).eq("id",lote.id);
+            rest2-=usar;
+          }
+        }
+        await sb2.from("insumos_movimientos").insert({
+          empresa_id:empresaId, campana_id:campanaActiva,
+          producto_id:form.ins_producto_id, fecha:form.fecha,
+          tipo:"ajuste", cantidad:cantAjuste,
+          observaciones:form.descripcion||"Ajuste manual",
+          origen:"manual",
+        });
+        msg(`✅ Ajuste registrado — ${esPositivo?"+":"-"}${cantidad} ${prod?.unidad||""}`);
+        await fetchItems(empresaId,campanaActiva);
+        setGuardando(false); setPanelSubgrupo(null); setForm({}); setLotesSelec([]);
+        return;
+      }
+    }
+
     // ── GASOIL: manejo especial ──
     if (grupoActivo==="combustibles") {
       const tipo = form.tipo_gasoil||"compra";
@@ -967,35 +1124,305 @@ export default function CentroGestion() {
                         </div>
                       )}
 
-                      {/* ── INSUMOS ── */}
+                      {/* ── INSUMOS — FIFO COMPLETO ── */}
                       {grupoActivo==="insumos"&&(
-                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
-                          <div><div style={lCls}>Fecha *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
-                          <div><div style={lCls}>Producto *</div><input type="text" value={form.articulo||""} onChange={e=>setForm({...form,articulo:e.target.value})} className="inp-d" style={iCls} placeholder="Ej: Glifosato 48%, Urea..."/></div>
-                          <div>
-                            <div style={lCls}>Unidad de medida</div>
-                            <select value={form.unidad_insumo||"lt/ha"} onChange={e=>setForm({...form,unidad_insumo:e.target.value})} className="inp-d" style={iCls}>
-                              <option value="lt/ha">Litros/ha</option>
-                              <option value="kg/ha">kg/ha</option>
-                              <option value="bolsas">Bolsas</option>
-                            </select>
+                        <div>
+                          {/* Selector tipo de operación */}
+                          <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+                            {[
+                              {v:"compra",  l:"📦 Compra/Ingreso", c:"#22c55e"},
+                              {v:"uso",     l:"🌱 Uso/Aplicación",  c:"#f97316"},
+                              {v:"ajuste",  l:"🔧 Ajuste",          c:"#a78bfa"},
+                            ].map(t=>(
+                              <button key={t.v}
+                                onClick={()=>setForm({...form,tipo_insumo:t.v,fecha:form.fecha||new Date().toISOString().split("T")[0]})}
+                                style={{padding:"7px 14px",borderRadius:8,fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"inherit",
+                                  border:`1.5px solid ${(form.tipo_insumo||"compra")===t.v?t.c:t.c+"40"}`,
+                                  background:(form.tipo_insumo||"compra")===t.v?t.c+"18":"transparent",
+                                  color:(form.tipo_insumo||"compra")===t.v?t.c:t.c+"80"}}>
+                                {t.l}
+                              </button>
+                            ))}
                           </div>
-                          <div><div style={lCls}>Cantidad/dosis</div><input type="number" step="0.1" value={form.cantidad_insumo||""} onChange={e=>setForm({...form,cantidad_insumo:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
-                          <div>
-                            <div style={lCls}>Costo en</div>
-                            <select value={form.unidad||"ha"} onChange={e=>setForm({...form,unidad:e.target.value})} className="inp-d" style={iCls}>
-                              <option value="ha">U$S/ha</option>
-                              <option value="total">Total campo</option>
-                            </select>
+
+                          {/* Resumen stock disponible */}
+                          {insProductos.length>0&&(
+                            <div style={{marginBottom:12,padding:"8px 12px",borderRadius:8,background:"rgba(201,162,39,0.06)",border:"1px solid rgba(201,162,39,0.18)"}}>
+                              <div style={{fontSize:9,fontWeight:800,color:"rgba(201,162,39,0.55)",textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>Stock disponible</div>
+                              <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                                {insProductos.map(p=>{
+                                  const stockP = insLotesFifo.filter(l=>l.producto_id===p.id).reduce((a,l)=>a+Number(l.cantidad_restante),0);
+                                  if(stockP===0) return null;
+                                  return(
+                                    <div key={p.id} style={{fontSize:10,padding:"2px 8px",borderRadius:5,background:"rgba(255,255,255,0.08)",border:"1px solid rgba(201,162,39,0.20)"}}>
+                                      <span style={{color:"#f0e6c8",fontWeight:700}}>{p.nombre}</span>
+                                      <span style={{color:"#c9a227",marginLeft:5,fontWeight:800}}>{stockP.toFixed(1)} {p.unidad}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Depósitos + productos */}
+                          <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
+                            {insDepositos.map(d=>(
+                              <div key={d.id} style={{padding:"4px 10px",borderRadius:6,background:"rgba(201,162,39,0.06)",border:"1px solid rgba(201,162,39,0.18)",fontSize:10,color:"rgba(201,162,39,0.60)",fontWeight:700}}>
+                                📍 {d.nombre}
+                              </div>
+                            ))}
+                            <button onClick={()=>setShowFormInsDeposito(true)}
+                              style={{padding:"4px 10px",borderRadius:6,background:"transparent",border:"1px dashed rgba(201,162,39,0.25)",fontSize:10,color:"rgba(201,162,39,0.45)",cursor:"pointer",fontFamily:"inherit"}}>
+                              + Depósito
+                            </button>
+                            <button onClick={()=>setShowFormInsProducto(true)}
+                              style={{padding:"4px 10px",borderRadius:6,background:"transparent",border:"1px dashed rgba(201,162,39,0.25)",fontSize:10,color:"rgba(201,162,39,0.45)",cursor:"pointer",fontFamily:"inherit"}}>
+                              + Producto
+                            </button>
                           </div>
-                          <div>
-                            <div style={lCls}>Moneda</div>
-                            <select value={form.moneda||"ARS"} onChange={e=>setForm({...form,moneda:e.target.value})} className="inp-d" style={iCls}>
-                              <option value="ARS">$ ARS</option><option value="USD">U$S</option>
-                            </select>
-                          </div>
-                          <div><div style={lCls}>Monto *</div><input type="number" value={form.monto||""} onChange={e=>setForm({...form,monto:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
-                          <div><div style={lCls}>Proveedor</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Nombre del proveedor..."/></div>
+
+                          {/* Form nuevo depósito */}
+                          {showFormInsDeposito&&(
+                            <div style={{marginBottom:12,padding:"10px 14px",borderRadius:8,background:"rgba(201,162,39,0.06)",border:"1px solid rgba(201,162,39,0.20)"}}>
+                              <div style={{fontSize:11,fontWeight:800,color:"#c9a227",marginBottom:8}}>+ Nuevo Depósito de Insumos</div>
+                              <div style={{display:"flex",gap:8}}>
+                                <input type="text" value={form.ins_dep_nombre||""} onChange={e=>setForm({...form,ins_dep_nombre:e.target.value})}
+                                  className="inp-d" style={{...iCls,flex:1}} placeholder="Ej: Galpón campo, Agronomía YYY..."/>
+                                <button onClick={async()=>{
+                                  if(!empresaId||!form.ins_dep_nombre) return;
+                                  const sb=await getSB();
+                                  await sb.from("insumos_depositos").insert({empresa_id:empresaId,nombre:form.ins_dep_nombre});
+                                  setForm({...form,ins_dep_nombre:""});
+                                  setShowFormInsDeposito(false);
+                                  await fetchItems(empresaId,campanaActiva);
+                                  msg("✅ Depósito creado");
+                                }} className="btn-g" style={{padding:"9px 14px",whiteSpace:"nowrap"}}>Crear</button>
+                                <button onClick={()=>setShowFormInsDeposito(false)} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.30)",fontSize:18}}>✕</button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Form nuevo producto */}
+                          {showFormInsProducto&&(
+                            <div style={{marginBottom:12,padding:"10px 14px",borderRadius:8,background:"rgba(201,162,39,0.06)",border:"1px solid rgba(201,162,39,0.20)"}}>
+                              <div style={{fontSize:11,fontWeight:800,color:"#c9a227",marginBottom:8}}>+ Nuevo Producto</div>
+                              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr auto",gap:8,alignItems:"end"}}>
+                                <div>
+                                  <div style={lCls}>Nombre</div>
+                                  <input type="text" value={form.ins_prod_nombre||""} onChange={e=>setForm({...form,ins_prod_nombre:e.target.value})}
+                                    className="inp-d" style={iCls} placeholder="Glifosato 48%, Urea..."/>
+                                </div>
+                                <div>
+                                  <div style={lCls}>Categoría</div>
+                                  <select value={form.ins_prod_cat||"herbicida"} onChange={e=>setForm({...form,ins_prod_cat:e.target.value})} className="inp-d" style={iCls}>
+                                    <option value="herbicida">Herbicida</option>
+                                    <option value="fungicida">Fungicida</option>
+                                    <option value="insecticida">Insecticida</option>
+                                    <option value="fertilizante">Fertilizante</option>
+                                    <option value="semilla">Semilla</option>
+                                    <option value="curasemilla">Curasemilla</option>
+                                    <option value="coadyuvante">Coadyuvante</option>
+                                    <option value="repuesto">Repuesto</option>
+                                    <option value="otro">Otro</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <div style={lCls}>Unidad</div>
+                                  <select value={form.ins_prod_unidad||"lt"} onChange={e=>setForm({...form,ins_prod_unidad:e.target.value})} className="inp-d" style={iCls}>
+                                    <option value="lt">Litros</option>
+                                    <option value="kg">kg</option>
+                                    <option value="bolsas">Bolsas</option>
+                                    <option value="unidad">Unidad</option>
+                                    <option value="tn">Toneladas</option>
+                                  </select>
+                                </div>
+                                <button onClick={async()=>{
+                                  if(!empresaId||!form.ins_prod_nombre) return;
+                                  const sb=await getSB();
+                                  await sb.from("insumos_productos").insert({empresa_id:empresaId,nombre:form.ins_prod_nombre,categoria:form.ins_prod_cat||"herbicida",unidad:form.ins_prod_unidad||"lt"});
+                                  setForm({...form,ins_prod_nombre:"",ins_prod_cat:"",ins_prod_unidad:""});
+                                  setShowFormInsProducto(false);
+                                  await fetchItems(empresaId,campanaActiva);
+                                  msg("✅ Producto creado");
+                                }} className="btn-g" style={{padding:"9px 14px",whiteSpace:"nowrap"}}>Crear</button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* ── COMPRA/INGRESO ── */}
+                          {(form.tipo_insumo||"compra")==="compra"&&(
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                              <div><div style={lCls}>Fecha *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
+                              <div>
+                                <div style={lCls}>Producto *</div>
+                                <select value={form.ins_producto_id||""} onChange={e=>{
+                                  const p=insProductos.find(x=>x.id===e.target.value);
+                                  setForm({...form,ins_producto_id:e.target.value,articulo:p?.nombre||"",ins_unidad:p?.unidad||"lt"});
+                                }} className="inp-d" style={iCls}>
+                                  <option value="">Seleccionar producto</option>
+                                  {insProductos.map(p=><option key={p.id} value={p.id}>{p.nombre} ({p.unidad})</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <div style={lCls}>Depósito</div>
+                                <select value={form.ins_deposito_id||""} onChange={e=>setForm({...form,ins_deposito_id:e.target.value})} className="inp-d" style={iCls}>
+                                  <option value="">Sin depósito específico</option>
+                                  {insDepositos.map(d=><option key={d.id} value={d.id}>{d.nombre}</option>)}
+                                </select>
+                              </div>
+                              <div><div style={lCls}>Cantidad *</div><input type="number" step="0.01" value={form.ins_cantidad||""} onChange={e=>{
+                                const c=Number(e.target.value);const p=Number(form.precio_litro||0);
+                                setForm({...form,ins_cantidad:e.target.value,monto:c>0&&p>0?(c*p).toFixed(0):form.monto||""});
+                              }} className="inp-d" style={iCls} placeholder={`0 ${form.ins_unidad||""}`}/></div>
+                              <div><div style={lCls}>Precio unitario *</div><input type="number" step="0.01" value={form.precio_litro||""} onChange={e=>{
+                                const p=Number(e.target.value);const c=Number(form.ins_cantidad||0);
+                                setForm({...form,precio_litro:e.target.value,monto:c>0&&p>0?(c*p).toFixed(0):form.monto||""});
+                              }} className="inp-d" style={iCls} placeholder={`Precio por ${form.ins_unidad||"unidad"}`}/></div>
+                              <div>
+                                <div style={lCls}>Moneda</div>
+                                <select value={form.moneda||"ARS"} onChange={e=>setForm({...form,moneda:e.target.value})} className="inp-d" style={iCls}>
+                                  <option value="ARS">$ ARS</option><option value="USD">U$S</option>
+                                </select>
+                              </div>
+                              <div><div style={lCls}>Monto total</div><input type="number" value={form.monto||""} onChange={e=>setForm({...form,monto:e.target.value})} className="inp-d" style={iCls} placeholder="Auto"/></div>
+                              <div><div style={lCls}>Proveedor</div><input type="text" value={form.proveedor||""} onChange={e=>setForm({...form,proveedor:e.target.value})} className="inp-d" style={iCls} placeholder="Nombre del proveedor..."/></div>
+                              <div><div style={lCls}>Fecha vencimiento</div><input type="date" value={form.fecha_vto||""} onChange={e=>setForm({...form,fecha_vto:e.target.value})} className="inp-d" style={iCls}/></div>
+                              <div style={{gridColumn:"span 2"}}><div style={lCls}>Observaciones</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Remito, factura..."/></div>
+                              {/* Preview FIFO */}
+                              {form.ins_cantidad&&form.precio_litro&&Number(form.ins_cantidad)>0&&(()=>{
+                                const prod=insProductos.find(p=>p.id===form.ins_producto_id);
+                                const stockActual=insLotesFifo.filter(l=>l.producto_id===form.ins_producto_id).reduce((a,l)=>a+Number(l.cantidad_restante),0);
+                                const tc=form.moneda==="ARS"?tcVenta:1;
+                                const usdUnit=Number(form.precio_litro)/tc;
+                                return(
+                                  <div style={{gridColumn:"span 2",padding:"10px 14px",borderRadius:8,background:"rgba(22,163,74,0.08)",border:"1px solid rgba(22,163,74,0.22)",fontSize:11}}>
+                                    <div style={{color:"rgba(255,255,255,0.50)",marginBottom:3}}>
+                                      {Number(form.ins_cantidad).toLocaleString()} {prod?.unidad||""} × ${Number(form.precio_litro).toLocaleString("es-AR")} = <span style={{color:"#86efac",fontWeight:800}}>${(Number(form.ins_cantidad)*Number(form.precio_litro)).toLocaleString("es-AR")}</span>
+                                      <span style={{color:"rgba(201,162,39,0.60)",marginLeft:8}}>U$S {usdUnit.toFixed(2)}/{prod?.unidad||""}</span>
+                                    </div>
+                                    {prod&&<div style={{color:"rgba(201,162,39,0.50)"}}>Stock actual {prod.nombre}: <span style={{color:"#f0d060",fontWeight:700}}>{stockActual.toFixed(1)} {prod.unidad}</span> → nuevo: <span style={{color:"#86efac",fontWeight:700}}>{(stockActual+Number(form.ins_cantidad)).toFixed(1)} {prod.unidad}</span></div>}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          )}
+
+                          {/* ── USO/APLICACIÓN ── */}
+                          {form.tipo_insumo==="uso"&&(
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                              <div><div style={lCls}>Fecha *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
+                              <div>
+                                <div style={lCls}>Producto *</div>
+                                <select value={form.ins_producto_id||""} onChange={e=>{
+                                  const p=insProductos.find(x=>x.id===e.target.value);
+                                  const stockP=insLotesFifo.filter(l=>l.producto_id===e.target.value).reduce((a,l)=>a+Number(l.cantidad_restante),0);
+                                  setForm({...form,ins_producto_id:e.target.value,articulo:p?.nombre||"",ins_unidad:p?.unidad||"lt",ins_stock_disp:stockP.toFixed(2)});
+                                }} className="inp-d" style={iCls}>
+                                  <option value="">Seleccionar producto</option>
+                                  {insProductos.map(p=>{
+                                    const stock=insLotesFifo.filter(l=>l.producto_id===p.id).reduce((a,l)=>a+Number(l.cantidad_restante),0);
+                                    return<option key={p.id} value={p.id}>{p.nombre} — stock: {stock.toFixed(1)} {p.unidad}</option>;
+                                  })}
+                                </select>
+                              </div>
+                              {form.ins_stock_disp&&(
+                                <div style={{gridColumn:"span 2"}}>
+                                  <div style={{padding:"6px 12px",borderRadius:7,background:Number(form.ins_stock_disp)>0?"rgba(22,163,74,0.08)":"rgba(220,38,38,0.08)",
+                                    border:`1px solid ${Number(form.ins_stock_disp)>0?"rgba(22,163,74,0.22)":"rgba(220,38,38,0.22)"}`,fontSize:11,
+                                    color:Number(form.ins_stock_disp)>0?"#86efac":"#fca5a5"}}>
+                                    {Number(form.ins_stock_disp)>0?`✅ Stock disponible: ${form.ins_stock_disp} ${form.ins_unidad||""}. Se usará FIFO (lotes más antiguos primero).`:`⚠️ Sin stock — se registrará en negativo`}
+                                  </div>
+                                </div>
+                              )}
+                              <div><div style={lCls}>Cantidad usada *</div><input type="number" step="0.01" value={form.ins_cantidad||""} onChange={e=>setForm({...form,ins_cantidad:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                              <div>
+                                <div style={lCls}>Cultivo</div>
+                                <select value={form.cultivo||""} onChange={e=>setForm({...form,cultivo:e.target.value})} className="inp-d" style={iCls}>
+                                  <option value="">Sin especificar</option>
+                                  {["soja","maiz","trigo","girasol","sorgo","cebada","otro"].map(c=>(
+                                    <option key={c} value={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div><div style={lCls}>Labor / Descripción</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Aplicación herbicida..."/></div>
+                              <div>
+                                <div style={lCls}>Costo en MB</div>
+                                <select value={form.unidad||"ha"} onChange={e=>setForm({...form,unidad:e.target.value})} className="inp-d" style={iCls}>
+                                  <option value="ha">U$S/ha</option>
+                                  <option value="total">Total campo</option>
+                                </select>
+                              </div>
+                              {/* Preview FIFO consumo */}
+                              {form.ins_producto_id&&form.ins_cantidad&&Number(form.ins_cantidad)>0&&(()=>{
+                                const lotesProd=insLotesFifo.filter(l=>l.producto_id===form.ins_producto_id).sort((a,b)=>a.fecha_compra.localeCompare(b.fecha_compra));
+                                let restante=Number(form.ins_cantidad);
+                                let costoTotal=0;
+                                const detalle:any[]=[];
+                                for(const l of lotesProd){
+                                  if(restante<=0) break;
+                                  const usar=Math.min(restante,Number(l.cantidad_restante));
+                                  const tc=l.moneda==="ARS"?tcVenta:1;
+                                  const usdUnit=Number(l.precio_unitario)/tc;
+                                  costoTotal+=usar*usdUnit;
+                                  detalle.push({fecha:l.fecha_compra,cant:usar,precio:l.precio_unitario,moneda:l.moneda,usd:usdUnit});
+                                  restante-=usar;
+                                }
+                                if(restante>0){
+                                  costoTotal+=restante*0;
+                                  detalle.push({fecha:"—",cant:restante,precio:0,moneda:"",usd:0,negativo:true});
+                                }
+                                const haTotal=lotesSelec.reduce((a,lid)=>a+(lotes.find(l=>l.id===lid)?.hectareas||0),0);
+                                return(
+                                  <div style={{gridColumn:"span 2",padding:"10px 14px",borderRadius:8,background:"rgba(249,115,22,0.08)",border:"1px solid rgba(249,115,22,0.25)"}}>
+                                    <div style={{fontSize:11,fontWeight:800,color:"#fbbf24",marginBottom:6}}>Costo FIFO calculado:</div>
+                                    {detalle.map((d,i)=>(
+                                      <div key={i} style={{fontSize:10,color:"rgba(255,255,255,0.50)",marginBottom:2}}>
+                                        {d.negativo?<span style={{color:"#fca5a5"}}>⚠ {d.cant.toFixed(2)} {form.ins_unidad||""} sin stock (negativo)</span>
+                                          :<span>Lote {d.fecha}: {d.cant.toFixed(2)} {form.ins_unidad||""} × U$S {d.usd.toFixed(2)} = <span style={{color:"#f0d060",fontWeight:700}}>U$S {(d.cant*d.usd).toFixed(2)}</span></span>}
+                                      </div>
+                                    ))}
+                                    <div style={{marginTop:6,fontSize:12,fontWeight:800,color:"#fbbf24"}}>
+                                      Total: U$S {costoTotal.toFixed(2)}
+                                      {haTotal>0&&<span style={{color:"rgba(201,162,39,0.60)",marginLeft:8,fontSize:10}}>U$S {(costoTotal/haTotal).toFixed(2)}/ha</span>}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          )}
+
+                          {/* ── AJUSTE ── */}
+                          {form.tipo_insumo==="ajuste"&&(
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                              <div><div style={lCls}>Fecha *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
+                              <div>
+                                <div style={lCls}>Producto *</div>
+                                <select value={form.ins_producto_id||""} onChange={e=>{
+                                  const p=insProductos.find(x=>x.id===e.target.value);
+                                  setForm({...form,ins_producto_id:e.target.value,articulo:p?.nombre||"",ins_unidad:p?.unidad||""});
+                                }} className="inp-d" style={iCls}>
+                                  <option value="">Seleccionar</option>
+                                  {insProductos.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <div style={lCls}>Signo</div>
+                                <div style={{display:"flex",gap:6}}>
+                                  {[{v:"+",c:"#22c55e"},{v:"-",c:"#dc2626"}].map(s=>(
+                                    <button key={s.v} onClick={()=>setForm({...form,signo_ajuste:s.v})}
+                                      style={{flex:1,padding:"9px",borderRadius:8,fontSize:14,fontWeight:900,cursor:"pointer",fontFamily:"inherit",
+                                        border:`1.5px solid ${(form.signo_ajuste||"+")===s.v?s.c:s.c+"40"}`,
+                                        background:(form.signo_ajuste||"+")===s.v?s.c+"18":"transparent",
+                                        color:(form.signo_ajuste||"+")===s.v?s.c:s.c+"60"}}>
+                                      {s.v}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div><div style={lCls}>Cantidad *</div><input type="number" step="0.01" value={form.ins_cantidad||""} onChange={e=>setForm({...form,ins_cantidad:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
+                              <div style={{gridColumn:"span 2"}}><div style={lCls}>Motivo</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Merma, vencimiento, error..."/></div>
+                            </div>
+                          )}
                         </div>
                       )}
 
