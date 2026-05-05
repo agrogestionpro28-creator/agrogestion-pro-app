@@ -166,8 +166,8 @@ export default function CentroGestion() {
     if (!campanaActiva){ msg("❌ Sin campaña — elegí una campaña"); return; }
     if (!grupoActivo){ msg("❌ Sin grupo activo"); return; }
     if (!form.fecha){ msg("❌ Falta la fecha"); return; }
-    if (!form.monto||Number(form.monto)===0){ msg("❌ Falta el monto"); return; }
-    if (lotesSelec.length===0){ msg("❌ Seleccioná al menos un lote"); return; }
+    if (grupoActivo!=="insumos"&&(!form.monto||Number(form.monto)===0)){ msg("❌ Falta el monto"); return; }
+    if (grupoActivo!=="insumos"&&lotesSelec.length===0){ msg("❌ Seleccioná al menos un lote"); return; }
     setGuardando(true);
     const tc = form.moneda==="ARS" ? await getTCFecha(form.fecha) : 1;
     const montoUsd = form.moneda==="ARS" ? Number(form.monto)/tc : Number(form.monto);
@@ -226,69 +226,7 @@ export default function CentroGestion() {
         return;
       }
 
-      if (tipoIns==="uso") {
-        // FIFO: consumir lotes más antiguos primero
-        const lotesProd = insLotesFifo
-          .filter(l=>l.producto_id===form.ins_producto_id)
-          .sort((a,b)=>a.fecha_compra.localeCompare(b.fecha_compra));
-        let restante = cantidad;
-        let costoTotalUsd = 0;
-        const fifoDetalle:any[] = [];
-        for (const lote of lotesProd) {
-          if (restante<=0) break;
-          const usar = Math.min(restante, Number(lote.cantidad_restante));
-          const pUsd = Number(lote.precio_unitario)/tc2;
-          costoTotalUsd += usar*pUsd;
-          fifoDetalle.push({lote_id:lote.id, cantidad:usar, precio_usd:pUsd});
-          // Actualizar lote FIFO
-          await sb2.from("insumos_lotes_fifo").update({
-            cantidad_restante: Number(lote.cantidad_restante)-usar
-          }).eq("id",lote.id);
-          restante -= usar;
-        }
-        // Si quedó restante → stock negativo (nuevo lote con precio 0)
-        if (restante>0) {
-          await sb2.from("insumos_lotes_fifo").insert({
-            empresa_id:empresaId, producto_id:form.ins_producto_id,
-            campana_id:campanaActiva, fecha_compra:form.fecha,
-            cantidad_original:-restante, cantidad_restante:-restante,
-            precio_unitario:0, moneda:"ARS", tc_usado:tc2, precio_usd:0,
-            observaciones:"Stock negativo — compra pendiente",
-          });
-          fifoDetalle.push({lote_id:"negativo",cantidad:restante,precio_usd:0});
-        }
-        // Registrar movimiento
-        await sb2.from("insumos_movimientos").insert({
-          empresa_id:empresaId, campana_id:campanaActiva,
-          producto_id:form.ins_producto_id,
-          fecha:form.fecha, tipo:"uso", cantidad,
-          precio_usd:cantidad>0?costoTotalUsd/cantidad:0,
-          costo_total_usd:costoTotalUsd,
-          lote_ids:lotesSelec, cultivo:form.cultivo||"",
-          fifo_detalle:JSON.stringify(fifoDetalle),
-          observaciones:form.descripcion||"",
-          origen:"manual",
-        });
-        // Imputar al MB si hay lotes seleccionados
-        if (lotesSelec.length>0&&costoTotalUsd>0) {
-          const haTotal = lotesSelec.reduce((a,lid)=>a+(lotes.find(l=>l.id===lid)?.hectareas||0),0);
-          await sb2.from("mb_carga_items").insert({
-            empresa_id:empresaId, campana_id:campanaActiva,
-            lote_ids:lotesSelec, grupo:"insumos",
-            subgrupo:panelSubgrupo?.sub||"INSUMOS", mes:null,
-            concepto:prod?.nombre||"Insumo", articulo:prod?.nombre||"",
-            descripcion:form.descripcion||`${cantidad} ${prod?.unidad||""} de ${prod?.nombre||""}`,
-            fecha:form.fecha, moneda:"USD",
-            monto_original:costoTotalUsd,
-            tc_usado:tc2, monto_usd:costoTotalUsd,
-            unidad:form.unidad||"ha", origen:"insumo_fifo",
-          });
-        }
-        msg(`✅ Uso registrado — ${cantidad} ${prod?.unidad||""} de ${prod?.nombre||""} · U$S ${costoTotalUsd.toFixed(2)}`);
-        await fetchItems(empresaId,campanaActiva);
-        setGuardando(false); setPanelSubgrupo(null); setForm({}); setLotesSelec([]);
-        return;
-      }
+
 
       if (tipoIns==="ajuste") {
         const esPositivo = (form.signo_ajuste||"+")==="+";
@@ -848,7 +786,7 @@ export default function CentroGestion() {
                       </div>
 
                       {/* ── SELECTOR LOTES UNIVERSAL ── */}
-                      <div style={{marginBottom:14}}>
+                      {grupoActivo!=="insumos"&&<div style={{marginBottom:14}}>
                         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
                           <div style={lCls}>{grupoActivo==="alquiler"?"Lote *":"Lote(s) *"}</div>
                           {grupoActivo!=="alquiler"&&(
@@ -896,7 +834,7 @@ export default function CentroGestion() {
                             {lotesSelec.length===lotes.length?"Todos los lotes seleccionados":`${lotesSelec.length} lote${lotesSelec.length>1?"s":""} seleccionado${lotesSelec.length>1?"s":""}`}
                           </div>
                         )}
-                      </div>
+                      </div>}
 
                       {/* ── CAMPOS SEGÚN GRUPO ── */}
                       {grupoActivo==="alquiler"&&(
@@ -1124,15 +1062,14 @@ export default function CentroGestion() {
                         </div>
                       )}
 
-                      {/* ── INSUMOS — FIFO COMPLETO ── */}
+                      {/* ── INSUMOS — COMPRA Y AJUSTE ── */}
                       {grupoActivo==="insumos"&&(
                         <div>
-                          {/* Selector tipo de operación */}
+                          {/* Selector tipo */}
                           <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
                             {[
-                              {v:"compra",  l:"📦 Compra/Ingreso", c:"#22c55e"},
-                              {v:"uso",     l:"🌱 Uso/Aplicación",  c:"#f97316"},
-                              {v:"ajuste",  l:"🔧 Ajuste",          c:"#a78bfa"},
+                              {v:"compra", l:"📦 Compra/Ingreso", c:"#22c55e"},
+                              {v:"ajuste", l:"🔧 Ajuste stock",   c:"#a78bfa"},
                             ].map(t=>(
                               <button key={t.v}
                                 onClick={()=>setForm({...form,tipo_insumo:t.v,fecha:form.fecha||new Date().toISOString().split("T")[0]})}
@@ -1143,6 +1080,10 @@ export default function CentroGestion() {
                                 {t.l}
                               </button>
                             ))}
+                          </div>
+                          {/* Info uso */}
+                          <div style={{marginBottom:12,padding:"8px 12px",borderRadius:8,background:"rgba(249,115,22,0.06)",border:"1px solid rgba(249,115,22,0.20)",fontSize:10,color:"rgba(249,115,22,0.70)"}}>
+                            🌱 Los usos/aplicaciones se registran en <strong>Lotes y Cultivos</strong> al cargar una labor — descuenta automáticamente del stock
                           </div>
 
                           {/* Resumen stock disponible */}
@@ -1307,89 +1248,7 @@ export default function CentroGestion() {
                             </div>
                           )}
 
-                          {/* ── USO/APLICACIÓN ── */}
-                          {form.tipo_insumo==="uso"&&(
-                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
-                              <div><div style={lCls}>Fecha *</div><input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/></div>
-                              <div>
-                                <div style={lCls}>Producto *</div>
-                                <select value={form.ins_producto_id||""} onChange={e=>{
-                                  const p=insProductos.find(x=>x.id===e.target.value);
-                                  const stockP=insLotesFifo.filter(l=>l.producto_id===e.target.value).reduce((a,l)=>a+Number(l.cantidad_restante),0);
-                                  setForm({...form,ins_producto_id:e.target.value,articulo:p?.nombre||"",ins_unidad:p?.unidad||"lt",ins_stock_disp:stockP.toFixed(2)});
-                                }} className="inp-d" style={iCls}>
-                                  <option value="">Seleccionar producto</option>
-                                  {insProductos.map(p=>{
-                                    const stock=insLotesFifo.filter(l=>l.producto_id===p.id).reduce((a,l)=>a+Number(l.cantidad_restante),0);
-                                    return<option key={p.id} value={p.id}>{p.nombre} — stock: {stock.toFixed(1)} {p.unidad}</option>;
-                                  })}
-                                </select>
-                              </div>
-                              {form.ins_stock_disp&&(
-                                <div style={{gridColumn:"span 2"}}>
-                                  <div style={{padding:"6px 12px",borderRadius:7,background:Number(form.ins_stock_disp)>0?"rgba(22,163,74,0.08)":"rgba(220,38,38,0.08)",
-                                    border:`1px solid ${Number(form.ins_stock_disp)>0?"rgba(22,163,74,0.22)":"rgba(220,38,38,0.22)"}`,fontSize:11,
-                                    color:Number(form.ins_stock_disp)>0?"#86efac":"#fca5a5"}}>
-                                    {Number(form.ins_stock_disp)>0?`✅ Stock disponible: ${form.ins_stock_disp} ${form.ins_unidad||""}. Se usará FIFO (lotes más antiguos primero).`:`⚠️ Sin stock — se registrará en negativo`}
-                                  </div>
-                                </div>
-                              )}
-                              <div><div style={lCls}>Cantidad usada *</div><input type="number" step="0.01" value={form.ins_cantidad||""} onChange={e=>setForm({...form,ins_cantidad:e.target.value})} className="inp-d" style={iCls} placeholder="0"/></div>
-                              <div>
-                                <div style={lCls}>Cultivo</div>
-                                <select value={form.cultivo||""} onChange={e=>setForm({...form,cultivo:e.target.value})} className="inp-d" style={iCls}>
-                                  <option value="">Sin especificar</option>
-                                  {["soja","maiz","trigo","girasol","sorgo","cebada","otro"].map(c=>(
-                                    <option key={c} value={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</option>
-                                  ))}
-                                </select>
-                              </div>
-                              <div><div style={lCls}>Labor / Descripción</div><input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Aplicación herbicida..."/></div>
-                              <div>
-                                <div style={lCls}>Costo en MB</div>
-                                <select value={form.unidad||"ha"} onChange={e=>setForm({...form,unidad:e.target.value})} className="inp-d" style={iCls}>
-                                  <option value="ha">U$S/ha</option>
-                                  <option value="total">Total campo</option>
-                                </select>
-                              </div>
-                              {/* Preview FIFO consumo */}
-                              {form.ins_producto_id&&form.ins_cantidad&&Number(form.ins_cantidad)>0&&(()=>{
-                                const lotesProd=insLotesFifo.filter(l=>l.producto_id===form.ins_producto_id).sort((a,b)=>a.fecha_compra.localeCompare(b.fecha_compra));
-                                let restante=Number(form.ins_cantidad);
-                                let costoTotal=0;
-                                const detalle:any[]=[];
-                                for(const l of lotesProd){
-                                  if(restante<=0) break;
-                                  const usar=Math.min(restante,Number(l.cantidad_restante));
-                                  const tc=l.moneda==="ARS"?tcVenta:1;
-                                  const usdUnit=Number(l.precio_unitario)/tc;
-                                  costoTotal+=usar*usdUnit;
-                                  detalle.push({fecha:l.fecha_compra,cant:usar,precio:l.precio_unitario,moneda:l.moneda,usd:usdUnit});
-                                  restante-=usar;
-                                }
-                                if(restante>0){
-                                  costoTotal+=restante*0;
-                                  detalle.push({fecha:"—",cant:restante,precio:0,moneda:"",usd:0,negativo:true});
-                                }
-                                const haTotal=lotesSelec.reduce((a,lid)=>a+(lotes.find(l=>l.id===lid)?.hectareas||0),0);
-                                return(
-                                  <div style={{gridColumn:"span 2",padding:"10px 14px",borderRadius:8,background:"rgba(249,115,22,0.08)",border:"1px solid rgba(249,115,22,0.25)"}}>
-                                    <div style={{fontSize:11,fontWeight:800,color:"#fbbf24",marginBottom:6}}>Costo FIFO calculado:</div>
-                                    {detalle.map((d,i)=>(
-                                      <div key={i} style={{fontSize:10,color:"rgba(255,255,255,0.50)",marginBottom:2}}>
-                                        {d.negativo?<span style={{color:"#fca5a5"}}>⚠ {d.cant.toFixed(2)} {form.ins_unidad||""} sin stock (negativo)</span>
-                                          :<span>Lote {d.fecha}: {d.cant.toFixed(2)} {form.ins_unidad||""} × U$S {d.usd.toFixed(2)} = <span style={{color:"#f0d060",fontWeight:700}}>U$S {(d.cant*d.usd).toFixed(2)}</span></span>}
-                                      </div>
-                                    ))}
-                                    <div style={{marginTop:6,fontSize:12,fontWeight:800,color:"#fbbf24"}}>
-                                      Total: U$S {costoTotal.toFixed(2)}
-                                      {haTotal>0&&<span style={{color:"rgba(201,162,39,0.60)",marginLeft:8,fontSize:10}}>U$S {(costoTotal/haTotal).toFixed(2)}/ha</span>}
-                                    </div>
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          )}
+
 
                           {/* ── AJUSTE ── */}
                           {form.tipo_insumo==="ajuste"&&(
