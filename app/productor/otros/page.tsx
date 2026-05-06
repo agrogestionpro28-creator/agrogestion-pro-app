@@ -165,6 +165,8 @@ export default function CentroGestion() {
     if (!empresaId){ msg("❌ Sin empresa — recargá la página"); return; }
     if (!campanaActiva){ msg("❌ Sin campaña — elegí una campaña"); return; }
     if (!grupoActivo){ msg("❌ Sin grupo activo"); return; }
+    // Para insumos el panelSubgrupo es automático
+    if (grupoActivo==="insumos"&&!panelSubgrupo) setPanelSubgrupo({sub:"INSUMOS"});
     if (!form.fecha){ msg("❌ Falta la fecha"); return; }
     if (grupoActivo!=="insumos"&&(!form.monto||Number(form.monto)===0)){ msg("❌ Falta el monto"); return; }
     if (grupoActivo!=="insumos"&&lotesSelec.length===0){ msg("❌ Seleccioná al menos un lote"); return; }
@@ -175,7 +177,7 @@ export default function CentroGestion() {
     const payload = {
       empresa_id:empresaId, campana_id:campanaActiva,
       lote_ids:lotesSelec, grupo:grupoActivo,
-      subgrupo:panelSubgrupo!.sub, mes:panelSubgrupo!.mes??null,
+      subgrupo:panelSubgrupo?.sub||grupoActivo, mes:panelSubgrupo?.mes??null,
       concepto:panelSubgrupo!.sub, articulo:form.articulo||"",
       descripcion:form.descripcion||"", fecha:form.fecha,
       moneda:form.moneda||"ARS", monto_original:Number(form.monto),
@@ -656,18 +658,38 @@ export default function CentroGestion() {
                 </div>
               </div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-                {/* Selector campaña aquí */}
-                <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 10px",borderRadius:8,border:"1px solid rgba(201,162,39,0.25)",background:"rgba(201,162,39,0.06)"}}>
-                  <span style={{fontSize:9,color:"rgba(201,162,39,0.50)",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>Campaña</span>
-                  <select value={campanaActiva} onChange={e=>cambiarCampana(e.target.value)}
-                    style={{background:"transparent",border:"none",color:"#c9a227",fontWeight:800,fontSize:12,cursor:"pointer",outline:"none",fontFamily:"inherit",padding:"0"}}>
-                    {campanas.map(c=><option key={c.id} value={c.id} style={{background:"#1a1200",color:"#f0e6c8"}}>{c.nombre}{c.activa?" ★":""}</option>)}
-                  </select>
-                </div>
-                <input ref={importRef} type="file" accept=".xlsx,.xls" style={{display:"none"}}
-                  onChange={e=>{const f=e.target.files?.[0];if(f)importarExcel(f);}}/>
-                <button onClick={()=>importRef.current?.click()} className="btn-ol">📥 Importar</button>
-                <button onClick={()=>exportarExcel(grupoActivo)} className="btn-ol">📤 Exportar</button>
+                {grupoActivo==="insumos"?(
+                  <>
+                    <button onClick={()=>setShowFormInsProducto(v=>!v)}
+                      style={{padding:"7px 14px",borderRadius:8,fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"inherit",
+                        border:"1px solid rgba(201,162,39,0.35)",background:showFormInsProducto?"rgba(201,162,39,0.15)":"transparent",color:"#c9a227"}}>
+                      + Producto
+                    </button>
+                    <button onClick={()=>setShowFormInsDeposito(v=>!v)}
+                      style={{padding:"7px 14px",borderRadius:8,fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"inherit",
+                        border:"1px solid rgba(201,162,39,0.35)",background:showFormInsDeposito?"rgba(201,162,39,0.15)":"transparent",color:"#c9a227"}}>
+                      + Depósito
+                    </button>
+                    <input ref={importRef} type="file" accept=".xlsx,.xls" style={{display:"none"}}
+                      onChange={e=>{const f=e.target.files?.[0];if(f)importarExcel(f);}}/>
+                    <button onClick={()=>importRef.current?.click()} className="btn-ol">📥 Importar</button>
+                    <button onClick={()=>exportarExcel(grupoActivo)} className="btn-ol">📤 Exportar</button>
+                  </>
+                ):(
+                  <>
+                    <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 10px",borderRadius:8,border:"1px solid rgba(201,162,39,0.25)",background:"rgba(201,162,39,0.06)"}}>
+                      <span style={{fontSize:9,color:"rgba(201,162,39,0.50)",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>Campaña</span>
+                      <select value={campanaActiva} onChange={e=>cambiarCampana(e.target.value)}
+                        style={{background:"transparent",border:"none",color:"#c9a227",fontWeight:800,fontSize:12,cursor:"pointer",outline:"none",fontFamily:"inherit",padding:"0"}}>
+                        {campanas.map(c=><option key={c.id} value={c.id} style={{background:"#1a1200",color:"#f0e6c8"}}>{c.nombre}{c.activa?" ★":""}</option>)}
+                      </select>
+                    </div>
+                    <input ref={importRef} type="file" accept=".xlsx,.xls" style={{display:"none"}}
+                      onChange={e=>{const f=e.target.files?.[0];if(f)importarExcel(f);}}/>
+                    <button onClick={()=>importRef.current?.click()} className="btn-ol">📥 Importar</button>
+                    <button onClick={()=>exportarExcel(grupoActivo)} className="btn-ol">📤 Exportar</button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -1065,19 +1087,7 @@ export default function CentroGestion() {
                       {/* ── INSUMOS — COMPRA SIMPLE ── */}
                       {grupoActivo==="insumos"&&(
                         <div>
-                          {/* Acciones rápidas */}
-                          <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
-                            <button onClick={()=>setShowFormInsProducto(!showFormInsProducto)}
-                              style={{padding:"6px 12px",borderRadius:7,fontSize:10,fontWeight:800,cursor:"pointer",fontFamily:"inherit",
-                                border:"1px solid rgba(201,162,39,0.35)",background:showFormInsProducto?"rgba(201,162,39,0.15)":"transparent",color:"#c9a227"}}>
-                              + Producto
-                            </button>
-                            <button onClick={()=>setShowFormInsDeposito(!showFormInsDeposito)}
-                              style={{padding:"6px 12px",borderRadius:7,fontSize:10,fontWeight:800,cursor:"pointer",fontFamily:"inherit",
-                                border:"1px solid rgba(201,162,39,0.35)",background:showFormInsDeposito?"rgba(201,162,39,0.15)":"transparent",color:"#c9a227"}}>
-                              + Depósito
-                            </button>
-                          </div>
+
 
                           {/* Form nuevo producto */}
                           {showFormInsProducto&&(
