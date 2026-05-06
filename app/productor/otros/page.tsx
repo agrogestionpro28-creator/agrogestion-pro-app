@@ -417,6 +417,35 @@ export default function CentroGestion() {
 
   const exportarExcel = async (grupoId?:string) => {
     const XLSX = await import("xlsx");
+    const wb=XLSX.utils.book_new();
+    // Insumos: exportar desde insumos_lotes_fifo
+    if (grupoId==="insumos") {
+      const data = insLotesFifo.map(l=>{
+        const prod=insProductos.find(p=>p.id===l.producto_id);
+        const dep=insDepositos.find(d=>d.id===l.deposito_id);
+        return {
+          FECHA_COMPRA:l.fecha_compra,
+          PRODUCTO:prod?.nombre||"",
+          CATEGORIA:prod?.categoria||"",
+          UNIDAD:prod?.unidad||"",
+          DEPOSITO:dep?.nombre||"",
+          CANTIDAD_ORIGINAL:l.cantidad_original,
+          CANTIDAD_RESTANTE:l.cantidad_restante,
+          PRECIO_UNITARIO:l.precio_unitario,
+          MONEDA:l.moneda,
+          PRECIO_USD:l.precio_usd,
+          PROVEEDOR:l.proveedor||"",
+          FECHA_VTO:l.fecha_vto||"",
+          OBSERVACIONES:l.observaciones||"",
+        };
+      });
+      const ws=XLSX.utils.json_to_sheet(data);
+      ws["!cols"]=[{wch:14},{wch:24},{wch:14},{wch:8},{wch:18},{wch:14},{wch:14},{wch:14},{wch:8},{wch:12},{wch:18},{wch:12},{wch:24}];
+      XLSX.utils.book_append_sheet(wb,ws,"Insumos");
+      XLSX.writeFile(wb,`insumos_stock_${new Date().toISOString().slice(0,10)}.xlsx`);
+      return;
+    }
+    // Resto de grupos: exportar desde mb_carga_items
     const data = itemsFiltrados
       .filter(i=>!grupoId||i.grupo===grupoId)
       .map(i=>({
@@ -429,7 +458,6 @@ export default function CentroGestion() {
       }));
     const ws=XLSX.utils.json_to_sheet(data);
     ws["!cols"]=[{wch:16},{wch:24},{wch:20},{wch:12},{wch:12},{wch:20},{wch:24},{wch:8},{wch:14},{wch:10},{wch:12},{wch:8}];
-    const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,grupoId||"CentroGestion");
     XLSX.writeFile(wb,`cg_${grupoId||"todo"}_${campanas.find(c=>c.id===campanaActiva)?.nombre||""}.xlsx`);
   };
@@ -442,6 +470,38 @@ export default function CentroGestion() {
     const rows:any[] = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""});
     const sb = await getSB();
     let ok=0;
+    // Importar insumos
+    if (grupoActivo==="insumos") {
+      for (const r of rows) {
+        if (!r.FECHA_COMPRA&&!r.FECHA) continue;
+        if (!r.PRODUCTO&&!r.ins_producto_id) continue;
+        // Buscar producto por nombre
+        const prod = insProductos.find(p=>p.nombre.toLowerCase().trim()===String(r.PRODUCTO||"").toLowerCase().trim());
+        if (!prod) continue;
+        const dep = r.DEPOSITO ? insDepositos.find(d=>d.nombre.toLowerCase().trim()===String(r.DEPOSITO||"").toLowerCase().trim()) : null;
+        const tc = Number(r.TC||tcVenta);
+        const precio = Number(r.PRECIO_UNITARIO||0);
+        const precioUsd = r.MONEDA==="USD" ? precio : precio/tc;
+        const cant = Number(r.CANTIDAD_ORIGINAL||r.CANTIDAD||0);
+        if (cant===0) continue;
+        await sb.from("insumos_lotes_fifo").insert({
+          empresa_id:empresaId, producto_id:prod.id,
+          deposito_id:dep?.id||null, campana_id:campanaActiva,
+          fecha_compra:r.FECHA_COMPRA||r.FECHA,
+          cantidad_original:cant, cantidad_restante:Number(r.CANTIDAD_RESTANTE||cant),
+          precio_unitario:precio, moneda:r.MONEDA||"ARS",
+          tc_usado:tc, precio_usd:precioUsd,
+          proveedor:r.PROVEEDOR||"",
+          fecha_vto:r.FECHA_VTO||null,
+          observaciones:r.OBSERVACIONES||"",
+        });
+        ok++;
+      }
+      msg(`✅ ${ok} registros de insumos importados`);
+      await fetchItems(empresaId,campanaActiva);
+      return;
+    }
+    // Importar otros grupos desde mb_carga_items
     for (const r of rows) {
       if (!r.FECHA||!r.MONTO_USD) continue;
       const loteIds = r.LOTES ? r.LOTES.split(",").map((n:string)=>lotes.find(l=>l.nombre.trim()===n.trim())?.id).filter(Boolean) : [];
