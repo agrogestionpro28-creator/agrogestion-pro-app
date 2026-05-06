@@ -195,6 +195,22 @@ export default function CentroGestion() {
       const prod = insProductos.find(p=>p.id===form.ins_producto_id);
 
       if (tipoIns==="compra") {
+        // Si es producto nuevo, crearlo primero
+        if (form.ins_nuevo_prod==="1") {
+          if (!form.ins_prod_nombre){ msg("❌ Ingresá el nombre del producto"); setGuardando(false); return; }
+          const {data:newProd, error:errProd} = await sb2.from("insumos_productos").insert({
+            empresa_id:empresaId, nombre:form.ins_prod_nombre,
+            categoria:form.ins_prod_cat||"herbicida",
+            unidad:form.ins_prod_unidad||"lt",
+            equivalente_id:form.ins_prod_igual_a||null,
+          }).select().single();
+          if (errProd){ msg(`❌ Error creando producto: ${errProd.message}`); setGuardando(false); return; }
+          form.ins_producto_id = newProd.id;
+          form.articulo = newProd.nombre;
+          form.ins_unidad = newProd.unidad;
+          await fetchItems(empresaId, campanaActiva);
+        }
+        if (!form.ins_producto_id){ msg("❌ Seleccioná o creá un producto"); setGuardando(false); return; }
         // Crear lote FIFO nuevo
         const precioUnit = Number(form.precio_litro||0);
         const precioUsd = precioUnit/tc2;
@@ -941,30 +957,95 @@ export default function CentroGestion() {
                       </div>
                     )}
 
-                    {/* Form carga insumo */}
+                    {/* Form carga insumo — todo en uno */}
                     <div style={{background:"linear-gradient(160deg,#1a1200 0%,#0d0900 100%)",borderRadius:12,padding:"18px 20px",marginBottom:12,
                       boxShadow:"0 0 0 1px #7a5c00,0 0 0 2px rgba(201,162,39,0.45),0 0 0 3px #5a4400,0 8px 28px rgba(0,0,0,0.70)"}}>
-                      <div className="text-gold" style={{fontSize:13,fontWeight:900,marginBottom:14,textTransform:"uppercase",letterSpacing:0.8}}>
+                      <div className="text-gold" style={{fontSize:13,fontWeight:900,marginBottom:16,textTransform:"uppercase",letterSpacing:0.8}}>
                         📦 Cargar Insumo
                       </div>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
-                        <div>
-                          <div style={lCls}>Fecha *</div>
-                          <input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/>
-                        </div>
-                        <div>
+
+                      {/* PRODUCTO: elegir existente O crear nuevo */}
+                      <div style={{marginBottom:14,padding:"12px 14px",borderRadius:9,background:"rgba(201,162,39,0.06)",border:"1px solid rgba(201,162,39,0.18)"}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
                           <div style={lCls}>Producto *</div>
+                          <div style={{display:"flex",gap:4}}>
+                            <button onClick={()=>setForm({...form,ins_nuevo_prod:form.ins_nuevo_prod==="1"?"":"1",ins_producto_id:""})}
+                              style={{padding:"3px 10px",borderRadius:5,fontSize:9,fontWeight:800,cursor:"pointer",fontFamily:"inherit",
+                                border:"1px solid rgba(201,162,39,0.30)",
+                                background:form.ins_nuevo_prod==="1"?"rgba(201,162,39,0.20)":"transparent",
+                                color:"#c9a227"}}>
+                              {form.ins_nuevo_prod==="1"?"← Elegir existente":"+ Nuevo producto"}
+                            </button>
+                          </div>
+                        </div>
+
+                        {form.ins_nuevo_prod==="1"?(
+                          /* Crear nuevo producto */
+                          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+                            <div style={{gridColumn:"span 3"}}>
+                              <div style={lCls}>Nombre del producto *</div>
+                              <input type="text" value={form.ins_prod_nombre||""} onChange={e=>setForm({...form,ins_prod_nombre:e.target.value})}
+                                className="inp-d" style={iCls} placeholder="Glifosato 48%, Urea 46%, DM4612..."/>
+                            </div>
+                            <div>
+                              <div style={lCls}>Categoría</div>
+                              <select value={form.ins_prod_cat||"herbicida"} onChange={e=>setForm({...form,ins_prod_cat:e.target.value})} className="inp-d" style={iCls}>
+                                <option value="herbicida">🌿 Herbicida</option>
+                                <option value="fungicida">🍄 Fungicida</option>
+                                <option value="insecticida">🐛 Insecticida</option>
+                                <option value="fertilizante">💊 Fertilizante</option>
+                                <option value="semilla">🌱 Semilla</option>
+                                <option value="curasemilla">🧪 Curasemilla</option>
+                                <option value="coadyuvante">⚗️ Coadyuvante</option>
+                                <option value="repuesto">🔧 Repuesto</option>
+                                <option value="otro">📦 Otro</option>
+                              </select>
+                            </div>
+                            <div>
+                              <div style={lCls}>Unidad</div>
+                              <select value={form.ins_prod_unidad||"lt"} onChange={e=>setForm({...form,ins_prod_unidad:e.target.value})} className="inp-d" style={iCls}>
+                                <option value="lt">Litros</option>
+                                <option value="kg">kg</option>
+                                <option value="bolsas">Bolsas</option>
+                                <option value="unidad">Unidad</option>
+                                <option value="tn">Toneladas</option>
+                                <option value="gr">Gramos</option>
+                              </select>
+                            </div>
+                            <div>
+                              <div style={lCls}>¿Es igual a?</div>
+                              <select value={form.ins_prod_igual_a||""} onChange={e=>setForm({...form,ins_prod_igual_a:e.target.value})} className="inp-d" style={iCls}>
+                                <option value="">Sin equivalencia</option>
+                                {insProductos.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}
+                              </select>
+                            </div>
+                            {form.ins_prod_igual_a&&(
+                              <div style={{gridColumn:"span 3",fontSize:10,color:"rgba(201,162,39,0.50)",padding:"4px 6px",borderRadius:5,background:"rgba(201,162,39,0.06)"}}>
+                                💡 FIFO compartido — los lotes de ambos productos se promediarán juntos
+                              </div>
+                            )}
+                          </div>
+                        ):(
+                          /* Elegir producto existente */
                           <select value={form.ins_producto_id||""} onChange={e=>{
                             const p=insProductos.find(x=>x.id===e.target.value);
                             setForm({...form,ins_producto_id:e.target.value,articulo:p?.nombre||"",ins_unidad:p?.unidad||"lt"});
                           }} className="inp-d" style={iCls}>
-                            <option value="">— Seleccionar —</option>
-                            {insProductos.length===0&&<option disabled>Creá un producto con + Producto</option>}
+                            <option value="">— Seleccionar producto —</option>
+                            {insProductos.length===0&&<option disabled>No hay productos — usá "+ Nuevo producto"</option>}
                             {insProductos.map(p=>{
                               const stock=insLotesFifo.filter(l=>l.producto_id===p.id).reduce((a,l)=>a+Number(l.cantidad_restante),0);
-                              return<option key={p.id} value={p.id}>{p.nombre} ({p.categoria}) · stock: {stock.toFixed(1)} {p.unidad}</option>;
+                              return<option key={p.id} value={p.id}>{p.nombre} ({p.categoria}) · {stock.toFixed(1)} {p.unidad}</option>;
                             })}
                           </select>
+                        )}
+                      </div>
+
+                      {/* Resto del form */}
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                        <div>
+                          <div style={lCls}>Fecha *</div>
+                          <input type="date" value={form.fecha||""} onChange={e=>setForm({...form,fecha:e.target.value})} className="inp-d" style={iCls}/>
                         </div>
                         <div>
                           <div style={lCls}>Depósito</div>
@@ -974,7 +1055,7 @@ export default function CentroGestion() {
                           </select>
                         </div>
                         <div>
-                          <div style={lCls}>Cantidad * {form.ins_unidad&&<span style={{color:"rgba(201,162,39,0.50)"}}> ({form.ins_unidad})</span>}</div>
+                          <div style={lCls}>Cantidad * {form.ins_unidad&&<span style={{color:"rgba(201,162,39,0.45)"}}> ({form.ins_unidad||form.ins_prod_unidad||""})</span>}</div>
                           <input type="number" step="0.01" value={form.ins_cantidad||""} onChange={e=>{
                             const c=Number(e.target.value);const p=Number(form.precio_litro||0);
                             setForm({...form,ins_cantidad:e.target.value,monto:c>0&&p>0?(c*p).toFixed(0):form.monto||""});
@@ -999,7 +1080,7 @@ export default function CentroGestion() {
                         </div>
                         <div>
                           <div style={lCls}>Proveedor</div>
-                          <input type="text" value={form.proveedor||""} onChange={e=>setForm({...form,proveedor:e.target.value})} className="inp-d" style={iCls} placeholder="Nombre..."/>
+                          <input type="text" value={form.proveedor||""} onChange={e=>setForm({...form,proveedor:e.target.value})} className="inp-d" style={iCls} placeholder="Nombre del proveedor..."/>
                         </div>
                         <div>
                           <div style={lCls}>Fecha vto</div>
@@ -1007,30 +1088,33 @@ export default function CentroGestion() {
                         </div>
                         <div style={{gridColumn:"span 2"}}>
                           <div style={lCls}>Observaciones</div>
-                          <input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Remito, factura..."/>
+                          <input type="text" value={form.descripcion||""} onChange={e=>setForm({...form,descripcion:e.target.value})} className="inp-d" style={iCls} placeholder="Remito, factura, condición..."/>
                         </div>
                       </div>
+
                       {/* Preview */}
                       {form.ins_cantidad&&form.precio_litro&&Number(form.ins_cantidad)>0&&Number(form.precio_litro)>0&&(()=>{
-                        const prod=insProductos.find(p=>p.id===form.ins_producto_id);
-                        const stockActual=insLotesFifo.filter(l=>l.producto_id===form.ins_producto_id).reduce((a,l)=>a+Number(l.cantidad_restante),0);
+                        const unidad=form.ins_unidad||form.ins_prod_unidad||"";
+                        const prodNombre=form.ins_nuevo_prod==="1"?form.ins_prod_nombre:insProductos.find(p=>p.id===form.ins_producto_id)?.nombre||"";
+                        const stockActual=form.ins_producto_id?insLotesFifo.filter(l=>l.producto_id===form.ins_producto_id).reduce((a,l)=>a+Number(l.cantidad_restante),0):0;
                         const tc=form.moneda==="ARS"?tcVenta:1;
-                        const usdUnit=Number(form.precio_litro)/tc;
                         const total=Number(form.ins_cantidad)*Number(form.precio_litro);
+                        const usdUnit=Number(form.precio_litro)/tc;
                         return(
                           <div style={{marginBottom:12,padding:"10px 14px",borderRadius:8,background:"rgba(22,163,74,0.08)",border:"1px solid rgba(22,163,74,0.22)",fontSize:11}}>
                             <div style={{color:"rgba(255,255,255,0.50)",marginBottom:3}}>
-                              {Number(form.ins_cantidad)} {prod?.unidad||""} × ${Number(form.precio_litro).toLocaleString("es-AR")} =
+                              {Number(form.ins_cantidad)} {unidad} × ${Number(form.precio_litro).toLocaleString("es-AR")} =
                               <span style={{color:"#86efac",fontWeight:800,marginLeft:6}}>${total.toLocaleString("es-AR")}</span>
-                              <span style={{color:"rgba(201,162,39,0.60)",marginLeft:8}}>· U$S {usdUnit.toFixed(2)}/{prod?.unidad||""}</span>
+                              <span style={{color:"rgba(201,162,39,0.60)",marginLeft:8}}>· U$S {usdUnit.toFixed(2)}/{unidad}</span>
                             </div>
-                            {prod&&<div style={{color:"rgba(201,162,39,0.55)"}}>
-                              Stock {prod.nombre}: {stockActual.toFixed(1)} → <span style={{color:"#86efac",fontWeight:700}}>{(stockActual+Number(form.ins_cantidad)).toFixed(1)} {prod.unidad}</span>
+                            {prodNombre&&<div style={{color:"rgba(201,162,39,0.55)"}}>
+                              {prodNombre}{form.ins_producto_id?`: stock ${stockActual.toFixed(1)} → ${(stockActual+Number(form.ins_cantidad)).toFixed(1)} ${unidad}`:""}
                             </div>}
                           </div>
                         );
                       })()}
-                      <button onClick={guardarItem} className="btn-g" style={{width:"100%",padding:"12px",fontSize:13}} disabled={guardando}>
+
+                      <button onClick={guardarItem} className="btn-g" style={{width:"100%",padding:"12px",fontSize:13,letterSpacing:0.5}} disabled={guardando}>
                         {guardando?"GUARDANDO...":"✓ GUARDAR INSUMO"}
                       </button>
                     </div>
