@@ -615,7 +615,7 @@ export default function CentroGestion() {
                   return(
                     <div key={grupo.id} className="lingote fade-up"
                       style={{animationDelay:`${(row*3+idx)*0.07}s`,padding:"26px 20px",textAlign:"center",minHeight:150}}
-                      onClick={()=>{ setGrupoActivo(grupo.id); setPanelSubgrupo(null); }}>
+                      onClick={()=>{ setGrupoActivo(grupo.id); setPanelSubgrupo(grupo.id==="insumos"?{sub:"INSUMOS"}:null); }}>
                       <div style={{fontSize:30,marginBottom:10,filter:"drop-shadow(0 0 8px rgba(201,162,39,0.55))"}}>{grupo.icon}</div>
                       <div className="text-gold" style={{fontSize:14,fontWeight:900,letterSpacing:0.8,textTransform:"uppercase",lineHeight:1.3,whiteSpace:"pre-line",marginBottom:12}}>
                         {grupo.label}
@@ -671,10 +671,10 @@ export default function CentroGestion() {
               </div>
             </div>
 
-            <div style={{display:"grid",gridTemplateColumns:"280px 1fr",gap:16,alignItems:"start"}}>
+            <div style={{display:"grid",gridTemplateColumns:grupoActivo==="insumos"?"1fr":"280px 1fr",gap:16,alignItems:"start"}}>
 
               {/* Col izq: items del grupo como lingotes pequeños */}
-              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {grupoActivo!=="insumos"&&<div style={{display:"flex",flexDirection:"column",gap:8}}>
                 {/* PERSONAL: lista real de empleados */}
                 {grupoActivo==="personal"&&(
                   <>
@@ -765,7 +765,7 @@ export default function CentroGestion() {
                     </div>
                   );
                 })}
-              </div>
+              </div>}
 
               {/* Col der: form + historial */}
               <div>
