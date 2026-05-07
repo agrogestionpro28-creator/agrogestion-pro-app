@@ -204,21 +204,47 @@ export default function ProductorDashboard() {
       {/* Panel alertas */}
       {showAlertas&&(
         <div className="alertas-panel">
-          <div style={{padding:"20px 18px",borderBottom:"1px solid rgba(0,60,140,0.10)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-            <div style={{fontSize:13,fontWeight:800,color:"#0d2137"}}>🔔 Alertas IA</div>
-            <button onClick={()=>setShowAlertas(false)} style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:20}}>✕</button>
+          <div style={{padding:"16px 18px",borderBottom:"1px solid rgba(0,60,140,0.10)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div style={{fontSize:13,fontWeight:800,color:"#0d2137"}}>🔔 Notificaciones</div>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              {notificaciones.length>0&&(
+                <button onClick={marcarTodasLeidas}
+                  style={{fontSize:11,color:"#1565c0",fontWeight:700,background:"none",border:"none",cursor:"pointer"}}>
+                  Marcar todas leídas
+                </button>
+              )}
+              <button onClick={()=>setShowAlertas(false)} style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:20}}>✕</button>
+            </div>
           </div>
-          <div style={{padding:16,display:"flex",flexDirection:"column",gap:10}}>
-            {stats.alertas===0?(
+          <div style={{padding:12,display:"flex",flexDirection:"column",gap:8}}>
+            {notificaciones.length===0?(
               <div style={{textAlign:"center",padding:"40px 16px",color:"#6b8aaa"}}>
                 <div style={{fontSize:36,opacity:0.15,marginBottom:10}}>🔔</div>
-                <p style={{fontSize:13,fontWeight:600}}>Sin alertas activas</p>
+                <p style={{fontSize:13,fontWeight:600}}>Sin notificaciones</p>
               </div>
-            ):<p style={{fontSize:13,color:"#4a6a8a"}}>{stats.alertas} alerta(s) pendiente(s)</p>}
-            <div style={{padding:"12px 14px",borderRadius:14,background:"rgba(25,118,210,0.07)",border:"1px solid rgba(25,118,210,0.18)",marginTop:8}}>
-              <div style={{fontSize:12,fontWeight:700,color:"#1565c0",marginBottom:3}}>◆ IA Monitor Activo</div>
-              <div style={{fontSize:11,color:"#6b8aaa"}}>Analizando datos del campo en tiempo real</div>
-            </div>
+            ):notificaciones.map(n=>(
+              <div key={n.id} style={{padding:"12px 14px",borderRadius:14,
+                background:"rgba(25,118,210,0.06)",border:"1px solid rgba(25,118,210,0.18)",
+                position:"relative"}}>
+                <div style={{fontSize:11,fontWeight:800,color:"#1565c0",marginBottom:3}}>{n.titulo}</div>
+                <div style={{fontSize:12,color:"#4a6a8a",lineHeight:1.5}}>{n.mensaje}</div>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:8}}>
+                  <div style={{fontSize:10,color:"#9ab0c8"}}>{new Date(n.created_at).toLocaleDateString("es-AR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</div>
+                  <div style={{display:"flex",gap:6}}>
+                    {n.url_destino&&(
+                      <button onClick={()=>window.location.href=n.url_destino}
+                        style={{fontSize:11,padding:"3px 10px",borderRadius:7,background:"rgba(25,118,210,0.10)",border:"1px solid rgba(25,118,210,0.25)",color:"#1565c0",cursor:"pointer",fontWeight:700}}>
+                        Ver →
+                      </button>
+                    )}
+                    <button onClick={()=>marcarLeida(n.id)}
+                      style={{fontSize:11,padding:"3px 10px",borderRadius:7,background:"rgba(22,163,74,0.10)",border:"1px solid rgba(22,163,74,0.25)",color:"#16a34a",cursor:"pointer",fontWeight:700}}>
+                      ✓ Leída
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
