@@ -611,45 +611,7 @@ export default function IngenieroLotesPage() {
     setDescuentoItems([]);
     await fetchLotes(empresaId, campanaActiva);
   };
-      if (!ins) continue;
-      const nuevaCant = ins.cantidad - item.cantidad_ajustada; // permite stock negativo
-      const ppp = ins.precio_ppp || ins.precio_unitario || 0;
-      const costoItem = item.cantidad_ajustada * ppp;
-      costoInsumosTotal += costoItem;
-      // Descontar del stock
-      await sb.from("stock_insumos").update({
-        cantidad: nuevaCant,
-        costo_total_stock: nuevaCant * ppp,
-      }).eq("id", item.insumo_id);
-      // Registrar movimiento
-      await sb.from("stock_insumos_movimientos").insert({
-        empresa_id: empresaId,
-        insumo_id: item.insumo_id,
-        fecha: laborPendiente.fecha || new Date().toISOString().split("T")[0],
-        tipo: "uso",
-        cantidad: item.cantidad_ajustada,
-        precio_unitario: 0,
-        precio_ppp: ppp,
-        lote_id: laborPendiente.lote_id,
-        descripcion: `Uso en labor: ${laborPendiente.descripcion || ""} — costo $${Math.round(costoItem).toLocaleString("es-AR")}`,
-        metodo: "ingeniero",
-      });
-    }
-    // Actualizar costo_insumos_usd en la labor si fue insertada
-    if (costoInsumosTotal > 0 && laborPendiente._labor_id) {
-      await sb.from("lote_labores").update({
-        costo_insumos_usd: costoInsumosTotal,
-        costo_total_usd: (laborPendiente.costo_total_usd || 0) + costoInsumosTotal,
-      }).eq("id", laborPendiente._labor_id);
-      // Actualizar MB con costo de insumos
-      if (loteActivo) await actualizarCostoLaboresEnMB(loteActivo.id, costoInsumosTotal);
-    }
-    msg(`✅ Stock descontado — ${itemsSeleccionados.length} insumos · $${Math.round(costoInsumosTotal).toLocaleString("es-AR")}`);
-    setShowDescuento(false);
-    setLaborPendiente(null);
-    setDescuentoItems([]);
-    await fetchLotes(empresaId, campanaActiva);
-  };
+      
 
   const guardarLabor = async () => {
     if (!loteActivo || !empresaId) return;
