@@ -667,7 +667,6 @@ export default function IngenieroLotesPage() {
         });
       } catch {}
     }
-```
 
     setShowFormLabor(false); setForm({});
     // Abrir panel de descuento de insumos (si es Aplicación o Fertilización)
