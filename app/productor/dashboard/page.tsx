@@ -54,6 +54,12 @@ export default function ProductorDashboard() {
       const { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", u?.id).maybeSingle();
       if (emp) {
         setEmpresaId(emp.id);
+        const { data: nots } = await sb.from("notificaciones")
+          .select("*").eq("empresa_id", emp.id)
+          .eq("leida", false)
+          .order("created_at", { ascending: false });
+        setNotificaciones(nots ?? []);
+        setStats(prev => ({ ...prev, alertas: (nots ?? []).length }));
         if (campanaId) {
           const [lotes, hacienda] = await Promise.all([
             sb.from("lotes").select("hectareas").eq("empresa_id", emp.id).eq("campana_id", campanaId),
