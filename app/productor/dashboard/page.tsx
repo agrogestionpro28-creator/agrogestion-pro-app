@@ -26,6 +26,7 @@ export default function ProductorDashboard() {
   const [showAlertas, setShowAlertas] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [letraSocio, setLetraSocio] = useState("");
+  const [notificaciones, setNotificaciones] = useState<any[]>([]);
 
   useEffect(() => {
     setMounted(true);
