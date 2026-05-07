@@ -81,6 +81,22 @@ export default function ProductorDashboard() {
     await sb.auth.signOut(); window.location.href = "/login";
   };
 
+  const marcarLeida = async (id: string) => {
+    const { createClient } = await import("@supabase/supabase-js");
+    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+    await sb.from("notificaciones").update({ leida: true }).eq("id", id);
+    setNotificaciones(prev => prev.filter(n => n.id !== id));
+    setStats(prev => ({ ...prev, alertas: Math.max(0, prev.alertas - 1) }));
+  };
+
+  const marcarTodasLeidas = async () => {
+    if (!empresaId) return;
+    const { createClient } = await import("@supabase/supabase-js");
+    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+    await sb.from("notificaciones").update({ leida: true }).eq("empresa_id", empresaId).eq("leida", false);
+    setNotificaciones([]);
+    setStats(prev => ({ ...prev, alertas: 0 }));
+  };
   const saludo = () => { const h = new Date().getHours(); if (h < 12) return "Buenos días"; if (h < 19) return "Buenas tardes"; return "Buenas noches"; };
 
   return (
