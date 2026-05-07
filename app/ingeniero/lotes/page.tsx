@@ -652,6 +652,23 @@ export default function IngenieroLotesPage() {
     if (costoTotal > 0) await actualizarCostoLaboresEnMB(loteActivo.id, costoTotal);
     msg("✅ Labor guardada");
     await fetchLotes(empresaId, campanaActiva);
+    // Notificar al productor si es Aplicación, Fertilización o Siembra
+    if (["Aplicación","Fertilización","Siembra"].includes(form.tipo_lab ?? "")) {
+      try {
+        const sb2 = getSB();
+        const tipoEmoji = form.tipo_lab==="Siembra"?"🌱":form.tipo_lab==="Fertilización"?"💊":"🌿";
+        await sb2.from("notificaciones").insert({
+          empresa_id: empresaId,
+          tipo: "labor",
+          titulo: `${tipoEmoji} ${form.tipo_lab} registrada — ${loteActivo?.nombre}`,
+          mensaje: `${ingenieroNombre} registró una ${form.tipo_lab?.toLowerCase()} en ${loteActivo?.nombre} (${ha} ha).${form.producto_dosis ? " Producto: "+form.producto_dosis+"." : ""}${costoTotal>0 ? " Costo: $"+Number(costoTotal).toLocaleString("es-AR")+"." : ""}`,
+          url_destino: "/productor/lotes",
+          leida: false,
+        });
+      } catch {}
+    }
+```
+
     setShowFormLabor(false); setForm({});
     // Abrir panel de descuento de insumos (si es Aplicación o Fertilización)
     const tipoLabor = form.tipo_lab ?? "Aplicación";
