@@ -529,8 +529,8 @@ export default function IngenieroLotesPage() {
     const itemsSeleccionados = descuentoItems.filter(d => d.seleccionado && d.cantidad_ajustada > 0);
     let costoInsumosTotal = 0;
     for (const item of itemsSeleccionados) {
-      const lotesProd = fifoList
-        .filter((l: any) => l.producto_id === item.insumo_id)
+     const lotesProd = fifoList
+        .filter((l: any) => l.producto_id === item.insumo_id && Number(l.cantidad_restante) > 0)
         .sort((a: any, b: any) => a.fecha_compra.localeCompare(b.fecha_compra));
       let restante = item.cantidad_ajustada;
       let costoItem = 0;
