@@ -485,7 +485,41 @@ export default function IngenieroLotesPage() {
 
   const abrirPanelDescuento = async (laborPayload: any, ha: number, desc: string) => {
     const sb = getSB();
-    const { data: ins } = await sb.from("stock_insumos")
+    const [{ data: prods }, { data: fifo }] = await Promise.all([
+      sb.from("insumos_productos").select("id,nombre,unidad,categoria").eq("empresa_id", empresaId).eq("activo", true).order("nombre"),
+      sb.from("insumos_lotes_fifo").select("*").eq("empresa_id", empresaId).order("fecha_compra", { ascending: true }),
+    ]);
+    const prodsList = (prods ?? []) as any[];
+    const fifoList  = (fifo  ?? []) as any[];
+    setInsumosStock(prodsList.map((p: any) => ({
+      id: p.id, nombre: p.nombre, unidad: p.unidad, categoria: p.categoria,
+      cantidad: fifoList.filter((l: any) => l.producto_id === p.id).reduce((a: number, l: any) => a + Number(l.cantidad_restante), 0),
+      precio_ppp: (() => {
+        const ls = fifoList.filter((l: any) => l.producto_id === p.id && l.cantidad_restante > 0 && l.precio_usd > 0);
+        const tot = ls.reduce((a: number, l: any) => a + Number(l.cantidad_restante), 0);
+        return tot > 0 ? ls.reduce((a: number, l: any) => a + Number(l.cantidad_restante) * Number(l.precio_usd), 0) / tot : 0;
+      })(),
+      precio_unitario: 0,
+    })));
+    const sugeridos = parsearInsumosDeDescripcion(desc, ha);
+    if (sugeridos.length === 0) {
+      setDescuentoItems(prodsList.map((p: any) => {
+        const ls = fifoList.filter((l: any) => l.producto_id === p.id && l.cantidad_restante > 0 && l.precio_usd > 0);
+        const tot = ls.reduce((a: number, l: any) => a + Number(l.cantidad_restante), 0);
+        const ppp = tot > 0 ? ls.reduce((a: number, l: any) => a + Number(l.cantidad_restante) * Number(l.precio_usd), 0) / tot : 0;
+        return { insumo_id: p.id, nombre: p.nombre, unidad: p.unidad, cantidad_sugerida: 0, cantidad_ajustada: 0, precio_ppp: ppp, costo_total: 0, seleccionado: false };
+      }));
+    } else {
+      setDescuentoItems(sugeridos.map((item: any) => {
+        const ls = fifoList.filter((l: any) => l.producto_id === item.insumo_id && l.cantidad_restante > 0 && l.precio_usd > 0);
+        const tot = ls.reduce((a: number, l: any) => a + Number(l.cantidad_restante), 0);
+        const ppp = tot > 0 ? ls.reduce((a: number, l: any) => a + Number(l.cantidad_restante) * Number(l.precio_usd), 0) / tot : 0;
+        return { ...item, precio_ppp: ppp, costo_total: item.cantidad_ajustada * ppp };
+      }));
+    }
+    setLaborPendiente({ ...laborPayload, _fifo_list: fifoList });
+    setShowDescuento(true);
+  };
       .select("id,nombre,cantidad,unidad,precio_ppp,precio_unitario,categoria")
       .eq("empresa_id", empresaId)
       .gt("cantidad", 0)
@@ -509,13 +543,95 @@ export default function IngenieroLotesPage() {
     setShowDescuento(true);
   };
 
-  const confirmarDescuento = async () => {
+ const confirmarDescuento = async () => {
     if (!laborPendiente || !empresaId) return;
     const sb = getSB();
+    const fifoList = laborPendiente._fifo_list || [];
     const itemsSeleccionados = descuentoItems.filter(d => d.seleccionado && d.cantidad_ajustada > 0);
     let costoInsumosTotal = 0;
     for (const item of itemsSeleccionados) {
-      const ins = insumosStock.find(i => i.id === item.insumo_id);
+      const lotesProd = fifoList
+        .filter((l: any) => l.producto_id === item.insumo_id)
+        .sort((a: any, b: any) => a.fecha_compra.localeCompare(b.fecha_compra));
+      let restante = item.cantidad_ajustada;
+      let costoItem = 0;
+      const fifoDetalle: any[] = [];
+      for (const lote of lotesProd) {
+        if (restante <= 0) break;
+        const usar = Math.min(restante, Number(lote.cantidad_restante));
+        const pUsd = Number(lote.precio_usd || 0);
+        costoItem += usar * pUsd;
+        fifoDetalle.push({ lote_id: lote.id, cantidad: usar, precio_usd: pUsd });
+        await sb.from("insumos_lotes_fifo").update({
+          cantidad_restante: Number(lote.cantidad_restante) - usar
+        }).eq("id", lote.id);
+        restante -= usar;
+      }
+      if (restante > 0) {
+        await sb.from("insumos_lotes_fifo").insert({
+          empresa_id: empresaId, producto_id: item.insumo_id,
+          fecha_compra: laborPendiente.fecha || new Date().toISOString().split("T")[0],
+          cantidad_original: -restante, cantidad_restante: -restante,
+          precio_unitario: 0, moneda: "ARS", tc_usado: 1, precio_usd: 0,
+          observaciones: "Stock negativo — uso sin compra registrada",
+        });
+      }
+      costoInsumosTotal += costoItem;
+      await sb.from("insumos_movimientos").insert({
+        empresa_id: empresaId,
+        producto_id: item.insumo_id,
+        fecha: laborPendiente.fecha || new Date().toISOString().split("T")[0],
+        tipo: "uso", cantidad: item.cantidad_ajustada,
+        precio_usd: item.cantidad_ajustada > 0 ? costoItem / item.cantidad_ajustada : 0,
+        costo_total_usd: costoItem,
+        lote_ids: [laborPendiente.lote_id],
+        fifo_detalle: JSON.stringify(fifoDetalle),
+        observaciones: `Labor: ${laborPendiente.tipo} — ${laborPendiente.descripcion || ""}`,
+        origen: "ingeniero",
+      });
+    }
+    if (costoInsumosTotal > 0 && laborPendiente._labor_id) {
+      await sb.from("lote_labores").update({
+        costo_insumos_usd: costoInsumosTotal,
+        costo_total_usd: (laborPendiente.costo_total_usd || 0) + costoInsumosTotal,
+      }).eq("id", laborPendiente._labor_id);
+    }
+    if (costoInsumosTotal > 0 && laborPendiente.lote_id) {
+      const loteObj = lotes.find((l: any) => l.id === laborPendiente.lote_id);
+      await sb.from("mb_carga_items").insert({
+        empresa_id: empresaId, campana_id: campanaActiva,
+        lote_ids: [laborPendiente.lote_id],
+        grupo: "insumos", subgrupo: "INSUMOS", concepto: "INSUMOS",
+        articulo: itemsSeleccionados.map((i: any) => i.nombre).join(", "),
+        descripcion: `${laborPendiente.tipo}: ${laborPendiente.descripcion || ""}`,
+        fecha: laborPendiente.fecha || new Date().toISOString().split("T")[0],
+        moneda: "USD", monto_original: costoInsumosTotal,
+        tc_usado: 1, monto_usd: costoInsumosTotal,
+        unidad: loteObj && loteObj.hectareas > 0 ? "ha" : "total",
+        origen: "insumo_fifo",
+      });
+      if ((laborPendiente.costo_total_usd || 0) > 0) {
+        await sb.from("mb_carga_items").insert({
+          empresa_id: empresaId, campana_id: campanaActiva,
+          lote_ids: [laborPendiente.lote_id],
+          grupo: "labranzas", subgrupo: laborPendiente.tipo || "APLICACIÓN",
+          concepto: laborPendiente.tipo || "APLICACIÓN",
+          articulo: laborPendiente.tipo_aplicacion || "",
+          descripcion: laborPendiente.descripcion || "",
+          fecha: laborPendiente.fecha || new Date().toISOString().split("T")[0],
+          moneda: "USD", monto_original: laborPendiente.costo_total_usd,
+          tc_usado: 1, monto_usd: laborPendiente.costo_total_usd,
+          unidad: loteObj && loteObj.hectareas > 0 ? "ha" : "total",
+          origen: "labor",
+        });
+      }
+    }
+    msg(`✅ Stock descontado FIFO — ${itemsSeleccionados.length} insumos · U$S ${costoInsumosTotal.toFixed(2)}`);
+    setShowDescuento(false);
+    setLaborPendiente(null);
+    setDescuentoItems([]);
+    await fetchLotes(empresaId, campanaActiva);
+  };
       if (!ins) continue;
       const nuevaCant = ins.cantidad - item.cantidad_ajustada; // permite stock negativo
       const ppp = ins.precio_ppp || ins.precio_unitario || 0;
