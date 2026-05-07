@@ -520,28 +520,7 @@ export default function IngenieroLotesPage() {
     setLaborPendiente({ ...laborPayload, _fifo_list: fifoList });
     setShowDescuento(true);
   };
-      .select("id,nombre,cantidad,unidad,precio_ppp,precio_unitario,categoria")
-      .eq("empresa_id", empresaId)
-      .gt("cantidad", 0)
-      .order("categoria");
-    const stockList = (ins ?? []) as InsumoStock[];
-    setInsumosStock(stockList);
-    // Parsear descripción para sugerir descuentos
-    const sugeridos = parsearInsumosDeDescripcion(desc, ha);
-    // Si no detectó ninguno, mostrar todos del stock para selección manual
-    if (sugeridos.length === 0) {
-      setDescuentoItems(stockList.map(i => ({
-        insumo_id: i.id, nombre: i.nombre, unidad: i.unidad,
-        cantidad_sugerida: 0, cantidad_ajustada: 0,
-        precio_ppp: i.precio_ppp || i.precio_unitario || 0,
-        costo_total: 0, seleccionado: false,
-      })));
-    } else {
-      setDescuentoItems(sugeridos);
-    }
-    setLaborPendiente(laborPayload);
-    setShowDescuento(true);
-  };
+      
 
  const confirmarDescuento = async () => {
     if (!laborPendiente || !empresaId) return;
