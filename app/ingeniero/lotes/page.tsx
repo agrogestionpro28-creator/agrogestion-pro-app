@@ -528,6 +528,8 @@ export default function IngenieroLotesPage() {
     const fifoList = laborPendiente._fifo_list || [];
     const itemsSeleccionados = descuentoItems.filter(d => d.seleccionado && d.cantidad_ajustada > 0);
     let costoInsumosTotal = 0;
+    console.log("FIFO descuento - items:", JSON.stringify(itemsSeleccionados.map(i=>({id:i.insumo_id,nombre:i.nombre,cant:i.cantidad_ajustada}))));
+    console.log("FIFO list productos:", JSON.stringify([...new Set(fifoList.map((l:any)=>l.producto_id))]));
     for (const item of itemsSeleccionados) {
      const lotesProd = fifoList
         .filter((l: any) => l.producto_id === item.insumo_id && Number(l.cantidad_restante) > 0)
