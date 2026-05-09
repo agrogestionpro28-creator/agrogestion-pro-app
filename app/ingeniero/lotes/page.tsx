@@ -587,7 +587,7 @@ if (u?.nombre) setIngNombre(u.nombre);
           empresa_id: empresaId,
           tipo: "labor",
           titulo: `${tipoEmoji} ${tipoLaborNotif} registrada — ${loteActivo?.nombre}`,
-          mensaje: `${ingenieroNombre} registró una ${tipoLaborNotif.toLowerCase()} en ${loteActivo?.nombre} (${ha} ha).${form.producto_dosis ? " Producto: "+form.producto_dosis+"." : ""}${(costoTotal + (Number(form.costo_aplicador_ha??0)*ha)) > 0 ? " Costo: $"+Math.round(costoTotal + Number(form.costo_aplicador_ha??0)*ha).toLocaleString("es-AR")+"." : ""}`,
+          mensaje: `${ingNombre} registró una ${tipoLaborNotif.toLowerCase()} en ${loteActivo?.nombre} (${ha} ha).${form.producto_dosis ? " Producto: "+form.producto_dosis+"." : ""}${(costoTotal + (Number(form.costo_aplicador_ha??0)*ha)) > 0 ? " Costo: $"+Math.round(costoTotal + Number(form.costo_aplicador_ha??0)*ha).toLocaleString("es-AR")+"." : ""}`,
           url_destino: "/productor/lotes",
           leida: false,
         });
