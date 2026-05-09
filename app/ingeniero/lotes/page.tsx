@@ -580,7 +580,8 @@ export default function IngenieroLotesPage() {
     if (["Aplicación","Fertilización","Siembra"].includes(tipoLaborNotif)) {
       try {
         const tipoEmoji = tipoLaborNotif==="Siembra"?"🌱":tipoLaborNotif==="Fertilización"?"💊":"🌿";
-        await getSB().from("notificaciones").insert({
+        const sbNot = await getSB();
+        await sbNot.from("notificaciones").insert({
           empresa_id: empresaId,
           tipo: "labor",
           titulo: `${tipoEmoji} ${tipoLaborNotif} registrada — ${loteActivo?.nombre}`,
