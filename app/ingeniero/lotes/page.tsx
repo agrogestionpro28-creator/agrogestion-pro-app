@@ -121,6 +121,7 @@ function laborColor(tipo: string): string {
 
 export default function IngenieroLotesPage() {
   const [empresaId, setEmpresaId] = useState("");
+  const [ingNombre, setIngNombre] = useState("");
   const [productorNombre, setProductorNombre] = useState("");
   const [modoCompartido, setModoCompartido] = useState(false);
   const [lotes, setLotes] = useState<Lote[]>([]);
