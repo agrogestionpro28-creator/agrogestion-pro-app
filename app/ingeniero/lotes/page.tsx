@@ -542,7 +542,7 @@ export default function IngenieroLotesPage() {
           tc_usado: 1, monto_usd: laborPendiente.costo_total_usd,
           unidad: loteObj && loteObj.hectareas > 0 ? "ha" : "total",
           origen: "labor",
-        }).catch(() => {});
+      });
       }
     }
 
