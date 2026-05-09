@@ -174,19 +174,30 @@ export default function IngenieroLotesPage() {
     const sb = await getSB();
     const { data: { user } } = await sb.auth.getUser();
     if (!user) { window.location.href = "/login"; return; }
-    const { data: u } = await sb.from("usuarios").select("id,nombre").eq("auth_id", user.id).single();
-if (u?.nombre) setIngNombre(u.nombre);
-    if (!u) return;
-    const { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", u.id).single();
-    if (!emp) { setLoading(false); return; }
-    setEmpresaId(emp.id);
-    const { data: camps } = await sb.from("campanas").select("*").eq("empresa_id", emp.id).order("año_inicio", { ascending: false });
-    const { data: cot } = await sb.from("finanzas_cotizaciones").select("usd_usado").eq("empresa_id", emp.id).order("fecha", { ascending: false }).limit(1);
+    const { data: u } = await sb.from("usuarios").select("id,nombre,rol").eq("auth_id", user.id).single();
+    if (!u) { window.location.href = "/login"; return; }
+    if (u.nombre) setIngNombre(u.nombre);
+    const eid = localStorage.getItem("ing_empresa_id") ?? "";
+    const pnombre = localStorage.getItem("ing_empresa_nombre") ?? "Productor";
+    const compartido = localStorage.getItem("ing_modo_compartido") === "true";
+    if (!eid) { window.location.href = "/ingeniero"; return; }
+    setEmpresaId(eid);
+    setProductorNombre(pnombre);
+    setModoCompartido(compartido);
+    const { data: camps } = await sb.from("campanas").select("*").eq("empresa_id", eid).order("año_inicio", { ascending: false });
+    const { data: cot } = await sb.from("finanzas_cotizaciones").select("usd_usado").eq("empresa_id", eid).order("fecha", { ascending: false }).limit(1);
     setCampanas(camps ?? []);
     if (cot?.[0]) setUsdUsado(cot[0].usd_usado || 1);
-    const activa = (camps ?? []).find((c: any) => c.activa)?.id ?? (camps ?? [])[0]?.id ?? "";
+    let activa = (camps ?? []).find((c: any) => c.activa)?.id ?? (camps ?? [])[0]?.id ?? "";
+    const campGuardada = localStorage.getItem("ing_campana_id");
+    if (campGuardada && (camps ?? []).find((c: any) => c.id === campGuardada)) activa = campGuardada;
+    if (!activa) {
+      const anio = new Date().getFullYear();
+      const { data: nueva } = await sb.from("campanas").insert({ empresa_id: eid, nombre: anio+"/"+(anio+1), año_inicio: anio, año_fin: anio+1, activa: true }).select().single();
+      if (nueva) { activa = nueva.id; setCampanas([nueva]); }
+    }
     setCampanaActiva(activa);
-    if (activa) await fetchLotes(emp.id, activa);
+    if (activa) await fetchLotes(eid, activa);
     setLoading(false);
   };
 
