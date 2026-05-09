@@ -174,7 +174,8 @@ export default function IngenieroLotesPage() {
     const sb = await getSB();
     const { data: { user } } = await sb.auth.getUser();
     if (!user) { window.location.href = "/login"; return; }
-    const { data: u } = await sb.from("usuarios").select("id").eq("auth_id", user.id).single();
+    const { data: u } = await sb.from("usuarios").select("id,nombre").eq("auth_id", user.id).single();
+if (u?.nombre) setIngNombre(u.nombre);
     if (!u) return;
     const { data: emp } = await sb.from("empresas").select("id").eq("propietario_id", u.id).single();
     if (!emp) { setLoading(false); return; }
