@@ -968,7 +968,7 @@ export default function IngenieroLotesPage() {
       {/* ── TOPBAR ── */}
       <div className="topbar-l" style={{position:"sticky",top:0,zIndex:20}}>
         <div style={{display:"flex",alignItems:"center",gap:10,padding:"11px 16px"}}>
-          <button onClick={()=>loteActivo?setLoteActivo(null):window.location.href="/productor/dashboard"}
+          <button onClick={()=>loteActivo?setLoteActivo(null):window.location.href="/ingeniero?s=productores"}
             style={{background:"none",border:"none",cursor:"pointer",color:"#4a6a8a",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:5}}>
             ← {loteActivo?"Volver a lotes":"Dashboard"}
           </button>
