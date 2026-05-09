@@ -354,7 +354,7 @@ export default function IngenieroLotesPage() {
   };
 
   const abrirPanelDescuento = async (laborPayload: any, ha: number, desc: string) => {
-    const sb = getSB();
+   const sb = await getSB();
     // Leer productos e insumos FIFO nuevos
     const [{ data: prods }, { data: fifo }] = await Promise.all([
       sb.from("insumos_productos").select("id,nombre,unidad,categoria").eq("empresa_id", empresaId).eq("activo", true).order("nombre"),
