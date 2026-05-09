@@ -420,7 +420,7 @@ export default function IngenieroLotesPage() {
 
   const confirmarDescuento = async () => {
     if (!laborPendiente || !empresaId) return;
-    const sb = getSB();
+   const sb = await getSB();
     const fifoList: any[] = laborPendiente._fifo_list || [];
     const itemsSeleccionados = descuentoItems.filter(d => d.seleccionado && d.cantidad_ajustada > 0);
     let costoInsumosTotal = 0;
