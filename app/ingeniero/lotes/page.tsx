@@ -527,7 +527,7 @@ export default function IngenieroLotesPage() {
         tc_usado: 1, monto_usd: costoInsumosTotal,
         unidad: loteObj && loteObj.hectareas > 0 ? "ha" : "total",
         origen: "insumo_fifo",
-      }).catch(() => {});
+      });
       // Imputar costo de aplicación al MB (grupo labranzas)
       if ((laborPendiente.costo_total_usd || 0) > 0) {
         await sb.from("mb_carga_items").insert({
