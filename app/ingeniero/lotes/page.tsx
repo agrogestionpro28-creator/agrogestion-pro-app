@@ -1292,6 +1292,7 @@ export default function IngenieroLotesPage() {
                             {costoHa>0&&<div style={{fontSize:11,color:"#eab308"}}>${costoHa}/ha</div>}
                             <div style={{display:"flex",gap:6,marginTop:5,justifyContent:"flex-end"}}>
                               <button onClick={()=>{setEditandoLabor(l.id);setForm({tipo_lab:l.tipo,fecha_lab:l.fecha,descripcion_lab:l.descripcion,producto_dosis:(l as any).producto_dosis||l.descripcion||"",aplicador:(l as any).aplicador||"",superficie_ha:String((l as any).superficie_ha),operario:(l as any).operario||"",costo_aplicacion_ha:String((l as any).costo_aplicacion_ha||""),costo_total_lab:String(l.costo_total||""),comentario:(l as any).comentario||""});setShowFormLabor(true);}} style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:13}}>✏️</button>
+                              <button onClick={()=>anularInsumosDeLabor(l.id, l.fecha)} style={{background:"none",border:"none",cursor:"pointer",color:"#e57373",fontSize:12}} title="Anular descuento insumos">🧪✕</button>
                               <button onClick={()=>eliminarLabor(l.id)} style={{background:"none",border:"none",cursor:"pointer",color:"#aab8c8",fontSize:14}}>✕</button>
                             </div>
                           </div>
