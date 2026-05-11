@@ -67,7 +67,7 @@ export default function ProductorDashboard() {
           ]);
           const totalHa = lotes.data?.reduce((a, l) => a + (l.hectareas ?? 0), 0) ?? 0;
           const totalHacienda = hacienda.data?.reduce((a, h) => a + (h.cantidad ?? 0), 0) ?? 0;
-          setStats({ hectareas: totalHa, stock: 0, hacienda: totalHacienda, alertas: 0, saldo: 0 });
+          setStats(prev => ({ ...prev, hectareas: totalHa, stock: 0, hacienda: totalHacienda, saldo: 0 }));
         }
       }
     };
