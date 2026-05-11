@@ -622,7 +622,27 @@ export default function IngenieroLotesPage() {
     const mb = (existing.ingreso_bruto||0) - cd;
     await sb.from("margen_bruto_detalle").update({ costo_labores: totalLabores, costo_directo_total: cd, margen_bruto: mb, margen_bruto_ha: existing.hectareas>0?mb/existing.hectareas:0, margen_bruto_usd: mb/usdUsado }).eq("id", existing.id);
   };
-
+const anularInsumosDeLabor = async (laborId: string, fecha: string) => {
+    if (!confirm("¿Anular el descuento de insumos de esta labor? Se restaurará el stock FIFO.")) return;
+    const sb = await getSB();
+    const { data: movs } = await sb.from("insumos_movimientos")
+      .select("*").eq("empresa_id", empresaId)
+      .eq("tipo", "uso").eq("fecha", fecha)
+      .contains("lote_ids", [laborId]);
+    for (const mov of (movs || [])) {
+      let detalle = mov.fifo_detalle;
+      if (typeof detalle === "string") { try { detalle = JSON.parse(detalle); } catch { detalle = []; } }
+      for (const d of (detalle || [])) {
+        const { data: lote } = await sb.from("insumos_lotes_fifo").select("cantidad_restante").eq("id", d.lote_id).single();
+        if (lote) await sb.from("insumos_lotes_fifo").update({ cantidad_restante: Number(lote.cantidad_restante) + Number(d.cantidad) }).eq("id", d.lote_id);
+      }
+      await sb.from("insumos_movimientos").delete().eq("id", mov.id);
+    }
+    await sb.from("mb_carga_items").delete()
+      .eq("empresa_id", empresaId).eq("origen", "insumo_fifo").eq("fecha", fecha);
+    msg("✅ Insumos anulados — stock restaurado");
+    await fetchLotes(empresaId, campanaActiva);
+  };
   const eliminarLabor = async (id: string) => {
     if (!confirm("¿Eliminar?")) return;
     const sb = await getSB();
