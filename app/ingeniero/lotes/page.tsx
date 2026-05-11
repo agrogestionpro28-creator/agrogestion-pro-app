@@ -527,7 +527,7 @@ export default function IngenieroLotesPage() {
     }
 
     // Imputar al MB (grupo insumos)
-    if (costoInsumosTotal > 0 && laborPendiente.lote_id) {
+    if (laborPendiente.lote_id) {
       const loteObj = lotes.find((l: any) => l.id === laborPendiente.lote_id);
       await sb.from("mb_carga_items").insert({
         empresa_id: empresaId, campana_id: campanaActiva,
