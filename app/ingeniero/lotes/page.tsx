@@ -520,9 +520,12 @@ export default function IngenieroLotesPage() {
 
     // Actualizar costo en la labor
     if (laborPendiente._labor_id) {
+      const costoAplicador = laborPendiente._costo_aplicador_total || 0;
+      const costoLabor = laborPendiente.costo_total_usd || 0;
+      const costoFinal = costoLabor + costoInsumosTotal;
       await sb.from("lote_labores").update({
         costo_insumos_usd: costoInsumosTotal,
-        costo_total_usd: (laborPendiente.costo_total_usd || 0) + costoInsumosTotal,
+        costo_total_usd: costoFinal,
       }).eq("id", laborPendiente._labor_id);
     }
 
