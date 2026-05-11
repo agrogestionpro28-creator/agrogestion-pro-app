@@ -322,38 +322,80 @@ export default function IngenieroLotesPage() {
 
   const abrirPanelDescuento = async (laborPayload: any, ha: number, desc: string) => {
     const sb = await getSB();
-    // Traer TODOS los insumos, incluso con cantidad <= 0
-    const { data: ins } = await sb.from("stock_insumos").select("id,nombre,cantidad,unidad,precio_ppp,precio_unitario,categoria").eq("empresa_id", empresaId).order("categoria");
-    const stockList = (ins ?? []) as InsumoStock[];
-    setInsumosStock(stockList);
-    const sugeridos = parsearInsumosDeDescripcion(desc, ha);
+    const [{ data: prods }, { data: fifo }] = await Promise.all([
+      sb.from("insumos_productos").select("id,nombre,unidad,categoria").eq("empresa_id", empresaId).eq("activo", true).order("nombre"),
+      sb.from("insumos_lotes_fifo").select("*").eq("empresa_id", empresaId).order("fecha_compra", { ascending: true }),
+    ]);
+    const prodsList = (prods ?? []) as any[];
+    const fifoList  = (fifo  ?? []) as any[];
+    const calcPpp = (pid: string) => {
+      const ls = fifoList.filter((l: any) => l.producto_id === pid && Number(l.cantidad_restante) > 0 && Number(l.precio_usd) > 0);
+      const tot = ls.reduce((a: number, l: any) => a + Number(l.cantidad_restante), 0);
+      return tot > 0 ? ls.reduce((a: number, l: any) => a + Number(l.cantidad_restante) * Number(l.precio_usd), 0) / tot : 0;
+    };
+    const calcStock = (pid: string) => fifoList.filter((l: any) => l.producto_id === pid).reduce((a: number, l: any) => a + Number(l.cantidad_restante), 0);
+    const stockList = prodsList.map((p: any) => ({
+      id: p.id, nombre: p.nombre, unidad: p.unidad, categoria: p.categoria,
+      cantidad: calcStock(p.id), precio_ppp: calcPpp(p.id), precio_unitario: 0,
+    }));
+    setInsumosStock(stockList as InsumoStock[]);
+    const CANT_RE = /([0-9]+[,.]?[0-9]*)\s*(litros?|lts?|lt|cc|ml|kg|grs?|gr|g|l)(?=[\s\/+\-,]|$)/gi;
+    const segmentos = desc.split(/\s*\+\s*/);
+    const segsParseados: Array<{palabras:string[];cantHa:number}> = [];
+    for (const seg of segmentos) {
+      const s = seg.trim(); if (!s) continue;
+      CANT_RE.lastIndex = 0;
+      const m = CANT_RE.exec(s); if (!m) continue;
+      const cantHa = parseFloat(m[1].replace(",","."));
+      const nombreSeg = s.replace(/[0-9]+[,.]?[0-9]*\s*(litros?|lts?|lt|cc|ml|kg|grs?|gr|g|l)\s*(\/ha)?/gi,"").trim();
+      const palabras = nombreSeg.toLowerCase().split(/[\s,]+/).filter((p:string)=>p.length>=2);
+      segsParseados.push({ palabras, cantHa });
+    }
+    const sugeridos: DescuentoItem[] = [];
+    const usados = new Set<number>();
+    for (const ins of stockList) {
+      const insNorm = ins.nombre.toLowerCase().replace(/[^a-z]/g," ");
+      const insPals = insNorm.split(/\s+/).filter((p:string)=>p.length>=3);
+      if (!insPals.length) continue;
+      let bestIdx = -1, bestScore = 0;
+      for (let i = 0; i < segsParseados.length; i++) {
+        if (usados.has(i)) continue;
+        const seg = segsParseados[i];
+        let score = 0;
+        for (const ip of insPals) if (ip.length>=4&&seg.palabras.some((sp:string)=>sp.includes(ip)||ip.includes(sp))) score+=2;
+        for (const sp of seg.palabras) if (sp.length>=4&&insNorm.includes(sp)) score+=2;
+        if (score > bestScore) { bestScore = score; bestIdx = i; }
+      }
+      if (bestIdx < 0 || bestScore === 0) continue;
+      usados.add(bestIdx);
+      const cantTotal = Math.round(segsParseados[bestIdx].cantHa * ha * 100) / 100;
+      sugeridos.push({ insumo_id: ins.id, nombre: ins.nombre, unidad: ins.unidad, cantidad_sugerida: cantTotal, cantidad_ajustada: cantTotal, precio_ppp: ins.precio_ppp, costo_total: Math.round(cantTotal * ins.precio_ppp * 100)/100, seleccionado: true });
+    }
     if (sugeridos.length === 0) {
-      setDescuentoItems(stockList.map(i => ({ insumo_id: i.id, nombre: i.nombre, unidad: i.unidad, cantidad_sugerida: 0, cantidad_ajustada: 0, precio_ppp: i.precio_ppp || i.precio_unitario || 0, costo_total: 0, seleccionado: false })));
+      setDescuentoItems(stockList.map((i:any) => ({ insumo_id: i.id, nombre: i.nombre, unidad: i.unidad, cantidad_sugerida: 0, cantidad_ajustada: 0, precio_ppp: i.precio_ppp, costo_total: 0, seleccionado: false })));
     } else {
       setDescuentoItems(sugeridos);
     }
-    // Detectar productos mencionados que NO están en stock
-    const segDesc = desc.split(/\s*\+\s*/);
     const noEnc: {nombre:string;cantidad:number;unidad:string;categoria:string}[] = [];
-    for (const seg of segDesc) {
+    for (const seg of segmentos) {
       const s = seg.trim(); if (!s) continue;
       const mCant = /([0-9]+[,.]?[0-9]*)\s*(litros?|lts?|lt|cc|ml|kg|grs?|gr|g|l)(?=[\s\/+\-,]|$)/i.exec(s);
       if (!mCant) continue;
       const cantHa = parseFloat(mCant[1].replace(",","."));
       const nombreSeg = s.replace(/[0-9]+[,.]?[0-9]*\s*(litros?|lts?|lt|cc|ml|kg|grs?|gr|g|l)\s*(\/ha)?/gi,"").trim();
       if (!nombreSeg || nombreSeg.length < 3) continue;
-      const yaEnStock = stockList.some(i => {
-        const n = i.nombre.toLowerCase().replace(/[^a-z0-9]/g," ");
-        return nombreSeg.toLowerCase().split(/[\s,]+/).filter((p:string)=>p.length>=3).some((p:string) => n.includes(p));
+      const yaEnProd = prodsList.some((p: any) => {
+        const n = p.nombre.toLowerCase().replace(/[^a-z]/g," ");
+        return nombreSeg.toLowerCase().split(/[\s,]+/).filter((x:string)=>x.length>=3).some((x:string)=>n.includes(x)||x.includes(n.split(" ")[0]));
       });
-      if (!yaEnStock) {
-        const unidad = mCant[2].toLowerCase().startsWith("kg")||mCant[2].toLowerCase()==="g" ? "kg" : "litros";
-        const cat = /urea|sulfato|map|dap|fertil|fosfat|nitro/i.test(nombreSeg) ? "fertilizante" : "agroquimico";
+      if (!yaEnProd) {
+        const unidad = /kg|g\b/i.test(mCant[2]) ? "kg" : "lt";
+        const cat = /urea|sulfato|map|dap|fertil|fosfat|nitro/i.test(nombreSeg) ? "fertilizante" : "herbicida";
         noEnc.push({ nombre: nombreSeg.toUpperCase(), cantidad: Math.round(cantHa * ha * 100)/100, unidad, categoria: cat });
       }
     }
     setInsumosNoEncontrados(noEnc);
-    setLaborPendiente(laborPayload);
+    setLaborPendiente({ ...laborPayload, _fifo_list: fifoList });
     setShowDescuento(true);
   };
 
