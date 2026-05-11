@@ -402,92 +402,115 @@ export default function IngenieroLotesPage() {
   const confirmarDescuento = async () => {
     if (!laborPendiente || !empresaId) return;
     const sb = await getSB();
+    const fifoList: any[] = laborPendiente._fifo_list || [];
     const itemsSeleccionados = descuentoItems.filter(d => d.seleccionado && d.cantidad_ajustada > 0);
-    let costoAgroTotal = 0;
-    let costoFertiTotal = 0;
-
-    // Crear insumos negativos para productos no encontrados en stock
+    let costoInsumosTotal = 0;
+    for (const item of itemsSeleccionados) {
+      const lotesProd = fifoList
+        .filter((l: any) => l.producto_id === item.insumo_id && Number(l.cantidad_restante) > 0)
+        .sort((a: any, b: any) => a.fecha_compra.localeCompare(b.fecha_compra));
+      let restante = item.cantidad_ajustada;
+      let costoItem = 0;
+      const fifoDetalle: any[] = [];
+      for (const lote of lotesProd) {
+        if (restante <= 0) break;
+        const usar = Math.min(restante, Number(lote.cantidad_restante));
+        const pUsd = Number(lote.precio_usd || 0);
+        costoItem += usar * pUsd;
+        fifoDetalle.push({ lote_id: lote.id, cantidad: usar, precio_usd: pUsd });
+        await sb.from("insumos_lotes_fifo").update({ cantidad_restante: Number(lote.cantidad_restante) - usar }).eq("id", lote.id);
+        restante -= usar;
+      }
+      if (restante > 0) {
+        await sb.from("insumos_lotes_fifo").insert({
+          empresa_id: empresaId, producto_id: item.insumo_id,
+          fecha_compra: laborPendiente.fecha || new Date().toISOString().split("T")[0],
+          cantidad_original: -restante, cantidad_restante: -restante,
+          precio_unitario: 0, moneda: "ARS", tc_usado: 1, precio_usd: 0,
+          observaciones: "Stock negativo — uso sin compra registrada",
+        });
+      }
+      costoInsumosTotal += costoItem;
+      await sb.from("insumos_movimientos").insert({
+        empresa_id: empresaId, producto_id: item.insumo_id,
+        fecha: laborPendiente.fecha || new Date().toISOString().split("T")[0],
+        tipo: "uso", cantidad: item.cantidad_ajustada,
+        precio_usd: item.cantidad_ajustada > 0 ? costoItem / item.cantidad_ajustada : 0,
+        costo_total_usd: costoItem,
+        lote_ids: [laborPendiente.lote_id],
+        fifo_detalle: JSON.stringify(fifoDetalle),
+        observaciones: `Labor: ${laborPendiente.tipo} — ${laborPendiente.descripcion || ""}`,
+        origen: "productor",
+      });
+    }
     for (const noEnc of insumosNoEncontrados) {
-      const { data: nuevo } = await sb.from("stock_insumos").insert({
-        empresa_id: empresaId, nombre: noEnc.nombre, categoria: noEnc.categoria,
-        subcategoria: noEnc.categoria === "fertilizante" ? "Fertilizante" : "Herbicida",
-        cantidad: -noEnc.cantidad, unidad: noEnc.unidad,
-        precio_unitario: 0, precio_ppp: 0, costo_total_stock: 0,
-        ubicacion: "", tipo_ubicacion: "deposito_propio"
-      }).select().single();
-      if (nuevo) {
-        await sb.from("stock_insumos_movimientos").insert({
-          empresa_id: empresaId, insumo_id: nuevo.id,
+      let { data: prod } = await sb.from("insumos_productos").select("id").eq("empresa_id", empresaId).ilike("nombre", noEnc.nombre).single();
+      if (!prod) {
+        const { data: nuevo } = await sb.from("insumos_productos").insert({
+          empresa_id: empresaId, nombre: noEnc.nombre,
+          categoria: noEnc.categoria, unidad: noEnc.unidad, activo: true,
+        }).select().single();
+        prod = nuevo;
+      }
+      if (prod) {
+        await sb.from("insumos_lotes_fifo").insert({
+          empresa_id: empresaId, producto_id: prod.id,
+          fecha_compra: laborPendiente.fecha || new Date().toISOString().split("T")[0],
+          cantidad_original: -noEnc.cantidad, cantidad_restante: -noEnc.cantidad,
+          precio_unitario: 0, moneda: "ARS", tc_usado: 1, precio_usd: 0,
+          observaciones: "Stock negativo — creado automáticamente por labor",
+        });
+        await sb.from("insumos_movimientos").insert({
+          empresa_id: empresaId, producto_id: prod.id,
           fecha: laborPendiente.fecha || new Date().toISOString().split("T")[0],
-          tipo: "uso", cantidad: noEnc.cantidad, precio_unitario: 0, precio_ppp: 0,
-          lote_id: laborPendiente.lote_id,
-          descripcion: `Uso en labor (stock negativo - ajustar precio): ${laborPendiente.descripcion || ""}`,
-          metodo: "productor"
+          tipo: "uso", cantidad: noEnc.cantidad, precio_usd: 0, costo_total_usd: 0,
+          lote_ids: [laborPendiente.lote_id],
+          observaciones: `Stock negativo: ${laborPendiente.tipo} — ${laborPendiente.descripcion || ""}`,
+          origen: "productor",
         });
       }
     }
-
-    // Descontar insumos con IVA
-    for (const item of itemsSeleccionados) {
-      const ins = insumosStock.find(i => i.id === item.insumo_id);
-      if (!ins) continue;
-      const nuevaCant = ins.cantidad - item.cantidad_ajustada;
-      const ppp = ins.precio_ppp || ins.precio_unitario || 0;
-      const costoBase = item.cantidad_ajustada * ppp;
-      const iva = ins.categoria === "fertilizante" ? 0.105 : 0.21;
-      const costoConIva = costoBase * (1 + iva);
-      if (ins.categoria === "fertilizante") costoFertiTotal += costoConIva;
-      else costoAgroTotal += costoConIva;
-      await sb.from("stock_insumos").update({ cantidad: nuevaCant, costo_total_stock: nuevaCant * ppp }).eq("id", item.insumo_id);
-      await sb.from("stock_insumos_movimientos").insert({
-        empresa_id: empresaId, insumo_id: item.insumo_id,
-        fecha: laborPendiente.fecha || new Date().toISOString().split("T")[0],
-        tipo: "uso", cantidad: item.cantidad_ajustada, precio_unitario: 0, precio_ppp: ppp,
-        lote_id: laborPendiente.lote_id,
-        descripcion: `Uso: ${item.cantidad_ajustada} ${item.unidad} @ PPP $${ppp.toFixed(2)} + IVA ${ins.categoria === "fertilizante" ? "10.5" : "21"}% = U$S ${costoConIva.toFixed(2)}`,
-        metodo: "productor"
-      });
-    }
-
-    const costoInsumosTotal = costoAgroTotal + costoFertiTotal;
-    const costoAplicador = laborPendiente._costo_aplicador_total || 0;
-
     if (laborPendiente._labor_id) {
-      await sb.from("lote_labores").update({
-        costo_insumos_usd: costoInsumosTotal,
-        costo_total_usd: (laborPendiente.costo_total_usd || 0) + costoInsumosTotal
-      }).eq("id", laborPendiente._labor_id);
+      const costoFinal = (laborPendiente.costo_total_usd || 0) + costoInsumosTotal;
+      await sb.from("lote_labores").update({ costo_insumos_usd: costoInsumosTotal, costo_total_usd: costoFinal }).eq("id", laborPendiente._labor_id);
     }
-
-    // Imputar al Margen Bruto
-    if (loteActivo && (costoAgroTotal > 0 || costoFertiTotal > 0 || costoAplicador > 0)) {
-      const existing = margenes.find(m => m.lote_id === loteActivo.id);
-      if (existing) {
-        const nuevoAgro = (existing.costo_agroquimicos || 0) + costoAgroTotal;
-        const nuevoFerti = (existing.costo_fertilizante || 0) + costoFertiTotal;
-        const labsLote = labores.filter(l => l.lote_id === loteActivo.id);
-        const totalLabores = labsLote.reduce((a, l) => a + (l.costo_total || 0), 0) + costoAplicador;
-        const cd = (existing.costo_semilla || 0) + nuevoFerti + nuevoAgro + totalLabores + (existing.costo_alquiler || 0) + (existing.costo_flete || 0) + (existing.costo_comercializacion || 0) + (existing.otros_costos || 0);
-        const mb = (existing.ingreso_bruto || 0) - cd;
-        await sb.from("margen_bruto_detalle").update({
-          costo_agroquimicos: nuevoAgro, costo_fertilizante: nuevoFerti,
-          costo_labores: totalLabores, costo_directo_total: cd,
-          margen_bruto: mb, margen_bruto_ha: existing.hectareas > 0 ? mb / existing.hectareas : 0,
-          margen_bruto_usd: mb / usdUsado
-        }).eq("id", existing.id);
+    if (laborPendiente.lote_id) {
+      const loteObj = lotes.find((l: any) => l.id === laborPendiente.lote_id);
+      await sb.from("mb_carga_items").insert({
+        empresa_id: empresaId, campana_id: campanaActiva,
+        lote_ids: [laborPendiente.lote_id],
+        grupo: "insumos", subgrupo: "INSUMOS", concepto: "INSUMOS",
+        articulo: itemsSeleccionados.map((i: any) => i.nombre).join(", "),
+        descripcion: `${laborPendiente.tipo}: ${laborPendiente.descripcion || ""}`,
+        fecha: laborPendiente.fecha || new Date().toISOString().split("T")[0],
+        moneda: "USD", monto_original: costoInsumosTotal,
+        tc_usado: 1, monto_usd: costoInsumosTotal,
+        unidad: loteObj && loteObj.hectareas > 0 ? "ha" : "total",
+        origen: "insumo_fifo",
+      });
+      if ((laborPendiente.costo_total_usd || 0) > 0) {
+        await sb.from("mb_carga_items").insert({
+          empresa_id: empresaId, campana_id: campanaActiva,
+          lote_ids: [laborPendiente.lote_id],
+          grupo: "labranzas", subgrupo: laborPendiente.tipo || "APLICACIÓN",
+          concepto: laborPendiente.tipo || "APLICACIÓN",
+          articulo: laborPendiente.tipo_aplicacion || "",
+          descripcion: laborPendiente.descripcion || "",
+          fecha: laborPendiente.fecha || new Date().toISOString().split("T")[0],
+          moneda: "USD", monto_original: laborPendiente.costo_total_usd,
+          tc_usado: 1, monto_usd: laborPendiente.costo_total_usd,
+          unidad: loteObj && loteObj.hectareas > 0 ? "ha" : "total",
+          origen: "labor",
+        });
       }
     }
-
     const partes = [];
-    if (itemsSeleccionados.length > 0) partes.push(`${itemsSeleccionados.length} insumos → U$S ${costoInsumosTotal.toFixed(2)} (c/IVA)`);
-    if (insumosNoEncontrados.length > 0) partes.push(`${insumosNoEncontrados.length} en negativo`);
-    if (costoAplicador > 0) partes.push(`Aplicador U$S ${costoAplicador.toFixed(0)}`);
-    msg("✅ " + (partes.join(" · ") || "Sin cambios"));
-
+    if (itemsSeleccionados.length > 0) partes.push(`${itemsSeleccionados.length} insumos · U$S ${costoInsumosTotal.toFixed(2)}`);
+    if (insumosNoEncontrados.length > 0) partes.push(`${insumosNoEncontrados.length} en stock negativo`);
+    msg("✅ " + (partes.join(" · ") || "Sin cambios en stock"));
     setShowDescuento(false); setLaborPendiente(null); setDescuentoItems([]); setInsumosNoEncontrados([]);
     await fetchLotes(empresaId, campanaActiva);
   };
-
   const guardarLabor = async () => {
     if (!loteActivo || !empresaId) return;
     const sb = await getSB();
