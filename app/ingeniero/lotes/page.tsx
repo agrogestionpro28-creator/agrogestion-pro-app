@@ -519,7 +519,7 @@ export default function IngenieroLotesPage() {
     }
 
     // Actualizar costo en la labor
-    if (costoInsumosTotal > 0 && laborPendiente._labor_id) {
+    if (laborPendiente._labor_id) {
       await sb.from("lote_labores").update({
         costo_insumos_usd: costoInsumosTotal,
         costo_total_usd: (laborPendiente.costo_total_usd || 0) + costoInsumosTotal,
