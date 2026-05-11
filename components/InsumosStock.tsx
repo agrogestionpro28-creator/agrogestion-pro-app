@@ -1,6 +1,5 @@
 // ══════════════════════════════════════════════
-// INSUMOS STOCK — Vista con FIFO
-// Los movimientos se cargan desde Centro de Gestión
+// INSUMOS STOCK — Vista con FIFO + Lápiz anular/editar
 // ══════════════════════════════════════════════
 "use client";
 // @ts-nocheck
@@ -50,6 +49,10 @@ export function InsumosStock({ empresaId, getSB, mostrarMsg }:Props) {
   const [prodActivo, setProdActivo]   = useState<string|null>(null);
   const [catFiltro, setCatFiltro]     = useState<string>("todos");
   const [showLotesFifo, setShowLotesFifo] = useState(false);
+  // Editar movimiento
+  const [editMov, setEditMov]         = useState<Movimiento|null>(null);
+  const [editForm, setEditForm]       = useState<Record<string,string>>({});
+  const [guardandoEdit, setGuardandoEdit] = useState(false);
 
   useEffect(()=>{ if(empresaId) fetchAll(); },[empresaId]);
 
@@ -72,19 +75,100 @@ export function InsumosStock({ empresaId, getSB, mostrarMsg }:Props) {
     setLoading(false);
   };
 
+  // ── ANULAR movimiento de uso ──
+  const anularMovimiento = async (mov:Movimiento) => {
+    if(!confirm(`¿Anular este uso de ${Math.abs(mov.cantidad).toFixed(2)} unidades? Se restaurará el stock FIFO.`)) return;
+    const sb = await getSB();
+    // Restaurar cantidad_restante en lotes FIFO afectados
+    if(mov.fifo_detalle) {
+      let detalle = mov.fifo_detalle;
+      if(typeof detalle==="string") { try { detalle=JSON.parse(detalle); } catch { detalle=[]; } }
+      for(const d of (detalle||[])) {
+        const { data:lote } = await sb.from("insumos_lotes_fifo").select("cantidad_restante").eq("id",d.lote_id).single();
+        if(lote) {
+          await sb.from("insumos_lotes_fifo").update({
+            cantidad_restante: Number(lote.cantidad_restante) + Number(d.cantidad)
+          }).eq("id",d.lote_id);
+        }
+      }
+    } else {
+      // Sin detalle FIFO: restaurar en el lote más reciente del producto
+      const lotesProd = lotesFifo
+        .filter(l=>l.producto_id===mov.producto_id)
+        .sort((a,b)=>b.fecha_compra.localeCompare(a.fecha_compra));
+      if(lotesProd.length>0) {
+        const lote = lotesProd[0];
+        await sb.from("insumos_lotes_fifo").update({
+          cantidad_restante: Number(lote.cantidad_restante) + Number(mov.cantidad)
+        }).eq("id",lote.id);
+      }
+    }
+    // Eliminar movimiento
+    await sb.from("insumos_movimientos").delete().eq("id",mov.id);
+    // Eliminar de mb_carga_items si existe
+    await sb.from("mb_carga_items").delete()
+      .eq("empresa_id",empresaId)
+      .eq("origen","insumo_fifo")
+      .filter("lote_ids","cs",`{${(mov.lote_ids||[]).join(",")}}`)
+      .gte("fecha",mov.fecha).lte("fecha",mov.fecha);
+    mostrarMsg("✅ Movimiento anulado — stock restaurado");
+    await fetchAll();
+    setEditMov(null);
+  };
+
+  // ── EDITAR movimiento: solo precio y observaciones ──
+  const abrirEditar = (mov:Movimiento) => {
+    setEditMov(mov);
+    setEditForm({
+      precio_usd: mov.precio_usd>0 ? mov.precio_usd.toFixed(3) : "",
+      cantidad: Math.abs(mov.cantidad).toFixed(2),
+      observaciones: mov.observaciones||"",
+    });
+  };
+
+  const guardarEdicion = async () => {
+    if(!editMov) return;
+    setGuardandoEdit(true);
+    const sb = await getSB();
+    const nuevoPrecio = Number(editForm.precio_usd||0);
+    const nuevaCant   = Number(editForm.cantidad||Math.abs(editMov.cantidad));
+    const nuevoCosto  = nuevoPrecio * nuevaCant;
+    await sb.from("insumos_movimientos").update({
+      precio_usd: nuevoPrecio,
+      cantidad: editMov.tipo==="uso" ? nuevaCant : nuevaCant,
+      costo_total_usd: nuevoCosto,
+      observaciones: editForm.observaciones||"",
+    }).eq("id",editMov.id);
+    // Actualizar precio en lote FIFO negativo si corresponde
+    if(nuevoPrecio>0) {
+      const negativos = lotesFifo.filter(l=>l.producto_id===editMov.producto_id&&l.cantidad_restante<0&&l.precio_usd===0);
+      for(const neg of negativos) {
+        await sb.from("insumos_lotes_fifo").update({ precio_usd: nuevoPrecio }).eq("id",neg.id);
+      }
+    }
+    // Actualizar mb_carga_items
+    if(nuevoCosto>0) {
+      await sb.from("mb_carga_items").update({ monto_usd: nuevoCosto, monto_original: nuevoCosto })
+        .eq("empresa_id",empresaId)
+        .eq("origen","insumo_fifo")
+        .gte("fecha",editMov.fecha).lte("fecha",editMov.fecha);
+    }
+    mostrarMsg(`✅ Movimiento actualizado — U$S ${nuevoCosto.toFixed(2)}`);
+    setGuardandoEdit(false);
+    setEditMov(null);
+    await fetchAll();
+  };
+
   // Stock por producto
   const stockProducto = (prodId:string) => {
     const fifo = lotesFifo.filter(l=>l.producto_id===prodId);
     const totalComprado = fifo.filter(l=>l.cantidad_original>0).reduce((a,l)=>a+l.cantidad_original,0);
     const stockActual   = fifo.reduce((a,l)=>a+l.cantidad_restante,0);
     const enNegativo    = fifo.filter(l=>l.cantidad_restante<0).reduce((a,l)=>a+l.cantidad_restante,0);
-    // PPP de lotes con precio > 0 y cantidad > 0
     const lotesConPrecio = fifo.filter(l=>l.cantidad_restante>0&&l.precio_usd>0);
     const totLit = lotesConPrecio.reduce((a,l)=>a+l.cantidad_restante,0);
     const ppp = totLit>0 ? lotesConPrecio.reduce((a,l)=>a+l.cantidad_restante*l.precio_usd,0)/totLit : 0;
-    // Costo total
     const costoUsd = stockActual>0 ? stockActual*ppp : 0;
-    // Movimientos del producto
     const movsProd = movimientos.filter(m=>m.producto_id===prodId);
     const totalUsado  = movsProd.filter(m=>m.tipo==="uso").reduce((a,m)=>a+m.cantidad,0);
     const totalCostoUsd = movsProd.filter(m=>m.tipo==="uso").reduce((a,m)=>a+m.costo_total_usd,0);
@@ -127,6 +211,88 @@ export function InsumosStock({ empresaId, getSB, mostrarMsg }:Props) {
     </div>
   );
 
+  // ══ MODAL EDITAR MOVIMIENTO ══
+  if(editMov) {
+    const prod = productos.find(p=>p.id===editMov.producto_id);
+    const lotesNom = editMov.lote_ids?.map((lid:string)=>lotes.find(l=>l.id===lid)?.nombre||"?").join(", ")||"";
+    return(
+      <div className="fade-in">
+        <div className="card" style={{padding:16,maxWidth:520}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:800,color:"#0d2137"}}>✏️ Editar Movimiento</div>
+              <div style={{fontSize:11,color:"#6b8aaa",marginTop:2}}>{prod?.nombre} · {editMov.fecha} · {editMov.tipo}</div>
+            </div>
+            <button onClick={()=>setEditMov(null)} style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:20}}>✕</button>
+          </div>
+
+          {/* Info no editable */}
+          <div style={{padding:"8px 12px",borderRadius:9,background:"rgba(240,248,255,0.60)",border:"1px solid rgba(180,210,240,0.40)",marginBottom:12,fontSize:11}}>
+            <div style={{color:"#4a6a8a"}}>Tipo: <strong>{editMov.tipo}</strong> · Cantidad: <strong>{Math.abs(editMov.cantidad).toFixed(2)} {prod?.unidad}</strong></div>
+            {lotesNom&&<div style={{color:"#4a6a8a",marginTop:2}}>Lotes: {lotesNom}</div>}
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+            <div>
+              <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",marginBottom:4}}>
+                Precio U$S/{prod?.unidad}
+              </label>
+              <input type="number" step="0.001" value={editForm.precio_usd||""} onChange={e=>setEditForm({...editForm,precio_usd:e.target.value})}
+                style={{width:"100%",background:"rgba(255,255,255,0.75)",border:"1px solid rgba(180,210,240,0.55)",borderRadius:9,padding:"8px 12px",fontSize:13,color:"#0d2137",outline:"none"}}
+                placeholder="0.000"/>
+            </div>
+            <div>
+              <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",marginBottom:4}}>
+                Cantidad {prod?.unidad}
+              </label>
+              <input type="number" step="0.01" value={editForm.cantidad||""} onChange={e=>setEditForm({...editForm,cantidad:e.target.value})}
+                style={{width:"100%",background:"rgba(255,255,255,0.75)",border:"1px solid rgba(180,210,240,0.55)",borderRadius:9,padding:"8px 12px",fontSize:13,color:"#0d2137",outline:"none"}}/>
+            </div>
+            <div style={{gridColumn:"1/-1"}}>
+              <label style={{display:"block",fontSize:10,fontWeight:700,color:"#6b8aaa",textTransform:"uppercase",marginBottom:4}}>Observaciones</label>
+              <input type="text" value={editForm.observaciones||""} onChange={e=>setEditForm({...editForm,observaciones:e.target.value})}
+                style={{width:"100%",background:"rgba(255,255,255,0.75)",border:"1px solid rgba(180,210,240,0.55)",borderRadius:9,padding:"8px 12px",fontSize:13,color:"#0d2137",outline:"none"}}
+                placeholder="Corrección, detalle..."/>
+            </div>
+          </div>
+
+          {/* Preview costo */}
+          {Number(editForm.precio_usd||0)>0&&Number(editForm.cantidad||0)>0&&(
+            <div style={{marginBottom:12,padding:"8px 12px",borderRadius:9,background:"rgba(22,163,74,0.07)",border:"1px solid rgba(22,163,74,0.20)",fontSize:12}}>
+              <span style={{color:"#4a6a8a"}}>Costo total: </span>
+              <strong style={{color:"#16a34a"}}>U$S {(Number(editForm.precio_usd)*Number(editForm.cantidad)).toFixed(2)}</strong>
+              {editMov.costo_total_usd>0&&<span style={{color:"#aab8c8",marginLeft:8}}>
+                (antes: U$S {editMov.costo_total_usd.toFixed(2)})
+              </span>}
+            </div>
+          )}
+
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={guardarEdicion} disabled={guardandoEdit}
+              style={{flex:1,padding:"10px",borderRadius:11,backgroundImage:"url('/AZUL.png')",backgroundSize:"cover",
+                border:"1.5px solid rgba(100,180,255,0.50)",color:"white",fontWeight:800,fontSize:13,cursor:"pointer",
+                boxShadow:"0 3px 12px rgba(25,118,210,0.35)"}}>
+              {guardandoEdit?"Guardando...":"✓ Guardar cambios"}
+            </button>
+            <button onClick={()=>anularMovimiento(editMov)}
+              style={{padding:"10px 16px",borderRadius:11,background:"rgba(220,38,38,0.08)",border:"1.5px solid rgba(220,38,38,0.25)",
+                color:"#dc2626",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+              🗑 Anular uso
+            </button>
+            <button onClick={()=>setEditMov(null)}
+              style={{padding:"10px 14px",borderRadius:11,background:"rgba(255,255,255,0.70)",border:"1.5px solid rgba(255,255,255,0.90)",
+                color:"#4a6a8a",fontWeight:600,fontSize:12,cursor:"pointer"}}>
+              Cancelar
+            </button>
+          </div>
+          <p style={{fontSize:10,color:"#aab8c8",marginTop:8,textAlign:"center"}}>
+            "Anular uso" restaura el stock FIFO y elimina el costo del Margen Bruto
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // ══ DETALLE PRODUCTO ══
   if(prodActivo&&prodActivoData&&stockActivoData) {
     const color = CAT_COLORS[prodActivoData.categoria]??"#6b7280";
@@ -140,7 +306,7 @@ export function InsumosStock({ empresaId, getSB, mostrarMsg }:Props) {
               <span style={{fontSize:24}}>{icon}</span>
               <div>
                 <div style={{fontSize:16,fontWeight:800,color:"#0d2137"}}>{prodActivoData.nombre}</div>
-                <div style={{fontSize:11,color:color,fontWeight:700,textTransform:"uppercase"}}>{prodActivoData.categoria} · {prodActivoData.unidad}</div>
+                <div style={{fontSize:11,color,fontWeight:700,textTransform:"uppercase"}}>{prodActivoData.categoria} · {prodActivoData.unidad}</div>
               </div>
             </div>
             <div style={{display:"flex",gap:6}}>
@@ -223,7 +389,7 @@ export function InsumosStock({ empresaId, getSB, mostrarMsg }:Props) {
           </div>
         )}
 
-        {/* Historial movimientos */}
+        {/* Historial movimientos CON LÁPIZ */}
         <div style={{fontSize:11,fontWeight:800,color:"#0d2137",textTransform:"uppercase",letterSpacing:0.8,marginBottom:8}}>📋 Historial de Movimientos</div>
         <div className="card" style={{padding:0,overflow:"hidden"}}>
           {movsActivos.length===0
@@ -231,7 +397,7 @@ export function InsumosStock({ empresaId, getSB, mostrarMsg }:Props) {
             :<div style={{overflowX:"auto"}}>
               <table style={{width:"100%",fontSize:11,borderCollapse:"collapse",minWidth:600}}>
                 <thead><tr style={{borderBottom:"1px solid rgba(0,60,140,0.08)"}}>
-                  {["Fecha","Tipo","Cantidad","Precio U$S","Costo total","Cultivo","Lotes","Obs."].map(h=>(
+                  {["Fecha","Tipo","Cantidad","Precio U$S","Costo total","Cultivo","Lotes","Obs.",""].map(h=>(
                     <th key={h} style={{textAlign:"left",padding:"7px 12px",fontSize:9,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
                   ))}
                 </tr></thead>
@@ -254,6 +420,13 @@ export function InsumosStock({ empresaId, getSB, mostrarMsg }:Props) {
                       <td style={{padding:"7px 12px",color:"#16a34a",fontSize:10}}>{m.cultivo||"—"}</td>
                       <td style={{padding:"7px 12px",color:"#4a6a8a",fontSize:10,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{lotesNom||"—"}</td>
                       <td style={{padding:"7px 12px",color:"#aab8c8",fontSize:10,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.observaciones||"—"}</td>
+                      <td style={{padding:"7px 12px"}}>
+                        <button onClick={()=>abrirEditar(m)}
+                          style={{background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#6b8aaa",padding:"2px 4px"}}
+                          title="Editar / Anular">
+                          ✏️
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}</tbody>
@@ -266,7 +439,6 @@ export function InsumosStock({ empresaId, getSB, mostrarMsg }:Props) {
   }
 
   // ══ VISTA PRINCIPAL ══
-  // KPIs generales
   const totalProductos = productos.length;
   const prodConStock   = productos.filter(p=>stockProducto(p.id).stockActual>0).length;
   const prodNegativos  = productos.filter(p=>stockProducto(p.id).stockActual<0).length;
@@ -274,11 +446,11 @@ export function InsumosStock({ empresaId, getSB, mostrarMsg }:Props) {
 
   return(
     <div className="fade-in">
-      {/* Banner Centro de Gestión */}
+      {/* Banner */}
       <div style={{padding:"10px 16px",borderRadius:10,background:"rgba(22,163,74,0.07)",border:"1px solid rgba(22,163,74,0.20)",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
         <div>
           <div style={{fontSize:12,fontWeight:700,color:"#16a34a"}}>⚙ Compras y usos se cargan desde Centro de Gestión → Insumos</div>
-          <div style={{fontSize:10,color:"#6b8aaa",marginTop:1}}>El stock se actualiza automáticamente con lógica FIFO (primero entrado, primero salido)</div>
+          <div style={{fontSize:10,color:"#6b8aaa",marginTop:1}}>El stock se actualiza automáticamente con lógica FIFO</div>
         </div>
         <button onClick={()=>window.location.href="/productor/otros"}
           style={{padding:"6px 14px",borderRadius:9,background:"rgba(22,163,74,0.10)",border:"1px solid rgba(22,163,74,0.30)",color:"#16a34a",fontWeight:700,fontSize:11,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
@@ -289,12 +461,12 @@ export function InsumosStock({ empresaId, getSB, mostrarMsg }:Props) {
       {/* KPIs */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8,marginBottom:14}}>
         {[
-          {l:"Productos",       v:String(totalProductos),            c:"#0d2137"},
-          {l:"Con stock",       v:String(prodConStock),              c:"#16a34a"},
-          {l:"Negativos",       v:String(prodNegativos),             c:prodNegativos>0?"#dc2626":"#6b8aaa"},
-          {l:"Valor total",     v:`U$S ${fmt(valorTotal)}`,          c:"#d97706"},
-          {l:"Depósitos",       v:String(depositos.length),          c:"#6b8aaa"},
-          {l:"Movimientos",     v:String(movimientos.length),        c:"#6b8aaa"},
+          {l:"Productos",   v:String(totalProductos),   c:"#0d2137"},
+          {l:"Con stock",   v:String(prodConStock),      c:"#16a34a"},
+          {l:"Negativos",   v:String(prodNegativos),     c:prodNegativos>0?"#dc2626":"#6b8aaa"},
+          {l:"Valor total", v:`U$S ${fmt(valorTotal)}`,  c:"#d97706"},
+          {l:"Depósitos",   v:String(depositos.length),  c:"#6b8aaa"},
+          {l:"Movimientos", v:String(movimientos.length),c:"#6b8aaa"},
         ].map(s=>(
           <div key={s.l} className="kpi-s">
             <div style={{fontSize:9,color:"#6b8aaa",fontWeight:700,textTransform:"uppercase",marginBottom:3}}>{s.l}</div>
@@ -303,7 +475,7 @@ export function InsumosStock({ empresaId, getSB, mostrarMsg }:Props) {
         ))}
       </div>
 
-      {/* Filtros por categoría */}
+      {/* Filtros */}
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14,alignItems:"center"}}>
         <button onClick={()=>setCatFiltro("todos")}
           style={{padding:"5px 12px",borderRadius:7,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",
@@ -334,7 +506,6 @@ export function InsumosStock({ empresaId, getSB, mostrarMsg }:Props) {
         <div className="card" style={{padding:"40px 20px",textAlign:"center"}}>
           <div style={{fontSize:36,opacity:0.15,marginBottom:10}}>🧪</div>
           <p style={{color:"#6b8aaa",fontSize:13,marginBottom:6}}>Sin productos cargados</p>
-          <p style={{color:"#aab8c8",fontSize:11}}>Creá productos desde Centro de Gestión → Insumos</p>
           <button onClick={()=>window.location.href="/productor/otros"} className="bbtn" style={{marginTop:12,fontSize:11}}>Ir a Centro de Gestión →</button>
         </div>
       ):(
@@ -349,17 +520,15 @@ export function InsumosStock({ empresaId, getSB, mostrarMsg }:Props) {
                 style={{padding:"12px 14px",cursor:"pointer",
                   border:`1.5px solid ${s.stockActual<0?"rgba(220,38,38,0.30)":vencidos>0?"rgba(217,119,6,0.30)":"rgba(255,255,255,0.88)"}`}}
                 onClick={()=>setProdActivo(prod.id)}>
-                {/* Franja color */}
                 <div style={{height:3,background:color,borderRadius:"10px 10px 0 0",margin:"-12px -14px 10px",width:"calc(100% + 28px)"}}/>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
                   <span style={{fontSize:18}}>{icon}</span>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:12,fontWeight:800,color:"#0d2137",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{prod.nombre}</div>
-                    <div style={{fontSize:9,color:color,fontWeight:700,textTransform:"uppercase"}}>{prod.categoria}</div>
+                    <div style={{fontSize:9,color,fontWeight:700,textTransform:"uppercase"}}>{prod.categoria}</div>
                   </div>
                   {vencidos>0&&<span style={{fontSize:9,padding:"1px 5px",borderRadius:20,fontWeight:700,background:"rgba(217,119,6,0.12)",color:"#d97706"}}>⚠️</span>}
                 </div>
-                {/* Stock grande */}
                 <div style={{textAlign:"center",padding:"8px 0",borderRadius:8,
                   background:s.stockActual>=0?"rgba(22,163,74,0.06)":"rgba(220,38,38,0.06)",
                   border:`1px solid ${s.stockActual>=0?"rgba(22,163,74,0.15)":"rgba(220,38,38,0.15)"}`,
@@ -369,7 +538,6 @@ export function InsumosStock({ empresaId, getSB, mostrarMsg }:Props) {
                   </div>
                   <div style={{fontSize:10,color:"#6b8aaa",fontWeight:600}}>{prod.unidad}</div>
                 </div>
-                {/* Mini stats */}
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
                   <div className="kpi-s" style={{padding:"4px 6px"}}>
                     <div style={{fontSize:8,color:"#6b8aaa"}}>PPP</div>
