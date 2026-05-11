@@ -226,6 +226,20 @@ export default function CentroGestion() {
           observaciones:form.descripcion||"",
         });
         if (errFifo){ msg(`❌ Error: ${errFifo.message}`); setGuardando(false); return; }
+        // Si había lotes negativos de este producto, actualizarles el precio
+        const sb3 = await getSB();
+        const { data: negativos } = await sb3.from("insumos_lotes_fifo")
+          .select("id,cantidad_restante")
+          .eq("empresa_id", empresaId)
+          .eq("producto_id", form.ins_producto_id)
+          .lt("cantidad_restante", 0);
+        if (negativos && negativos.length > 0) {
+          for (const neg of negativos) {
+            await sb3.from("insumos_lotes_fifo").update({ precio_usd: precioUsd }).eq("id", neg.id);
+            await sb3.from("insumos_movimientos").update({ precio_usd: precioUsd }).eq("empresa_id", empresaId).eq("producto_id", form.ins_producto_id).eq("tipo", "uso").eq("costo_total_usd", 0);
+          }
+          msg(`✅ Compra registrada y ${negativos.length} lote(s) negativo(s) actualizados con precio U$S ${precioUsd.toFixed(3)}`);
+        }
         // Registrar movimiento
         const montoTotal = Number(form.monto||cantidad*precioUnit);
         await sb2.from("insumos_movimientos").insert({
