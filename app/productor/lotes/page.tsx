@@ -212,6 +212,43 @@ export default function IngenieroLotesPage() {
   };
 
   const msg = (t: string) => { setMsgExito(t); setTimeout(() => setMsgExito(""), 4000); };
+  const fetchMbDetalle = async (loteId: string) => {
+    const sb = await getSB();
+    const [{ data: items }, { data: movs }] = await Promise.all([
+      sb.from("mb_carga_items").select("*")
+        .eq("empresa_id", empresaId)
+        .contains("lote_ids", [loteId])
+        .order("fecha", { ascending: false }),
+      sb.from("insumos_movimientos").select("*, insumos_productos(nombre,unidad)")
+        .eq("empresa_id", empresaId)
+        .eq("tipo", "uso")
+        .contains("lote_ids", [loteId])
+        .order("fecha", { ascending: false }),
+    ]);
+    // Agrupar insumos por producto
+    const insMap: Record<string, { nombre: string; unidad: string; aplicaciones: number; cantidad: number; costo: number; }> = {};
+    for (const m of (movs ?? [])) {
+      const nombre = m.insumos_productos?.nombre || "—";
+      const unidad = m.insumos_productos?.unidad || "";
+      if (!insMap[nombre]) insMap[nombre] = { nombre, unidad, aplicaciones: 0, cantidad: 0, costo: 0 };
+      insMap[nombre].aplicaciones++;
+      insMap[nombre].cantidad += Number(m.cantidad || 0);
+      insMap[nombre].costo += Number(m.costo_total_usd || 0);
+    }
+    // Agrupar otros items por grupo
+    const otrosMap: Record<string, { grupo: string; concepto: string; registros: number; costo: number; }> = {};
+    for (const i of (items ?? [])) {
+      if (i.origen === "insumo_fifo") continue; // ya están en movimientos
+      const key = i.grupo + "|" + (i.articulo || i.subgrupo || i.concepto);
+      if (!otrosMap[key]) otrosMap[key] = { grupo: i.grupo, concepto: i.articulo || i.subgrupo || i.concepto, registros: 0, costo: 0 };
+      otrosMap[key].registros++;
+      otrosMap[key].costo += Number(i.monto_usd || 0);
+    }
+    setMbDetalle([
+      ...Object.values(insMap).map(x => ({ ...x, tipo: "insumo" })),
+      ...Object.values(otrosMap).map(x => ({ ...x, tipo: "otro" })),
+    ]);
+  };
 
   const getTCFecha = async (fecha: string): Promise<number> => {
     const sb = await getSB();
