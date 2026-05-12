@@ -162,6 +162,8 @@ export default function IngenieroLotesPage() {
   const [descuentoItems, setDescuentoItems] = useState<DescuentoItem[]>([]);
   const [laborPendiente, setLaborPendiente] = useState<any>(null);
   const [insumosNoEncontrados, setInsumosNoEncontrados] = useState<{nombre:string;cantidad:number;unidad:string;categoria:string}[]>([]);
+  const [mbDetalle, setMbDetalle] = useState<any[]>([]);
+  const [showMbDetalle, setShowMbDetalle] = useState(false);
 
   const getSB = async () => {
     const { createClient } = await import("@supabase/supabase-js");
