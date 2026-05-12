@@ -1087,6 +1087,101 @@ export default function IngenieroLotesPage() {
                 </div>
               ))}
             </div>
+            {/* Desglose MB */}
+            {showMbDetalle&&(
+              <div className="card fade-in" style={{padding:14}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                  <div style={{fontSize:13,fontWeight:800,color:"#0d2137"}}>📈 Desglose de Costos — {loteActivo.nombre}</div>
+                  <button onClick={()=>setShowMbDetalle(false)} style={{background:"none",border:"none",cursor:"pointer",color:"#6b8aaa",fontSize:18}}>✕</button>
+                </div>
+                {mbDetalle.length===0
+                  ?<div style={{textAlign:"center",padding:"20px",color:"#6b8aaa",fontSize:12}}>Sin costos registrados aún</div>
+                  :<div>
+                    {/* Insumos */}
+                    {mbDetalle.filter(x=>x.tipo==="insumo").length>0&&(
+                      <div style={{marginBottom:14}}>
+                        <div style={{fontSize:10,fontWeight:800,color:"#f97316",textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>🧪 Insumos</div>
+                        {(()=>{
+                          const ha = loteActivo.hectareas || 1;
+                          const totalInsumos = mbDetalle.filter(x=>x.tipo==="insumo").reduce((a:number,x:any)=>a+x.costo,0);
+                          const totalCostos = mbDetalle.reduce((a:number,x:any)=>a+x.costo,0);
+                          return mbDetalle.filter(x=>x.tipo==="insumo").sort((a:any,b:any)=>b.costo-a.costo).map((ins:any)=>{
+                            const pct = totalCostos>0?(ins.costo/totalCostos*100):0;
+                            const costoHa = ins.costo/ha;
+                            return(
+                              <div key={ins.nombre} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid rgba(0,60,140,0.06)"}}>
+                                <div style={{flex:1,minWidth:0}}>
+                                  <div style={{fontSize:12,fontWeight:700,color:"#0d2137"}}>{ins.nombre}</div>
+                                  <div style={{fontSize:10,color:"#6b8aaa",marginTop:1}}>
+                                    {ins.aplicaciones} aplic. · {ins.cantidad.toFixed(1)} {ins.unidad} · U$S {costoHa.toFixed(1)}/ha
+                                  </div>
+                                </div>
+                                <div style={{textAlign:"right",flexShrink:0}}>
+                                  <div style={{fontSize:13,fontWeight:800,color:"#f97316"}}>U$S {ins.costo.toFixed(0)}</div>
+                                  <div style={{fontSize:10,color:"#aab8c8"}}>{pct.toFixed(1)}%</div>
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    )}
+                    {/* Otros costos */}
+                    {mbDetalle.filter(x=>x.tipo==="otro").length>0&&(
+                      <div>
+                        <div style={{fontSize:10,fontWeight:800,color:"#1565c0",textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>📋 Otros Costos</div>
+                        {(()=>{
+                          const ha = loteActivo.hectareas || 1;
+                          const totalCostos = mbDetalle.reduce((a:number,x:any)=>a+x.costo,0);
+                          // Agrupar por grupo
+                          const grupos: Record<string,{costo:number;items:any[]}> = {};
+                          mbDetalle.filter(x=>x.tipo==="otro").forEach((x:any)=>{
+                            if(!grupos[x.grupo]) grupos[x.grupo]={costo:0,items:[]};
+                            grupos[x.grupo].costo+=x.costo;
+                            grupos[x.grupo].items.push(x);
+                          });
+                          return Object.entries(grupos).map(([grupo,g])=>{
+                            const pct = totalCostos>0?(g.costo/totalCostos*100):0;
+                            const costoHa = g.costo/ha;
+                            const GRUPO_ICONS:Record<string,string> = {labranzas:"🚜",insumos:"🧪",cosecha:"🌾",logistica:"🚛",comercializacion:"🏢",combustibles:"⛽",alquiler:"🤝",impuestos:"📋",seguros:"🛡️",personal:"👤",financieros:"🏦",otros_directos:"🔧"};
+                            return(
+                              <div key={grupo} style={{marginBottom:8}}>
+                                <div style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid rgba(0,60,140,0.06)"}}>
+                                  <div style={{flex:1}}>
+                                    <div style={{fontSize:12,fontWeight:700,color:"#0d2137"}}>{GRUPO_ICONS[grupo]||"📦"} {grupo.charAt(0).toUpperCase()+grupo.slice(1)}</div>
+                                    <div style={{fontSize:10,color:"#6b8aaa",marginTop:1}}>
+                                      {g.items.length} reg. · U$S {costoHa.toFixed(1)}/ha
+                                    </div>
+                                  </div>
+                                  <div style={{textAlign:"right",flexShrink:0}}>
+                                    <div style={{fontSize:13,fontWeight:800,color:"#1565c0"}}>U$S {g.costo.toFixed(0)}</div>
+                                    <div style={{fontSize:10,color:"#aab8c8"}}>{pct.toFixed(1)}%</div>
+                                  </div>
+                                </div>
+                                {g.items.map((it:any,i:number)=>(
+                                  <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"4px 0 4px 14px",fontSize:11}}>
+                                    <span style={{color:"#4a6a8a"}}>{it.concepto||"—"} · {it.registros} reg.</span>
+                                    <span style={{color:"#6b8aaa"}}>U$S {it.costo.toFixed(0)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    )}
+                    {/* Total */}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderTop:"2px solid rgba(0,60,140,0.10)",marginTop:8}}>
+                      <span style={{fontSize:13,fontWeight:800,color:"#0d2137"}}>TOTAL COSTOS</span>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontSize:15,fontWeight:900,color:"#dc2626"}}>U$S {mbDetalle.reduce((a:number,x:any)=>a+x.costo,0).toFixed(0)}</div>
+                        <div style={{fontSize:11,color:"#aab8c8"}}>U$S {(mbDetalle.reduce((a:number,x:any)=>a+x.costo,0)/(loteActivo.hectareas||1)).toFixed(1)}/ha</div>
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            )}
 
             {/* Form editar lote */}
             {showFormLote&&editandoLote&&(
