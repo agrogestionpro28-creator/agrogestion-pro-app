@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 
-type Campana = { id: string; nombre: string; año_inicio: number; activa: boolean; };
+type Campana = { id: string; nombre: string; aÃ±o_inicio: number; activa: boolean; };
 type Lote = { id: string; nombre: string; hectareas: number; cultivo: string; cultivo_orden: string; cultivo_completo: string; };
 type MbCabecera = {
   id: string; lote_id: string; campana_id: string; cultivo: string; hectareas: number;
@@ -25,49 +25,49 @@ type CargaItem = {
   mes: number | null;
 };
 
-// Mismos 12 grupos que Centro de Gestión — en orden y con mismo nombre
+// Mismos 12 grupos que Centro de GestiÃ³n â en orden y con mismo nombre
 const GRUPOS_MB_LIST = [
-  { id:"labranzas",       num:1,  label:"LABRANZAS Y LABORES",       icon:"🚜", color:"#16a34a",
-    items:["SIEMBRA","PULVERIZACIÓN TERRESTRE","PULVERIZACIÓN AÉREA","PULVERIZACIÓN DRON","OTROS"] },
-  { id:"insumos",         num:2,  label:"INSUMOS",                    icon:"🧪", color:"#d97706",
+  { id:"labranzas",       num:1,  label:"LABRANZAS Y LABORES",       icon:"ð", color:"#16a34a",
+    items:["SIEMBRA","PULVERIZACIÃN TERRESTRE","PULVERIZACIÃN AÃREA","PULVERIZACIÃN DRON","OTROS"] },
+  { id:"insumos",         num:2,  label:"INSUMOS",                    icon:"ð§ª", color:"#d97706",
     items:["SEMILLA","CURASEMILLA","FERTILIZANTES","HERBICIDA","INSECTICIDA","FUNGICIDA","COADYUVANTES","OTROS"] },
-  { id:"cosecha",         num:4,  label:"COSECHA",                    icon:"🌾", color:"#f59e0b",
+  { id:"cosecha",         num:4,  label:"COSECHA",                    icon:"ð¾", color:"#f59e0b",
     items:["COSECHA","ACARREO INTERNO","OTROS"] },
-  { id:"logistica",       num:5,  label:"LOGÍSTICA Y FLETE",         icon:"🚛", color:"#6366f1",
+  { id:"logistica",       num:5,  label:"LOGÃSTICA Y FLETE",         icon:"ð", color:"#6366f1",
     items:["FLETE CORTO","FLETE LARGO","OTROS"] },
-  { id:"comercializacion",num:6,  label:"COMERCIALIZACIÓN",           icon:"🏢", color:"#0891b2",
-    items:["COMISIÓN","SECADO / LIMPIEZA","ALMACENAJE","ANÁLISIS","OTROS"] },
-  { id:"combustibles",    num:1,  label:"COMBUSTIBLES",                icon:"⛽", color:"#f97316",
+  { id:"comercializacion",num:6,  label:"COMERCIALIZACIÃN",           icon:"ð¢", color:"#0891b2",
+    items:["COMISIÃN","SECADO / LIMPIEZA","ALMACENAJE","ANÃLISIS","OTROS"] },
+  { id:"combustibles",    num:1,  label:"COMBUSTIBLES",                icon:"â½", color:"#f97316",
     items:["GASOIL","LUBRICANTES","OTROS"] },
-  { id:"alquiler",        num:10, label:"ALQUILER",                   icon:"🤝", color:"#ea580c",
+  { id:"alquiler",        num:10, label:"ALQUILER",                   icon:"ð¤", color:"#ea580c",
     items:["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE","OTROS"] },
-  { id:"impuestos",       num:7,  label:"IMPUESTOS Y TASAS",         icon:"📋", color:"#dc2626",
+  { id:"impuestos",       num:7,  label:"IMPUESTOS Y TASAS",         icon:"ð", color:"#dc2626",
     items:["INGRESOS BRUTOS","IMP. INMOBILIARIO RURAL","TASA VIAL","OTROS"] },
-  { id:"seguros",         num:9,  label:"SEGUROS Y COBERTURAS",      icon:"🛡️", color:"#059669",
-    items:["SEGURO AGRÍCOLA","SEGURO AUTOMOTOR","OTROS"] },
-  { id:"personal",        num:11, label:"COSTOS PERSONAL",           icon:"👤", color:"#6b7280",
+  { id:"seguros",         num:9,  label:"SEGUROS Y COBERTURAS",      icon:"ð¡ï¸", color:"#059669",
+    items:["SEGURO AGRÃCOLA","SEGURO AUTOMOTOR","OTROS"] },
+  { id:"personal",        num:11, label:"COSTOS PERSONAL",           icon:"ð¤", color:"#6b7280",
     items:["EMPLEADOS","INGENIERO","CONTADOR","OTROS"] },
-  { id:"financieros",     num:8,  label:"COSTOS FINANCIEROS",        icon:"🏦", color:"#7c3aed",
+  { id:"financieros",     num:8,  label:"COSTOS FINANCIEROS",        icon:"ð¦", color:"#7c3aed",
     items:["INTERESES BANCARIOS","DESCUENTO DE CHEQUES","COSTO VENTA ANTICIPADA","DIFERENCIA T.C.","OTROS"] },
-  { id:"otros_directos",  num:12, label:"OTROS COSTOS DIRECTOS",     icon:"🔧", color:"#9ca3af",
-    items:["REPARACIÓN Y MANTENIMIENTO","MANO DE OBRA EVENTUAL","ANÁLISIS DE SUELO","OTROS"] },
+  { id:"otros_directos",  num:12, label:"OTROS COSTOS DIRECTOS",     icon:"ð§", color:"#9ca3af",
+    items:["REPARACIÃN Y MANTENIMIENTO","MANO DE OBRA EVENTUAL","ANÃLISIS DE SUELO","OTROS"] },
 ];
 
 const GRUPOS_MB: Record<number, { label: string; icon: string; color: string }> = {
-  1: { label:"Labranzas",       icon:"🚜", color:"#16a34a" },
-  2: { label:"Insumos",         icon:"🧪", color:"#d97706" },
-  4: { label:"Cosecha",         icon:"🌾", color:"#f59e0b" },
-  5: { label:"Flete",           icon:"🚛", color:"#6366f1" },
-  6: { label:"Comercializ.",    icon:"🏢", color:"#0891b2" },
-  7: { label:"Impuestos",       icon:"📋", color:"#dc2626" },
-  8: { label:"Financieros",     icon:"🏦", color:"#7c3aed" },
-  9: { label:"Seguros",         icon:"🛡️", color:"#059669" },
-  10:{ label:"Alquiler",        icon:"🤝", color:"#ea580c" },
-  11:{ label:"Personal",        icon:"👤", color:"#6b7280" },
-  12:{ label:"Otros Directos",  icon:"🔧", color:"#9ca3af" },
+  1: { label:"Labranzas",       icon:"ð", color:"#16a34a" },
+  2: { label:"Insumos",         icon:"ð§ª", color:"#d97706" },
+  4: { label:"Cosecha",         icon:"ð¾", color:"#f59e0b" },
+  5: { label:"Flete",           icon:"ð", color:"#6366f1" },
+  6: { label:"Comercializ.",    icon:"ð¢", color:"#0891b2" },
+  7: { label:"Impuestos",       icon:"ð", color:"#dc2626" },
+  8: { label:"Financieros",     icon:"ð¦", color:"#7c3aed" },
+  9: { label:"Seguros",         icon:"ð¡ï¸", color:"#059669" },
+  10:{ label:"Alquiler",        icon:"ð¤", color:"#ea580c" },
+  11:{ label:"Personal",        icon:"ð¤", color:"#6b7280" },
+  12:{ label:"Otros Directos",  icon:"ð§", color:"#9ca3af" },
 };
 
-// Mapeo de grupos del Centro de Gestión a grupos numéricos del MB
+// Mapeo de grupos del Centro de GestiÃ³n a grupos numÃ©ricos del MB
 const GRUPO_MAP: Record<string, number> = {
   labranzas: 1, insumos: 2, cosecha: 4, logistica: 5,
   comercializacion: 6, combustibles: 1, alquiler: 10,
@@ -79,7 +79,7 @@ const CULTIVO_COLORS: Record<string,string> = {
   sorgo:"#ef4444",cebada:"#a78bfa",otro:"#60a5fa",
 };
 const CULTIVO_ICONS: Record<string,string> = {
-  soja:"🌱",maiz:"🌽",trigo:"🌾",girasol:"🌻",sorgo:"🌿",cebada:"🍃",otro:"🌐",
+  soja:"ð±",maiz:"ð½",trigo:"ð¾",girasol:"ð»",sorgo:"ð¿",cebada:"ð",otro:"ð",
 };
 
 function fmtUsd(n:number){ return "U$S "+Math.round(n).toLocaleString("es-AR"); }
@@ -140,7 +140,7 @@ export default function MargenBrutoDashboard() {
     const { data:emp } = await sb.from("empresas").select("id").eq("propietario_id",u.id).single();
     if (!emp){ setLoading(false); return; }
     setEmpresaId(emp.id);
-    const { data:camps } = await sb.from("campanas").select("*").eq("empresa_id",emp.id).order("año_inicio",{ascending:false});
+    const { data:camps } = await sb.from("campanas").select("*").eq("empresa_id",emp.id).order("aÃ±o_inicio",{ascending:false});
     setCampanas(camps??[]);
     const cid = (camps??[]).find((c:any)=>c.activa)?.id??(camps??[])[0]?.id??"";
     setCampanaActiva(cid);
@@ -182,14 +182,14 @@ export default function MargenBrutoDashboard() {
     return "";
   };
 
-  // ── CALCULAR MB POR LOTE ──
+  // ââ CALCULAR MB POR LOTE ââ
   const calcularLote = (loteId:string) => {
     const lote = lotes.find(l=>l.id===loteId);
     const cab = cabeceras.find(c=>c.lote_id===loteId);
     if (!lote) return null;
     const ha = lote.hectareas || 1;
 
-    // Ventas → precio promedio ponderado
+    // Ventas â precio promedio ponderado
     const vents = ventas.filter(v=>v.lote_id===loteId);
     const totalTn = vents.reduce((a,v)=>a+v.tn_vendidas,0);
     const precioPromedio = totalTn>0
@@ -212,7 +212,7 @@ export default function MargenBrutoDashboard() {
       costosPorGrupo[m.grupo] = (costosPorGrupo[m.grupo]||0) + usdHa;
     }
 
-    // Costos de mb_carga_items — prorratear por ha
+    // Costos de mb_carga_items â prorratear por ha
     const itemsLote = cargaItems.filter(i=>i.lote_ids.includes(loteId));
     for (const item of itemsLote) {
       const g = GRUPO_MAP[item.grupo] || 12;
@@ -253,7 +253,7 @@ export default function MargenBrutoDashboard() {
       rinde_real:Number(form.rinde_real||0),
       ajuste_calidad_pct:Number(form.ajuste_calidad_pct||0),
     }).eq("id",cabId);
-    msg("✅ Rinde guardado");
+    msg("â Rinde guardado");
     await fetchAll(empresaId,campanaActiva);
     setShowFormRinde(false); setForm({});
   };
@@ -269,7 +269,7 @@ export default function MargenBrutoDashboard() {
       tn_vendidas:Number(form.v_tn), precio_usd:Number(form.v_precio),
       destino:form.v_destino||"", estado:form.v_estado||"pactada",
     });
-    msg("✅ Venta guardada");
+    msg("â Venta guardada");
     await fetchAll(empresaId,campanaActiva);
     setShowFormVenta(false); setForm({});
   };
@@ -279,7 +279,7 @@ export default function MargenBrutoDashboard() {
   const calcActivo = loteActivo ? calcularLote(loteActivo) : null;
   const ventasActivas = loteActivo ? ventas.filter(v=>v.lote_id===loteActivo) : [];
 
-  // Totales generales campaña
+  // Totales generales campaÃ±a
   const totalHaCamp = lotes.reduce((a,l)=>a+l.hectareas,0);
   const resumenCamp = lotes.map(l=>({ lote:l, calc:calcularLote(l.id) }));
   const totalMBCamp = resumenCamp.reduce((a,r)=>a+(r.calc?r.calc.mbTotal:0),0);
@@ -310,7 +310,7 @@ export default function MargenBrutoDashboard() {
 
         *{box-sizing:border-box;}
 
-        /* ── LINGOTE PRINCIPAL (lotes en grid) ── */
+        /* ââ LINGOTE PRINCIPAL (lotes en grid) ââ */
         .lingote-lote {
           position:relative;
           cursor:pointer;
@@ -323,7 +323,7 @@ export default function MargenBrutoDashboard() {
             #ffe87a 0%,      /* esquina superior izq brillante */
             #f0d060 15%,     /* cara superior */
             #c9a227 35%,     /* cara superior media */
-            #b8860b 55%,     /* transición cara frontal */
+            #b8860b 55%,     /* transiciÃ³n cara frontal */
             #8a6500 75%,     /* cara frontal oscura */
             #6a4d00 90%,     /* profundidad */
             #4a3500 100%     /* base */
@@ -381,7 +381,7 @@ export default function MargenBrutoDashboard() {
         }
         .lingote-lote:active { transform:translateY(-2px) scale(0.99); }
 
-        /* ── LINGOTE PEQUEÑO (grupos de costo) ── */
+        /* ââ LINGOTE PEQUEÃO (grupos de costo) ââ */
         .lingote-grupo {
           position:relative;
           cursor:pointer;
@@ -415,36 +415,36 @@ export default function MargenBrutoDashboard() {
             0 0 40px rgba(255,220,50,0.40);
         }
 
-        /* ── TOPBAR ── */
+        /* ââ TOPBAR ââ */
         .topbar-mb {
           background:linear-gradient(180deg,#1a1200 0%,#0d0900 100%);
           border-bottom:1px solid rgba(201,162,39,0.20);
           box-shadow:0 2px 20px rgba(0,0,0,0.70);
         }
 
-        /* ── INPUTS ── */
+        /* ââ INPUTS ââ */
         .inp-g{background:rgba(255,255,255,0.05);border:1px solid rgba(201,162,39,0.30);border-radius:9px;color:#fff;padding:9px 13px;font-size:13px;font-family:'DM Sans',sans-serif;width:100%;outline:none;transition:border-color 0.18s;}
         .inp-g:focus{border-color:#c9a227;background:rgba(201,162,39,0.07);}
         .inp-g::placeholder{color:rgba(255,255,255,0.20);}
         .inp-g option{background:#1a1200;color:#fff;}
 
-        /* ── BOTONES ── */
+        /* ââ BOTONES ââ */
         .btn-gold{background:linear-gradient(135deg,#8a6500 0%,#c9a227 30%,#ffe87a 50%,#c9a227 70%,#8a6500 100%);border:none;border-radius:9px;color:#0d0900;font-weight:900;font-size:12px;cursor:pointer;padding:9px 18px;transition:all 0.18s;font-family:'DM Sans',sans-serif;letter-spacing:0.5px;}
         .btn-gold:hover{filter:brightness(1.12);transform:translateY(-1px);}
         .btn-outline{background:transparent;border:1px solid rgba(201,162,39,0.35);border-radius:9px;color:#c9a227;font-weight:700;font-size:11px;cursor:pointer;padding:6px 14px;transition:all 0.18s;font-family:'DM Sans',sans-serif;}
         .btn-outline:hover{background:rgba(201,162,39,0.12);}
 
-        /* ── TEXTO DORADO ── */
+        /* ââ TEXTO DORADO ââ */
         .text-gold{background:linear-gradient(180deg,#ffe87a 0%,#c9a227 50%,#f0d060 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
         .text-gold-sm{color:#c9a227;}
 
-        /* ── TABLA ── */
+        /* ââ TABLA ââ */
         .row-g:hover{background:rgba(201,162,39,0.06)!important;}
 
-        /* ── SEPARADOR ── */
+        /* ââ SEPARADOR ââ */
         .sep{height:1px;background:linear-gradient(90deg,transparent,rgba(201,162,39,0.30),transparent);}
 
-        /* ── ANIMACIONES ── */
+        /* ââ ANIMACIONES ââ */
         .fade-up{animation:fadeUp 0.28s ease both;}
         .glow-in{animation:glowIn 0.35s ease both;}
 
@@ -452,33 +452,33 @@ export default function MargenBrutoDashboard() {
         ::-webkit-scrollbar-thumb{background:rgba(201,162,39,0.22);border-radius:4px}
       `}</style>
 
-      {/* ── TOPBAR ── */}
+      {/* ââ TOPBAR ââ */}
       <div className="topbar-mb" style={{position:"sticky",top:0,zIndex:30}}>
         <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 20px",flexWrap:"wrap"}}>
           <button onClick={()=>loteActivo?setLoteActivo(null):window.location.href="/productor/dashboard"}
             style={{background:"none",border:"none",cursor:"pointer",color:"rgba(201,162,39,0.55)",fontSize:13,fontWeight:700,fontFamily:"inherit"}}>
-            ← {loteActivo?"Volver":"Dashboard"}
+            â {loteActivo?"Volver":"Dashboard"}
           </button>
           <div style={{width:1,height:18,background:"rgba(201,162,39,0.20)"}}/>
-          <div className="text-gold" style={{fontSize:15,fontWeight:900,letterSpacing:1.5,textTransform:"uppercase"}}>📊 Margen Bruto</div>
+          <div className="text-gold" style={{fontSize:15,fontWeight:900,letterSpacing:1.5,textTransform:"uppercase"}}>ð Margen Bruto</div>
           <div style={{flex:1}}/>
           {/* TC */}
           <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:8,border:"1px solid rgba(201,162,39,0.22)",background:"rgba(201,162,39,0.06)"}}>
             <span style={{fontSize:9,color:"rgba(201,162,39,0.45)",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>TC BNA</span>
             <span className="text-gold" style={{fontSize:13,fontWeight:800}}>${fmt(tcVenta)}</span>
             {tcFecha&&<span style={{fontSize:9,color:"rgba(201,162,39,0.30)"}}>{tcFecha}</span>}
-            <button onClick={()=>empresaId&&fetchTC(empresaId)} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(201,162,39,0.50)",fontSize:12}}>↺</button>
+            <button onClick={()=>empresaId&&fetchTC(empresaId)} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(201,162,39,0.50)",fontSize:12}}>âº</button>
           </div>
-          {/* Campaña */}
+          {/* CampaÃ±a */}
           <div style={{display:"flex",alignItems:"center",gap:8,padding:"5px 12px",borderRadius:8,border:"1px solid rgba(201,162,39,0.22)",background:"rgba(201,162,39,0.06)"}}>
-            <span style={{fontSize:9,color:"rgba(201,162,39,0.45)",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>Campaña</span>
+            <span style={{fontSize:9,color:"rgba(201,162,39,0.45)",fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>CampaÃ±a</span>
             <select value={campanaActiva} onChange={async e=>{setCampanaActiva(e.target.value);setLoteActivo(null);if(empresaId)await fetchAll(empresaId,e.target.value);}}
               style={{background:"transparent",border:"none",color:"#c9a227",fontWeight:800,fontSize:12,cursor:"pointer",outline:"none",fontFamily:"inherit"}}>
-              {campanas.map(c=><option key={c.id} value={c.id} style={{background:"#1a1200",color:"#f0e6c8"}}>{c.nombre}{c.activa?" ★":""}</option>)}
+              {campanas.map(c=><option key={c.id} value={c.id} style={{background:"#1a1200",color:"#f0e6c8"}}>{c.nombre}{c.activa?" â":""}</option>)}
             </select>
           </div>
-          {/* Link centro de gestión */}
-          <button onClick={()=>window.location.href="/productor/otros"} className="btn-outline" style={{fontSize:11}}>⚙ Cargar Datos</button>
+          {/* Link centro de gestiÃ³n */}
+          <button onClick={()=>window.location.href="/productor/otros"} className="btn-outline" style={{fontSize:11}}>â Cargar Datos</button>
         </div>
       </div>
 
@@ -486,19 +486,19 @@ export default function MargenBrutoDashboard() {
 
         {/* Toast */}
         {msgExito&&<div className="fade-up" style={{marginBottom:14,padding:"10px 16px",borderRadius:10,fontSize:13,fontWeight:700,
-          color:msgExito.startsWith("✅")?"#86efac":"#fca5a5",
-          background:msgExito.startsWith("✅")?"rgba(22,163,74,0.12)":"rgba(220,38,38,0.12)",
-          border:`1px solid ${msgExito.startsWith("✅")?"rgba(22,163,74,0.30)":"rgba(220,38,38,0.30)"}`,
+          color:msgExito.startsWith("â")?"#86efac":"#fca5a5",
+          background:msgExito.startsWith("â")?"rgba(22,163,74,0.12)":"rgba(220,38,38,0.12)",
+          border:`1px solid ${msgExito.startsWith("â")?"rgba(22,163,74,0.30)":"rgba(220,38,38,0.30)"}`,
           display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          {msgExito}<button onClick={()=>setMsgExito("")} style={{background:"none",border:"none",cursor:"pointer",color:"inherit",fontSize:16,opacity:0.5}}>✕</button>
+          {msgExito}<button onClick={()=>setMsgExito("")} style={{background:"none",border:"none",cursor:"pointer",color:"inherit",fontSize:16,opacity:0.5}}>â</button>
         </div>}
 
-        {/* ══════════════════════════════
-            VISTA PRINCIPAL — GRID LOTES
-        ══════════════════════════════ */}
+        {/* ââââââââââââââââââââââââââââââ
+            VISTA PRINCIPAL â GRID LOTES
+        ââââââââââââââââââââââââââââââ */}
         {!loteActivo&&(
           <div className="fade-up">
-            {/* KPIs campaña */}
+            {/* KPIs campaÃ±a */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10,marginBottom:24}}>
               {[
                 {l:"Ha Totales",    v:`${fmt(totalHaCamp)} ha`,                    c:"#c9a227"},
@@ -517,21 +517,21 @@ export default function MargenBrutoDashboard() {
             {/* Separador */}
             <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:22}}>
               <div className="sep" style={{flex:1}}/>
-              <div className="text-gold" style={{fontSize:11,fontWeight:900,letterSpacing:3,textTransform:"uppercase"}}>Lotes — Campaña {campanas.find(c=>c.id===campanaActiva)?.nombre}</div>
+              <div className="text-gold" style={{fontSize:11,fontWeight:900,letterSpacing:3,textTransform:"uppercase"}}>Lotes â CampaÃ±a {campanas.find(c=>c.id===campanaActiva)?.nombre}</div>
               <div className="sep" style={{flex:1}}/>
             </div>
 
             {/* Grid de lingotes por lote */}
             {lotes.length===0?(
               <div style={{textAlign:"center",padding:"60px 20px",color:"rgba(201,162,39,0.30)",fontSize:13}}>
-                <div style={{fontSize:48,marginBottom:12,opacity:0.3}}>📊</div>
-                Sin lotes en esta campaña
+                <div style={{fontSize:48,marginBottom:12,opacity:0.3}}>ð</div>
+                Sin lotes en esta campaÃ±a
               </div>
             ):(
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:20}}>
                 {resumenCamp.map(({lote,calc},idx)=>{
                   const color = CULTIVO_COLORS[lote.cultivo]??"#22c55e";
-                  const icon  = CULTIVO_ICONS[lote.cultivo]??"🌾";
+                  const icon  = CULTIVO_ICONS[lote.cultivo]??"ð¾";
                   const cab   = cabeceras.find(c=>c.lote_id===lote.id);
                   return(
                     <div key={lote.id} className="lingote-lote glow-in"
@@ -544,17 +544,17 @@ export default function MargenBrutoDashboard() {
                           <span style={{fontSize:28,filter:"drop-shadow(0 2px 4px rgba(0,0,0,0.40))"}}>{icon}</span>
                           <div>
                             <div style={{fontSize:16,fontWeight:900,color:"#0d0900",textTransform:"uppercase",letterSpacing:0.5,textShadow:"0 1px 0 rgba(255,255,180,0.40)"}}>{lote.nombre}</div>
-                            <div style={{fontSize:10,fontWeight:700,color:"rgba(0,0,0,0.50)"}}>{lote.cultivo_completo||lote.cultivo||"—"} · {lote.hectareas} ha</div>
+                            <div style={{fontSize:10,fontWeight:700,color:"rgba(0,0,0,0.50)"}}>{lote.cultivo_completo||lote.cultivo||"â"} Â· {lote.hectareas} ha</div>
                           </div>
                           <div style={{marginLeft:"auto"}}>
-                            {cab&&<span style={{fontSize:8,padding:"2px 7px",borderRadius:20,fontWeight:800,background:cab.cerrado?"rgba(0,80,0,0.30)":"rgba(0,0,0,0.20)",color:cab.cerrado?"#86efac":"rgba(0,0,0,0.60)",border:`1px solid ${cab.cerrado?"rgba(0,200,0,0.30)":"rgba(0,0,0,0.15)"}`}}>{cab.cerrado?"✅ REAL":"📋 EST."}</span>}
+                            {cab&&<span style={{fontSize:8,padding:"2px 7px",borderRadius:20,fontWeight:800,background:cab.cerrado?"rgba(0,80,0,0.30)":"rgba(0,0,0,0.20)",color:cab.cerrado?"#86efac":"rgba(0,0,0,0.60)",border:`1px solid ${cab.cerrado?"rgba(0,200,0,0.30)":"rgba(0,0,0,0.15)"}`}}>{cab.cerrado?"â REAL":"ð EST."}</span>}
                           </div>
                         </div>
 
                         {/* Separador dorado */}
                         <div style={{height:1,background:"linear-gradient(90deg,transparent,rgba(0,0,0,0.20),transparent)",marginBottom:12}}/>
 
-                        {/* Números */}
+                        {/* NÃºmeros */}
                         {calc?.tieneDatos?(
                           <>
                             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:10}}>
@@ -594,9 +594,9 @@ export default function MargenBrutoDashboard() {
           </div>
         )}
 
-        {/* ══════════════════════════════
+        {/* ââââââââââââââââââââââââââââââ
             DETALLE LOTE
-        ══════════════════════════════ */}
+        ââââââââââââââââââââââââââââââ */}
         {loteActivo&&loteData&&calcActivo&&(
           <div className="fade-up">
             {/* Hero header */}
@@ -607,23 +607,23 @@ export default function MargenBrutoDashboard() {
               <div style={{padding:"20px 24px"}}>
                 <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
                   <div style={{display:"flex",alignItems:"center",gap:12}}>
-                    <span style={{fontSize:36,filter:"drop-shadow(0 0 8px rgba(201,162,39,0.50))"}}>{CULTIVO_ICONS[loteData.cultivo]??"🌾"}</span>
+                    <span style={{fontSize:36,filter:"drop-shadow(0 0 8px rgba(201,162,39,0.50))"}}>{CULTIVO_ICONS[loteData.cultivo]??"ð¾"}</span>
                     <div>
                       <div className="text-gold" style={{fontSize:24,fontWeight:900,letterSpacing:1,textTransform:"uppercase"}}>{loteData.nombre}</div>
                       <div style={{fontSize:11,color:"rgba(201,162,39,0.55)",marginTop:2}}>
-                        {loteData.cultivo_completo||loteData.cultivo} · {loteData.hectareas} ha · {campanas.find(c=>c.id===campanaActiva)?.nombre}
-                        {cabActiva&&<span style={{marginLeft:8,fontSize:10,padding:"2px 8px",borderRadius:20,fontWeight:700,background:cabActiva.cerrado?"rgba(22,163,74,0.20)":"rgba(217,119,6,0.15)",color:cabActiva.cerrado?"#86efac":"#fde68a"}}>{cabActiva.cerrado?"✅ REAL":"📋 ESTIMADO"}</span>}
+                        {loteData.cultivo_completo||loteData.cultivo} Â· {loteData.hectareas} ha Â· {campanas.find(c=>c.id===campanaActiva)?.nombre}
+                        {cabActiva&&<span style={{marginLeft:8,fontSize:10,padding:"2px 8px",borderRadius:20,fontWeight:700,background:cabActiva.cerrado?"rgba(22,163,74,0.20)":"rgba(217,119,6,0.15)",color:cabActiva.cerrado?"#86efac":"#fde68a"}}>{cabActiva.cerrado?"â REAL":"ð ESTIMADO"}</span>}
                       </div>
                     </div>
                   </div>
                   <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                    <button onClick={()=>{setShowFormRinde(!showFormRinde);setForm({rinde_esp:String(cabActiva?.rinde_esp||""),rinde_real:String(cabActiva?.rinde_real||""),ajuste_calidad_pct:String(cabActiva?.ajuste_calidad_pct||"")});}} className="btn-outline" style={{fontSize:11}}>🌾 Rinde/Precio</button>
-                    <button onClick={()=>{setShowFormVenta(true);setForm({v_fecha:new Date().toISOString().split("T")[0],v_estado:"pactada"});}} style={{padding:"7px 13px",borderRadius:9,background:"rgba(22,163,74,0.20)",border:"1px solid rgba(22,163,74,0.40)",color:"#86efac",fontWeight:700,fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>💰 + Venta</button>
-                    <button onClick={()=>window.location.href="/productor/otros"} className="btn-outline" style={{fontSize:11}}>⚙ Cargar Costos</button>
+                    <button onClick={()=>{setShowFormRinde(!showFormRinde);setForm({rinde_esp:String(cabActiva?.rinde_esp||""),rinde_real:String(cabActiva?.rinde_real||""),ajuste_calidad_pct:String(cabActiva?.ajuste_calidad_pct||"")});}} className="btn-outline" style={{fontSize:11}}>ð¾ Rinde/Precio</button>
+                    <button onClick={()=>{setShowFormVenta(true);setForm({v_fecha:new Date().toISOString().split("T")[0],v_estado:"pactada"});}} style={{padding:"7px 13px",borderRadius:9,background:"rgba(22,163,74,0.20)",border:"1px solid rgba(22,163,74,0.40)",color:"#86efac",fontWeight:700,fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>ð° + Venta</button>
+                    <button onClick={()=>window.location.href="/productor/otros"} className="btn-outline" style={{fontSize:11}}>â Cargar Costos</button>
                   </div>
                 </div>
 
-                {/* Banda 3 números grandes */}
+                {/* Banda 3 nÃºmeros grandes */}
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginTop:16}}>
                   {[
                     {l:"INGRESO / HA",    v:`U$S ${fmt(calcActivo.ingresoBrutoHa,0)}`,  sub:`Total: U$S ${fmt(calcActivo.ingresoBrutoTotal,0)}`,  bc:"rgba(22,163,74,0.15)",  c:"#86efac"},
@@ -643,20 +643,20 @@ export default function MargenBrutoDashboard() {
             {/* Forms */}
             {showFormRinde&&(
               <div style={{background:"rgba(201,162,39,0.06)",border:"1px solid rgba(201,162,39,0.25)",borderRadius:12,padding:"16px 20px",marginBottom:12}} className="fade-up">
-                <div className="text-gold" style={{fontSize:13,fontWeight:900,marginBottom:12}}>🌾 Producción y Precio</div>
+                <div className="text-gold" style={{fontSize:13,fontWeight:900,marginBottom:12}}>ð¾ ProducciÃ³n y Precio</div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:10,marginBottom:12}}>
                   <div><div style={lCls}>Rinde esperado</div><input type="number" step="0.1" value={form.rinde_esp||""} onChange={e=>setForm({...form,rinde_esp:e.target.value})} className="inp-g" placeholder="tn/ha"/></div>
                   <div><div style={lCls}>Rinde real</div><input type="number" step="0.1" value={form.rinde_real||""} onChange={e=>setForm({...form,rinde_real:e.target.value})} className="inp-g" placeholder="tn/ha"/></div>
                   <div><div style={lCls}>Ajuste calidad %</div><input type="number" step="0.1" value={form.ajuste_calidad_pct||""} onChange={e=>setForm({...form,ajuste_calidad_pct:e.target.value})} className="inp-g" placeholder="0"/></div>
                 </div>
-                <p style={{fontSize:10,color:"rgba(201,162,39,0.40)",marginBottom:10}}>💡 El precio se calcula automáticamente del promedio ponderado de las ventas registradas.</p>
-                <div style={{display:"flex",gap:8}}><button onClick={guardarRinde} className="btn-gold">✓ Guardar</button><button onClick={()=>{setShowFormRinde(false);setForm({});}} className="btn-outline">Cancelar</button></div>
+                <p style={{fontSize:10,color:"rgba(201,162,39,0.40)",marginBottom:10}}>ð¡ El precio se calcula automÃ¡ticamente del promedio ponderado de las ventas registradas.</p>
+                <div style={{display:"flex",gap:8}}><button onClick={guardarRinde} className="btn-gold">â Guardar</button><button onClick={()=>{setShowFormRinde(false);setForm({});}} className="btn-outline">Cancelar</button></div>
               </div>
             )}
 
             {showFormVenta&&(
               <div style={{background:"rgba(22,163,74,0.08)",border:"1px solid rgba(22,163,74,0.25)",borderRadius:12,padding:"16px 20px",marginBottom:12}} className="fade-up">
-                <div style={{fontSize:13,fontWeight:900,color:"#86efac",marginBottom:12}}>💰 Registrar Venta</div>
+                <div style={{fontSize:13,fontWeight:900,color:"#86efac",marginBottom:12}}>ð° Registrar Venta</div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:10,marginBottom:10}}>
                   <div><div style={lCls}>Fecha</div><input type="date" value={form.v_fecha||""} onChange={e=>setForm({...form,v_fecha:e.target.value})} className="inp-g"/></div>
                   <div><div style={lCls}>Toneladas</div><input type="number" step="0.1" value={form.v_tn||""} onChange={e=>setForm({...form,v_tn:e.target.value})} className="inp-g" placeholder="0"/></div>
@@ -669,7 +669,7 @@ export default function MargenBrutoDashboard() {
                   </div>
                 </div>
                 {form.v_tn&&form.v_precio&&<div style={{fontSize:11,color:"#86efac",fontWeight:700,marginBottom:8}}>Total: U$S {(Number(form.v_tn)*Number(form.v_precio)).toFixed(2)}</div>}
-                <div style={{display:"flex",gap:8}}><button onClick={guardarVenta} className="btn-gold">✓ Guardar</button><button onClick={()=>{setShowFormVenta(false);setForm({});}} className="btn-outline">Cancelar</button></div>
+                <div style={{display:"flex",gap:8}}><button onClick={guardarVenta} className="btn-gold">â Guardar</button><button onClick={()=>{setShowFormVenta(false);setForm({});}} className="btn-outline">Cancelar</button></div>
               </div>
             )}
 
@@ -677,9 +677,9 @@ export default function MargenBrutoDashboard() {
             {ventasActivas.length>0&&(
               <div style={{background:"rgba(201,162,39,0.04)",border:"1px solid rgba(201,162,39,0.15)",borderRadius:10,overflow:"hidden",marginBottom:12}}>
                 <div style={{padding:"9px 14px",borderBottom:"1px solid rgba(201,162,39,0.12)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <span style={{fontSize:10,fontWeight:800,color:"rgba(201,162,39,0.55)",textTransform:"uppercase",letterSpacing:1}}>💰 Ventas ({ventasActivas.length})</span>
+                  <span style={{fontSize:10,fontWeight:800,color:"rgba(201,162,39,0.55)",textTransform:"uppercase",letterSpacing:1}}>ð° Ventas ({ventasActivas.length})</span>
                   <span className="text-gold-sm" style={{fontSize:12,fontWeight:800}}>
-                    {ventasActivas.reduce((a,v)=>a+v.tn_vendidas,0).toFixed(1)} tn · prom U$S {ventasActivas.length>0?(ventasActivas.reduce((a,v)=>a+v.tn_vendidas*v.precio_usd,0)/ventasActivas.reduce((a,v)=>a+v.tn_vendidas,0)).toFixed(0):0}/tn
+                    {ventasActivas.reduce((a,v)=>a+v.tn_vendidas,0).toFixed(1)} tn Â· prom U$S {ventasActivas.length>0?(ventasActivas.reduce((a,v)=>a+v.tn_vendidas*v.precio_usd,0)/ventasActivas.reduce((a,v)=>a+v.tn_vendidas,0)).toFixed(0):0}/tn
                   </span>
                 </div>
                 <div style={{display:"flex",flexDirection:"column"}}>
@@ -699,7 +699,7 @@ export default function MargenBrutoDashboard() {
               </div>
             )}
 
-            {/* ── DESGLOSE COSTOS — 12 GRUPOS IGUAL A CENTRO DE GESTIÓN ── */}
+            {/* ââ DESGLOSE COSTOS â 12 GRUPOS IGUAL A CENTRO DE GESTIÃN ââ */}
             <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:16}}>
               <div className="sep" style={{flex:1}}/>
               <div className="text-gold" style={{fontSize:10,fontWeight:900,letterSpacing:2,textTransform:"uppercase"}}>Desglose de Costos</div>
@@ -726,22 +726,38 @@ export default function MargenBrutoDashboard() {
                   const totalItems = cargaGrupo.length + movsGrupo.length;
 
                   // Agrupar por subconcepto
-                  const subitems: Record<string,{usd:number;fecha:string;desc:string;origen:string}[]> = {};
-                  // Primero los items definidos del grupo (para mantener orden)
-                  grupo.items.forEach(sub=>{
-                    const itemsCG = cargaGrupo.filter(i=>i.subgrupo===sub||i.subgrupo===sub.toLowerCase());
-                    const mesNum = grupo.id==="alquiler"?["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"].indexOf(sub)+1:null;
-                    const itemsMes = mesNum&&mesNum>0 ? cargaGrupo.filter(i=>i.mes===mesNum) : [];
-                    const registros = [
-                      ...(mesNum&&mesNum>0?itemsMes:itemsCG).map(i=>({usd:i.monto_usd,fecha:i.fecha,desc:i.descripcion||i.articulo||"",origen:"CG"})),
-                    ];
-                    if(registros.length>0) subitems[sub]=registros;
-                  });
-                  // Después los de mb_movimientos
-                  movsGrupo.forEach(m=>{
-                    if(!subitems[m.concepto]) subitems[m.concepto]=[];
-                    subitems[m.concepto].push({usd:m.monto_usd,fecha:m.fecha,desc:m.descripcion||"",origen:"MB"});
-                  });
+                  // Para INSUMOS: agrupar directamente por artículo (producto) como categoría
+                  // Para otros grupos: mantener lógica original por subgrupo
+                  const subitems: Record<string,{usd:number;fecha:string;desc:string;origen:string;cantidad?:string}[]> = {};
+                  if(grupo.id==="insumos"){
+                    // Cada artículo es una categoría separada con sus aplicaciones
+                    cargaGrupo.forEach(i=>{
+                      const cat = i.articulo||i.concepto||"Otros";
+                      if(!subitems[cat]) subitems[cat]=[];
+                      subitems[cat].push({usd:i.monto_usd,fecha:i.fecha,desc:i.descripcion||"",origen:"CG",cantidad:i.descripcion||""});
+                    });
+                    movsGrupo.forEach(m=>{
+                      const cat = m.concepto||"Otros";
+                      if(!subitems[cat]) subitems[cat]=[];
+                      subitems[cat].push({usd:m.monto_usd,fecha:m.fecha,desc:m.descripcion||"",origen:"MB",cantidad:m.descripcion||""});
+                    });
+                  } else {
+                    // Lógica original para todos los demás grupos
+                    grupo.items.forEach(sub=>{
+                      const itemsCG = cargaGrupo.filter(i=>i.subgrupo===sub||i.subgrupo===sub.toLowerCase());
+                      const mesNum = grupo.id==="alquiler"?["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"].indexOf(sub)+1:null;
+                      const itemsMes = mesNum&&mesNum>0 ? cargaGrupo.filter(i=>i.mes===mesNum) : [];
+                      const registros = [
+                        ...(mesNum&&mesNum>0?itemsMes:itemsCG).map(i=>({usd:i.monto_usd,fecha:i.fecha,desc:i.descripcion||i.articulo||"",origen:"CG"})),
+                      ];
+                      if(registros.length>0) subitems[sub]=registros;
+                    });
+                    // Después los de mb_movimientos
+                    movsGrupo.forEach(m=>{
+                      if(!subitems[m.concepto]) subitems[m.concepto]=[];
+                      subitems[m.concepto].push({usd:m.monto_usd,fecha:m.fecha,desc:m.descripcion||"",origen:"MB"});
+                    });
+                  }
 
                   const isGrupoOpen = grupoAbierto===idx+(row*3);
 
@@ -780,7 +796,7 @@ export default function MargenBrutoDashboard() {
                         ):(
                           <div style={{fontSize:10,color:"rgba(255,255,255,0.20)",fontStyle:"italic",marginTop:4}}>Sin datos</div>
                         )}
-                        <div style={{position:"absolute",bottom:8,right:10,fontSize:10,color:"rgba(201,162,39,0.35)"}}>{isGrupoOpen?"▲":"▼"}</div>
+                        <div style={{position:"absolute",bottom:8,right:10,fontSize:10,color:"rgba(201,162,39,0.35)"}}>{isGrupoOpen?"â²":"â¼"}</div>
                       </div>
 
                       {/* Panel expandido */}
@@ -788,10 +804,10 @@ export default function MargenBrutoDashboard() {
                         <div style={{borderTop:"1px solid rgba(201,162,39,0.20)",background:"rgba(0,0,0,0.40)"}} className="fade-up">
                           {Object.keys(subitems).length===0?(
                             <div style={{padding:"14px 16px",textAlign:"center",color:"rgba(201,162,39,0.30)",fontSize:11}}>
-                              Sin datos —{" "}
+                              Sin datos â{" "}
                               <button onClick={e=>{e.stopPropagation();window.location.href="/productor/otros";}}
                                 style={{background:"none",border:"none",cursor:"pointer",color:"#c9a227",fontWeight:700,fontFamily:"inherit",fontSize:11}}>
-                                Cargar →
+                                Cargar â
                               </button>
                             </div>
                           ):(
@@ -799,10 +815,29 @@ export default function MargenBrutoDashboard() {
                               {Object.entries(subitems).map(([sub,regs])=>{
                                 const totSub = regs.reduce((a,r)=>a+r.usd,0);
                                 const pctSub = calcActivo.costoTotalHa>0?(totSub/calcActivo.costoTotalHa*100):0;
-                                const pctTotal2 = calcActivo.costoTotalHa>0?(totSub/calcActivo.costoTotalHa*100):0;
+                                const numAplicaciones = regs.length;
                                 const subKey = (grupoAbierto??'') + '-' + sub;
                                 const isSubOpen = expandedSub === subKey;
-                                // Agrupar registros por artículo
+
+                                if(grupo.id==="insumos"){
+                                  // Para INSUMOS: cada producto como categoría con detalle directo
+                                  const cantDesc = [...new Set(regs.map(r=>r.cantidad||r.desc||"").filter(Boolean))].join("; ");
+                                  return(
+                                  <div key={sub} style={{borderBottom:"1px solid rgba(201,162,39,0.10)",padding:"8px 14px",display:"flex",alignItems:"center",gap:8}}>
+                                    <div style={{width:3,minHeight:32,borderRadius:2,background:grupo.color||"#d97706",flexShrink:0,alignSelf:"stretch"}}></div>
+                                    <div style={{flex:1,minWidth:0}}>
+                                      <div style={{fontSize:11,fontWeight:800,color:"#f0e6c8",textTransform:"uppercase",letterSpacing:0.5,marginBottom:2}}>{sub}</div>
+                                      {cantDesc&&<div style={{fontSize:9,color:"rgba(255,255,255,0.35)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{cantDesc}</div>}
+                                    </div>
+                                    <div style={{textAlign:"right",flexShrink:0}}>
+                                      <div style={{fontSize:12,fontWeight:800,color:"#f0d060"}}>U$S {totSub.toFixed(2)}</div>
+                                      <div style={{fontSize:9,color:"rgba(201,162,39,0.55)",marginTop:1}}>{numAplicaciones} aplic. · {pctSub.toFixed(1)}% del total</div>
+                                    </div>
+                                  </div>
+                                  );
+                                }
+
+                                // Para otros grupos: lógica original con expansión por artículo
                                 const artGrupos: Record<string,{usd:number;apps:number}> = {};
                                 regs.forEach(r=>{
                                   const art = r.desc||'Sin nombre';
@@ -849,7 +884,7 @@ export default function MargenBrutoDashboard() {
                               })}
                               <div style={{padding:"7px 14px",background:"rgba(201,162,39,0.08)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                                 <span style={{fontSize:9,fontWeight:800,color:"rgba(201,162,39,0.55)",textTransform:"uppercase",letterSpacing:0.8}}>Total</span>
-                                <span className="text-gold" style={{fontSize:13,fontWeight:900}}>{fmtUsd(costoHaReal)}/ha · U$S {fmt(costoHaReal*loteData!.hectareas)} campo</span>
+                                <span className="text-gold" style={{fontSize:13,fontWeight:900}}>{fmtUsd(costoHaReal)}/ha Â· U$S {fmt(costoHaReal*loteData!.hectareas)} campo</span>
                               </div>
                             </div>
                           )}
@@ -861,12 +896,12 @@ export default function MargenBrutoDashboard() {
               </div>
             ))}
 
-            {/* Gráfico torta + indicadores */}
+            {/* GrÃ¡fico torta + indicadores */}
             {calcActivo.costoTotalHa>0&&(
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
                 {/* Torta */}
                 <div style={{background:"rgba(201,162,39,0.04)",border:"1px solid rgba(201,162,39,0.15)",borderRadius:10,padding:"14px"}}>
-                  <div style={{fontSize:11,fontWeight:800,color:"rgba(201,162,39,0.70)",marginBottom:10,textTransform:"uppercase",letterSpacing:1}}>Distribución de Costos</div>
+                  <div style={{fontSize:11,fontWeight:800,color:"rgba(201,162,39,0.70)",marginBottom:10,textTransform:"uppercase",letterSpacing:1}}>DistribuciÃ³n de Costos</div>
                   <div style={{display:"flex",alignItems:"center",gap:12}}>
                     <div style={{width:120,height:120,flexShrink:0}}>
                       <ResponsiveContainer width="100%" height="100%">
@@ -909,12 +944,12 @@ export default function MargenBrutoDashboard() {
                   <div style={{fontSize:11,fontWeight:800,color:"rgba(201,162,39,0.70)",marginBottom:10,textTransform:"uppercase",letterSpacing:1}}>Indicadores Clave</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                     {[
-                      {l:"Rinde",          v:calcActivo.rindeUsado>0?`${calcActivo.rindeUsado} tn/ha`:"—",    c:"#c9a227"},
-                      {l:"Precio prom.",   v:calcActivo.precioPromedio>0?`U$S ${calcActivo.precioPromedio.toFixed(0)}/tn`:"—", c:"#f0e6c8"},
-                      {l:"Rinde equil.",   v:calcActivo.rindeEq>0?`${calcActivo.rindeEq.toFixed(2)} tn/ha`:"—", c:"rgba(255,255,255,0.50)"},
-                      {l:"Costo/tn",       v:calcActivo.rindeUsado>0?`U$S ${(calcActivo.costoTotalHa/calcActivo.rindeUsado).toFixed(0)}`:"—", c:"#fca5a5"},
+                      {l:"Rinde",          v:calcActivo.rindeUsado>0?`${calcActivo.rindeUsado} tn/ha`:"â",    c:"#c9a227"},
+                      {l:"Precio prom.",   v:calcActivo.precioPromedio>0?`U$S ${calcActivo.precioPromedio.toFixed(0)}/tn`:"â", c:"#f0e6c8"},
+                      {l:"Rinde equil.",   v:calcActivo.rindeEq>0?`${calcActivo.rindeEq.toFixed(2)} tn/ha`:"â", c:"rgba(255,255,255,0.50)"},
+                      {l:"Costo/tn",       v:calcActivo.rindeUsado>0?`U$S ${(calcActivo.costoTotalHa/calcActivo.rindeUsado).toFixed(0)}`:"â", c:"#fca5a5"},
                       {l:"Cobertura",      v:`${calcActivo.cobertura.toFixed(0)}%`,          c:calcActivo.cobertura<100?"#86efac":"#fca5a5"},
-                      {l:"Rentabilidad",   v:calcActivo.costoTotalHa>0?`${(calcActivo.mbHa/calcActivo.costoTotalHa*100).toFixed(0)}%`:"—", c:calcActivo.mbHa>=0?"#93c5fd":"#fca5a5"},
+                      {l:"Rentabilidad",   v:calcActivo.costoTotalHa>0?`${(calcActivo.mbHa/calcActivo.costoTotalHa*100).toFixed(0)}%`:"â", c:calcActivo.mbHa>=0?"#93c5fd":"#fca5a5"},
                     ].map(s=>(
                       <div key={s.l} style={{padding:"8px 10px",borderRadius:8,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(201,162,39,0.10)"}}>
                         <div style={{fontSize:8,color:"rgba(201,162,39,0.40)",fontWeight:700,textTransform:"uppercase",letterSpacing:0.8,marginBottom:3}}>{s.l}</div>
@@ -930,7 +965,7 @@ export default function MargenBrutoDashboard() {
             {calcActivo.precioPromedio>0&&calcActivo.rindeUsado>0&&(
               <div style={{background:"rgba(201,162,39,0.04)",border:"1px solid rgba(201,162,39,0.15)",borderRadius:10,overflow:"hidden"}}>
                 <div style={{padding:"9px 14px",borderBottom:"1px solid rgba(201,162,39,0.12)"}}>
-                  <span style={{fontSize:10,fontWeight:800,color:"rgba(201,162,39,0.55)",textTransform:"uppercase",letterSpacing:1}}>🔬 Análisis de Sensibilidad</span>
+                  <span style={{fontSize:10,fontWeight:800,color:"rgba(201,162,39,0.55)",textTransform:"uppercase",letterSpacing:1}}>ð¬ AnÃ¡lisis de Sensibilidad</span>
                 </div>
                 <table style={{width:"100%",fontSize:11,borderCollapse:"collapse"}}>
                   <thead><tr style={{borderBottom:"1px solid rgba(201,162,39,0.10)"}}>
@@ -940,10 +975,10 @@ export default function MargenBrutoDashboard() {
                   </tr></thead>
                   <tbody>
                     {[
-                      {e:"Base ◀",r:calcActivo.rindeUsado,p:calcActivo.precioPromedio,base:true},
-                      {e:"−10% Rinde",r:calcActivo.rindeUsado*0.9,p:calcActivo.precioPromedio,base:false},
+                      {e:"Base â",r:calcActivo.rindeUsado,p:calcActivo.precioPromedio,base:true},
+                      {e:"â10% Rinde",r:calcActivo.rindeUsado*0.9,p:calcActivo.precioPromedio,base:false},
                       {e:"+10% Rinde",r:calcActivo.rindeUsado*1.1,p:calcActivo.precioPromedio,base:false},
-                      {e:"−10% Precio",r:calcActivo.rindeUsado,p:calcActivo.precioPromedio*0.9,base:false},
+                      {e:"â10% Precio",r:calcActivo.rindeUsado,p:calcActivo.precioPromedio*0.9,base:false},
                       {e:"+10% Precio",r:calcActivo.rindeUsado,p:calcActivo.precioPromedio*1.1,base:false},
                     ].map((s,i)=>{
                       const ing=s.r*s.p*(1+(cabActiva?.ajuste_calidad_pct||0)/100);
