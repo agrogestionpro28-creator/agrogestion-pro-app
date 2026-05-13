@@ -100,6 +100,7 @@ export default function MargenBrutoDashboard() {
   const [loading, setLoading]             = useState(true);
   const [loteActivo, setLoteActivo]       = useState<string|null>(null);
   const [grupoAbierto, setGrupoAbierto]   = useState<number|null>(null);
+  const [expandedSub, setExpandedSub] = useState<string|null>(null);
   const [tcVenta, setTcVenta]             = useState<number>(1400);
   const [tcFecha, setTcFecha]             = useState<string>("");
   const [msgExito, setMsgExito]           = useState("");
@@ -797,28 +798,53 @@ export default function MargenBrutoDashboard() {
                             <div>
                               {Object.entries(subitems).map(([sub,regs])=>{
                                 const totSub = regs.reduce((a,r)=>a+r.usd,0);
-                                const pctSub = costoHaReal>0?(totSub/costoHaReal*100):0;
+                                const pctSub = calcActivo.costoTotalHa>0?(totSub/calcActivo.costoTotalHa*100):0;
                                 const pctTotal2 = calcActivo.costoTotalHa>0?(totSub/calcActivo.costoTotalHa*100):0;
+                                const subKey = (grupoAbierto??'') + '-' + sub;
+                                const isSubOpen = expandedSub === subKey;
+                                // Agrupar registros por artículo
+                                const artGrupos: Record<string,{usd:number;apps:number}> = {};
+                                regs.forEach(r=>{
+                                  const art = r.desc||'Sin nombre';
+                                  if(!artGrupos[art]) artGrupos[art]={usd:0,apps:0};
+                                  artGrupos[art].usd += r.usd;
+                                  artGrupos[art].apps += 1;
+                                });
                                 return(
-                                  <div key={sub} style={{borderBottom:"1px solid rgba(201,162,39,0.08)",padding:"8px 14px"}}>
-                                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:regs.length>1?5:0}}>
-                                      <div style={{width:3,height:"100%",minHeight:14,borderRadius:2,background:grupo.color,flexShrink:0}}/>
-                                      <div style={{flex:1,textAlign:"left"}}>
-                                        <div style={{fontSize:10,fontWeight:800,color:"#f0e6c8",textTransform:"uppercase"}}>{sub.replace(/_/g," ")}</div>
-                                      </div>
-                                      <div style={{textAlign:"right"}}>
-                                        <div style={{fontSize:12,fontWeight:800,color:"#f0d060"}}>U$S {totSub.toFixed(2)}</div>
-                                        <div style={{fontSize:8,color:"rgba(201,162,39,0.45)"}}>{pctSub.toFixed(0)}% grp · {pctTotal2.toFixed(1)}% tot</div>
-                                      </div>
+                                <div key={sub} style={{borderBottom:"1px solid rgba(201,162,39,0.08)",paddingBottom:4,marginBottom:4}}>
+                                  <div
+                                    style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"4px 0",borderRadius:4}}
+                                    onClick={()=>setExpandedSub(isSubOpen?null:subKey)}
+                                  >
+                                    <div style={{width:3,height:"100%",minHeight:14,borderRadius:2,background:calcActivo.color||"#c9a227",flexShrink:0}}></div>
+                                    <div style={{flex:1,textAlign:"left"}}>
+                                      <div style={{fontSize:10,fontWeight:800,color:"#f0e6c8",textTransform:"uppercase",letterSpacing:0.5}}>{sub}</div>
                                     </div>
-                                    {regs.map((r,ri)=>(
-                                      <div key={ri} style={{display:"flex",alignItems:"center",gap:6,padding:"3px 0 3px 11px",borderTop:ri>0?"1px solid rgba(201,162,39,0.05)":"none"}}>
-                                        <span style={{fontSize:9,color:"rgba(255,255,255,0.25)",whiteSpace:"nowrap"}}>{r.fecha}</span>
-                                        {r.desc&&<span style={{fontSize:9,color:"rgba(255,255,255,0.40)",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textAlign:"left"}}>{r.desc}</span>}
-                                        <span style={{fontSize:10,fontWeight:700,color:"#c9a227",whiteSpace:"nowrap",marginLeft:"auto"}}>U$S {r.usd.toFixed(2)}</span>
-                                      </div>
-                                    ))}
+                                    <div style={{textAlign:"right"}}>
+                                      <div style={{fontSize:12,fontWeight:800,color:"#f0d060"}}>U$S {totSub.toFixed(2)}</div>
+                                      <div style={{fontSize:8,color:"rgba(201,162,39,0.45)"}}>{pctSub.toFixed(1)}% del total</div>
+                                    </div>
+                                    <div style={{fontSize:10,color:"rgba(201,162,39,0.5)",marginLeft:2}}>{isSubOpen?'▲':'▼'}</div>
                                   </div>
+                                  {isSubOpen&&(
+                                    <div style={{paddingLeft:16,marginTop:4}}>
+                                      {Object.entries(artGrupos).map(([art,info])=>{
+                                        const pctArt = totSub>0?(info.usd/totSub*100):0;
+                                        return(
+                                        <div key={art} style={{display:"flex",alignItems:"center",gap:6,padding:"3px 0",borderBottom:"1px solid rgba(201,162,39,0.06)"}}>
+                                          <div style={{flex:1}}>
+                                            <span style={{fontSize:10,fontWeight:600,color:"#e8d5a0",whiteSpace:"nowrap"}}>{art}</span>
+                                          </div>
+                                          <div style={{textAlign:"right",flexShrink:0}}>
+                                            <div style={{fontSize:11,fontWeight:700,color:"#c9a227"}}>U$S {info.usd.toFixed(2)}</div>
+                                            <div style={{fontSize:9,color:"rgba(201,162,39,0.55)"}}>{info.apps} aplic. · {pctArt.toFixed(1)}% del subgrupo</div>
+                                          </div>
+                                        </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
                                 );
                               })}
                               <div style={{padding:"7px 14px",background:"rgba(201,162,39,0.08)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
