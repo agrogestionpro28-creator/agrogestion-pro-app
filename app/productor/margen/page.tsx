@@ -722,7 +722,7 @@ export default function MargenBrutoDashboard() {
                   // Items de mb_carga_items para este grupo
                   const cargaGrupo = cargaItems.filter(i=>i.lote_ids.includes(loteActivo!)&&i.grupo===grupo.id);
                   // Items de mb_movimientos para este grupo
-                  const movsGrupo = movimientos.filter(m=>m.lote_id===loteActivo&&m.grupo===grupo.num);
+                  const movsGrupo = movimientos.filter(m=>m.lote_id===loteActivo&&+m.grupo===grupo.num);
                   const totalItems = cargaGrupo.length + movsGrupo.length;
 
                   // Agrupar por subconcepto
